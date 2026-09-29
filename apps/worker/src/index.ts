@@ -9,6 +9,7 @@ import { worker as catalogue } from "@cnote/catalogue";
 import { consumeOnce, getJobQueue, relayOutbox, type JobTopic, type ModuleWorker } from "@cnote/core";
 import { worker as enquiry } from "@cnote/enquiry";
 import { worker as identity } from "@cnote/identity";
+import { worker as bulk } from "@cnote/bulk";
 import { worker as developer } from "@cnote/developer";
 import { worker as email } from "@cnote/email";
 import { worker as notifications } from "@cnote/notifications";
@@ -30,7 +31,7 @@ Sentry.init(sentryOptions("worker", "nodejs"));
 // identity can't import catalogue (cycle); the composition root supplies the GST HSN-alignment source.
 setListingHsnSource(getSellerListingHsns);
 
-const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, notifications, developer, email, cacheWorker, searchIndexer, leadgen, domains, storefront];
+const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, notifications, developer, email, cacheWorker, searchIndexer, leadgen, domains, storefront, bulk];
 const consumer = `${hostname()}-${process.pid}`;
 let running = true;
 

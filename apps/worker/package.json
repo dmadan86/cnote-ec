@@ -7,7 +7,8 @@
     "dev": "tsx watch --env-file=../../.env.local src/index.ts",
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
-    "seed": "tsx --env-file=../../.env.local src/seed.ts"
+    "seed": "tsx --env-file=../../.env.local src/seed.ts",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@cnote/ai": "workspace:*",

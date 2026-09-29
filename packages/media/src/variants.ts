@@ -42,7 +42,11 @@ export interface ProcessedImage {
 }
 
 /** `listings/<listingId>/<imageId>/<width>.<ext>` */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 export function variantKey(listingId: string, imageId: string, width: number, format: VariantFormat): string {
+  // ids are DB UUIDs; anything else (e.g. "a/b") could nest into or collide with another listing's key space.
+  if (!UUID_RE.test(listingId.toLowerCase()) || !UUID_RE.test(imageId.toLowerCase())) throw new Error("Invalid media key");
   const key = `listings/${listingId.toLowerCase()}/${imageId.toLowerCase()}/${width}.${VARIANT_EXT[format]}`;
   assertMediaKey(key);
   return key;
@@ -56,6 +60,8 @@ export function parseVariantPath(p: string): { dir: string; width: number; ext: 
 
 async function encode(base: Sharp, width: number, format: VariantFormat): Promise<{ data: Buffer; width: number; height: number }> {
   let p = base.clone().resize({ width, withoutEnlargement: true }).toColourspace("srgb");
+  // JPEG has no alpha: composite on white, otherwise transparent PNG cut-outs turn black in the fallback format.
+  if (format === "jpeg") p = p.flatten({ background: "#ffffff" });
   p = format === "avif" ? p.avif(QUALITY_PRESETS.avif) : format === "webp" ? p.webp(QUALITY_PRESETS.webp) : p.jpeg(QUALITY_PRESETS.jpeg);
   const { data, info } = await p.toBuffer({ resolveWithObject: true });
   return { data, width: info.width, height: info.height };

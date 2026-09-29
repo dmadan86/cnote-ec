@@ -60,12 +60,12 @@ export async function authRoute(req: NextRequest, ctx: { params: Promise<{ actio
 async function googleStart(req: NextRequest) {
   if (!isGoogleConfigured()) return signInError(req, "Google sign-in is not configured");
   const next = safeNext(req.nextUrl.searchParams.get("next"));
-  const { url, state, codeVerifier } = await googleAuthorizationUrl(`${req.nextUrl.origin}/api/auth/google-callback`);
+  const { url, state, codeVerifier, nonce } = await googleAuthorizationUrl(`${req.nextUrl.origin}/api/auth/google-callback`);
   const res = NextResponse.redirect(url, 303);
   // Lax (not Strict): the callback is a cross-site top-level navigation from Google.
   res.cookies.set({
     name: oauthCookieName(),
-    value: JSON.stringify({ state, codeVerifier, next }),
+    value: JSON.stringify({ state, codeVerifier, nonce, next }),
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -77,7 +77,7 @@ async function googleStart(req: NextRequest) {
 
 async function googleCallback(req: NextRequest) {
   const raw = req.cookies.get(oauthCookieName())?.value;
-  let saved: { state?: string; codeVerifier?: string; next?: string } = {};
+  let saved: { state?: string; codeVerifier?: string; nonce?: string; next?: string } = {};
   try {
     saved = raw ? JSON.parse(raw) : {};
   } catch {
@@ -92,10 +92,10 @@ async function googleCallback(req: NextRequest) {
   if (q.get("error")) return fail("Google sign-in was cancelled.");
   const code = q.get("code");
   const state = q.get("state");
-  if (!code || !state || !saved.state || !saved.codeVerifier || !eq(state, saved.state)) return fail("Google sign-in expired. Please try again.");
+  if (!code || !state || !saved.state || !saved.codeVerifier || !saved.nonce || !eq(state, saved.state)) return fail("Google sign-in expired. Please try again.");
 
   const tokens = await completeGoogleSignIn(
-    { code, codeVerifier: saved.codeVerifier, redirectUri: `${req.nextUrl.origin}/api/auth/google-callback` },
+    { code, codeVerifier: saved.codeVerifier, nonce: saved.nonce, redirectUri: `${req.nextUrl.origin}/api/auth/google-callback` },
     ctxOf(req),
   );
   // Second factor due (always for admin, opt-in elsewhere): park the session behind the MFA step.

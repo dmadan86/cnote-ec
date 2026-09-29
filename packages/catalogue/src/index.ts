@@ -31,6 +31,8 @@ export interface ListingView {
   hsn: string | null;
   language: string;
   imageUrls: string[];
+  /** Seller's own product code (working copy only; not projected to LIVE). */
+  sku?: string | null;
   /** Seller/admin contexts only (see getListingForSeller); never populated by getListing. */
   images?: ListingImageView[];
   aiGenerated: boolean;
@@ -56,6 +58,8 @@ export interface ListingInput {
   hsn: string | null;
   language: string;
   imageUrls: string[];
+  /** optional seller product code; unique per seller (DomainError "conflict" on duplicate) */
+  sku?: string | null;
 }
 
 export { listCategories, getCategoryBySlug, getCategoryById, upsertCategories, type CategoryDef } from "./categories";
@@ -91,3 +95,5 @@ export const worker: ModuleWorker = {
 export * from "./getters";
 export * from "./versions";
 export { publishVersion, publishDueVersions, reconcileLive, reprojectSeller, reprojectImages, backfillLiveListings } from "./live";
+export { findSellerListingBySku, findSellerListingsBySkus } from "./sku";
+export { validateAttributes, coerceAttributes, LANGS, SKU_RE } from "./validate";

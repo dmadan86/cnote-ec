@@ -4,6 +4,7 @@ import type { CategoryView, ListingInput } from "./index";
 
 export const LANGS = ["en", "hi", "kn", "ta", "te", "mr", "gu", "bn"] as const;
 
+export const SKU_RE = /^[A-Za-z0-9._-]{1,64}$/;
 const attrValue = z.union([z.string().max(500), z.number().finite()]);
 const base = {
   categoryId: z.uuid(),
@@ -17,6 +18,8 @@ const base = {
   hsn: z.string().regex(/^\d{2,8}$/, "HSN must be 2-8 digits").nullable(),
   language: z.enum(LANGS),
   imageUrls: z.array(z.string().min(1).max(2000)).max(10),
+  /** seller's own product code (bulk upsert key); unique per seller */
+  sku: z.string().trim().regex(SKU_RE, "SKU may contain letters, digits, . _ - (max 64)").nullable().optional(),
 };
 export const listingInputSchema = z.object(base);
 export const listingPatchSchema = z.object(base).partial().strict();

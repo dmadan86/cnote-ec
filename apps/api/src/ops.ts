@@ -2,6 +2,7 @@
 // authenticated principal and only ever acts as its { personId, businessId } — ownership is then
 // enforced again inside the domain modules (ADR-006).
 import { getActiveSubscription, getBalance } from "@cnote/billing";
+import * as bulk from "@cnote/bulk";
 import {
   archiveListing, createListing, getCategoryBySlug, getListing, listCategories, listSellerListings, publishListing, updateListing,
   type CategoryView, type ListingInput, type ListingView,
@@ -26,8 +27,9 @@ export interface Page<T> { items: T[]; nextCursor: string | null }
 export function paginate<T>(all: T[], cursor: string | undefined, limit: number): Page<T> {
   let offset = 0;
   if (cursor) {
-    offset = Number(Buffer.from(cursor, "base64url").toString());
-    if (!Number.isInteger(offset) || offset < 0) throw new DomainError("validation", "Invalid cursor");
+    const decoded = Buffer.from(cursor, "base64url").toString();
+    offset = /^\d{1,9}$/.test(decoded) ? Number(decoded) : -1;
+    if (offset < 0) throw new DomainError("validation", "Invalid cursor");
   }
   const items = all.slice(offset, offset + limit);
   const next = offset + limit;
@@ -201,3 +203,12 @@ export async function review(p: P, listingId: string, input: ReviewInput) {
 }
 
 export type { EnquiryInput };
+
+// --- bulk import / export (seller keys) ---
+export const bulkImport = (p: P, file: { bytes: Uint8Array; filename: string }, o: { mode: "create" | "upsert"; submitForReview: boolean }) => bulk.createImportJob(actor(p), file, o);
+export const bulkJob = (p: P, id: string) => bulk.getJob(actor(p), id);
+export const bulkConfirm = (p: P, id: string, skipInvalid: boolean) => bulk.confirmImportJob(actor(p), id, { skipInvalid });
+export const bulkCancel = (p: P, id: string) => bulk.cancelJob(actor(p), id);
+export const bulkExport = (p: P, o: { format: "xlsx" | "csv"; includeImages: boolean }) => bulk.createExportJob(actor(p), o);
+export const bulkDownload = (p: P, id: string, which: "result" | "errors" | "source") => bulk.getDownload(actor(p), id, which, { preferSignedUrl: true });
+export const bulkAssertSeller = (p: P) => void actor(p);

@@ -27,6 +27,9 @@
       "name": "Seller listings"
     },
     {
+      "name": "Bulk import and export"
+    },
+    {
       "name": "Seller leads"
     },
     {
@@ -82,6 +85,78 @@
           },
           "business": {
             "$ref": "#/components/schemas/TrustProfile"
+          },
+          "person": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "email": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Masked, e.g. a***@gmail.com"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "email"
+            ]
+          },
+          "businesses": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "businessId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "owner",
+                    "staff"
+                  ]
+                },
+                "isSeller": {
+                  "type": "boolean"
+                },
+                "isBuyer": {
+                  "type": "boolean"
+                },
+                "verificationTier": {
+                  "type": "integer"
+                },
+                "badgeActive": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "businessId",
+                "name",
+                "role",
+                "isSeller",
+                "isBuyer",
+                "verificationTier",
+                "badgeActive"
+              ]
+            }
           }
         },
         "required": [
@@ -89,7 +164,9 @@
           "keyId",
           "scopes",
           "businessId",
-          "business"
+          "business",
+          "person",
+          "businesses"
         ]
       },
       "TrustProfile": {
@@ -608,6 +685,13 @@
               "string",
               "null"
             ]
+          },
+          "sku": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Your own product code, if set."
           }
         },
         "required": [
@@ -714,6 +798,14 @@
               "type": "string"
             },
             "default": []
+          },
+          "sku": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Za-z0-9._-]{1,64}$",
+            "description": "Your own product code (letters, digits, . _ -; unique per seller). Used to update listings from bulk imports."
           }
         },
         "required": [
@@ -809,6 +901,14 @@
             "items": {
               "type": "string"
             }
+          },
+          "sku": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Za-z0-9._-]{1,64}$",
+            "description": "Your own product code (letters, digits, . _ -; unique per seller). Used to update listings from bulk imports."
           }
         }
       },
@@ -1096,6 +1196,171 @@
         "required": [
           "credits",
           "subscription"
+        ]
+      },
+      "BulkJob": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "import",
+              "export"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "uploaded",
+              "validating",
+              "validated",
+              "queued",
+              "processing",
+              "completed",
+              "completed_with_errors",
+              "failed",
+              "cancelled",
+              "expired"
+            ],
+            "description": "Import flow: uploaded -> validating -> validated (dry run done; call confirm) -> queued -> processing -> completed | completed_with_errors. Exports go queued -> processing -> completed."
+          },
+          "format": {
+            "type": "string",
+            "example": "zip"
+          },
+          "originalName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "totalRows": {
+            "type": "integer"
+          },
+          "processedRows": {
+            "type": "integer"
+          },
+          "createdCount": {
+            "type": "integer"
+          },
+          "updatedCount": {
+            "type": "integer"
+          },
+          "errorCount": {
+            "type": "integer",
+            "description": "Rows with at least one problem."
+          },
+          "imageCount": {
+            "type": "integer"
+          },
+          "sampleErrors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BulkRowError"
+            },
+            "description": "First 50 problems. The full list is in the error report download."
+          },
+          "lastError": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hasSource": {
+            "type": "boolean"
+          },
+          "hasResult": {
+            "type": "boolean"
+          },
+          "hasErrorReport": {
+            "type": "boolean"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "true while the job is validating, queued or processing: keep polling."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-29T10:00:00.000Z"
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-09-29T10:00:05.000Z"
+          },
+          "finishedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-09-29T10:01:00.000Z"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-06T10:00:00.000Z",
+            "description": "Files are deleted 7 days after the job finishes."
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "format",
+          "originalName",
+          "options",
+          "totalRows",
+          "processedRows",
+          "createdCount",
+          "updatedCount",
+          "errorCount",
+          "imageCount",
+          "sampleErrors",
+          "lastError",
+          "hasSource",
+          "hasResult",
+          "hasErrorReport",
+          "active",
+          "createdAt",
+          "startedAt",
+          "finishedAt",
+          "expiresAt"
+        ]
+      },
+      "BulkRowError": {
+        "type": "object",
+        "properties": {
+          "row": {
+            "type": "integer",
+            "description": "Spreadsheet row number (header is row 1); 0 = whole file."
+          },
+          "column": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "row",
+          "column",
+          "message"
         ]
       },
       "Enquiry": {
@@ -3293,6 +3558,609 @@
           },
           "403": {
             "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/bulk/imports": {
+      "post": {
+        "operationId": "createBulkImport",
+        "tags": [
+          "Bulk import and export"
+        ],
+        "summary": "Upload a file to import listings",
+        "description": "Multipart upload of a .csv, .xlsx or .zip. The file is validated as a **dry run**: poll `GET /seller/bulk/jobs/{id}` until `status` is `validated`, inspect `sampleErrors` / the error report, then call the confirm endpoint. Nothing is imported before you confirm. Imports write your drafts (working copies); uploaded images go through staff approval. Limits: 5,000 rows, 200 MB, 10 imports per hour, one active import at a time. Requires a key bound to a seller business.\n\n**Required scope:** `listings:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "listings:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": ".csv, .xlsx or .zip (products.csv|xlsx plus an images/ folder), up to 200 MB."
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "create",
+                      "upsert"
+                    ],
+                    "default": "upsert",
+                    "description": "`create` rejects rows whose SKU exists; `upsert` updates existing listings matched by SKU."
+                  },
+                  "submit_for_review": {
+                    "type": "string",
+                    "enum": [
+                      "true",
+                      "false"
+                    ],
+                    "default": "false",
+                    "description": "Submit every imported listing for review. Nothing goes live without review either way."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The import job (validated inline for small files)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkJob"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/bulk/jobs/{id}": {
+      "get": {
+        "operationId": "getBulkJob",
+        "tags": [
+          "Bulk import and export"
+        ],
+        "summary": "Get an import or export job",
+        "description": "Status, progress counters and the first 50 row errors. Requires a key bound to a seller business.\n\n**Required scope:** `listings:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "listings:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkJob"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/bulk/jobs/{id}/confirm": {
+      "post": {
+        "operationId": "confirmBulkImport",
+        "tags": [
+          "Bulk import and export"
+        ],
+        "summary": "Confirm a validated import",
+        "description": "Starts the import of a job in status `validated`. If some rows have errors you must pass `skipInvalid: true` to import only the valid rows. Requires a key bound to a seller business.\n\n**Required scope:** `listings:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "listings:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "skipInvalid": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Import the valid rows even though some rows have errors."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The job, now queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkJob"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/bulk/jobs/{id}/cancel": {
+      "post": {
+        "operationId": "cancelBulkJob",
+        "tags": [
+          "Bulk import and export"
+        ],
+        "summary": "Cancel a job",
+        "description": "Stops an import that has not finished. Rows already imported stay in your drafts. Requires a key bound to a seller business.\n\n**Required scope:** `listings:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "listings:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The cancelled job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkJob"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/bulk/exports": {
+      "post": {
+        "operationId": "createBulkExport",
+        "tags": [
+          "Bulk import and export"
+        ],
+        "summary": "Export your listings",
+        "description": "Queues an export of all your non-archived listings in the same columns as the import template (edit and re-import by SKU). Poll the job, then download the result. Listings without a SKU are assigned one. Requires a key bound to a seller business.\n\n**Required scope:** `listings:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "listings:read",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "xlsx",
+                      "csv"
+                    ],
+                    "default": "xlsx"
+                  },
+                  "includeImages": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Download a ZIP with the products file and an images/ folder."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The export job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkJob"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/bulk/jobs/{id}/download": {
+      "get": {
+        "operationId": "downloadBulkFile",
+        "tags": [
+          "Bulk import and export"
+        ],
+        "summary": "Download an export, error report or source file",
+        "description": "Redirects (302) to a short-lived signed URL when object storage supports it, otherwise streams the file. Files are kept for 7 days. Requires a key bound to a seller business.\n\n**Required scope:** `listings:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "listings:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "result",
+                "errors",
+                "source"
+              ],
+              "default": "result",
+              "description": "`result` = export file, `errors` = row-level error report, `source` = the uploaded file."
+            },
+            "required": false,
+            "description": "`result` = export file, `errors` = row-level error report, `source` = the uploaded file.",
+            "name": "which",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "302": {
+            "description": "Redirect to a signed URL"
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
             "content": {
               "application/json": {
                 "schema": {

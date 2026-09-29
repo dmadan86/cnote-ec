@@ -58,7 +58,7 @@ const RULES: Rule[] = [
   {
     cls: "counterfeit",
     strong: [
-      /\bfirst\s*copy\b|\b1st\s*copy\b/, /\bmaster\s*copy\b/, /\bmirror\s*copy\b/, /\bsuper\s*copy\b/, /\breplicas?\b/, /\bduplicate\s+(?:brand|nike|adidas|rolex|apple|gucci|puma)/,
+      /\bfirst[\s-]*copy\b|\b1st[\s-]*copy\b/, /\bmaster[\s-]*copy\b/, /\bmirror[\s-]*copy\b/, /\bsuper[\s-]*copy\b/, /\breplicas?\b/, /\bduplicate\s+(?:brand|nike|adidas|rolex|apple|gucci|puma)/,
       /\b7a\s+quality\b/, /\bbranded\s+copy\b/, /\bcopy\s+of\s+(?:nike|adidas|rolex|apple|gucci|puma|louis)/,
     ],
     weak: [/\bfake\b/, /\bnakli\b/, /\bclones?\b/, /\bduplicate\b/, /नकली|डुप्लीकेट/, /\bunbranded\s+but\s+brand\b/],

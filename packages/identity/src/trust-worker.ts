@@ -38,20 +38,27 @@ export async function recomputeTrust(businessId: string, now = Date.now()): Prom
   return { changed: true, score };
 }
 
-/** At-least-once delivery: dedupe by event id so counters are incremented once (best effort, released on failure). */
+/**
+ * At-least-once delivery: dedupe by event id so counters are incremented once. The marker is released only if the
+ * counters were NOT applied (otherwise a retry would double count); a redelivery of an already-counted event still
+ * recomputes, so a transient recompute failure heals on retry.
+ */
 async function once(eventId: number, businessId: string, bump: (pipe: ReturnType<typeof redis.pipeline>) => void) {
   const dedupe = `trust:ev:${eventId}`;
-  if ((await redis.set(dedupe, "1", "EX", 7 * 86400, "NX")) === null) return;
+  if ((await redis.set(dedupe, "1", "EX", 7 * 86400, "NX")) === null) {
+    await recomputeTrust(businessId);
+    return;
+  }
   try {
     const pipe = redis.pipeline();
     bump(pipe);
     pipe.hset(counterKey(businessId), "lastActivityAt", Date.now());
     await pipe.exec();
-    await recomputeTrust(businessId);
   } catch (err) {
     await redis.del(dedupe);
     throw err;
   }
+  await recomputeTrust(businessId);
 }
 
 export const trustHandlers: EventHandlers = {

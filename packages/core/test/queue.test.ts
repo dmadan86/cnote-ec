@@ -60,7 +60,8 @@ describe("MemoryEventTransport", () => {
 
 describe("RedisJobQueue", () => {
   it("delivers once per group, retries via the delayed set", async () => {
-    const q = new RedisJobQueue(redis, `cnote:test:${crypto.randomUUID()}`);
+    const prefix = `cnote:test:${crypto.randomUUID()}`;
+    const q = new RedisJobQueue(redis, prefix);
     await q.enqueue("test.echo", { n: 7 });
     const got: number[] = [];
     let first = true;
@@ -74,7 +75,7 @@ describe("RedisJobQueue", () => {
     await q.consume("test.echo", "g1", "c1", handler, { blockMs: 10 });
     expect(got).toEqual([]);
     // force the retry due now
-    const keys = await redis.keys("cnote:test:*:test.echo:delayed");
+    const keys = await redis.keys(`${prefix}:test.echo:delayed`);
     for (const k of keys) {
       const [m] = await redis.zrange(k, 0, 0);
       await redis.zadd(k, 0, m!);
@@ -82,7 +83,7 @@ describe("RedisJobQueue", () => {
     expect(await q.promoteDelayed("test.echo")).toBe(1);
     await q.consume("test.echo", "g1", "c1", handler, { blockMs: 10 });
     expect(got).toEqual([7]);
-    const all = await redis.keys("cnote:test:*");
+    const all = await redis.keys(`${prefix}:*`);
     if (all.length) await redis.del(...all);
   });
 });

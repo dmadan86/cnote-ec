@@ -132,19 +132,27 @@ function attrsOf(v: unknown): Record<string, string | number> {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, string | number>) : {};
 }
 
+const isUniqueViolation = (e: unknown) => (e as { code?: string })?.code === "P2002";
+
 export async function createListing(sellerBusinessId: string, input: ListingInput): Promise<ListingView> {
   const data = parseOrThrow(listingInputSchema, input);
   const category = await requireCategory(data.categoryId);
-  const row = await prisma.listing.create({
-    data: {
-      ...data,
-      sellerBusinessId,
-      attributes: coerceAttributes(category.attributeSchema, data.attributes),
-      pricePaise: data.pricePaise === null ? null : BigInt(data.pricePaise),
-    },
-    include: listingInclude,
-  });
-  return toListingView(row);
+  try {
+    const row = await prisma.listing.create({
+      data: {
+        ...data,
+        sku: data.sku ?? null,
+        sellerBusinessId,
+        attributes: coerceAttributes(category.attributeSchema, data.attributes),
+        pricePaise: data.pricePaise === null ? null : BigInt(data.pricePaise),
+      },
+      include: listingInclude,
+    });
+    return toListingView(row);
+  } catch (e) {
+    if (isUniqueViolation(e)) throw new DomainError("conflict", `SKU "${data.sku}" is already used by another of your listings`);
+    throw e;
+  }
 }
 
 /** Free text → editable draft (ADR-004). Never auto-published; always aiGenerated. */
@@ -217,7 +225,13 @@ export async function updateListing(sellerBusinessId: string, listingId: string,
     data.moderationStatus = "pending";
     data.moderationReason = null;
   }
-  const row = await prisma.listing.update({ where: { id: cur.id }, data, include: listingInclude });
+  let row;
+  try {
+    row = await prisma.listing.update({ where: { id: cur.id }, data, include: listingInclude });
+  } catch (e) {
+    if (isUniqueViolation(e)) throw new DomainError("conflict", `SKU "${patch.sku}" is already used by another of your listings`);
+    throw e;
+  }
   await bustListingCaches(cur.id, cur.sellerBusinessId); // seller-facing lists; buyers are unaffected until a version is published
   return toListingView(row);
 }

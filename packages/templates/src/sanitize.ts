@@ -9,6 +9,9 @@ import sanitizeHtml from "sanitize-html";
 // ---------------------------------------------------------------------------------------------
 
 const NAME = /^[A-Za-z_][\w]*(\.[A-Za-z_][\w]*)*$/;
+// Logic-less means data only: never resolve Object.prototype members ({{constructor}}, {{__proto__}}, {{toString}}, ...).
+const PROTO_KEYS = new Set(Object.getOwnPropertyNames(Object.prototype));
+const isName = (n: string) => NAME.test(n) && !n.split(".").some((seg) => PROTO_KEYS.has(seg));
 const TAG = /\{\{\{([\s\S]*?)\}\}\}|\{\{([\s\S]*?)\}\}/g;
 
 /** Rewrites `{{{x}}}` and `{{&x}}` to escaped `{{x}}`; drops partials, delimiter switches and malformed tags. */
@@ -16,7 +19,7 @@ export function neutralizeMustache(src: string): string {
   return src.replace(TAG, (_m, triple: string | undefined, dbl: string | undefined) => {
     if (triple !== undefined) {
       const name = triple.trim().replace(/^&\s*/, "");
-      return NAME.test(name) || name === "." ? `{{${name}}}` : "";
+      return isName(name) || name === "." ? `{{${name}}}` : "";
     }
     const inner = (dbl ?? "").trim();
     if (inner === "" ) return "";
@@ -25,13 +28,13 @@ export function neutralizeMustache(src: string): string {
     if (sigil === ">" || sigil === "=" || sigil === "<" || sigil === "$" || sigil === "~") return "";
     if (sigil === "&") {
       const n = inner.slice(1).trim();
-      return NAME.test(n) ? `{{${n}}}` : "";
+      return isName(n) ? `{{${n}}}` : "";
     }
     if (sigil === "#" || sigil === "^" || sigil === "/") {
       const n = inner.slice(1).trim();
-      return NAME.test(n) ? `{{${sigil}${n}}}` : "";
+      return isName(n) ? `{{${sigil}${n}}}` : "";
     }
-    return NAME.test(inner) || inner === "." ? `{{${inner}}}` : "";
+    return isName(inner) || inner === "." ? `{{${inner}}}` : "";
   });
 }
 
@@ -65,7 +68,10 @@ export function assertValidSyntax(src: string, what = "Template"): void {
 // ---------------------------------------------------------------------------------------------
 
 const VAR = String.raw`\{\{[\w.]+\}\}`;
-const COLOR = new RegExp(String.raw`^(#[0-9a-f]{3,8}|rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*[\d.]+\s*)?\)|[a-z]{3,20}|${VAR})$`, "i");
+// The style parser cannot read "{{var}}" (braces open a CSS block), so variables inside style attributes travel through
+// the sanitiser as opaque tokens (mv0x<hex of name>x) and are restored afterwards.
+const STYLE_TOKEN = String.raw`mv0x[0-9a-f]{2,80}x`;
+const COLOR = new RegExp(String.raw`^(#[0-9a-f]{3,8}|rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*[\d.]+\s*)?\)|[a-z]{3,20}|${STYLE_TOKEN})$`, "i");
 const LEN = /^(-?\d+(\.\d+)?(px|%|em|rem)?|auto)(\s+(-?\d+(\.\d+)?(px|%|em|rem)?|auto)){0,3}$/i;
 const SIZE = /^(\d+(\.\d+)?(px|%)|auto|none)$/i;
 const STYLES = {
@@ -133,10 +139,34 @@ function options(): sanitizeHtml.IOptions {
   };
 }
 
-/** Sanitise staff-authored (or rendered) HTML for email. Idempotent. Mustache tags are neutralised first and last. */
+const STYLE_ATTR = /(\sstyle\s*=\s*)(?:"([^"]*)"|'([^']*)')/gi;
+const tokenizeStyleVars = (html: string) =>
+  html.replace(STYLE_ATTR, (_m, head: string, dq: string | undefined, sq: string | undefined) => {
+    const v = (dq ?? sq ?? "").replace(/\{\{([\w.]+)\}\}/g, (_x, name: string) => `mv0x${Buffer.from(name).toString("hex")}x`);
+    return `${head}"${v.replace(/"/g, "&quot;")}"`;
+  });
+const restoreStyleVars = (html: string) =>
+  html.replace(/(\sstyle=")([^"]*)"/g, (_m, head: string, v: string) => `${head}${v.replace(/mv0x([0-9a-f]{2,80})x/g, (_x, hex: string) => {
+    const name = Buffer.from(hex, "hex").toString();
+    return /^[\w.]+$/.test(name) ? `{{${name}}}` : "";
+  })}"`);
+
+function sanitizeOnce(html: string): string {
+  return neutralizeMustache(restoreStyleVars(sanitizeHtml(tokenizeStyleVars(neutralizeMustache(html)), options())));
+}
+
+/**
+ * Sanitise staff-authored (or rendered) HTML for email. Idempotent: the parser can re-nest elements on re-parse
+ * (e.g. `<p><p>`), so the pass is repeated until it reaches a fixed point. Mustache tags are neutralised first and last.
+ */
 export function sanitizeEmailHtml(html: string): string {
-  const pre = neutralizeMustache(html);
-  return neutralizeMustache(sanitizeHtml(pre, options()));
+  let out = sanitizeOnce(html);
+  for (let i = 0; i < 5; i++) {
+    const next = sanitizeOnce(out);
+    if (next === out) break;
+    out = next;
+  }
+  return out;
 }
 
 /** Validate + sanitise on save; throws DomainError("validation") for broken Mustache syntax. */
@@ -173,7 +203,7 @@ export function htmlToText(html: string): string {
     });
   h = sanitizeHtml(h, { allowedTags: [], allowedAttributes: {} });
   h = h
-    .replace(/&nbsp;/g, " ")
+    .replace(/&nbsp;|\u00a0/g, " ")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')

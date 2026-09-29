@@ -15,7 +15,7 @@
     "postinstall": "prisma generate",
     "migrate:new": "tsx scripts/new-migration.ts",
     "migrate:check": "tsx scripts/raw-sql-guard.ts check",
-    "test": "vitest run scripts"
+    "test": "vitest run scripts test"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",

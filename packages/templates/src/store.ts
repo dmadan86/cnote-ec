@@ -189,6 +189,11 @@ export function unknownVariables(def: TemplateDefinition | null | undefined, ...
   return [...new Set(texts.flatMap((t) => (t ? referencedVariables(t) : [])))].filter((n) => !known.has(n));
 }
 
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+/** Serialise writers per template/layout (drafts, version numbers and the published pointer are all derived from the row's state). */
+const lockTemplate = (tx: Tx, id: string) => tx.$queryRaw`SELECT id FROM message_templates WHERE id = ${id}::uuid FOR UPDATE`;
+const lockLayout = (tx: Tx, id: string) => tx.$queryRaw`SELECT id FROM message_layouts WHERE id = ${id}::uuid FOR UPDATE`;
+
 async function nextVersion(tx: Pick<typeof prisma, "messageTemplateVersion">, templateId: string) {
   const max = await tx.messageTemplateVersion.aggregate({ where: { templateId }, _max: { version: true } });
   return (max._max.version ?? 0) + 1;
@@ -197,6 +202,7 @@ async function nextVersion(tx: Pick<typeof prisma, "messageTemplateVersion">, te
 /** Returns the open draft, creating one from `fromVersionId` (default: the published version) when none exists. */
 export async function startDraft(templateId: string, actor: string | null, fromVersionId?: string): Promise<TemplateVersionView> {
   return prisma.$transaction(async (tx) => {
+    await lockTemplate(tx, templateId);
     const t = await tx.messageTemplate.findUnique({ where: { id: templateId } });
     if (!t) throw new DomainError("not_found", "Template not found.");
     const existing = await tx.messageTemplateVersion.findFirst({ where: { templateId, status: "draft" } });
@@ -244,7 +250,8 @@ export async function discardDraft(templateId: string): Promise<void> {
   await prisma.messageTemplateVersion.updateMany({ where: { templateId, status: "draft" }, data: { status: "archived", changeNote: "Discarded draft" } });
 }
 
-async function publishIn(tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0], templateId: string, versionId: string, actor: string | null) {
+async function publishIn(tx: Tx, templateId: string, versionId: string, actor: string | null) {
+  await lockTemplate(tx, templateId);
   const t = await tx.messageTemplate.findUniqueOrThrow({ where: { id: templateId } });
   if (t.publishedVersionId && t.publishedVersionId !== versionId) {
     await tx.messageTemplateVersion.update({ where: { id: t.publishedVersionId }, data: { status: "archived" } });
@@ -273,6 +280,7 @@ export async function publishDraft(versionId: string, actor: string | null): Pro
 /** Rollback = publish an older version's content as a NEW version (history stays append-only). */
 export async function rollbackTemplate(templateId: string, toVersionId: string, actor: string | null): Promise<TemplateVersionView> {
   const { created, t } = await prisma.$transaction(async (tx) => {
+    await lockTemplate(tx, templateId);
     const t = await tx.messageTemplate.findUnique({ where: { id: templateId } });
     if (!t) throw new DomainError("not_found", "Template not found.");
     const old = await tx.messageTemplateVersion.findFirst({ where: { id: toVersionId, templateId } });
@@ -360,6 +368,7 @@ export async function getLayout(id: string): Promise<LayoutDetail | null> {
 
 export async function startLayoutDraft(layoutId: string, actor: string | null, fromVersionId?: string): Promise<LayoutVersionView> {
   return prisma.$transaction(async (tx) => {
+    await lockLayout(tx, layoutId);
     const l = await tx.messageLayout.findUnique({ where: { id: layoutId } });
     if (!l) throw new DomainError("not_found", "Layout not found.");
     const existing = await tx.messageLayoutVersion.findFirst({ where: { layoutId, status: "draft" } });
@@ -406,7 +415,8 @@ export async function discardLayoutDraft(layoutId: string): Promise<void> {
   await prisma.messageLayoutVersion.updateMany({ where: { layoutId, status: "draft" }, data: { status: "archived" } });
 }
 
-async function publishLayoutIn(tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0], layoutId: string, versionId: string, actor: string | null) {
+async function publishLayoutIn(tx: Tx, layoutId: string, versionId: string, actor: string | null) {
+  await lockLayout(tx, layoutId);
   const l = await tx.messageLayout.findUniqueOrThrow({ where: { id: layoutId } });
   if (l.publishedVersionId && l.publishedVersionId !== versionId) await tx.messageLayoutVersion.update({ where: { id: l.publishedVersionId }, data: { status: "archived" } });
   await tx.messageLayout.update({ where: { id: layoutId }, data: { publishedVersionId: null } });
@@ -431,6 +441,7 @@ export async function publishLayoutDraft(versionId: string, actor: string | null
 
 export async function rollbackLayout(layoutId: string, toVersionId: string, actor: string | null): Promise<LayoutVersionView> {
   const { created, key } = await prisma.$transaction(async (tx) => {
+    await lockLayout(tx, layoutId);
     const l = await tx.messageLayout.findUnique({ where: { id: layoutId } });
     if (!l) throw new DomainError("not_found", "Layout not found.");
     const old = await tx.messageLayoutVersion.findFirst({ where: { id: toVersionId, layoutId } });

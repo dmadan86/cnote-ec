@@ -27,8 +27,9 @@ export class RedisJobQueue implements JobQueue {
   }
 
   async enqueue<K extends JobTopic>(topic: K, payload: JobTopics[K], opts: EnqueueOptions = {}): Promise<string | null> {
-    if (opts.dedupeKey) {
-      const ok = await this.redis.set(`${this.prefix}:dedupe:${topic}:${opts.dedupeKey}`, "1", "EX", 86_400, "NX");
+    const dedupeRedisKey = opts.dedupeKey ? `${this.prefix}:dedupe:${topic}:${opts.dedupeKey}` : null;
+    if (dedupeRedisKey) {
+      const ok = await this.redis.set(dedupeRedisKey, "1", "EX", 86_400, "NX");
       if (ok === null) return null;
     }
     const msg: QueueMessage = {
@@ -40,8 +41,14 @@ export class RedisJobQueue implements JobQueue {
       enqueuedAt: new Date().toISOString(),
     };
     const raw = JSON.stringify(msg);
-    if (opts.delayMs && opts.delayMs > 0) await this.redis.zadd(this.key(topic, ":delayed"), Date.now() + opts.delayMs, raw);
-    else await this.redis.xadd(this.key(topic), "*", "msg", raw);
+    try {
+      if (opts.delayMs && opts.delayMs > 0) await this.redis.zadd(this.key(topic, ":delayed"), Date.now() + opts.delayMs, raw);
+      else await this.redis.xadd(this.key(topic), "*", "msg", raw);
+    } catch (err) {
+      // Nothing was enqueued: release the dedupe marker so the producer's retry is not silently dropped for 24h.
+      if (dedupeRedisKey) await this.redis.del(dedupeRedisKey).catch(() => undefined);
+      throw err;
+    }
     return msg.id;
   }
 
@@ -60,7 +67,8 @@ export class RedisJobQueue implements JobQueue {
         await handler(msg);
       } catch (err) {
         const next = { ...msg, attempt: msg.attempt + 1, lastError: String(err).slice(0, 500) };
-        if (msg.attempt >= msg.maxAttempts) await this.redis.xadd(this.key(topic, ":dlq"), "*", "msg", JSON.stringify(next));
+        // Dead-lettered messages keep the attempt that exhausted them (admin shows "5 / 5", not "6 / 5").
+        if (msg.attempt >= msg.maxAttempts) await this.redis.xadd(this.key(topic, ":dlq"), "*", "msg", JSON.stringify({ ...next, attempt: msg.attempt }));
         else await this.redis.zadd(this.key(topic, ":delayed"), Date.now() + retryDelayMs(msg.attempt), JSON.stringify(next));
         console.error(`[queue] ${topic}/${group} attempt ${msg.attempt}/${msg.maxAttempts} failed`, err);
       }

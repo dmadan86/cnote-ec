@@ -128,7 +128,8 @@ const SECRET_KEY = /pass(word)?|token|secret|authorization|cookie|otp|code|api[-
 const EMAIL = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 
 function redact(v: unknown, depth = 0): unknown {
-  if (v == null || depth > 4) return v;
+  if (v == null) return v;
+  if (depth > 4) return typeof v === "object" || typeof v === "string" ? "[truncated]" : v; // fail closed: never log unscrubbed deep data
   if (typeof v === "string") return v.replace(EMAIL, "[email]").slice(0, 500);
   if (Array.isArray(v)) return v.slice(0, 20).map((x) => redact(x, depth + 1));
   if (typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, SECRET_KEY.test(k) ? "[redacted]" : redact(x, depth + 1)]));
@@ -154,18 +155,49 @@ export function logSecurityEvent(type: SecurityEventType, data: Record<string, u
 }
 
 // ---------- SSRF guard ----------
+function isPrivateV4(a: number, b: number, c: number): boolean {
+  return (
+    a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) ||
+    (a === 192 && b === 0 && (c === 0 || c === 2)) || (a === 198 && (b === 18 || b === 19)) || (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113) || a >= 224
+  );
+}
+
+/** Expand an IPv6 literal (compressed, dotted-tail, zone id) into eight 16-bit groups; null if unparseable. */
+function ipv6Groups(ip: string): number[] | null {
+  let s = ip.toLowerCase().replace(/%.*$/, "");
+  const tail = s.match(/(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (tail) {
+    const [, a, b, c, d] = tail.map(Number) as [number, number, number, number, number];
+    s = `${s.slice(0, tail.index)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
+  }
+  const halves = s.split("::");
+  if (halves.length > 2) return null;
+  const head = halves[0] ? halves[0].split(":") : [];
+  const rest = halves[1] ? halves[1].split(":") : [];
+  const fill = halves.length === 2 ? 8 - head.length - rest.length : 0;
+  if (fill < 0 || (halves.length === 1 && head.length !== 8)) return null;
+  const groups = [...head, ...Array<string>(fill).fill("0"), ...rest].map((g) => parseInt(g, 16));
+  return groups.length === 8 && groups.every((g) => Number.isInteger(g) && g >= 0 && g <= 0xffff) ? groups : null;
+}
+
 export function isPrivateAddress(ip: string): boolean {
   const v = isIP(ip);
   if (v === 4) {
-    const [a, b] = ip.split(".").map(Number) as [number, number];
-    return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
+    const [a, b, c] = ip.split(".").map(Number) as [number, number, number];
+    return isPrivateV4(a, b, c);
   }
   if (v === 6) {
-    const s = ip.toLowerCase();
-    if (s === "::" || s === "::1") return true;
-    const mapped = s.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-    if (mapped) return isPrivateAddress(mapped[1]!);
-    return /^(fc|fd|fe[89ab])/.test(s) || s.startsWith("ff");
+    const g = ipv6Groups(ip);
+    if (!g) return true; // fail closed
+    const [g0, g1, g2, g3, g4, g5, g6, g7] = g as [number, number, number, number, number, number, number, number];
+    const embedded = (hi: number, lo: number) => isPrivateV4(hi >> 8, hi & 255, lo >> 8);
+    if (g.slice(0, 5).every((x) => x === 0)) {
+      if (g5 === 0 && g6 === 0 && (g7 === 0 || g7 === 1)) return true; // :: and ::1
+      if (g5 === 0xffff || g5 === 0) return embedded(g6, g7); // ::ffff:a.b.c.d (mapped) and ::a.b.c.d (compatible), in dotted or hex form
+    }
+    if (g0 === 0x64 && g1 === 0xff9b && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0) return embedded(g6, g7); // NAT64
+    if (g0 === 0x2002) return embedded(g1, g2); // 6to4
+    return (g0 & 0xfe00) === 0xfc00 || (g0 & 0xffc0) === 0xfe80 || (g0 & 0xffc0) === 0xfec0 || (g0 & 0xff00) === 0xff00;
   }
   return true;
 }
@@ -188,7 +220,7 @@ export async function assertPublicHttpUrl(raw: string, opts: { allowHttp?: boole
   }
   if (u.protocol !== "https:" && !(opts.allowHttp && u.protocol === "http:")) block("scheme");
   if (u.username || u.password) block("credentials");
-  const host = u.hostname.replace(/^\[|\]$/g, "");
+  const host = u.hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "");
   if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal") || host.endsWith(".local")) block("local-host");
   if (isIP(host)) {
     if (isPrivateAddress(host)) block("private-ip");

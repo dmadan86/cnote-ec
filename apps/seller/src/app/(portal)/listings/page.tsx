@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Download, Plus, Upload } from "lucide-react";
 import { Alert, Card, CardBody, EmptyState, Money, PageHeader, buttonClasses } from "@cnote/ui";
 import { requireSeller } from "@/lib/auth";
 import { load } from "@/lib/safe";
@@ -32,9 +32,17 @@ export default async function ListingsPage() {
         title="Your listings"
         description="Buyers and lead matching use your live listings. Every new version is checked, and often reviewed, before it goes live."
         actions={
-          <Link href="/listings/new" className={buttonClasses("primary", "md", "min-h-11")}>
-            <Plus className="size-4" aria-hidden /> New listing
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/listings/import" className={buttonClasses("outline", "md", "min-h-11")}>
+              <Upload className="size-4" aria-hidden /> Import
+            </Link>
+            <Link href="/listings/export" className={buttonClasses("outline", "md", "min-h-11")}>
+              <Download className="size-4" aria-hidden /> Export
+            </Link>
+            <Link href="/listings/new" className={buttonClasses("primary", "md", "min-h-11")}>
+              <Plus className="size-4" aria-hidden /> New listing
+            </Link>
+          </div>
         }
       />
       {!res.ok ? (

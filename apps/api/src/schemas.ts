@@ -80,6 +80,7 @@ export const SellerListing = z
     status: z.enum(["draft", "published", "archived"]),
     moderationStatus: z.enum(["pending", "approved", "review", "rejected"]),
     moderationReason: z.string().nullable(),
+    sku: z.string().nullable().optional().openapi({ description: "Your own product code, if set." }),
   })
   .openapi("SellerListing");
 
@@ -105,6 +106,7 @@ const listingWritable = {
   hsn: z.string().nullable().default(null),
   language: z.string().default("en"),
   imageUrls: z.array(z.string()).default([]),
+  sku: z.string().regex(/^[A-Za-z0-9._-]{1,64}$/).nullable().optional().openapi({ description: "Your own product code (letters, digits, . _ -; unique per seller). Used to update listings from bulk imports." }),
 };
 export const ListingCreate = z
   .object(listingWritable)
@@ -128,6 +130,7 @@ export const ListingPatch = z
     hsn: z.string().nullable().optional(),
     language: z.string().optional(),
     imageUrls: z.array(z.string()).optional(),
+    sku: listingWritable.sku,
   })
   .openapi("ListingPatch");
 

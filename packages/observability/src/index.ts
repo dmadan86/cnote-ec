@@ -9,10 +9,12 @@ export type Runtime = "nodejs" | "edge" | "browser";
 const PII_PATTERNS: [RegExp, string][] = [
   [/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]"],
   // Indian mobiles, with optional +91/0 prefix and common separators ("98765 43210", "98765-43210").
-  [/(?:\+?91[\s-]?|\b0)?\b[6-9]\d{4}[\s-]?\d{5}\b/g, "[phone]"],
-  [/\b\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b/g, "[gstin]"],
-  [/\b[A-Z]{5}\d{4}[A-Z]\b/g, "[pan]"],
-  [/\b\d{4}\s?\d{4}\s?\d{4}\b/g, "[aadhaar]"],
+  // The prefix is glued to the number ("+919876543210", "09876543210"), so no \b sits between prefix and first digit.
+  [/(?:(?:\+?91[\s-]?|\b0)[6-9]|\b[6-9])\d{4}[\s-]?\d{5}\b/g, "[phone]"],
+  // GSTIN/PAN are matched case-insensitively: users type them in lowercase too.
+  [/\b\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b/gi, "[gstin]"],
+  [/\b[A-Z]{5}\d{4}[A-Z]\b/gi, "[pan]"],
+  [/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, "[aadhaar]"],
 ];
 const SECRET_KEYS = /pass(word)?|token|secret|authorization|cookie|otp|code_verifier|refresh|jwt|api[-_]?key/i;
 
@@ -22,7 +24,9 @@ export function scrubString(s: string): string {
 
 /** Recursively masks PII in strings and drops values under secret-looking keys. */
 export function scrub<T>(value: T, depth = 0): T {
-  if (depth > 8 || value == null) return value;
+  if (value == null) return value;
+  // Fail closed: anything nested deeper than the limit is dropped rather than passed through unscrubbed.
+  if (depth > 8) return (typeof value === "object" || typeof value === "string" ? "[truncated]" : value) as T;
   if (typeof value === "string") return scrubString(value) as T;
   if (Array.isArray(value)) return value.map((v) => scrub(v, depth + 1)) as T;
   if (typeof value === "object") {

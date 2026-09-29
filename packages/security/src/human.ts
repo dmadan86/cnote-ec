@@ -24,7 +24,7 @@ function siteverifyAdapter(name: string, endpoint: string, secret: string, doFet
         const res = await doFetch(endpoint, { method: "POST", body, signal: AbortSignal.timeout(TIMEOUT_MS) });
         if (!res.ok) return { ok: false, reason: `provider_http_${res.status}` };
         const json = (await res.json()) as { success?: boolean; "error-codes"?: string[] };
-        return json.success ? { ok: true } : { ok: false, reason: json["error-codes"]?.[0] ?? "rejected" };
+        return json.success === true ? { ok: true } : { ok: false, reason: json["error-codes"]?.[0] ?? "rejected" };
       } catch {
         // Fail closed: a provider outage must not silently disable bot protection.
         return { ok: false, reason: "provider_unreachable" };

@@ -84,7 +84,7 @@ export function validateSecrets(app: SecretsApp, env: Env = process.env): Secret
   }
 
   const usesFieldCrypto = app !== "studio";
-  if (usesFieldCrypto && (env.FIELD_KMS ?? "local") === "local") {
+  if (usesFieldCrypto && (env.FIELD_KMS ?? "local").toLowerCase() === "local") {
     const spec = env.FIELD_ENCRYPTION_KEYS;
     if (!spec) bad("FIELD_ENCRYPTION_KEYS is not set (format kid:base64key[,kid2:base64key])");
     else {
@@ -106,8 +106,9 @@ export function validateSecrets(app: SecretsApp, env: Env = process.env): Secret
     else if (Buffer.from(bi, "base64").length < 32) bad("BLIND_INDEX_KEY must decode to at least 32 bytes");
   }
 
-  if ((app === "web" || app === "seller") && (env.HUMAN_VERIFIER ?? "turnstile") !== "off" && prod) {
-    const key = env.HUMAN_VERIFIER === "hcaptcha" ? "HCAPTCHA_SECRET" : env.HUMAN_VERIFIER === "recaptcha" ? "RECAPTCHA_SECRET" : "TURNSTILE_SECRET";
+  const verifier = (env.HUMAN_VERIFIER ?? "turnstile").toLowerCase(); // same normalisation as getHumanVerifier
+  if ((app === "web" || app === "seller") && verifier !== "off" && prod) {
+    const key = verifier === "hcaptcha" ? "HCAPTCHA_SECRET" : verifier === "recaptcha" ? "RECAPTCHA_SECRET" : "TURNSTILE_SECRET";
     if (!env[key]) errors.push(`${key} is not set: sign-up and OTP requests will be rejected (set HUMAN_VERIFIER=off to disable bot protection explicitly)`);
     if (!env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && key === "TURNSTILE_SECRET") errors.push("NEXT_PUBLIC_TURNSTILE_SITE_KEY is not set: the widget cannot render");
   }

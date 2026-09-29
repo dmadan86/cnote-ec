@@ -67,7 +67,12 @@ const identity = (s: unknown) => String(s);
 /** Logic-less render. `html` escapes values for HTML; otherwise values are inserted verbatim (subjects, SMS, in-app). */
 export function renderMustache(template: string, view: unknown, html: boolean): string {
   const safe = neutralizeMustache(template);
-  return Mustache.render(safe, view, undefined, { escape: html ? escapeHtml : identity });
+  try {
+    return Mustache.render(safe, view, undefined, { escape: html ? escapeHtml : identity });
+  } catch (e) {
+    // e.g. an unclosed {{#section}} in unsaved preview content: a validation problem, not a server error.
+    throw new DomainError("validation", `Template has a syntax error: ${e instanceof Error ? e.message : "invalid tags"}.`);
+  }
 }
 
 export function checkRequired(def: TemplateDefinition | undefined, vars: Record<string, unknown>): void {

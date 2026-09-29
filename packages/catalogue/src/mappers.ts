@@ -40,6 +40,7 @@ export function toListingView(l: ListingRow): ListingView {
     moqUnit: l.moqUnit,
     hsn: l.hsn,
     language: l.language,
+    sku: l.sku,
     // approved uploads first; falls back to the stored placeholder imageUrls when none are approved
     imageUrls: l.images.length ? l.images.map((i) => `/media/listing-images/${i.id}`) : l.imageUrls,
     aiGenerated: l.aiGenerated,

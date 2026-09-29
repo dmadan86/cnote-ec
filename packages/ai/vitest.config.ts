@@ -1,3 +1,3 @@
 import { packageConfig } from "../../vitest.shared";
 
-export default packageConfig();
+export default packageConfig({ lines: 99, branches: 96, functions: 100, statements: 99 });

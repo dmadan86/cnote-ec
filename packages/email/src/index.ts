@@ -41,7 +41,7 @@ export interface SendEmailInput {
 export function maskEmail(email: string): string {
   const at = email.lastIndexOf("@");
   if (at < 1) return "***";
-  return `${email[0]}***${email.slice(at)}`;
+  return `${Array.from(email)[0]}***${email.slice(at)}`; // code-point safe: never splits a surrogate pair
 }
 
 const ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -105,7 +105,8 @@ export async function sendEmail(input: SendEmailInput): Promise<string | null> {
       { delayMs: input.delayMs, dedupeKey: input.dedupeKey ? `email:${input.dedupeKey}` : undefined },
     );
   } catch (err) {
-    await prisma.emailMessage.update({ where: { id: row.id }, data: { status: "failed", lastError: `enqueue failed: ${errorMessage(err)}` } });
+    // Clear the dedupeKey: the email was never queued, so the caller's retry with the same key must be allowed through.
+    await prisma.emailMessage.update({ where: { id: row.id }, data: { status: "failed", lastError: `enqueue failed: ${errorMessage(err)}`, dedupeKey: null } });
     throw err;
   }
   return row.id;
@@ -118,6 +119,15 @@ export async function handleEmailSend(msg: QueueMessage<EmailJob>): Promise<void
   const job = msg.payload;
   const row = await prisma.emailMessage.findUnique({ where: { id: job.messageId } });
   if (!row || row.status === "sent" || row.status === "suppressed") return; // at-least-once delivery → idempotent
+
+  // Consent withdrawn / erasure requested while the job waited in the queue (delayed or retried): honour it now.
+  if (row.toPersonId) {
+    const stop = (await isErased(row.toPersonId)) ? "recipient erased" : row.category === "marketing" && !(await hasConsent(row.toPersonId, "marketing")) ? "no marketing consent" : null;
+    if (stop) {
+      await prisma.emailMessage.update({ where: { id: row.id }, data: { status: "suppressed", lastError: stop } });
+      return;
+    }
+  }
   await prisma.emailMessage.update({ where: { id: row.id }, data: { status: "sending", attempts: { increment: 1 } } });
 
   const fail = (error: string) => prisma.emailMessage.update({ where: { id: row.id }, data: { status: "failed", lastError: error.slice(0, 500) } });
@@ -136,7 +146,8 @@ export async function handleEmailSend(msg: QueueMessage<EmailJob>): Promise<void
 
   const headers: Record<string, string> = {};
   if (row.category === "marketing") {
-    const url = typeof job.vars.unsubscribeUrl === "string" ? job.vars.unsubscribeUrl : `${(process.env.APP_URL ?? "http://localhost:3000").replace(/\/+$/, "")}/account/notifications`;
+    const custom = typeof job.vars.unsubscribeUrl === "string" && /^https?:\/\/[^\s<>"]+$/.test(job.vars.unsubscribeUrl) ? job.vars.unsubscribeUrl : null; // never let a value break out of the header
+    const url = custom ?? `${(process.env.APP_URL ?? "http://localhost:3000").replace(/\/+$/, "")}/account/notifications`;
     headers["List-Unsubscribe"] = `<${url}>`;
   }
   const provider = getEmailProvider();
@@ -180,7 +191,7 @@ export async function sendTestEmail(template: string, toEmail: string, vars: Rec
 export function createQueuedMailer(): Mailer {
   return {
     async send({ to, subject, text }) {
-      const url = text.match(/https?:\/\/[^\s<>"]+/)?.[0];
+      const url = text.match(/https?:\/\/[^\s<>"]+/)?.[0]?.replace(/[.,;:!?)\]]+$/, ""); // drop sentence punctuation stuck to the link
       if (url && /reset/i.test(subject)) {
         await sendEmail({ template: "auth.password_reset", to: { email: to }, vars: { resetUrl: url, expiresInMinutes: "30" } });
       } else {

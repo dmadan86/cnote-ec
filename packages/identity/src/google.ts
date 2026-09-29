@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { DomainError } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
@@ -23,10 +23,14 @@ function creds() {
   return { id, secret };
 }
 
-/** Authorization code + PKCE (S256) + state. Caller keeps state/codeVerifier in a short-lived httpOnly cookie. */
-export async function googleAuthorizationUrl(redirectUri: string): Promise<{ url: string; state: string; codeVerifier: string }> {
+/**
+ * Authorization code + PKCE (S256) + state + OIDC nonce. Caller keeps state/codeVerifier/nonce in a short-lived
+ * httpOnly cookie; the nonce binds the returned ID token to this browser's sign-in attempt (replay protection).
+ */
+export async function googleAuthorizationUrl(redirectUri: string): Promise<{ url: string; state: string; codeVerifier: string; nonce: string }> {
   const { id } = creds();
   const state = randomToken(24);
+  const nonce = randomToken(24);
   const codeVerifier = randomToken(48);
   const challenge = createHash("sha256").update(codeVerifier).digest("base64url");
   const url = new URL(AUTH_URL);
@@ -38,9 +42,15 @@ export async function googleAuthorizationUrl(redirectUri: string): Promise<{ url
     state,
     code_challenge: challenge,
     code_challenge_method: "S256",
+    nonce,
     prompt: "select_account",
   }).toString();
-  return { url: url.toString(), state, codeVerifier };
+  return { url: url.toString(), state, codeVerifier, nonce };
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const x = Buffer.from(a), y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
 }
 
 export interface GoogleClaims {
@@ -50,12 +60,18 @@ export interface GoogleClaims {
   picture?: string;
 }
 
-/** Checks signature, iss, aud, exp (jose) and email_verified. `keys` is injectable for tests. */
-export async function verifyGoogleIdToken(idToken: string, clientId: string, keys: JWTVerifyGetKey = googleJwks()): Promise<GoogleClaims> {
+/**
+ * Checks signature, iss, aud, exp (jose), email_verified and — when `expectedNonce` is given — that the token's
+ * nonce matches the one we sent. `keys` is injectable for tests.
+ */
+export async function verifyGoogleIdToken(idToken: string, clientId: string, keys: JWTVerifyGetKey = googleJwks(), expectedNonce?: string): Promise<GoogleClaims> {
   let payload;
   try {
     ({ payload } = await jwtVerify(idToken, keys, { issuer: ISSUERS, audience: clientId }));
   } catch {
+    throw new DomainError("unauthenticated", "Google sign-in failed. Please try again.");
+  }
+  if (expectedNonce !== undefined && (typeof payload.nonce !== "string" || !safeEqual(payload.nonce, expectedNonce))) {
     throw new DomainError("unauthenticated", "Google sign-in failed. Please try again.");
   }
   const email = typeof payload.email === "string" ? payload.email.toLowerCase() : null;
@@ -111,7 +127,7 @@ export async function upsertGoogleUser(c: GoogleClaims): Promise<{ personId: str
 }
 
 /** Exchanges the code, verifies the ID token, links/creates the Person. */
-export async function completeGoogleSignIn(input: { code: string; codeVerifier: string; redirectUri: string }, ctx: AuthContext): Promise<AuthTokens> {
+export async function completeGoogleSignIn(input: { code: string; codeVerifier: string; redirectUri: string; nonce?: string }, ctx: AuthContext): Promise<AuthTokens> {
   const { id, secret } = creds();
   const res = await fetch(TOKEN_URL, {
     method: "POST",
@@ -128,7 +144,7 @@ export async function completeGoogleSignIn(input: { code: string; codeVerifier: 
   if (!res.ok) throw new DomainError("unauthenticated", "Google sign-in failed. Please try again.");
   const body = (await res.json()) as { id_token?: string };
   if (!body.id_token) throw new DomainError("unauthenticated", "Google sign-in failed. Please try again.");
-  const claims = await verifyGoogleIdToken(body.id_token, id);
+  const claims = await verifyGoogleIdToken(body.id_token, id, undefined, input.nonce);
   const { personId, isNew } = await upsertGoogleUser(claims);
   return issueTokens(personId, ctx, isNew);
 }

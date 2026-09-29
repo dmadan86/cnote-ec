@@ -104,3 +104,18 @@ export async function getPersonBusinesses(personId: string): Promise<PersonBusin
     verificationTier: r.business.verificationTier, badgeActive: r.business.badgeActive,
   }));
 }
+
+export interface PersonVerification {
+  phone: string | null;
+  phoneVerified: boolean;
+  emailVerified: boolean;
+  erased: boolean;
+}
+
+/** Verification flags for gating actions (e.g. lead-gen unlocks require a verified phone). null = unknown person. */
+export async function getPersonVerification(personId: string): Promise<PersonVerification | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(personId)) return null;
+  const p = await prisma.person.findUnique({ where: { id: personId }, select: { phone: true, phoneVerifiedAt: true, emailVerifiedAt: true, erasedAt: true } });
+  if (!p) return null;
+  return { phone: p.erasedAt ? null : p.phone, phoneVerified: !!p.phoneVerifiedAt && !p.erasedAt, emailVerified: !!p.emailVerifiedAt, erased: !!p.erasedAt };
+}

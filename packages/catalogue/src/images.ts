@@ -93,6 +93,8 @@ export async function uploadListingImage(
   sellerBusinessId: string,
   listingId: string,
   input: { bytes: Uint8Array; filename?: string; altText?: string | null },
+  /** bulk import raises the hourly cap (still bounded); every image still goes through staff approval */
+  opts: { rateLimitPerHour?: number } = {},
 ): Promise<ListingImageView> {
   const listing = await loadOwnedListing(sellerBusinessId, listingId);
   if (listing.status === "archived") throw new DomainError("conflict", "Archived listings cannot be edited");
@@ -114,7 +116,7 @@ export async function uploadListingImage(
   const live = await prisma.listingImage.count({ where: { listingId: listing.id, deletedAt: null } });
   if (live >= MAX_IMAGES_PER_LISTING) throw new DomainError("conflict", `A listing can have at most ${MAX_IMAGES_PER_LISTING} images`);
 
-  if (!(await rateLimit(`listing-image-upload:${sellerBusinessId}`, UPLOADS_PER_HOUR, 3600))) {
+  if (!(await rateLimit(`listing-image-upload${opts.rateLimitPerHour ? "-bulk" : ""}:${sellerBusinessId}`, opts.rateLimitPerHour ?? UPLOADS_PER_HOUR, 3600))) {
     throw new DomainError("rate_limited", "Too many uploads. Please try again in a while.");
   }
 
