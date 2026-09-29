@@ -7,6 +7,7 @@ import * as ai from "@cnote/ai";
 import { DomainError, emit, rateLimit } from "@cnote/core";
 import { prisma, type Prisma } from "@cnote/db";
 import { getTrustProfiles } from "@cnote/identity";
+import { bustListingCaches } from "./cache";
 import { ImageValidationError, getMediaStore, listingImageKey, validateImage, type ImageMime } from "@cnote/media";
 import { getListing } from "./listings";
 import { isUuid } from "./mappers";
@@ -171,6 +172,7 @@ export async function deleteListingImage(sellerBusinessId: string, imageId: stri
   await prisma.listingImage.update({ where: { id: img.id }, data: { deletedAt: new Date() } });
   // Bytes go immediately; the row lingers 30 days (rejected-hash dedupe, audit) then the purge job removes it.
   await getMediaStore().delete(img.storageKey).catch((e) => console.error("[catalogue] image storage delete failed", e));
+  await bustListingCaches(img.listingId, img.sellerBusinessId);
 }
 
 /** `orderedIds` is the desired order; images the seller omits keep their relative order after the listed ones. */
@@ -181,6 +183,7 @@ export async function reorderListingImages(sellerBusinessId: string, listingId: 
   if (orderedIds.some((id) => !known.has(id)) || new Set(orderedIds).size !== orderedIds.length) throw new DomainError("validation", "Unknown image in order");
   const order = [...orderedIds, ...rows.map((r) => r.id).filter((id) => !orderedIds.includes(id))];
   await prisma.$transaction(order.map((id, i) => prisma.listingImage.update({ where: { id }, data: { sortOrder: i } })));
+  await bustListingCaches(listing.id, sellerBusinessId);
   return listSellerListingImages(sellerBusinessId, listingId);
 }
 
@@ -195,6 +198,7 @@ export async function setImageAltText(sellerBusinessId: string, imageId: string,
     where: { id: img.id },
     data: { altText: next, status: screen.flagged ? "flagged" : "pending", moderationNote: null, moderatedBy: null, moderatedAt: null, aiVerdict: screen.verdict },
   });
+  await bustListingCaches(img.listingId, sellerBusinessId);
   return toView(row);
 }
 
@@ -265,6 +269,7 @@ export async function moderateListingImage(
     if (res.count === 0) throw new DomainError("conflict", "Image was changed by someone else; refresh and retry");
     await emit(tx, "ListingImageModerated", { type: "listing_image", id: img.id }, { imageId: img.id, listingId: img.listingId, sellerBusinessId: img.sellerBusinessId, status: decision, moderatedBy: staffId });
   });
+  await bustListingCaches(img.listingId, img.sellerBusinessId);
   return { before, after };
 }
 

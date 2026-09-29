@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, LabelHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { cloneElement, isValidElement, type InputHTMLAttributes, type LabelHTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { cn } from "../cn";
 
 const control =
@@ -21,7 +21,11 @@ export function Label({ className, ...rest }: LabelHTMLAttributes<HTMLLabelEleme
   return <label className={cn("text-sm font-medium text-ink", className)} {...rest} />;
 }
 
-/** Label + control + hint/error, stacked. */
+/**
+ * Label + control + hint/error, stacked. The single child control is wired for assistive tech (WCAG 1.3.1 / 3.3.1):
+ * `aria-describedby` points at the hint or error and `aria-invalid` is set while there is an error. The error is
+ * announced when it appears (role="alert"). Pass an element with `id={htmlFor}`; other children are left untouched.
+ */
 export function Field({
   label,
   htmlFor,
@@ -37,11 +41,27 @@ export function Field({
   children: ReactNode;
   className?: string;
 }) {
+  const noteId = error ? `${htmlFor}-error` : hint ? `${htmlFor}-hint` : undefined;
+  const control =
+    noteId && isValidElement(children)
+      ? cloneElement(children as ReactElement<Record<string, unknown>>, {
+          "aria-describedby": [(children.props as Record<string, unknown>)["aria-describedby"], noteId].filter(Boolean).join(" "),
+          ...(error ? { "aria-invalid": true } : {}),
+        })
+      : children;
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
-      {error ? <p className="text-xs text-danger">{error}</p> : hint ? <p className="text-xs text-muted">{hint}</p> : null}
+      {control}
+      {error ? (
+        <p id={noteId} role="alert" className="text-xs text-danger">
+          {error}
+        </p>
+      ) : hint ? (
+        <p id={noteId} className="text-xs text-muted">
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }

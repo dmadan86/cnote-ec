@@ -1,5 +1,3 @@
-import { defineConfig } from "vitest/config";
+import { packageConfig } from "../../vitest.shared";
 
-export default defineConfig({
-  test: { setupFiles: ["../../vitest.setup.ts"], testTimeout: 15000 },
-});
+export default packageConfig();

@@ -1,0 +1,4536 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "cnote API",
+    "version": "1.0.0",
+    "description": "Public REST API for the cnote B2B marketplace for Indian MSMEs. An MCP server exposing the same capabilities is available at `http://localhost:3003/mcp`.\n\n## Authentication\nCreate a personal API key in the web app (Account > Developers) or the seller portal, then send it on every request:\n\n`Authorization: Bearer ck_live_...`\n\nKeys are shown once, can expire (1 day to never) and are revoked instantly. A missing/invalid key returns 401 with a `WWW-Authenticate` header.\n\n## Scopes\nEach operation lists its scope in `x-required-scope`. A `:write` scope implies the matching `:read`. Missing scope returns 403.\n\n- `profile:read`: Read the key owner's profile and business summary (GET /v1/me).\n- `catalogue:read`: Browse categories, published listings and seller trust profiles.\n- `search:read`: Search the catalogue (trust-ranked).\n- `listings:read`: Read your own listings, including drafts (seller keys).\n- `listings:write`: Create, edit, publish and archive your own listings (seller keys).\n- `enquiries:read`: Read your enquiries and their matches (buyer).\n- `enquiries:write`: Create enquiries (buyer).\n- `leads:read`: Read leads offered to your business (seller).\n- `leads:write`: Accept (consumes 1 credit) or decline leads (seller).\n- `messages:read`: Read conversations you take part in.\n- `messages:write`: Send messages and quotes, report deal outcomes.\n- `wishlist:read`: Read your wishlists.\n- `wishlist:write`: Add and remove wishlist items.\n- `reviews:read`: Read approved reviews.\n- `reviews:write`: Submit reviews (held for moderation).\n- `billing:read`: Read your lead-credit balance (seller).\n\n## Rate limits\n120 requests per minute per key (REST and MCP combined). Exceeding it returns 429 with a `Retry-After` header (seconds). Some actions have tighter limits (e.g. chat messages).\n\n## Conventions\n- Money is integer paise; every money-bearing object carries `currency: \"INR\"`.\n- Dates are ISO 8601. Lists use cursor pagination: `?cursor=&limit=` (limit up to 100); pass `nextCursor` back until it is null.\n- Errors: `{ \"error\": { \"code\", \"message\", \"requestId\", \"issues\"? } }`. Quote `requestId` (also the `X-Request-Id` header) when contacting support.\n\n## Business rules\n- Search ranks by relevance x seller trust, never by paid tier; `sponsored` is always false.\n- Enquiries are intent-scored and matched exclusively to at most N sellers; buyer contact is revealed to a seller only after accepting.\n- Accepting a lead consumes 1 credit.\n- Listings and reviews are moderated: only published + approved listings and approved reviews are public.\n- A key acts only within its own person/business; keys not bound to a business cannot use buyer/seller endpoints.",
+    "contact": {
+      "name": "cnote developers"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3003"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Account"
+    },
+    {
+      "name": "Catalogue"
+    },
+    {
+      "name": "Search"
+    },
+    {
+      "name": "Seller listings"
+    },
+    {
+      "name": "Seller leads"
+    },
+    {
+      "name": "Seller billing"
+    },
+    {
+      "name": "Enquiries"
+    },
+    {
+      "name": "Conversations"
+    },
+    {
+      "name": "Wishlist"
+    },
+    {
+      "name": "Reviews"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "ck_live_…",
+        "description": "Personal API key created in your account. `Authorization: Bearer ck_live_...`"
+      }
+    },
+    "schemas": {
+      "Me": {
+        "type": "object",
+        "properties": {
+          "personId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "keyId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "businessId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "business": {
+            "$ref": "#/components/schemas/TrustProfile"
+          }
+        },
+        "required": [
+          "personId",
+          "keyId",
+          "scopes",
+          "businessId",
+          "business"
+        ]
+      },
+      "TrustProfile": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "businessId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "name": {
+            "type": "string",
+            "example": "Sharma Fasteners Pvt Ltd"
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pincode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verificationTier": {
+            "type": "integer",
+            "description": "0 = unverified ... higher = more verified (GSTIN/Udyam)."
+          },
+          "trustScore": {
+            "type": "number"
+          },
+          "badgeActive": {
+            "type": "boolean",
+            "description": "Trust badge earned (not purchasable)."
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "businessId",
+          "name",
+          "city",
+          "state",
+          "pincode",
+          "verificationTier",
+          "trustScore",
+          "badgeActive",
+          "languages"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "insufficient_scope"
+              },
+              "message": {
+                "type": "string"
+              },
+              "requestId": {
+                "type": "string"
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "message"
+                  ]
+                },
+                "description": "Present on 422 validation errors."
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "requestId"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "Category": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "slug": {
+            "type": "string",
+            "example": "industrial-fasteners"
+          },
+          "name": {
+            "type": "string"
+          },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attributeSchema": {
+            "type": "object",
+            "properties": {
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "text",
+                        "number",
+                        "select"
+                      ]
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "unit": {
+                      "type": "string"
+                    },
+                    "options": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "label",
+                    "type"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "fields"
+            ],
+            "description": "Attributes a listing in this category may/must carry."
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "icon",
+          "parentId",
+          "attributeSchema"
+        ]
+      },
+      "SearchHit": {
+        "type": "object",
+        "properties": {
+          "listing": {
+            "$ref": "#/components/schemas/Listing"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/TrustProfile"
+          },
+          "score": {
+            "type": "number",
+            "description": "Relevance x trust. Never influenced by paid tier (ADR-009)."
+          },
+          "sponsored": {
+            "type": "boolean",
+            "enum": [
+              false
+            ],
+            "description": "Always false: there are no paid placements."
+          }
+        },
+        "required": [
+          "listing",
+          "seller",
+          "score",
+          "sponsored"
+        ]
+      },
+      "Listing": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "sellerBusinessId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "category": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "slug",
+              "name"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "example": "M8 Stainless Steel Hex Bolts (A2-70)"
+          },
+          "description": {
+            "type": "string"
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          },
+          "pricePaise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "example": 1250,
+            "description": "Unit price in paise."
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "INR"
+            ],
+            "description": "All money is integer paise in INR."
+          },
+          "priceUnit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "piece"
+          },
+          "moq": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "moqUnit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hsn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "language": {
+            "type": "string"
+          },
+          "imageUrls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "aiGenerated": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-01T10:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-02T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "sellerBusinessId",
+          "category",
+          "title",
+          "description",
+          "attributes",
+          "pricePaise",
+          "currency",
+          "priceUnit",
+          "moq",
+          "moqUnit",
+          "hsn",
+          "language",
+          "imageUrls",
+          "aiGenerated",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "SellerListingPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SellerListing"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "null when there are no more results."
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "SellerListing": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "sellerBusinessId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "category": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "slug",
+              "name"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "example": "M8 Stainless Steel Hex Bolts (A2-70)"
+          },
+          "description": {
+            "type": "string"
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          },
+          "pricePaise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "example": 1250,
+            "description": "Unit price in paise."
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "INR"
+            ],
+            "description": "All money is integer paise in INR."
+          },
+          "priceUnit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "piece"
+          },
+          "moq": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "moqUnit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hsn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "language": {
+            "type": "string"
+          },
+          "imageUrls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "aiGenerated": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-01T10:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-02T10:00:00.000Z"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "archived"
+            ]
+          },
+          "moderationStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "review",
+              "rejected"
+            ]
+          },
+          "moderationReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "sellerBusinessId",
+          "category",
+          "title",
+          "description",
+          "attributes",
+          "pricePaise",
+          "currency",
+          "priceUnit",
+          "moq",
+          "moqUnit",
+          "hsn",
+          "language",
+          "imageUrls",
+          "aiGenerated",
+          "createdAt",
+          "updatedAt",
+          "status",
+          "moderationStatus",
+          "moderationReason"
+        ]
+      },
+      "ListingCreate": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "description": "Category id. Alternatively pass categorySlug."
+          },
+          "categorySlug": {
+            "type": "string",
+            "example": "industrial-fasteners"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 5000
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "default": {}
+          },
+          "pricePaise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "default": null
+          },
+          "priceUnit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "moq": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "default": null
+          },
+          "moqUnit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "hsn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "language": {
+            "type": "string",
+            "default": "en"
+          },
+          "imageUrls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          }
+        },
+        "required": [
+          "title",
+          "description"
+        ],
+        "example": {
+          "categorySlug": "industrial-fasteners",
+          "title": "M8 Stainless Steel Hex Bolts (A2-70)",
+          "description": "DIN 933, full thread, A2-70.",
+          "attributes": {
+            "material": "SS304"
+          },
+          "pricePaise": 1250,
+          "priceUnit": "piece",
+          "moq": 500,
+          "moqUnit": "piece",
+          "hsn": "73181500",
+          "language": "en",
+          "imageUrls": []
+        }
+      },
+      "ListingPatch": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "description": "Category id. Alternatively pass categorySlug."
+          },
+          "categorySlug": {
+            "type": "string",
+            "example": "industrial-fasteners"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 5000
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          },
+          "pricePaise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "priceUnit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "moq": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "moqUnit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hsn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "language": {
+            "type": "string"
+          },
+          "imageUrls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Ok": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "LeadPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Lead"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "null when there are no more results."
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "Lead": {
+        "type": "object",
+        "properties": {
+          "matchId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "enquiry": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+              },
+              "title": {
+                "type": "string"
+              },
+              "requirement": {
+                "type": "string"
+              },
+              "category": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "slug": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "slug",
+                  "name"
+                ]
+              },
+              "quantity": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "quantityUnit": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "targetPricePaise": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "currency": {
+                "type": "string",
+                "enum": [
+                  "INR"
+                ],
+                "description": "All money is integer paise in INR."
+              },
+              "deliveryCity": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "deliveryPincode": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "neededBy": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "intentScore": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "AI intent score; low-intent enquiries are held for review."
+              },
+              "intentReasons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "scoring",
+                  "review",
+                  "matched",
+                  "unmatched",
+                  "closed",
+                  "rejected"
+                ]
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2026-09-01T10:00:00.000Z"
+              },
+              "buyerPicks": {
+                "type": "boolean"
+              },
+              "sellerCap": {
+                "type": "integer"
+              },
+              "awaitingPick": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "requirement",
+              "category",
+              "quantity",
+              "quantityUnit",
+              "targetPricePaise",
+              "currency",
+              "deliveryCity",
+              "deliveryPincode",
+              "neededBy",
+              "intentScore",
+              "intentReasons",
+              "status",
+              "createdAt"
+            ]
+          },
+          "rank": {
+            "type": "integer"
+          },
+          "of": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "offered",
+              "accepted",
+              "declined",
+              "expired",
+              "refunded"
+            ]
+          },
+          "respondBy": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-30T10:00:00.000Z"
+          },
+          "buyer": {
+            "type": "object",
+            "properties": {
+              "businessName": {
+                "type": "string"
+              },
+              "city": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "verificationTier": {
+                "type": "number"
+              },
+              "phone": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Revealed only after accepting the lead and with the buyer's consent."
+              }
+            },
+            "required": [
+              "businessName",
+              "city",
+              "verificationTier",
+              "phone"
+            ]
+          },
+          "conversationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contactNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "matchId",
+          "enquiry",
+          "rank",
+          "of",
+          "status",
+          "respondBy",
+          "buyer",
+          "conversationId"
+        ]
+      },
+      "CreditBalance": {
+        "type": "object",
+        "properties": {
+          "credits": {
+            "type": "integer",
+            "description": "Lead credits available. Accepting a lead consumes 1."
+          },
+          "subscription": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "planCode": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "periodEnd": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "planCode",
+              "status",
+              "periodEnd"
+            ]
+          }
+        },
+        "required": [
+          "credits",
+          "subscription"
+        ]
+      },
+      "Enquiry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "title": {
+            "type": "string"
+          },
+          "requirement": {
+            "type": "string"
+          },
+          "category": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "slug",
+              "name"
+            ]
+          },
+          "quantity": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "quantityUnit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "targetPricePaise": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "INR"
+            ],
+            "description": "All money is integer paise in INR."
+          },
+          "deliveryCity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deliveryPincode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "neededBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "intentScore": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "AI intent score; low-intent enquiries are held for review."
+          },
+          "intentReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "scoring",
+              "review",
+              "matched",
+              "unmatched",
+              "closed",
+              "rejected"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-01T10:00:00.000Z"
+          },
+          "buyerPicks": {
+            "type": "boolean"
+          },
+          "sellerCap": {
+            "type": "integer"
+          },
+          "awaitingPick": {
+            "type": "boolean"
+          },
+          "matches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Match"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "requirement",
+          "category",
+          "quantity",
+          "quantityUnit",
+          "targetPricePaise",
+          "currency",
+          "deliveryCity",
+          "deliveryPincode",
+          "neededBy",
+          "intentScore",
+          "intentReasons",
+          "status",
+          "createdAt",
+          "matches"
+        ]
+      },
+      "Match": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "enquiryId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "sellerBusinessId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "sellerName": {
+            "type": "string"
+          },
+          "rank": {
+            "type": "integer"
+          },
+          "of": {
+            "type": "integer",
+            "description": "N: the enquiry is exclusive to at most N sellers (ADR-002)."
+          },
+          "matchScore": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "offered",
+              "accepted",
+              "declined",
+              "expired",
+              "refunded"
+            ]
+          },
+          "respondBy": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-30T10:00:00.000Z"
+          },
+          "conversationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "seller": {
+            "type": "object",
+            "properties": {
+              "verificationTier": {
+                "type": "number"
+              },
+              "badgeActive": {
+                "type": "boolean"
+              },
+              "trustScore": {
+                "type": "number"
+              },
+              "city": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "verificationTier",
+              "badgeActive",
+              "trustScore",
+              "city"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "enquiryId",
+          "sellerBusinessId",
+          "sellerName",
+          "rank",
+          "of",
+          "matchScore",
+          "status",
+          "respondBy",
+          "conversationId"
+        ]
+      },
+      "EnquiryCreate": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 140
+          },
+          "requirement": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 4000
+          },
+          "categorySlug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quantity": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0
+          },
+          "quantityUnit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20
+          },
+          "targetPricePaise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "description": "Target unit price in paise."
+          },
+          "deliveryCity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 80
+          },
+          "deliveryPincode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[1-9]\\d{5}$"
+          },
+          "neededBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ISO date."
+          },
+          "language": {
+            "type": "string",
+            "maxLength": 8,
+            "default": "en"
+          },
+          "preferredListingId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Rank this listing's seller first if eligible."
+          }
+        },
+        "required": [
+          "title",
+          "requirement"
+        ],
+        "example": {
+          "title": "500 kg SS304 sheets",
+          "requirement": "Need 500 kg of 2mm SS304 sheets, mill test certificate required, delivery to Pune.",
+          "categorySlug": "steel-sheets",
+          "quantity": 500,
+          "quantityUnit": "kg",
+          "targetPricePaise": 21000,
+          "deliveryCity": "Pune",
+          "deliveryPincode": "411001",
+          "language": "en"
+        }
+      },
+      "EnquiryPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Enquiry"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "null when there are no more results."
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "Conversation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "matchId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "enquiryId": {
+            "type": "string"
+          },
+          "enquiryTitle": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "buyer",
+              "seller"
+            ],
+            "description": "Which side the key's business is on."
+          },
+          "buyer": {
+            "type": "object",
+            "properties": {
+              "businessId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "businessId",
+              "name"
+            ]
+          },
+          "seller": {
+            "type": "object",
+            "properties": {
+              "businessId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "businessId",
+              "name"
+            ]
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "senderPersonId": {
+                  "type": "string"
+                },
+                "body": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2026-09-03T10:00:00.000Z"
+                }
+              },
+              "required": [
+                "id",
+                "senderPersonId",
+                "body",
+                "createdAt"
+              ]
+            }
+          },
+          "quotes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Quote"
+            }
+          },
+          "dealReported": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "won",
+              "lost",
+              "pending",
+              null
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "matchId",
+          "enquiryTitle",
+          "buyer",
+          "seller",
+          "messages",
+          "quotes",
+          "dealReported"
+        ]
+      },
+      "Quote": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "pricePaise": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "INR"
+            ],
+            "description": "All money is integer paise in INR."
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "leadTimeDays": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "validUntil": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-03T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "pricePaise",
+          "currency",
+          "quantity",
+          "unit",
+          "leadTimeDays",
+          "notes",
+          "validUntil",
+          "createdAt"
+        ]
+      },
+      "MessageCreate": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "QuoteCreate": {
+        "type": "object",
+        "properties": {
+          "pricePaise": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Unit price in paise."
+          },
+          "quantity": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "leadTimeDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 730
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "validUntil": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ISO date."
+          }
+        },
+        "required": [
+          "pricePaise",
+          "quantity",
+          "unit"
+        ],
+        "example": {
+          "pricePaise": 20500,
+          "quantity": 500,
+          "unit": "kg",
+          "leadTimeDays": 7,
+          "notes": "MTC included",
+          "validUntil": "2026-10-15"
+        }
+      },
+      "DealReportCreate": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "won",
+              "lost",
+              "pending"
+            ]
+          },
+          "valuePaise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "Final deal value in paise."
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "WishlistSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "itemCount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-01T10:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-01T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isDefault",
+          "itemCount",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "WishlistDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WishlistSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "listingId": {
+                      "type": "string"
+                    },
+                    "note": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "savedPricePaise": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "currentPricePaise": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "currency": {
+                      "type": "string",
+                      "enum": [
+                        "INR"
+                      ],
+                      "description": "All money is integer paise in INR."
+                    },
+                    "priceDropped": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "listing": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/Listing"
+                        },
+                        {
+                          "type": [
+                            "object",
+                            "null"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "listingId",
+                    "note",
+                    "savedPricePaise",
+                    "currentPricePaise",
+                    "currency",
+                    "priceDropped",
+                    "createdAt",
+                    "listing"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "items"
+            ]
+          }
+        ]
+      },
+      "WishlistAdd": {
+        "type": "object",
+        "properties": {
+          "listingId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "listingId"
+        ]
+      },
+      "ReviewList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Review"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "$ref": "#/components/schemas/RatingSummary"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor",
+          "summary"
+        ]
+      },
+      "Review": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "rating": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "body": {
+            "type": "string"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "verifiedEnquiry": {
+            "type": "boolean",
+            "description": "Author had an accepted enquiry with this seller."
+          },
+          "helpfulCount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-01T10:00:00.000Z"
+          },
+          "sellerReply": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "body": {
+                "type": "string"
+              },
+              "at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "body",
+              "at"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "rating",
+          "title",
+          "body",
+          "authorName",
+          "verifiedEnquiry",
+          "helpfulCount",
+          "createdAt",
+          "sellerReply"
+        ]
+      },
+      "RatingSummary": {
+        "type": "object",
+        "properties": {
+          "listingId": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "average": {
+            "type": "number"
+          },
+          "histogram": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Counts for 1..5 stars (index 0 = 1 star)."
+          }
+        },
+        "required": [
+          "listingId",
+          "count",
+          "average",
+          "histogram"
+        ]
+      },
+      "MyReview": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "rating": {
+            "type": "integer"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "body": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected"
+            ],
+            "description": "New reviews are `pending` until staff moderate them; only approved reviews are public."
+          },
+          "moderationNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "rating",
+          "title",
+          "body",
+          "status",
+          "moderationNote",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ReviewCreate": {
+        "type": "object",
+        "properties": {
+          "rating": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "body": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 2000,
+            "description": "No phone numbers, emails or ID numbers (rejected)."
+          },
+          "language": {
+            "type": "string",
+            "default": "en"
+          }
+        },
+        "required": [
+          "rating",
+          "body"
+        ],
+        "example": {
+          "rating": 5,
+          "title": "Reliable supplier",
+          "body": "Delivered on time and the quality matched the sample."
+        }
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/v1/me": {
+      "get": {
+        "operationId": "getMe",
+        "tags": [
+          "Account"
+        ],
+        "summary": "Who am I",
+        "description": "Returns the key's owner, its scopes and the business the key is bound to (if any).\n\n**Required scope:** `profile:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "profile:read",
+        "responses": {
+          "200": {
+            "description": "Key principal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/categories": {
+      "get": {
+        "operationId": "listCategories",
+        "tags": [
+          "Catalogue"
+        ],
+        "summary": "List categories",
+        "description": "All browsable categories with their attribute schema (use `slug` in search and listings).\n\n**Required scope:** `catalogue:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "catalogue:read",
+        "responses": {
+          "200": {
+            "description": "Categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Category"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/categories/{slug}": {
+      "get": {
+        "operationId": "getCategory",
+        "tags": [
+          "Catalogue"
+        ],
+        "summary": "Get a category",
+        "description": "**Required scope:** `catalogue:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "catalogue:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "industrial-fasteners"
+            },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Category"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/search": {
+      "get": {
+        "operationId": "searchListings",
+        "tags": [
+          "Search"
+        ],
+        "summary": "Search listings",
+        "description": "Hybrid lexical + semantic search. Results are ranked by relevance x seller trust, never by paid tier (ADR-009); `sponsored` is always `false`. Only published, moderation-approved listings are returned.\n\n**Required scope:** `search:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "search:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 500,
+              "example": "stainless steel hex bolts",
+              "description": "Free-text query (any supported language)."
+            },
+            "required": true,
+            "description": "Free-text query (any supported language).",
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Category slug filter."
+            },
+            "required": false,
+            "description": "Category slug filter.",
+            "name": "category",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ranked hits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SearchHit"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/listings/{id}": {
+      "get": {
+        "operationId": "getListing",
+        "tags": [
+          "Catalogue"
+        ],
+        "summary": "Get a listing",
+        "description": "Only published and moderation-approved listings are visible; anything else is 404.\n\n**Required scope:** `catalogue:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "catalogue:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Listing"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sellers/{id}": {
+      "get": {
+        "operationId": "getSeller",
+        "tags": [
+          "Catalogue"
+        ],
+        "summary": "Get a seller's public trust profile",
+        "description": "Verification tier, trust score and badge. Contact details are never exposed here.\n\n**Required scope:** `catalogue:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "catalogue:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trust profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustProfile"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/listings": {
+      "get": {
+        "operationId": "listSellerListings",
+        "tags": [
+          "Seller listings"
+        ],
+        "summary": "List your listings",
+        "description": "Includes drafts and archived listings, with moderation status. Requires a key bound to a seller business.\n\n**Required scope:** `listings:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "listings:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Opaque cursor from a previous response's `nextCursor`."
+            },
+            "required": false,
+            "description": "Opaque cursor from a previous response's `nextCursor`.",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "description": "Page size (1-100)."
+            },
+            "required": false,
+            "description": "Page size (1-100).",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of listings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SellerListingPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSellerListing",
+        "tags": [
+          "Seller listings"
+        ],
+        "summary": "Create a draft listing",
+        "description": "Creates a **draft**; call the publish endpoint to submit it. Pass `categorySlug` or `categoryId`. Requires a key bound to a seller business.\n\n**Required scope:** `listings:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "listings:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListingCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Draft listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SellerListing"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/listings/{id}": {
+      "patch": {
+        "operationId": "updateSellerListing",
+        "tags": [
+          "Seller listings"
+        ],
+        "summary": "Edit a listing",
+        "description": "Partial update of your own listing. Edits to a published listing are re-moderated. Requires a key bound to a seller business.\n\n**Required scope:** `listings:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "listings:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListingPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SellerListing"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/listings/{id}/publish": {
+      "post": {
+        "operationId": "publishSellerListing",
+        "tags": [
+          "Seller listings"
+        ],
+        "summary": "Publish a listing",
+        "description": "Submits the listing for automated + human moderation. It becomes publicly visible only when `moderationStatus` is `approved`. Requires a key bound to a seller business.\n\n**Required scope:** `listings:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "listings:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listing with its moderation outcome",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SellerListing"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/listings/{id}/archive": {
+      "post": {
+        "operationId": "archiveSellerListing",
+        "tags": [
+          "Seller listings"
+        ],
+        "summary": "Archive a listing",
+        "description": "Removes the listing from search. Requires a key bound to a seller business.\n\n**Required scope:** `listings:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "listings:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Archived",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/leads": {
+      "get": {
+        "operationId": "listSellerLeads",
+        "tags": [
+          "Seller leads"
+        ],
+        "summary": "List leads offered to you",
+        "description": "Each enquiry is intent-scored and offered exclusively to at most N sellers (ADR-002). Buyer contact details are revealed only after you accept. Requires a key bound to a seller business.\n\n**Required scope:** `leads:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "leads:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Opaque cursor from a previous response's `nextCursor`."
+            },
+            "required": false,
+            "description": "Opaque cursor from a previous response's `nextCursor`.",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "description": "Page size (1-100)."
+            },
+            "required": false,
+            "description": "Page size (1-100).",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of leads",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/leads/{matchId}/accept": {
+      "post": {
+        "operationId": "acceptSellerLead",
+        "tags": [
+          "Seller leads"
+        ],
+        "summary": "Accept a lead (consumes 1 credit)",
+        "description": "**Consumes 1 lead credit** from your balance and opens a conversation with the buyer. Fails with 402 when you have no credits; a lead that expired or was already answered returns 409. Requires a key bound to a seller business.\n\n**Required scope:** `leads:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "leads:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "matchId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Accepted lead, with buyer contact where consented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lead"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Insufficient lead credits.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/leads/{matchId}/decline": {
+      "post": {
+        "operationId": "declineSellerLead",
+        "tags": [
+          "Seller leads"
+        ],
+        "summary": "Decline a lead",
+        "description": "Free. The lead cascades to the next-ranked seller. Requires a key bound to a seller business.\n\n**Required scope:** `leads:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "leads:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "matchId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Declined",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/billing/balance": {
+      "get": {
+        "operationId": "getCreditBalance",
+        "tags": [
+          "Seller billing"
+        ],
+        "summary": "Lead-credit balance",
+        "description": "Credits available to accept leads. Requires a key bound to a seller business.\n\n**Required scope:** `billing:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "billing:read",
+        "responses": {
+          "200": {
+            "description": "Balance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditBalance"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/enquiries": {
+      "post": {
+        "operationId": "createEnquiry",
+        "tags": [
+          "Enquiries"
+        ],
+        "summary": "Post an enquiry (RFQ)",
+        "description": "The enquiry is intent-scored by AI and, if it passes, matched exclusively to at most N sellers ranked by relevance and trust (ADR-002); low-intent or prohibited enquiries are held for review or rejected. Matching is synchronous, so the response already lists the matches. Requires a key bound to a business.\n\n**Required scope:** `enquiries:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "enquiries:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnquiryCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created enquiry with its matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Enquiry"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listEnquiries",
+        "tags": [
+          "Enquiries"
+        ],
+        "summary": "List your enquiries",
+        "description": "Requires a key bound to a business.\n\n**Required scope:** `enquiries:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "enquiries:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Opaque cursor from a previous response's `nextCursor`."
+            },
+            "required": false,
+            "description": "Opaque cursor from a previous response's `nextCursor`.",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "description": "Page size (1-100)."
+            },
+            "required": false,
+            "description": "Page size (1-100).",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of enquiries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnquiryPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/enquiries/{id}": {
+      "get": {
+        "operationId": "getEnquiry",
+        "tags": [
+          "Enquiries"
+        ],
+        "summary": "Get an enquiry",
+        "description": "Requires a key bound to a business.\n\n**Required scope:** `enquiries:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "enquiries:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Enquiry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Enquiry"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/conversations/{id}": {
+      "get": {
+        "operationId": "getConversation",
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Get a conversation",
+        "description": "Messages and quotes exchanged after a lead was accepted. Only the buyer and seller business can read it. Requires a key bound to a business.\n\n**Required scope:** `messages:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "messages:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conversation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conversation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/conversations/{id}/messages": {
+      "post": {
+        "operationId": "sendMessage",
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Send a message",
+        "description": "Rate limited per person (30/min). Requires a key bound to a business.\n\n**Required scope:** `messages:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "messages:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/conversations/{id}/quotes": {
+      "post": {
+        "operationId": "sendQuote",
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Send a quote (seller only)",
+        "description": "Only the seller side of the conversation may quote; the buyer gets 403. Price is unit price in paise. Requires a key bound to a business.\n\n**Required scope:** `messages:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "messages:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Quote sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/matches/{matchId}/deal-report": {
+      "post": {
+        "operationId": "reportDeal",
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Report the deal outcome",
+        "description": "Deals close off-platform in Phase 1; either party reports whether it closed (ADR-007). Only accepted leads can be reported. Requires a key bound to a business.\n\n**Required scope:** `messages:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "messages:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "matchId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DealReportCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wishlists": {
+      "get": {
+        "operationId": "listWishlists",
+        "tags": [
+          "Wishlist"
+        ],
+        "summary": "List your wishlists",
+        "description": "Named lists of saved products (one per project). Belongs to the key's person.\n\n**Required scope:** `wishlist:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "wishlist:read",
+        "responses": {
+          "200": {
+            "description": "Wishlists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WishlistSummary"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wishlists/{id}": {
+      "get": {
+        "operationId": "getWishlist",
+        "tags": [
+          "Wishlist"
+        ],
+        "summary": "Get a wishlist with items",
+        "description": "**Required scope:** `wishlist:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "wishlist:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wishlist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WishlistDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wishlists/{id}/items": {
+      "post": {
+        "operationId": "addWishlistItem",
+        "tags": [
+          "Wishlist"
+        ],
+        "summary": "Save a listing to a wishlist",
+        "description": "Idempotent: saving an already-saved listing returns `added: false`. Lists are capped in size.\n\n**Required scope:** `wishlist:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "wishlist:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WishlistAdd"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "added": {
+                      "type": "boolean"
+                    },
+                    "listId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "added",
+                    "listId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wishlists/{id}/items/{listingId}": {
+      "delete": {
+        "operationId": "removeWishlistItem",
+        "tags": [
+          "Wishlist"
+        ],
+        "summary": "Remove a listing from a wishlist",
+        "description": "**Required scope:** `wishlist:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "wishlist:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "listingId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "removed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "removed"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/listings/{id}/reviews": {
+      "get": {
+        "operationId": "listListingReviews",
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "List approved reviews",
+        "description": "Only moderation-approved reviews are returned; ratings count approved reviews only.\n\n**Required scope:** `reviews:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "reviews:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "recent",
+                "helpful",
+                "rating_high",
+                "rating_low"
+              ],
+              "default": "recent"
+            },
+            "required": false,
+            "name": "sort",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reviews with rating summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "submitListingReview",
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "Submit a review (held for moderation)",
+        "description": "The review lands as `pending` and is **not public until staff approve it** (ADR-008 human-in-the-loop). Text containing phone numbers, emails or ID numbers is rejected. One review per person per listing (resubmitting edits it).\n\n**Required scope:** `reviews:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "reviews:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Your review and its moderation status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyReview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {}
+}

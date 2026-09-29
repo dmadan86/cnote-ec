@@ -1,4 +1,4 @@
-import { DomainError, emit } from "@cnote/core";
+import { cachedManyTagged, cachedTagged, cacheTags, DomainError, emit, invalidateTags } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { z } from "zod";
 import { getGstnProvider, isValidGstin, isValidUdyam, normaliseGstin } from "./gstin";
@@ -34,6 +34,9 @@ export async function createBusiness(personId: string, input: CreateBusinessInpu
     });
     await emit(tx, "BusinessCreated", { type: "Business", id: b.id }, { businessId: b.id, personId, isSeller: d.isSeller });
     return { businessId: b.id };
+  }).then(async (r) => {
+    await bustSellerCaches(r.businessId);
+    return r;
   });
 }
 
@@ -62,27 +65,67 @@ const toProfile = (b: {
   languages: b.languages,
 });
 
-export async function getTrustProfiles(businessIds: string[]): Promise<Map<string, TrustProfile>> {
-  if (businessIds.length === 0) return new Map();
-  const rows = await prisma.business.findMany({ where: { id: { in: [...new Set(businessIds)] } } });
-  return new Map(rows.map((b) => [b.id, toProfile(b)]));
+/** Drops cached trust profiles + seller lists after a business/trust write. Never throws. */
+export async function bustSellerCaches(businessId: string): Promise<void> {
+  await invalidateTags([cacheTags.seller(businessId), cacheTags.sellers, cacheTags.sitemap]);
 }
 
-/** Verified sellers, trust-ranked, for manufacturer discovery pages. */
+/** Cached per business (120s fresh + SWR); TrustScoreChanged/BusinessVerified and profile writes invalidate `seller:<id>`. */
+export async function getTrustProfiles(businessIds: string[]): Promise<Map<string, TrustProfile>> {
+  if (businessIds.length === 0) return new Map();
+  return cachedManyTagged<TrustProfile>(businessIds, {
+    prefix: "identity:trust:v1",
+    tags: (id) => [cacheTags.seller(id)],
+    ttlSeconds: 120,
+    staleSeconds: 600,
+    load: async (missing) => {
+      const rows = await prisma.business.findMany({ where: { id: { in: missing } } });
+      return new Map(rows.map((b) => [b.id, toProfile(b)]));
+    },
+  });
+}
+
+/** Verified sellers, trust-ranked, for manufacturer discovery pages. Cached per query for 2 minutes (SWR). */
 export async function listSellers(opts: { q?: string; city?: string; limit?: number; offset?: number }): Promise<TrustProfile[]> {
   const q = opts.q?.trim();
   const city = opts.city?.trim();
-  const rows = await prisma.business.findMany({
-    where: {
-      isSeller: true,
-      ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
-      ...(city ? { city: { equals: city, mode: "insensitive" } } : {}),
+  const take = Math.min(Math.max(opts.limit ?? 20, 1), 100);
+  const skip = Math.max(opts.offset ?? 0, 0);
+  return cachedTagged(
+    `identity:sellers:v1:${JSON.stringify([q?.toLowerCase() ?? "", city?.toLowerCase() ?? "", take, skip])}`,
+    (v: TrustProfile[]) => [cacheTags.sellers, ...v.map((p) => cacheTags.seller(p.businessId))],
+    120,
+    async () => {
+      const rows = await prisma.business.findMany({
+        where: {
+          isSeller: true,
+          ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
+          ...(city ? { city: { equals: city, mode: "insensitive" } } : {}),
+        },
+        orderBy: [{ badgeActive: "desc" }, { trustScore: "desc" }, { createdAt: "asc" }],
+        take,
+        skip,
+      });
+      return rows.map(toProfile);
     },
-    orderBy: [{ badgeActive: "desc" }, { trustScore: "desc" }, { createdAt: "asc" }],
-    take: Math.min(Math.max(opts.limit ?? 20, 1), 100),
-    skip: Math.max(opts.offset ?? 0, 0),
-  });
-  return rows.map(toProfile);
+    { staleSeconds: 600 },
+  );
+}
+
+/** Lightweight seller index for sitemaps (id + created date), stable order, cached 10 min. */
+export async function listSellerIndex(opts: { offset: number; limit: number }): Promise<{ businessId: string; createdAt: string }[]> {
+  const offset = Math.max(0, Math.trunc(opts.offset));
+  const limit = Math.max(1, Math.min(10_000, Math.trunc(opts.limit)));
+  return cachedTagged(
+    `identity:seller-index:v1:${offset}:${limit}`,
+    [cacheTags.sitemap, cacheTags.sellers],
+    600,
+    async () => {
+      const rows = await prisma.business.findMany({ where: { isSeller: true }, select: { id: true, createdAt: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: limit, skip: offset });
+      return rows.map((r) => ({ businessId: r.id, createdAt: r.createdAt.toISOString() }));
+    },
+    { staleSeconds: 3600 },
+  );
 }
 
 /** T1: GSTIN checksum + GSTN provider lookup (mock in dev), Udyam optional. Emits BusinessVerified. */
@@ -122,6 +165,7 @@ export async function verifyGstin(businessId: string, gstinInput: string, udyamI
     if ((err as { code?: string }).code === "P2002") return fail("This GSTIN is already registered to another business.");
     throw err;
   }
+  await bustSellerCaches(businessId);
   return { passed: true, tier };
 }
 

@@ -48,7 +48,14 @@ export function Popover({
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div
+      ref={ref}
+      className="relative"
+      // Keyboard users tabbing out of the open panel close it (WCAG 2.1.1 / 2.4.3: no orphaned open menus).
+      onBlur={(e) => {
+        if (open && e.relatedTarget && ref.current && !ref.current.contains(e.relatedTarget as Node)) setOpen(false);
+      }}
+    >
       <button
         type="button"
         aria-expanded={open}
@@ -56,7 +63,7 @@ export function Popover({
         aria-label={ariaLabel}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "inline-flex min-h-10 items-center gap-1 rounded-lg px-2 py-2 text-sm font-medium text-ink hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600",
+          "inline-flex min-h-11 items-center gap-1 rounded-lg px-2 py-2 text-sm font-medium text-ink hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600",
           buttonClassName,
         )}
       >

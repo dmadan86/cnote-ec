@@ -10,7 +10,7 @@ export function Histogram({ summary }: { summary: RatingSummary }) {
           <li key={star} className="flex items-center gap-2 text-sm">
             <span className="w-12 shrink-0 text-muted">{star} star{star === 1 ? "" : "s"}</span>
             <span className="h-2 flex-1 overflow-hidden rounded-full bg-line" aria-hidden>
-              <span className="block h-full rounded-full bg-accent-500" style={{ width: `${pct}%` }} />
+              <span className="block h-full rounded-full bg-accent-600" style={{ width: `${pct}%` }} />
             </span>
             <span className="w-8 shrink-0 text-right tabular-nums text-muted">{n}<span className="sr-only"> reviews ({pct}%)</span></span>
           </li>

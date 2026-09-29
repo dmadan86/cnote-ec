@@ -4,6 +4,8 @@ import { MapPin } from "lucide-react";
 import type { CategoryView, ListingView } from "@cnote/catalogue";
 import type { TrustProfile } from "@cnote/identity";
 import { buttonClasses, cn, Money, TrustBadge, WishlistButton } from "@cnote/ui";
+import { productPath } from "@/lib/paths";
+import { RatingStars } from "@/features/reviews/stars";
 import { ProductImage } from "@/features/search/product-image";
 import { moqText } from "@/features/search/format";
 import { toggleSavedAction } from "@/features/wishlist/actions";
@@ -49,6 +51,7 @@ export function CompareTable({
   signedIn,
   shared,
   ids,
+  ratings = {},
 }: {
   listings: ListingView[];
   sellers: Record<string, TrustProfile>;
@@ -57,6 +60,8 @@ export function CompareTable({
   signedIn: boolean;
   shared: boolean;
   ids: string[];
+  /** Approved-review rating summaries by listing id (from loadRatings). */
+  ratings?: Record<string, { average: number; count: number }>;
 }) {
   const saved = new Set(savedIds);
   // Rows = union of the category's schema fields plus any extra attribute keys the products carry.
@@ -78,7 +83,7 @@ export function CompareTable({
                 <div className="relative aspect-square w-full max-w-40 overflow-hidden rounded-lg bg-canvas">
                   <ProductImage src={l.imageUrls[0]} sizes="160px" />
                 </div>
-                <Link href={`/products/${l.id}`} className="mt-2 line-clamp-3 block text-sm font-semibold text-ink hover:text-brand-700 hover:underline">
+                <Link href={productPath(l)} className="mt-2 line-clamp-3 block text-sm font-semibold text-ink hover:text-brand-700 hover:underline">
                   {l.title}
                 </Link>
               </th>
@@ -121,7 +126,15 @@ export function CompareTable({
             return <Row key={r.key} listings={listings} label={r.label} plain={plain} values={plain} />;
           })}
           <Row listings={listings} label="HSN code" plain={listings.map((l) => l.hsn ?? MISSING)} values={listings.map((l) => l.hsn ?? MISSING)} />
-          {/* TODO(reviews): add a "Rating" row from getRatingSummaries(listingIds) in @cnote/reviews once it exists. */}
+          <Row
+            listings={listings}
+            label="Rating"
+            plain={listings.map((l) => (ratings[l.id]?.count ? String(ratings[l.id]!.average) : MISSING))}
+            values={listings.map((l) => {
+              const r = ratings[l.id];
+              return r?.count ? <RatingStars key={l.id} average={r.average} count={r.count} /> : <span key={l.id} className="text-muted">No reviews yet</span>;
+            })}
+          />
           <tr className="border-t border-line">
             <th scope="row" className={th}>
               Actions
@@ -137,7 +150,7 @@ export function CompareTable({
                     {shared ? (
                       <Link
                         href={`/compare?ids=${ids.filter((x) => x !== l.id).join(",")}`}
-                        className="inline-flex min-h-10 items-center text-xs font-medium text-muted underline hover:text-danger"
+                        className="inline-flex min-h-11 items-center text-xs font-medium text-muted underline hover:text-danger"
                         aria-label={`Remove ${l.title} from this comparison`}
                       >
                         Remove
@@ -145,7 +158,7 @@ export function CompareTable({
                     ) : (
                       <form action={removeFromCompareAction}>
                         <input type="hidden" name="listingId" value={l.id} />
-                        <button type="submit" aria-label={`Remove ${l.title} from compare`} className="inline-flex min-h-10 items-center text-xs font-medium text-muted underline hover:text-danger focus-visible:outline-2 focus-visible:outline-brand-600">
+                        <button type="submit" aria-label={`Remove ${l.title} from compare`} className="inline-flex min-h-11 items-center text-xs font-medium text-muted underline hover:text-danger focus-visible:outline-2 focus-visible:outline-brand-600">
                           Remove
                         </button>
                       </form>

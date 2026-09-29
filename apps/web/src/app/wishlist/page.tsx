@@ -4,6 +4,7 @@ import { Heart } from "lucide-react";
 import { requireSession } from "@cnote/next-kit";
 import { Badge, buttonClasses, Card, CardBody, cn, Container, EmptyState, Money, PageHeader } from "@cnote/ui";
 import { getList, getOrCreateDefaultList, listLists } from "@cnote/wishlist";
+import { productPath } from "@/lib/paths";
 import { moqText } from "@/features/search/format";
 import { ProductImage } from "@/features/search/product-image";
 import { ItemControls } from "@/features/wishlist/item-controls";
@@ -64,7 +65,7 @@ export default async function WishlistPage(props: PageProps<"/wishlist">) {
 
           {available.length ? (
             <details className="rounded-card border border-accent-100 bg-accent-50">
-              <summary className="flex min-h-11 cursor-pointer items-center px-4 text-sm font-semibold text-ink focus-visible:outline-2 focus-visible:outline-accent-500">
+              <summary className="flex min-h-11 cursor-pointer items-center px-4 text-sm font-semibold text-ink focus-visible:outline-2 focus-visible:outline-accent-700">
                 Request quote for all ({available.length})
               </summary>
               <div className="border-t border-accent-100 px-4 py-3">
@@ -106,7 +107,7 @@ export default async function WishlistPage(props: PageProps<"/wishlist">) {
                           {i.listing ? (
                             <>
                               <h3 className="line-clamp-2 text-sm font-semibold text-ink sm:text-base">
-                                <Link href={`/products/${i.listing.id}`} className="hover:text-brand-700 hover:underline">
+                                <Link href={productPath(i.listing)} className="hover:text-brand-700 hover:underline">
                                   {i.listing.title}
                                 </Link>
                               </h3>

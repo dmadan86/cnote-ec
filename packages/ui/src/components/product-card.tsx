@@ -23,6 +23,8 @@ export function ProductCard({
   saved,
   onToggleSaved,
   footer,
+  wishlist,
+  rating,
   linkComponent,
   className,
 }: {
@@ -39,6 +41,10 @@ export function ProductCard({
   onToggleSaved?: (id: string) => Promise<WishlistToggleResult>;
   /** Extra interactive controls under the card (e.g. a compare toggle). Rendered above the stretched link. */
   footer?: ReactNode;
+  /** Replaces the built-in heart button (e.g. a client island that reads per-user state so the card itself stays static/cacheable). */
+  wishlist?: ReactNode;
+  /** Rating summary shown under the title (e.g. RatingStars). */
+  rating?: ReactNode;
   linkComponent?: LinkComponent;
   className?: string;
 }) {
@@ -48,7 +54,7 @@ export function ProductCard({
       <div className="relative aspect-square overflow-hidden rounded-lg bg-canvas">
         {image}
         <div className="absolute right-2 top-2 z-10">
-          <WishlistButton id={id} title={title} saved={saved} onToggle={onToggleSaved} />
+          {wishlist ?? <WishlistButton id={id} title={title} saved={saved} onToggle={onToggleSaved} />}
         </div>
       </div>
       <div className="mt-3 flex flex-1 flex-col gap-1 px-0.5">
@@ -57,6 +63,7 @@ export function ProductCard({
             {title}
           </A>
         </h3>
+        {rating ? <div>{rating}</div> : null}
         {pricePaise != null ? (
           <Money paise={pricePaise} unit={priceUnit} className="text-base" />
         ) : (

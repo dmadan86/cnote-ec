@@ -13,6 +13,12 @@ const FEATURES: Record<string, { title: string; description: string }> = {
   templates: { title: "Templates", description: "Ready-to-use design templates for your business." },
 };
 
+// Static content: prerender every known feature page (unknown slugs 404).
+export const dynamicParams = false;
+export function generateStaticParams() {
+  return Object.keys(FEATURES).map((feature) => ({ feature }));
+}
+
 export async function generateMetadata(props: PageProps<"/coming-soon/[feature]">): Promise<Metadata> {
   const { feature } = await props.params;
   return { title: FEATURES[feature] ? `${FEATURES[feature].title} (coming soon)` : "Coming soon" };

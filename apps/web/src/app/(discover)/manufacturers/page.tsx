@@ -2,10 +2,27 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { buttonClasses, Container, EmptyState, Grid, Input, Pagination } from "@cnote/ui";
 import { SellerTile } from "@/features/search/cards";
+import { JsonLd } from "@/lib/json-ld";
+import { sellerPath } from "@/lib/paths";
+import { absoluteUrl } from "@/lib/site-url";
 import { loadSellers } from "@/features/search/data";
 import { firstParam, pageParam } from "@/features/search/format";
 
-export const metadata: Metadata = { title: "Manufacturers and suppliers" };
+const DESCRIPTION = "Verified manufacturers and suppliers across India, ranked by verification level and track record, never by payment.";
+
+export async function generateMetadata(props: PageProps<"/manufacturers">): Promise<Metadata> {
+  const sp = await props.searchParams;
+  const filtered = !!(firstParam(sp.q) || firstParam(sp.city));
+  const page = pageParam(sp.page);
+  return {
+    title: "Manufacturers and suppliers",
+    description: DESCRIPTION,
+    // Filtered views are crawlable (noindex,follow) but consolidate to the unfiltered listing.
+    alternates: { canonical: filtered ? "/manufacturers" : page > 1 ? `/manufacturers?page=${page}` : "/manufacturers" },
+    robots: filtered ? { index: false, follow: true } : undefined,
+    openGraph: { title: "Manufacturers and suppliers", description: DESCRIPTION, url: "/manufacturers" },
+  };
+}
 const PAGE_SIZE = 24;
 
 export default async function ManufacturersPage(props: PageProps<"/manufacturers">) {
@@ -25,6 +42,14 @@ export default async function ManufacturersPage(props: PageProps<"/manufacturers
 
   return (
     <Container className="py-6 lg:py-8">
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          name: "Manufacturers and suppliers",
+          itemListElement: sellers.map((s, i) => ({ "@type": "ListItem", position: i + 1, url: absoluteUrl(sellerPath(s.businessId)), name: s.name })),
+        }}
+      />
       <h1 className="text-2xl font-bold tracking-tight text-ink">Manufacturers and suppliers</h1>
       <p className="mt-1 text-sm text-muted">Trust-ranked by verification and track record, never by payment.</p>
       <form method="get" role="search" className="mt-5 grid gap-2 sm:grid-cols-[1fr_14rem_auto]">
@@ -37,6 +62,7 @@ export default async function ManufacturersPage(props: PageProps<"/manufacturers
       <div className="mt-6">
         {sellers.length ? (
           <>
+            <h2 className="sr-only">Suppliers</h2>
             <Grid cols={3} className="grid-cols-1 sm:grid-cols-2">
               {sellers.map((s) => (
                 <SellerTile key={s.businessId} seller={s} />

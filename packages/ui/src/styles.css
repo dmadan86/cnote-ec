@@ -16,16 +16,19 @@
   --color-accent-100: #ffedd5;
   --color-accent-500: #f97316;
   --color-accent-600: #ea580c;
+  /* accent-700/800 are the AA-safe accent for text and white-on-accent buttons (accent-500 is decorative only: 2.8:1 on white). */
+  --color-accent-700: #c2410c;
+  --color-accent-800: #9a3412;
 
   --color-ink: #111827;
-  --color-muted: #6b7280;
+  --color-muted: #596272; /* 6.1:1 on white, 5.8:1 on canvas (AA) */
   --color-line: #e5e7eb;
   --color-surface: #ffffff;
   --color-canvas: #f8f9fc;
 
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-danger: #dc2626;
+  --color-success: #15803d; /* AA text on white and green-50 */
+  --color-warning: #b45309; /* AA text on white and amber-50 */
+  --color-danger: #b91c1c; /* AA text on white and red-50 */
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --radius-card: 0.875rem;

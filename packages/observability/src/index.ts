@@ -2,7 +2,7 @@
 // passes these options to its own Sentry SDK (@sentry/nextjs or @sentry/node).
 // Everything is env-driven and a no-op until a DSN is configured.
 
-export type AppName = "web" | "seller" | "admin" | "worker";
+export type AppName = "web" | "seller" | "admin" | "worker" | "api";
 export type Runtime = "nodejs" | "edge" | "browser";
 
 // Masks PII before anything leaves our infrastructure (ADR-010: DPDP, India data residency).

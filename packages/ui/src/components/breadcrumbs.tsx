@@ -11,7 +11,7 @@ export function Breadcrumbs({ items, linkComponent, className }: { items: { labe
           <li key={i} className="flex items-center gap-1">
             {i > 0 ? <ChevronRight className="size-3.5" aria-hidden /> : null}
             {it.href && i < items.length - 1 ? (
-              <A href={it.href} className="hover:text-brand-700 hover:underline">
+              <A href={it.href} className="inline-flex min-h-6 items-center hover:text-brand-700 hover:underline">
                 {it.label}
               </A>
             ) : (

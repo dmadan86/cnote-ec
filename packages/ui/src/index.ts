@@ -16,3 +16,4 @@ export * from "./components/breadcrumbs";
 export * from "./components/wishlist-button";
 export * from "./components/compare-toggle";
 export * from "./components/product-card";
+export * from "./components/api-tokens";

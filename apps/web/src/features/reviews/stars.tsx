@@ -4,7 +4,7 @@ export function Stars({ value, className = "text-base" }: { value: number; class
   return (
     <span role="img" aria-label={`${value} out of 5 stars`} className={`relative inline-block whitespace-nowrap leading-none ${className}`}>
       <span aria-hidden className="text-line">★★★★★</span>
-      <span aria-hidden className="absolute inset-y-0 left-0 overflow-hidden text-accent-500" style={{ width: `${pct}%` }}>★★★★★</span>
+      <span aria-hidden className="absolute inset-y-0 left-0 overflow-hidden text-accent-600" style={{ width: `${pct}%` }}>★★★★★</span>
     </span>
   );
 }

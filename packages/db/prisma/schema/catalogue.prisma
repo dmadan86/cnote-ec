@@ -91,6 +91,12 @@ model ListingImage {
   sha256           String
   sortOrder        Int       @default(0) @map("sort_order")
   altText          String?   @map("alt_text")
+  /// Resized derivatives generated on approval: [{ width, height, format: "avif"|"webp"|"jpeg", key, bytes }]
+  variants         Json      @default("[]")
+  /// tiny blurred placeholder (data URL, < 1 KB) shown while the real image loads
+  blurDataUrl      String?   @map("blur_data_url")
+  /// null = not processed yet; derivatives are (re)built by the catalogue worker
+  processedAt      DateTime? @map("processed_at") @db.Timestamptz
   status           UgcStatus @default(pending)
   moderationNote   String?   @map("moderation_note") // shown to the seller on rejection
   aiVerdict        String?   @map("ai_verdict") // pre-screen only; never auto-approves

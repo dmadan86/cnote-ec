@@ -55,7 +55,7 @@ export interface ListingInput {
 
 export { listCategories, getCategoryBySlug, getCategoryById, upsertCategories, type CategoryDef } from "./categories";
 export {
-  getListing, getListingsByIds, listSellerListings, listFeaturedListings, draftListingFromText,
+  getListing, getListingsByIds, getPublicListing, getPublicListingsByIds, listPublicSellerListings, listPublicListingIndex, countPublicListings, type ListingIndexEntry, listSellerListings, listFeaturedListings, draftListingFromText,
   createListing, updateListing, publishListing, archiveListing, resolveListingModeration,
 } from "./listings";
 export { findSellerCandidates, retrieveListings, suggestListingTitles } from "./retrieval";

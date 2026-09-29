@@ -4,6 +4,7 @@
 // the token-refresh proxy in "@cnote/next-kit/proxy".
 // PUBLIC CONTRACT — apps depend on these signatures. Extend, don't break.
 import "server-only";
+import "./bootstrap";
 
 export * from "./action-result";
 export { currentSession, requireSession, requireBusiness, actorOf, requestContext, type SessionWithBusiness } from "./session";

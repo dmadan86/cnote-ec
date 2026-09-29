@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import * as ai from "@cnote/ai";
-import { DomainError, emit } from "@cnote/core";
+import { cachedManyTagged, cachedTagged, cacheTags, DomainError, emit } from "@cnote/core";
 import { prisma, toVectorLiteral, type Prisma, type Tx } from "@cnote/db";
+import { bustListingCaches } from "./cache";
 import { getCategoryById, listCategories } from "./categories";
 import { isUuid, listingInclude, toListingView, type ListingRow } from "./mappers";
 import { assess } from "./moderation";
@@ -40,6 +41,81 @@ export async function getListingsByIds(ids: string[]): Promise<ListingView[]> {
   return ids.flatMap((id) => byId.get(id) ?? []);
 }
 
+const isLive = (l: ListingView) => l.status === "published" && l.moderationStatus === "approved";
+
+/**
+ * Cached, PUBLIC-ONLY reads for buyer surfaces (web, search, API). A listing that is not published+approved is
+ * never written to the cache and is simply absent from the result, so moderation state can't leak through it.
+ * Write paths hard-invalidate the `listing:<id>` tag after commit; TTL is the safety net.
+ */
+export async function getPublicListingsByIds(ids: string[]): Promise<ListingView[]> {
+  const valid = [...new Set(ids.filter(isUuid))];
+  if (!valid.length) return [];
+  const byId = await cachedManyTagged<ListingView>(valid, {
+    prefix: "catalogue:listing:v1",
+    tags: (id) => [cacheTags.listing(id)],
+    ttlSeconds: 300,
+    staleSeconds: 600,
+    load: async (missing) => new Map((await getListingsByIds(missing)).filter(isLive).map((l) => [l.id, l])),
+  });
+  return ids.flatMap((id) => byId.get(id) ?? []);
+}
+
+export async function getPublicListing(id: string): Promise<ListingView | null> {
+  return (await getPublicListingsByIds([id]))[0] ?? null;
+}
+
+/** Published + approved listings of one seller (manufacturer page). Cached; invalidated by any write to the seller's listings. */
+export async function listPublicSellerListings(sellerBusinessId: string): Promise<ListingView[]> {
+  if (!isUuid(sellerBusinessId)) return [];
+  return cachedTagged(
+    `catalogue:seller-listings:v1:${sellerBusinessId}`,
+    (v: ListingView[]) => [cacheTags.sellerListings(sellerBusinessId), ...v.map((l) => cacheTags.listing(l.id))],
+    300,
+    async () => (await listSellerListings(sellerBusinessId)).filter(isLive),
+    { staleSeconds: 600, softTags: [cacheTags.featured] },
+  );
+}
+
+export interface ListingIndexEntry {
+  id: string;
+  title: string;
+  categorySlug: string;
+  updatedAt: string;
+}
+
+/** Lightweight, stable-ordered index of live listings for sitemaps and static params. Cached 10 min (`sitemap` tag). */
+export async function listPublicListingIndex(opts: { offset: number; limit: number }): Promise<ListingIndexEntry[]> {
+  const offset = Math.max(0, Math.trunc(opts.offset));
+  const limit = Math.max(1, Math.min(10_000, Math.trunc(opts.limit)));
+  return cachedTagged(
+    `catalogue:index:v1:${offset}:${limit}`,
+    [cacheTags.sitemap],
+    600,
+    async () => {
+      const rows = await prisma.$queryRaw<{ id: string; title: string; slug: string; updated_at: Date }[]>`
+        SELECT l.id, l.title, c.slug, l.updated_at FROM listings l JOIN categories c ON c.id = l.category_id
+        WHERE l.status = 'published' AND l.moderation_status = 'approved' AND NOT c.prohibited
+        ORDER BY l.created_at DESC, l.id LIMIT ${limit} OFFSET ${offset}`;
+      return rows.map((r) => ({ id: r.id, title: r.title, categorySlug: r.slug, updatedAt: r.updated_at.toISOString() }));
+    },
+    { staleSeconds: 3600 },
+  );
+}
+
+export async function countPublicListings(): Promise<number> {
+  return cachedTagged(
+    "catalogue:index-count:v1",
+    [cacheTags.sitemap],
+    600,
+    async () => {
+      const [row] = await prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*)::bigint AS n FROM listings l JOIN categories c ON c.id = l.category_id WHERE l.status = 'published' AND l.moderation_status = 'approved' AND NOT c.prohibited`;
+      return Number(row?.n ?? 0);
+    },
+    { staleSeconds: 3600 },
+  );
+}
+
 export async function listSellerListings(sellerBusinessId: string): Promise<ListingView[]> {
   const rows = await prisma.listing.findMany({ where: { sellerBusinessId }, include: listingInclude, orderBy: { updatedAt: "desc" } });
   return rows.map(toListingView);
@@ -47,15 +123,23 @@ export async function listSellerListings(sellerBusinessId: string): Promise<List
 
 export async function listFeaturedListings(opts: { sort: "popular" | "new"; limit: number }): Promise<ListingView[]> {
   const limit = Math.max(1, Math.min(50, Math.trunc(opts.limit)));
-  // "popular" is a placeholder until engagement events exist: complete listings (price + MOQ + image) first, then recency.
-  const ids =
-    opts.sort === "new"
-      ? await prisma.$queryRaw<{ id: string }[]>`SELECT id FROM listings WHERE status = 'published' AND moderation_status = 'approved' ORDER BY created_at DESC LIMIT ${limit}`
-      : await prisma.$queryRaw<{ id: string }[]>`
-          SELECT id FROM listings WHERE status = 'published' AND moderation_status = 'approved'
-          ORDER BY (price_paise IS NOT NULL)::int + (moq IS NOT NULL)::int + (cardinality(image_urls) > 0)::int DESC, created_at DESC
-          LIMIT ${limit}`;
-  return getListingsByIds(ids.map((r) => r.id));
+  return cachedTagged(
+    `catalogue:featured:v1:${opts.sort}:${limit}`,
+    (v: ListingView[]) => [cacheTags.featured, ...v.map((l) => cacheTags.listing(l.id))],
+    120,
+    async () => {
+      // "popular" is a placeholder until engagement events exist: complete listings (price + MOQ + image) first, then recency.
+      const ids =
+        opts.sort === "new"
+          ? await prisma.$queryRaw<{ id: string }[]>`SELECT id FROM listings WHERE status = 'published' AND moderation_status = 'approved' ORDER BY created_at DESC LIMIT ${limit}`
+          : await prisma.$queryRaw<{ id: string }[]>`
+              SELECT id FROM listings WHERE status = 'published' AND moderation_status = 'approved'
+              ORDER BY (price_paise IS NOT NULL)::int + (moq IS NOT NULL)::int + (cardinality(image_urls) > 0)::int DESC, created_at DESC
+              LIMIT ${limit}`;
+      return (await getListingsByIds(ids.map((r) => r.id))).filter(isLive);
+    },
+    { staleSeconds: 600 },
+  );
 }
 
 function attrsOf(v: unknown): Record<string, string | number> {
@@ -153,6 +237,7 @@ export async function updateListing(sellerBusinessId: string, listingId: string,
     data.moderationReason = null;
   }
   const row = await prisma.listing.update({ where: { id: cur.id }, data, include: listingInclude });
+  await bustListingCaches(cur.id, cur.sellerBusinessId);
   return toListingView(row);
 }
 
@@ -193,6 +278,7 @@ async function runPublish(
     if (a.outcome === "approved" && !wasLive) await emit(tx, "ListingPublished", { type: "listing", id: cur.id }, { ...base, categoryId: updated.categoryId });
     return updated;
   });
+  await bustListingCaches(cur.id, cur.sellerBusinessId);
   return toListingView(row);
 }
 
@@ -203,6 +289,7 @@ export async function archiveListing(sellerBusinessId: string, listingId: string
     await tx.listing.update({ where: { id: cur.id }, data: { status: "archived" } });
     await emit(tx, "ListingArchived", { type: "listing", id: cur.id }, { listingId: cur.id, sellerBusinessId: cur.sellerBusinessId });
   });
+  await bustListingCaches(cur.id, cur.sellerBusinessId);
 }
 
 export async function resolveListingModeration(listingId: string, outcome: "approved" | "rejected", reason?: string): Promise<void> {
@@ -221,4 +308,5 @@ export async function resolveListingModeration(listingId: string, outcome: "appr
     await emit(tx, "ListingModerated", { type: "listing", id: cur.id }, { ...base, status: outcome, ...(reason ? { reason } : {}) });
     if (outcome === "approved") await emit(tx, "ListingPublished", { type: "listing", id: cur.id }, { ...base, categoryId: cur.categoryId });
   });
+  await bustListingCaches(cur.id, cur.sellerBusinessId);
 }

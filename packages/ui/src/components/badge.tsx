@@ -5,7 +5,7 @@ import { cn } from "../cn";
 const tones = {
   neutral: "bg-canvas text-muted border-line",
   brand: "bg-brand-50 text-brand-700 border-brand-100",
-  accent: "bg-accent-50 text-accent-600 border-accent-100",
+  accent: "bg-accent-50 text-accent-700 border-accent-100",
   success: "bg-green-50 text-success border-green-100",
   warning: "bg-amber-50 text-warning border-amber-100",
   danger: "bg-red-50 text-danger border-red-100",

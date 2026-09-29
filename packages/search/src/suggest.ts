@@ -1,4 +1,4 @@
-import { cached } from "@cnote/core";
+import { cachedTagged, cacheTags } from "@cnote/core";
 import { listCategories, suggestListingTitles } from "@cnote/catalogue";
 
 /** Matches the "Try asking" chips on the home page. */
@@ -18,7 +18,7 @@ export async function suggest(prefix: string, limit = 8): Promise<string[]> {
   const p = prefix.trim().toLowerCase().replace(/\s+/g, " ").slice(0, 50);
   const n = Math.max(1, Math.min(20, Math.trunc(limit)));
   if (!p) return EXAMPLE_QUERIES.slice(0, n);
-  return cached(`search:suggest:${n}:${p}`, 120, async () => {
+  return cachedTagged(`search:suggest:v2:${n}:${p}`, [cacheTags.search, cacheTags.categories], 300, async () => {
     const [cats, titles] = await Promise.all([listCategories(), suggestListingTitles(p, n)]);
     const all = [
       ...EXAMPLE_QUERIES.filter((q) => matches(q, p)),
@@ -27,5 +27,5 @@ export async function suggest(prefix: string, limit = 8): Promise<string[]> {
     ];
     const seen = new Set<string>();
     return all.filter((s) => (seen.has(s.toLowerCase()) ? false : (seen.add(s.toLowerCase()), true))).slice(0, n);
-  });
+  }, { staleSeconds: 1800 });
 }

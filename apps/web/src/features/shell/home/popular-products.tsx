@@ -1,48 +1,33 @@
-import Link from "next/link";
-import { LinkTabs, ProductCardSkeleton, Rail } from "@cnote/ui";
+import { ProductCardSkeleton, Rail } from "@cnote/ui";
 import type { ListingView } from "@cnote/catalogue";
 import { ListingCard } from "@/features/search/cards";
-import { loadFeatured } from "@/features/search/data";
+import { loadFeatured, loadRatings } from "@/features/search/data";
+import { RailSwitcher } from "./rail-switcher";
 
-export const RAILS = [
-  { id: "business", label: "For Your Business" },
-  { id: "trending", label: "Trending" },
-  { id: "new", label: "New Arrivals" },
-  { id: "best", label: "Best Selling" },
-] as const;
-export type RailId = (typeof RAILS)[number]["id"];
-
-export function parseRail(v: string | undefined): RailId {
-  return RAILS.some((r) => r.id === v) ? (v as RailId) : "business";
-}
-
-export function RailTabs({ active }: { active: RailId }) {
-  return (
-    <LinkTabs
-      label="Popular products"
-      linkComponent={Link}
-      items={RAILS.map((r) => ({ href: r.id === "business" ? "/#popular" : `/?rail=${r.id}#popular`, label: r.label, active: r.id === active }))}
-    />
-  );
-}
-
-/**
- * Rail → data mapping (Phase 1 has no per-buyer personalisation or sales counters):
- * business/best → catalogue "popular"; trending → the next window of "popular"; new → "new".
- */
-export async function PopularRail({ rail }: { rail: RailId }) {
-  const items: ListingView[] =
-    rail === "new" ? await loadFeatured("new", 8) : await loadFeatured("popular", 16).then((all) => (rail === "trending" && all.length > 8 ? all.slice(8, 16) : all.slice(0, 8)));
+function Cards({ items, ratings, priority }: { items: ListingView[]; ratings: Record<string, { average: number; count: number }>; priority?: boolean }) {
   if (!items.length) {
     return <p className="rounded-card border border-dashed border-line bg-surface px-4 py-10 text-center text-sm text-muted">Products will show up here as suppliers publish listings.</p>;
   }
   return (
     <Rail className="md:grid-cols-4 xl:grid-cols-8">
       {items.map((l, i) => (
-        <ListingCard key={l.id} listing={l} priority={i < 2} />
+        <ListingCard key={l.id} listing={l} rating={ratings[l.id]} priority={priority && i < 2} />
       ))}
     </Rail>
   );
+}
+
+/**
+ * Rail → data mapping (Phase 1 has no per-buyer personalisation or sales counters):
+ * business/best → catalogue "popular"; trending → the next window of "popular"; new → "new".
+ * Static, Redis + data-cache backed; only the tab switch is client-side.
+ */
+export async function PopularRails() {
+  const [popularAll, fresh] = await Promise.all([loadFeatured("popular", 16), loadFeatured("new", 8)]);
+  const popular = popularAll.slice(0, 8);
+  const trending = popularAll.length > 8 ? popularAll.slice(8, 16) : popularAll.slice(0, 8);
+  const ratings = await loadRatings([...popular, ...trending, ...fresh].map((l) => l.id));
+  return <RailSwitcher panels={{ popular: <Cards items={popular} ratings={ratings} priority />, trending: <Cards items={trending} ratings={ratings} />, new: <Cards items={fresh} ratings={ratings} /> }} />;
 }
 
 export function PopularRailSkeleton() {

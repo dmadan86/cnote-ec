@@ -48,11 +48,11 @@ export function SiteFooter() {
               {c.links.map((l) => (
                 <li key={l.label}>
                   {l.external ? (
-                    <a href={l.href} className="text-muted hover:text-brand-700 hover:underline">
+                    <a href={l.href} className="inline-flex min-h-8 items-center text-muted hover:text-brand-700 hover:underline">
                       {l.label}
                     </a>
                   ) : (
-                    <Link href={l.href} className="text-muted hover:text-brand-700 hover:underline">
+                    <Link href={l.href} className="inline-flex min-h-8 items-center text-muted hover:text-brand-700 hover:underline">
                       {l.label}
                     </Link>
                   )}
@@ -63,7 +63,10 @@ export function SiteFooter() {
         ))}
       </Container>
       <div className="border-t border-line py-4 text-center text-xs text-muted">
-        © {new Date().getFullYear()} {SITE_NAME}. Product data shown is sample data during development.
+        © {new Date().getFullYear()} {SITE_NAME}. Product data shown is sample data during development.{" "}
+        <a href="/llms.txt" className="inline-flex min-h-8 items-center underline hover:text-brand-700">
+          llms.txt
+        </a>
       </div>
     </footer>
   );

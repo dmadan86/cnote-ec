@@ -1,7 +1,7 @@
+"use client";
 import { LogOut, Store, User } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@cnote/ui";
-import { signOutAction } from "@cnote/next-kit";
 import { Popover } from "./popover";
 import { SELLER_APP_URL } from "./site";
 
@@ -11,7 +11,7 @@ export function AccountMenu({ name, email, isSeller }: { name: string | null; em
     <Popover
       align="right"
       panelClassName="w-64"
-      ariaLabel="Account menu"
+      ariaLabel={`Account menu for ${display}`}
       label={
         <span className="flex items-center gap-2">
           <Avatar name={display} size="sm" />
@@ -25,20 +25,20 @@ export function AccountMenu({ name, email, isSeller }: { name: string | null; em
       </div>
       <ul className="py-1 text-sm">
         <li>
-          <Link href="/buyer/enquiries" className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-brand-50">
+          <Link href="/buyer/enquiries" className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-600">
             <User className="size-4" aria-hidden /> My enquiries
           </Link>
         </li>
         {isSeller ? (
           <li>
-            <a href={SELLER_APP_URL} className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-brand-50">
+            <a href={SELLER_APP_URL} className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-600">
               <Store className="size-4" aria-hidden /> Seller dashboard
             </a>
           </li>
         ) : null}
         <li>
-          <form action={signOutAction}>
-            <button type="submit" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-brand-50">
+          <form method="post" action="/api/auth/signout">
+            <button type="submit" className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-600">
               <LogOut className="size-4" aria-hidden /> Sign out
             </button>
           </form>

@@ -9,14 +9,19 @@ import { worker as catalogue } from "@cnote/catalogue";
 import { consumeOnce, getJobQueue, relayOutbox, type JobTopic, type ModuleWorker } from "@cnote/core";
 import { worker as enquiry } from "@cnote/enquiry";
 import { worker as identity } from "@cnote/identity";
+import { worker as developer } from "@cnote/developer";
+import { worker as email } from "@cnote/email";
+import { worker as notifications } from "@cnote/notifications";
 import { worker as reviews } from "@cnote/reviews";
+import { cacheWorker } from "@cnote/search";
+import { seedDefaultTemplates } from "@cnote/templates";
 import { worker as wishlist } from "@cnote/wishlist";
 import { hostname } from "node:os";
 
 // No-op until SENTRY_DSN is set.
 Sentry.init(sentryOptions("worker", "nodejs"));
 
-const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist];
+const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, notifications, developer, email, cacheWorker];
 const consumer = `${hostname()}-${process.pid}`;
 let running = true;
 
@@ -34,6 +39,13 @@ async function loop(name: string, fn: () => Promise<unknown>, idleMs: number) {
 
 console.log(`[worker] starting ${consumer}: ${modules.map((m) => m.name).join(", ")}`);
 void loop("relay", () => relayOutbox(), 250);
+// Templates are registered at import time by email/notifications; make sure every key has a
+// published DB version before anything is sent (idempotent, never overwrites staff edits).
+await seedDefaultTemplates().catch((err) => {
+  console.error("[worker] template seed failed", err);
+  Sentry.captureException(err);
+});
+
 const queue = getJobQueue();
 for (const m of modules) {
   if (Object.keys(m.handlers).length) void loop(`consume:${m.name}`, () => consumeOnce(m.name, consumer, m.handlers), 0);

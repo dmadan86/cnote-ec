@@ -19,7 +19,7 @@ export function StarInput({ name = "rating", defaultValue = 0, error }: { name?:
             className="cursor-pointer rounded p-1 text-3xl leading-none has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-brand-600"
           >
             <input type="radio" name={name} value={n} checked={value === n} onChange={() => setValue(n)} required className="sr-only" aria-label={`${n} star${n === 1 ? "" : "s"}, ${LABELS[n - 1]}`} />
-            <span aria-hidden className={n <= shown ? "text-accent-500" : "text-line"}>★</span>
+            <span aria-hidden className={n <= shown ? "text-accent-600" : "text-line"}>★</span>
           </label>
         ))}
         <span aria-hidden className="ml-2 text-sm text-muted">{shown ? LABELS[shown - 1] : "Tap a star"}</span>

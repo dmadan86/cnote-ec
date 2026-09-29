@@ -11,7 +11,7 @@ export { signUpWithPassword, signInWithPassword, requestPasswordReset, resetPass
 export { googleAuthorizationUrl, completeGoogleSignIn, isGoogleConfigured } from "./google";
 export { refreshSession, getSession, signOut, signOutAllSessions, listAuthSessions } from "./sessions";
 export { requestPhoneOtp, verifyPhoneOtp } from "./otp";
-export { createBusiness, updateProfile, getTrustProfiles, listSellers, verifyGstin, listVerificationRecords } from "./business";
+export { createBusiness, updateProfile, getTrustProfiles, listSellers, listSellerIndex, bustSellerCaches, verifyGstin, listVerificationRecords } from "./business";
 export { hasConsent, setConsent, getConsents } from "./consent";
 export { exportPersonalData, erasePerson } from "./privacy";
 

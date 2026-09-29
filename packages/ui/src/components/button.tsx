@@ -3,7 +3,7 @@ import { cn } from "../cn";
 
 const variants = {
   primary: "bg-brand-600 text-white hover:bg-brand-700 focus-visible:outline-brand-600",
-  accent: "bg-accent-500 text-white hover:bg-accent-600 focus-visible:outline-accent-500",
+  accent: "bg-accent-700 text-white hover:bg-accent-800 focus-visible:outline-accent-700",
   outline: "border border-line bg-surface text-ink hover:bg-canvas",
   "outline-brand": "border border-brand-600 bg-surface text-brand-700 hover:bg-brand-50",
   ghost: "text-ink hover:bg-canvas",

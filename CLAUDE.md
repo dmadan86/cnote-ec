@@ -13,9 +13,12 @@ An AI-first B2B marketplace for Indian MSMEs, positioned against IndiaMART's bro
 pnpm monorepo (Node ≥ 22). Internal packages ship TypeScript source (no build step); `apps/web` transpiles them via `transpilePackages`.
 
 - `apps/web`: buyer marketplace (port 3000). `apps/seller`: seller onboarding + seller portal (port 3002). `apps/admin`: back office (port 3001). All three are Next.js 16 App Router apps, **deployed separately** (separate hosts, so auth cookies are host-scoped per app). **Next 16 has breaking changes vs. older docs** (async `cookies()`/`params`, `middleware` → `proxy.ts`, etc.). Read `apps/web/AGENTS.md` and `node_modules/next/dist/docs/` before writing Next code.
-- `apps/worker`: runs the outbox relay (Postgres → Redis Streams), each module's event handlers and scheduled jobs.
+- `apps/api`: public REST API (`/v1`, OpenAPI at `/openapi.json` for Apidog) + MCP server (`/mcp`), Hono on Node, port 3003, separately hosted. Authenticated by personal API keys (`@cnote/developer`: scoped per feature, expiry 1d/7d/30d/90d/1y/never, only the sha256 is stored). Docs in `docs/api/`.
+- `apps/worker`: runs the outbox relay, each module's event handlers (observers), work-queue consumers and scheduled jobs.
 - `packages/db`: Prisma 7 (driver adapter `@prisma/adapter-pg`) with a **multi-file schema, one file per module** in `prisma/schema/`. It also has migrations and the generated client (gitignored, created by `postinstall`).
-- `packages/core`: shared kernel: domain event catalogue + `emit()` + bus, Redis (`cached`, `rateLimit`), money (paise), `DomainError`, and the `ModuleWorker` type.
+- `packages/core`: shared kernel: domain event catalogue + `emit()`, the **transport factories** (`getEventTransport()` for pub/sub domain events, `getJobQueue()` for work queues with retries/backoff/dead letters; driver chosen by `QUEUE_DRIVER=redis|memory|kafka`, Kafka stubbed), Redis (`cached`, `rateLimit`), money (paise), `DomainError`, and `ModuleWorker` (`handlers` for events, `queues` for job topics, `jobs` for schedules). Job topics are typed by declaration-merging `JobTopics`.
+- `packages/templates` + `packages/email` + `packages/notifications`: email/notification content lives in the **database** and is edited in the admin template studio (rich text, images, layouts with header/footer, versions, publish/rollback). Code only registers template keys + variables + defaults (`defineTemplates`). Never hard-code user-facing email/notification copy in the sending path. Notifications observe domain events and fan out through the job queue, honouring preferences and marketing consent.
+- `packages/observability`: SDK-free Sentry options with DPDP-safe PII scrubbing; every app/worker calls `Sentry.init(sentryOptions(app, runtime))`. No-op without a DSN. Microsoft Clarity runs on the buyer web only, after analytics consent.
 - `packages/ui`: shared React UI library plus design tokens. See `DESIGN.md`.
 - `packages/next-kit`: Next.js glue shared by the three apps: cookie sessions over `@cnote/identity`, `authRoute` (mount at `src/app/api/auth/[action]/route.ts`), `createAuthProxy` (`src/proxy.ts`), auth server actions and client forms, and `runAction`/`errorResponse`. Each app's pages stay thin: they compose module functions and `@cnote/ui`.
 - `packages/admin`: staff RBAC (roles → privileges defined in code in `rbac.ts`) and the append-only `AdminAuditLog`. Every admin mutation goes through `audited()`. Grant access with `pnpm admin:grant <email> <role...>`.
@@ -35,6 +38,8 @@ pnpm db:migrate                            # apply migrations (prisma migrate de
 pnpm db:seed                               # dummy categories, sellers, products
 pnpm dev                                   # buyer web on :3000
 pnpm dev:seller | pnpm dev:admin           # seller app :3002, admin app :3001
+pnpm --filter @cnote/api dev               # public API + MCP on :3003
+pnpm --filter @cnote/api openapi           # regenerate docs/api/openapi.json
 pnpm worker                                # outbox relay + handlers + jobs (needed for async flows)
 
 pnpm typecheck | pnpm lint | pnpm test | pnpm build   # all workspaces
@@ -90,6 +95,17 @@ Keep matching synchronous and under 2s. Cataloguing and extraction run as async 
 - Voice notes are personal data, so they need consent and a retention policy.
 - Run a prohibited-category classifier on every listing, including AI-generated ones (ADR-003/004).
 - Hold no card data in Phase 1.
+
+**Accessibility is a release blocker for the buyer web.** `apps/web`, and the `@cnote/ui` components it renders, must meet **WCAG 2.2 AA**:
+- keyboard-operable with visible focus and no traps;
+- semantic landmarks and heading order;
+- a label for every control, with errors announced via `aria-describedby`/`aria-live`;
+- colour contrast of at least 4.5:1;
+- targets of at least 24px (44px on mobile);
+- `prefers-reduced-motion` respected;
+- no information conveyed by colour alone.
+
+Prefer `@cnote/ui` primitives, which carry the correct ARIA, over hand-rolled widgets. The `jsx-a11y` lint rules and the axe-core e2e scans (`pnpm test:a11y`) gate CI for `apps/web`. The seller and admin apps are not held to this gate.
 
 **Bharat-native UX (ADR-004).** Build for vernacular and Hinglish-first, low bandwidth and mobile first. Seller onboarding is WhatsApp-first; the web is the tertiary path. Search must handle mixed-script and transliterated queries.
 

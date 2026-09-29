@@ -7,11 +7,11 @@ import { buttonClasses, Container, EmptyState, PageHeader } from "@cnote/ui";
 import { parseCompareIds } from "@cnote/wishlist";
 import { CompareTable } from "@/features/compare/compare-table";
 import { loadCompareListings, readCompareIds } from "@/features/compare/state";
-import { safe } from "@/features/search/data";
+import { loadRatings, safe } from "@/features/search/data";
 import { firstParam } from "@/features/search/format";
 import { loadSavedState } from "@/features/wishlist/saved";
 
-export const metadata: Metadata = { title: "Compare products", robots: { index: false } };
+export const metadata: Metadata = { title: "Compare products", robots: { index: false, follow: false } };
 
 export default async function ComparePage(props: PageProps<"/compare">) {
   const sp = await props.searchParams;
@@ -25,12 +25,12 @@ export default async function ComparePage(props: PageProps<"/compare">) {
   const listings: ListingView[] = all.filter((l) => l.category.id === categoryId);
   const skipped = all.length - listings.length;
 
-  const [category, sellers, { signedIn, saved }] = await Promise.all([
+  const [category, sellers, { signedIn, saved }, ratings] = await Promise.all([
     listings[0] ? safe("catalogue.getCategoryBySlug", () => getCategoryBySlug(listings[0]!.category.slug), null) : null,
     safe("identity.getTrustProfiles", () => getTrustProfiles([...new Set(listings.map((l) => l.sellerBusinessId))]), new Map<string, TrustProfile>()),
     loadSavedState(),
+    loadRatings(listings.map((l) => l.id)),
   ]);
-  // TODO(reviews): show a rating row via getRatingSummaries(listingIds) from @cnote/reviews once it ships.
 
   return (
     <Container className="py-6 lg:py-8">
@@ -62,6 +62,7 @@ export default async function ComparePage(props: PageProps<"/compare">) {
             signedIn={signedIn}
             shared={!!shared}
             ids={listings.map((l) => l.id)}
+            ratings={ratings}
           />
         </div>
       ) : null}

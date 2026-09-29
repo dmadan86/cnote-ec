@@ -19,6 +19,7 @@
     "@cnote/email": "workspace:*",
     "@cnote/enquiry": "workspace:*",
     "@cnote/identity": "workspace:*",
+    "@cnote/leadgen": "workspace:*",
     "@cnote/notifications": "workspace:*",
     "@cnote/observability": "workspace:*",
     "@cnote/reviews": "workspace:*",

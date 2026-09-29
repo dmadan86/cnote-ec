@@ -21,11 +21,16 @@
     "db:check": "pnpm --filter @cnote/db migrate:check",
     "dev:seller": "pnpm --filter @cnote/seller-app dev",
     "dev:admin": "pnpm --filter @cnote/admin-app dev",
-    "admin:grant": "pnpm --filter @cnote/admin grant"
+    "admin:grant": "pnpm --filter @cnote/admin grant",
+    "test:coverage": "pnpm -r --if-present exec vitest run --coverage"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22",
+    "@vitest/coverage-v8": "^4.1.11",
     "dotenv": "^17.4.2",
+    "fast-check": "^4.10.2",
     "tsx": "^4.20.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.0"

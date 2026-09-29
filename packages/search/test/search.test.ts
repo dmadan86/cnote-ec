@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const retrieve = vi.fn();
-vi.mock("@cnote/core", () => ({ cached: async (_k: string, _t: number, load: () => Promise<unknown>) => load() }));
+vi.mock("@cnote/core", () => ({
+  cached: async (_k: string, _t: number, load: () => Promise<unknown>) => load(),
+  cachedTagged: async (_k: string, _tags: unknown, _t: number, load: () => Promise<unknown>) => load(),
+  cacheTags: { search: "search", categories: "categories", category: (s: string) => `category:${s}`, listing: (i: string) => `listing:${i}`, seller: (i: string) => `seller:${i}` },
+}));
 vi.mock("@cnote/ai", () => ({ embed: async () => ({ vectors: [[0.1]], version: "v" }) }));
 vi.mock("@cnote/catalogue", () => ({
   getCategoryBySlug: async () => null,
   retrieveListings: (o: unknown) => retrieve(o),
-  getListingsByIds: async (ids: string[]) => ids.map((id) => ({ id })),
+  getPublicListingsByIds: async (ids: string[]) => ids.map((id) => ({ id })),
   listCategories: async () => [],
   suggestListingTitles: async () => [],
 }));

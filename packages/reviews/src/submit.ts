@@ -4,6 +4,7 @@ import { prisma } from "@cnote/db";
 import { randomUUID } from "node:crypto";
 import { COMMENTS_PER_HOUR, REVIEWS_PER_DAY } from "./constants";
 import { authorStatus, screenText } from "./screen";
+import { bustReviewCaches } from "./cache";
 import { recomputeSummary } from "./summary";
 import type { Actor, MyComment, MyReview, UgcStatus } from "./types";
 import { commentInput, replyInput, reviewInput, type CommentInput, type ReviewInput } from "./validate";
@@ -61,6 +62,7 @@ export async function submitReview(actor: Actor, listingId: string, rawInput: Re
       });
       return saved;
     });
+    await bustReviewCaches(listingId); // an edited approved review leaves the public list/aggregate until re-approved
     return toMyReview(row);
   } catch (e) {
     if (isUniqueViolation(e)) throw new DomainError("conflict", "You've already reviewed this product. Refresh to edit your review.");
@@ -115,6 +117,7 @@ export async function replyToReview(actor: Actor, reviewId: string, rawBody: str
     where: { id: review.id },
     data: { sellerReply: body, sellerReplyStatus: screen.status, sellerRepliedAt: new Date() },
   });
+  await bustReviewCaches(review.listingId); // a replaced reply is hidden until re-approved
 }
 
 /** Seller reply in a question thread (isSeller=true, pending). Convenience over submitComment(parentId). */

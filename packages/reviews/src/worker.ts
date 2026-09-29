@@ -1,6 +1,7 @@
 import type { ModuleWorker } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { createHash } from "node:crypto";
+import { bustAllReviewCaches } from "./cache";
 import { TOMBSTONE_PERSON_ID } from "./constants";
 
 /**
@@ -33,7 +34,10 @@ export async function anonymisePerson(personId: string): Promise<void> {
 export const worker: ModuleWorker = {
   name: "reviews",
   handlers: {
-    DataErasureRequested: async (event) => anonymisePerson(event.payload.personId),
+    DataErasureRequested: async (event) => {
+      await anonymisePerson(event.payload.personId);
+      await bustAllReviewCaches();
+    },
     // Listing pages 404 once archived, so nothing to hide; kept explicit to document the decision.
     ListingArchived: async () => {},
   },

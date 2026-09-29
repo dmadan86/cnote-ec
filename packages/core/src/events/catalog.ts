@@ -15,6 +15,7 @@ export interface DomainEventPayloads {
   ListingModerated: { listingId: string; sellerBusinessId: string; status: "approved" | "review" | "rejected"; reason?: string };
   ListingArchived: { listingId: string; sellerBusinessId: string };
   ListingImageUploaded: { imageId: string; listingId: string; sellerBusinessId: string; aiVerdict: string | null };
+  ListingImageProcessed: { imageId: string; listingId: string; variants: number };
   ListingImageModerated: { imageId: string; listingId: string; sellerBusinessId: string; status: "approved" | "rejected"; moderatedBy: string };
   // enquiry & matching
   EnquiryCreated: { enquiryId: string; buyerBusinessId: string; categoryId: string | null };
@@ -36,6 +37,14 @@ export interface DomainEventPayloads {
   // wishlist (demand signal for sellers/search; no PII beyond ids)
   WishlistItemAdded: { wishlistId: string; personId: string; listingId: string };
   WishlistItemRemoved: { wishlistId: string; personId: string; listingId: string };
+  // storefronts (seller mini-sites)
+  StorefrontPublished: { storefrontId: string; sellerBusinessId: string; slug: string; versionId: string };
+  StorefrontVersionReviewed: { storefrontId: string; sellerBusinessId: string; versionId: string; status: "published" | "rejected"; reviewedBy: string };
+  StorefrontSuspended: { storefrontId: string; sellerBusinessId: string; reason: string };
+  StorefrontDomainStatusChanged: { domainId: string; storefrontId: string; sellerBusinessId: string; hostname: string; from: string; to: string; error: string | null };
+  // lead generation (buyer unlock funnel)
+  LeadCaptureVerified: { captureId: string; personId: string; trigger: string; unlock: string; listingId: string | null; isNewPerson: boolean };
+  LeadCaptureConverted: { captureId: string; personId: string; trigger: string; enquiryId: string | null };
   // billing
   CreditsGranted: { businessId: string; amount: number; reason: string; expiresAt: string };
   CreditConsumed: { businessId: string; txnId: string; refType: string; refId: string };
@@ -59,6 +68,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   ListingArchived: 1,
   ListingImageUploaded: 1,
   ListingImageModerated: 1,
+  ListingImageProcessed: 1,
   EnquiryCreated: 1,
   EnquiryScored: 1,
   LeadMatched: 1,
@@ -76,6 +86,12 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   CommentModerated: 1,
   WishlistItemAdded: 1,
   WishlistItemRemoved: 1,
+  StorefrontPublished: 1,
+  StorefrontVersionReviewed: 1,
+  StorefrontSuspended: 1,
+  StorefrontDomainStatusChanged: 1,
+  LeadCaptureVerified: 1,
+  LeadCaptureConverted: 1,
   CreditsGranted: 1,
   CreditConsumed: 1,
   CreditRefunded: 1,

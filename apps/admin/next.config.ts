@@ -4,7 +4,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Workspace packages ship TypeScript source.
   transpilePackages: ["@cnote/templates", "@cnote/email", "@cnote/notifications", "@cnote/developer", "@cnote/observability", "@cnote/media", "@cnote/reviews", "@cnote/next-kit", "@cnote/admin", "@cnote/ui", "@cnote/core", "@cnote/ai", "@cnote/identity", "@cnote/catalogue", "@cnote/billing", "@cnote/enquiry", "@cnote/search"],
-  serverExternalPackages: ["@cnote/db", "@prisma/client", "@prisma/adapter-pg", "pg", "ioredis"],
+  serverExternalPackages: ["juice", "sanitize-html", "mustache", "@cnote/db", "@prisma/client", "@prisma/adapter-pg", "pg", "ioredis"],
 };
 
 // Source-map upload + release tagging only when Sentry build credentials are present; the runtime

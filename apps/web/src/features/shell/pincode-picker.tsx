@@ -1,7 +1,6 @@
 "use client";
 import { MapPin } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Button, Input } from "@cnote/ui";
 import { Popover } from "./popover";
 import { PINCODE_COOKIE } from "./site";
@@ -12,10 +11,21 @@ function writePincodeCookie(pin: string | null) {
     : `${PINCODE_COOKIE}=; path=/; max-age=0; samesite=lax`;
 }
 
+const noopSubscribe = () => () => undefined;
+function readCookiePin(): string | null {
+  const m = document.cookie.match(new RegExp(`(?:^|; )${PINCODE_COOKIE}=(\\d{6})`));
+  return m ? m[1]! : null;
+}
+
 /** "Deliver to" picker. Stores a 6-digit pincode in a (non-httpOnly, non-sensitive) cookie. */
-export function PincodePicker({ initial }: { initial: string | null }) {
-  const router = useRouter();
-  const [value, setValue] = useState(initial ?? "");
+export function PincodePicker() {
+  // The header is static/cached, so the pincode is read from the cookie on the client (null while hydrating).
+  const cookiePin = useSyncExternalStore(noopSubscribe, readCookiePin, () => null);
+  const [override, setOverride] = useState<string | null | undefined>(undefined);
+  const initial = override === undefined ? cookiePin : override;
+  const [draft, setDraft] = useState<string | null>(null);
+  const value = draft ?? initial ?? "";
+  const setValue = (v: string) => setDraft(v);
   const [error, setError] = useState<string | null>(null);
 
   function save(pin: string | null, close: () => void) {
@@ -25,16 +35,16 @@ export function PincodePicker({ initial }: { initial: string | null }) {
     }
     setError(null);
     writePincodeCookie(pin);
-    if (!pin) setValue("");
+    setOverride(pin);
+    setDraft(pin ? null : "");
     close();
-    router.refresh();
   }
 
   return (
     <Popover
       align="right"
       chevron
-      ariaLabel="Choose delivery pincode"
+      ariaLabel={`Deliver to ${initial ?? "India"}, change delivery pincode`}
       buttonClassName="text-left leading-tight"
       panelClassName="w-72 p-4"
       label={

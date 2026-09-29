@@ -16,7 +16,7 @@ export async function CategoryGrid() {
     <ul className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-5 md:overflow-visible md:px-0 lg:grid-cols-7 xl:grid-cols-[repeat(13,minmax(0,1fr))]">
       {categories.map((c, i) => (
         <li key={c.id} className="md:w-auto">
-          <Link href={`/categories/${c.slug}`} className={TILE}>
+          <Link href={`/c/${c.slug}`} className={TILE}>
             <span className={`inline-flex size-11 items-center justify-center rounded-full ${TINTS[i % TINTS.length]}`}>
               <CategoryIcon name={c.icon} className="size-6" />
             </span>

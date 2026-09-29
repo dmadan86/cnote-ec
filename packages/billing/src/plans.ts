@@ -1,5 +1,5 @@
 import { prisma } from "@cnote/db";
-import { DomainError } from "@cnote/core";
+import { cachedTagged, cacheTags, DomainError, invalidateTags } from "@cnote/core";
 import type { PlanView } from "./types";
 
 const DEFAULT_PLANS = [
@@ -26,6 +26,7 @@ export async function seedPlans(): Promise<void> {
       update: { name: p.name, monthlyPricePaise: p.monthlyPricePaise, monthlyCredits: p.monthlyCredits, features: p.features, sortOrder: p.sortOrder },
     });
   }
+  await invalidateTags([cacheTags.plans]);
 }
 
 type PlanRow = { code: string; name: string; monthlyPricePaise: bigint; monthlyCredits: number; features: unknown };
@@ -39,7 +40,12 @@ export function toPlanView(p: PlanRow): PlanView {
   };
 }
 
+/** Public plan catalogue (pricing pages, onboarding). Cached 10 min + SWR; `seedPlans` invalidates. */
 export async function listPlans(): Promise<PlanView[]> {
+  return cachedTagged("billing:plans:v1", [cacheTags.plans], 600, loadPlans, { staleSeconds: 3600 });
+}
+
+async function loadPlans(): Promise<PlanView[]> {
   let rows = await prisma.plan.findMany({ orderBy: { sortOrder: "asc" } });
   if (rows.length === 0) {
     await seedPlans();

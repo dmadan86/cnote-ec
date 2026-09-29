@@ -16,12 +16,13 @@ UI/UX system for the marketplace. The visual target is `docs/design/home-referen
 |---|---|---|
 | `brand-600` / `700` | `#6d3ff0` / `#5b2fd6` | Primary actions, links, active tabs, "Join for Free" |
 | `brand-50` / `100` | tints | Hero wash, selected chips, info surfaces |
-| `accent-500` / `600` | `#f97316` / `#ea580c` | **Quote/RFQ CTAs only** ("Request Quote"), verified-supplier ticks |
+| `accent-500` / `600` | `#f97316` / `#ea580c` | Decorative accent only (icons, bars, stars). Below AA for text on white |
+| `accent-700` / `800` | `#c2410c` / `#9a3412` | **Quote/RFQ CTAs** ("Request Quote", white text 5.2:1) and accent text |
 | `accent-50` | tint | Quote promo panel background |
-| `ink` / `muted` | `#111827` / `#6b7280` | Body text / secondary text |
+| `ink` / `muted` | `#111827` / `#596272` | Body text / secondary text |
 | `line` | `#e5e7eb` | Borders, dividers |
 | `canvas` / `surface` | `#f8f9fc` / `#fff` | Page background / cards |
-| `success` `warning` `danger` | green / amber / red | Status, intent score bands, errors |
+| `success` `warning` `danger` | `#15803d` / `#b45309` / `#b91c1c` (AA text on white and on their -50 tints) | Status, intent score bands, errors |
 | `radius-card` | `0.875rem` | Cards, panels, product tiles |
 
 - **Buttons** are pill-shaped (`rounded-full`). **Inputs** use `rounded-lg`.
@@ -94,7 +95,10 @@ The following are exported from `@cnote/ui`: `Button` / `buttonClasses`, `Card*`
 
 ## Accessibility and performance
 
-- WCAG AA contrast. Text on `brand-600` and `accent-500` is white and bold; don't use `accent-500` for body text.
+**WCAG 2.2 AA is mandatory for the buyer web (`apps/web`), not a nice-to-have.** A web change that regresses accessibility does not ship. Automated checks (jsx-a11y lint, axe-core scans in CI) catch the basics, and a keyboard-plus-screen-reader walkthrough of new buyer flows catches the rest. The seller and admin apps follow the same components but aren't gated.
+
+
+- WCAG AA contrast. Text on `brand-600` and `accent-700` is white; `accent-500` is decorative only and never carries text.
 - All interactive elements are reachable by keyboard with visible `focus-visible` outlines. Icons get `aria-hidden` and buttons get text labels.
 - Target 44px touch areas on mobile.
 - Pages must be usable on 3G:

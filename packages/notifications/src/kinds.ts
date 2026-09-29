@@ -1,0 +1,361 @@
+// Observer registry: each NotificationKind observes one domain event (ADR-007 event log), resolves
+// recipients (per PERSON) and carries default template content. Content is edited by staff in the
+// DB (@cnote/templates); the defaults here only seed the first version and act as a last-resort
+// fallback. Never build message strings in the sending path.
+import type { DomainEvent, DomainEventType } from "@cnote/core";
+import { BADGE_THRESHOLD } from "@cnote/identity";
+import { defineTemplates, type TemplateDefinition, type TemplateVariable } from "@cnote/templates";
+import type { Directory } from "./recipients";
+import type { NotificationCategory, NotificationKind, Recipient } from "./types";
+
+const v = (name: string, description: string, example: string): TemplateVariable => ({ name, description, example });
+const RECIPIENT_NAME = v("recipientName", "Recipient's name (may be empty)", "Asha");
+const HREF = v("href", "Absolute link to the relevant page", "https://example.com/leads");
+
+const inr = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+
+async function membersOf(dir: Directory, businessId: string, opts?: { ownersOnly?: boolean }) {
+  return dir.businessMembers(businessId, opts);
+}
+
+function fan(personIds: string[], base: Omit<Recipient, "personId">): Recipient[] {
+  return [...new Set(personIds)].map((personId) => ({ ...base, personId }));
+}
+
+function kind<E extends DomainEventType>(k: NotificationKind<E>): NotificationKind {
+  return k as unknown as NotificationKind;
+}
+
+export const KINDS: NotificationKind[] = [
+  kind({
+    key: "lead.matched",
+    name: "New lead matched",
+    description: "A buyer requirement was matched exclusively to this seller (2h to respond).",
+    category: "leads",
+    app: "seller",
+    event: "LeadMatched",
+    variables: [v("enquiryTitle", "Buyer requirement title", "500 kg cotton yarn"), v("intentScore", "Buyer intent score, 0-100", "82"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "New lead: {{enquiryTitle}} — intent {{intentScore}}", body: "This lead is matched exclusively to you. Respond within 2 hours to accept it." },
+      email: {
+        subject: "New lead: {{enquiryTitle}}",
+        body: "Hi {{recipientName}},\n\nYou have a new exclusive lead: {{enquiryTitle}} (intent score {{intentScore}}).\nRespond within 2 hours or it moves to the next seller.\n\nView the lead: {{href}}",
+      },
+    },
+    async resolve(e: DomainEvent<"LeadMatched">, dir) {
+      const [enq, people] = await Promise.all([dir.enquiry(e.payload.enquiryId), membersOf(dir, e.payload.sellerBusinessId)]);
+      return fan(people, {
+        businessId: e.payload.sellerBusinessId,
+        vars: { enquiryTitle: enq?.title ?? "a new requirement", intentScore: enq?.intentScore ?? "n/a" },
+        href: "/leads",
+      });
+    },
+  }),
+  kind({
+    key: "lead.accepted",
+    name: "Seller accepted your requirement",
+    description: "A seller accepted the buyer's requirement and a conversation is open.",
+    category: "leads",
+    app: "web",
+    event: "LeadAccepted",
+    variables: [v("sellerName", "Accepting seller", "Sharma Textiles"), v("enquiryTitle", "Buyer requirement title", "500 kg cotton yarn"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "{{sellerName}} accepted your requirement", body: "{{sellerName}} can supply \"{{enquiryTitle}}\". Open the conversation to discuss details and get a quote." },
+      email: {
+        subject: "{{sellerName}} accepted your requirement",
+        body: "Hi {{recipientName}},\n\n{{sellerName}} accepted your requirement \"{{enquiryTitle}}\".\n\nOpen the conversation: {{href}}",
+      },
+    },
+    async resolve(e: DomainEvent<"LeadAccepted">, dir) {
+      const [enq, sellerName] = await Promise.all([dir.enquiry(e.payload.enquiryId), dir.businessName(e.payload.sellerBusinessId)]);
+      if (!enq) return [];
+      return fan(await membersOf(dir, enq.buyerBusinessId), {
+        businessId: enq.buyerBusinessId,
+        vars: { sellerName: sellerName ?? "A seller", enquiryTitle: enq.title },
+        href: `/buyer/enquiries/${e.payload.enquiryId}`,
+      });
+    },
+  }),
+  kind({
+    key: "message.received",
+    name: "New message",
+    description: "The other party sent a message in a conversation.",
+    category: "messages",
+    app: "web",
+    event: "MessageSent",
+    variables: [v("senderName", "Business that sent the message", "Sharma Textiles"), v("enquiryTitle", "Requirement the conversation is about", "500 kg cotton yarn"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "New message from {{senderName}}", body: "About \"{{enquiryTitle}}\"." },
+      email: { subject: "New message from {{senderName}}", body: "Hi {{recipientName}},\n\n{{senderName}} sent you a message about \"{{enquiryTitle}}\".\n\nRead and reply: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"MessageSent">, dir) {
+      const c = await dir.conversation(e.payload.conversationId);
+      if (!c) return [];
+      const sender = e.payload.senderPersonId;
+      const sellerSide = await membersOf(dir, c.sellerBusinessId);
+      if (sellerSide.includes(sender)) {
+        const buyerSide = await membersOf(dir, c.buyerBusinessId);
+        return fan(buyerSide.filter((p) => p !== sender), {
+          businessId: c.buyerBusinessId, app: "web",
+          vars: { senderName: c.sellerName, enquiryTitle: c.enquiryTitle }, href: `/conversations/${e.payload.conversationId}`,
+        });
+      }
+      return fan(sellerSide.filter((p) => p !== sender), {
+        businessId: c.sellerBusinessId, app: "seller",
+        vars: { senderName: c.buyerName, enquiryTitle: c.enquiryTitle }, href: `/conversations/${e.payload.conversationId}`,
+      });
+    },
+  }),
+  kind({
+    key: "quote.received",
+    name: "New quote",
+    description: "A seller sent the buyer a quote.",
+    category: "messages",
+    app: "web",
+    event: "QuoteSent",
+    variables: [v("sellerName", "Quoting seller", "Sharma Textiles"), v("price", "Unit price", "₹120"), v("quantity", "Quantity quoted", "500"), v("enquiryTitle", "Requirement", "500 kg cotton yarn"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "{{sellerName}} sent you a quote", body: "{{price}} per unit for {{quantity}} units — \"{{enquiryTitle}}\"." },
+      email: { subject: "{{sellerName}} sent you a quote", body: "Hi {{recipientName}},\n\n{{sellerName}} quoted {{price}} per unit for {{quantity}} units against \"{{enquiryTitle}}\".\n\nReview the quote: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"QuoteSent">, dir) {
+      const c = await dir.conversation(e.payload.conversationId);
+      if (!c) return [];
+      return fan(await membersOf(dir, c.buyerBusinessId), {
+        businessId: c.buyerBusinessId,
+        vars: { sellerName: c.sellerName, price: inr(e.payload.pricePaise), quantity: e.payload.quantity, enquiryTitle: c.enquiryTitle },
+        href: `/conversations/${e.payload.conversationId}`,
+      });
+    },
+  }),
+  kind({
+    key: "enquiry.under_review",
+    name: "Requirement under review",
+    description: "The buyer's requirement was held for a quick human check before matching.",
+    category: "leads",
+    app: "web",
+    event: "EnquiryScored",
+    variables: [v("enquiryTitle", "Requirement", "500 kg cotton yarn"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "Your requirement is under review", body: "\"{{enquiryTitle}}\" is being checked by our team. We will send it to sellers as soon as it is cleared." },
+      email: { subject: "Your requirement is under review", body: "Hi {{recipientName}},\n\nYour requirement \"{{enquiryTitle}}\" is being checked by our team. We will send it to sellers as soon as it is cleared.\n\nStatus: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"EnquiryScored">, dir) {
+      if (!e.payload.needsReview) return [];
+      const enq = await dir.enquiry(e.payload.enquiryId);
+      if (!enq) return [];
+      return fan([enq.buyerPersonId], { businessId: enq.buyerBusinessId, vars: { enquiryTitle: enq.title }, href: `/buyer/enquiries/${e.payload.enquiryId}` });
+    },
+  }),
+  kind({
+    key: "listing.rejected",
+    name: "Listing not approved",
+    description: "A listing was rejected in moderation.",
+    category: "listings",
+    app: "seller",
+    event: "ListingModerated",
+    variables: [v("listingTitle", "Listing title", "Cotton yarn 40s"), v("reason", "Moderation reason", "Blurry photos"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "Listing not approved: {{listingTitle}}", body: "Reason: {{reason}}. Edit the listing and resubmit." },
+      email: { subject: "Your listing was not approved", body: "Hi {{recipientName}},\n\n\"{{listingTitle}}\" was not approved. Reason: {{reason}}.\n\nEdit and resubmit: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"ListingModerated">, dir) {
+      if (e.payload.status !== "rejected") return [];
+      const [title, people] = await Promise.all([dir.listingTitle(e.payload.listingId), membersOf(dir, e.payload.sellerBusinessId)]);
+      return fan(people, {
+        businessId: e.payload.sellerBusinessId,
+        vars: { listingTitle: title ?? "Your listing", reason: e.payload.reason ?? "See the listing for details" },
+        href: `/listings/${e.payload.listingId}/edit`,
+      });
+    },
+  }),
+  kind({
+    key: "listing.image_rejected",
+    name: "Product image not approved",
+    description: "A product image was rejected in moderation.",
+    category: "listings",
+    app: "seller",
+    event: "ListingImageModerated",
+    variables: [v("listingTitle", "Listing title", "Cotton yarn 40s"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "An image on {{listingTitle}} was not approved", body: "Upload a clearer image so buyers can see your product." },
+      email: { subject: "A product image was not approved", body: "Hi {{recipientName}},\n\nAn image on \"{{listingTitle}}\" was not approved.\n\nUpdate images: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"ListingImageModerated">, dir) {
+      if (e.payload.status !== "rejected") return [];
+      const [title, people] = await Promise.all([dir.listingTitle(e.payload.listingId), membersOf(dir, e.payload.sellerBusinessId)]);
+      return fan(people, { businessId: e.payload.sellerBusinessId, vars: { listingTitle: title ?? "your listing" }, href: `/listings/${e.payload.listingId}/edit` });
+    },
+  }),
+  kind({
+    key: "review.moderated",
+    name: "Your review was reviewed",
+    description: "Tells a review author whether their review was published.",
+    category: "reviews",
+    app: "web",
+    event: "ReviewModerated",
+    variables: [v("listingTitle", "Product", "Cotton yarn 40s"), v("outcome", "approved / not approved", "approved"), v("note", "Moderator's note (may be empty)", ""), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "Your review of {{listingTitle}} was {{outcome}}", body: "{{note}}" },
+      email: { subject: "Your review was {{outcome}}", body: "Hi {{recipientName}},\n\nYour review of \"{{listingTitle}}\" was {{outcome}}. {{note}}\n\nSee it: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"ReviewModerated">, dir) {
+      const [r, title] = await Promise.all([dir.review(e.payload.reviewId), dir.listingTitle(e.payload.listingId)]);
+      if (!r) return [];
+      return fan([r.authorPersonId], {
+        vars: { listingTitle: title ?? "the product", outcome: e.payload.status === "approved" ? "approved" : "not approved", note: r.moderationNote ?? "" },
+        href: `/products/${e.payload.listingId}`,
+      });
+    },
+  }),
+  kind({
+    key: "review.received",
+    name: "New review on your product",
+    description: "A buyer's review was approved and is now public.",
+    category: "reviews",
+    app: "seller",
+    event: "ReviewModerated",
+    variables: [v("listingTitle", "Product", "Cotton yarn 40s"), v("rating", "Stars out of 5", "4"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "New {{rating}}-star review on {{listingTitle}}", body: "Reply to it to show buyers you are responsive." },
+      email: { subject: "New {{rating}}-star review on {{listingTitle}}", body: "Hi {{recipientName}},\n\n\"{{listingTitle}}\" received a {{rating}}-star review.\n\nRead and reply: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"ReviewModerated">, dir) {
+      if (e.payload.status !== "approved") return [];
+      const [title, people] = await Promise.all([dir.listingTitle(e.payload.listingId), membersOf(dir, e.payload.sellerBusinessId)]);
+      return fan(people, { businessId: e.payload.sellerBusinessId, vars: { listingTitle: title ?? "your product", rating: e.payload.rating }, href: "/reviews" });
+    },
+  }),
+  kind({
+    key: "comment.moderated",
+    name: "Your question or reply was reviewed",
+    description: "Tells a comment author whether it was published.",
+    category: "reviews",
+    app: "web",
+    event: "CommentModerated",
+    variables: [v("listingTitle", "Product", "Cotton yarn 40s"), v("outcome", "approved / not approved", "approved"), v("note", "Moderator's note (may be empty)", ""), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "Your comment on {{listingTitle}} was {{outcome}}", body: "{{note}}" },
+      email: { subject: "Your comment was {{outcome}}", body: "Hi {{recipientName}},\n\nYour comment on \"{{listingTitle}}\" was {{outcome}}. {{note}}\n\nSee it: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"CommentModerated">, dir) {
+      const [c, title] = await Promise.all([dir.comment(e.payload.commentId), dir.listingTitle(e.payload.listingId)]);
+      if (!c) return [];
+      return fan([c.authorPersonId], {
+        vars: { listingTitle: title ?? "the product", outcome: e.payload.status === "approved" ? "approved" : "not approved", note: c.moderationNote ?? "" },
+        href: `/products/${e.payload.listingId}`,
+      });
+    },
+  }),
+  kind({
+    key: "billing.credits_granted",
+    name: "Lead credits added",
+    description: "Credits were added to the seller's balance.",
+    category: "billing",
+    app: "seller",
+    event: "CreditsGranted",
+    variables: [v("amount", "Credits granted", "10"), v("reason", "Why they were granted", "signup bonus"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "{{amount}} lead credits added", body: "Reason: {{reason}}." },
+      email: { subject: "{{amount}} lead credits added", body: "Hi {{recipientName}},\n\n{{amount}} lead credits were added to your account ({{reason}}).\n\nBilling: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"CreditsGranted">, dir) {
+      return fan(await membersOf(dir, e.payload.businessId, { ownersOnly: true }), {
+        businessId: e.payload.businessId, vars: { amount: e.payload.amount, reason: e.payload.reason.replaceAll("_", " ") }, href: "/billing",
+      });
+    },
+  }),
+  kind({
+    key: "billing.subscription_started",
+    name: "Subscription started",
+    description: "A plan subscription started.",
+    category: "billing",
+    app: "seller",
+    event: "SubscriptionStarted",
+    variables: [v("planCode", "Plan code", "growth"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "Your {{planCode}} plan is active", body: "Manage your plan any time from Billing." },
+      email: { subject: "Your {{planCode}} plan is active", body: "Hi {{recipientName}},\n\nYour {{planCode}} plan is now active.\n\nBilling: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"SubscriptionStarted">, dir) {
+      return fan(await membersOf(dir, e.payload.businessId, { ownersOnly: true }), { businessId: e.payload.businessId, vars: { planCode: e.payload.planCode }, href: "/billing" });
+    },
+  }),
+  kind({
+    key: "billing.subscription_cancelled",
+    name: "Subscription cancelled",
+    description: "A plan subscription was cancelled.",
+    category: "billing",
+    app: "seller",
+    event: "SubscriptionCancelled",
+    variables: [v("planCode", "Plan code", "growth"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "Your {{planCode}} plan was cancelled", body: "You can subscribe again any time from Billing." },
+      email: { subject: "Your {{planCode}} plan was cancelled", body: "Hi {{recipientName}},\n\nYour {{planCode}} plan was cancelled.\n\nBilling: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"SubscriptionCancelled">, dir) {
+      return fan(await membersOf(dir, e.payload.businessId, { ownersOnly: true }), { businessId: e.payload.businessId, vars: { planCode: e.payload.planCode }, href: "/billing" });
+    },
+  }),
+  kind({
+    key: "business.verified",
+    name: "Business verified",
+    description: "A verification tier was passed.",
+    category: "listings",
+    app: "seller",
+    event: "BusinessVerified",
+    variables: [v("tier", "Verification tier reached", "1"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "Verification tier {{tier}} reached", body: "Buyers now see your updated verification badge." },
+      email: { subject: "Your business is verified (tier {{tier}})", body: "Hi {{recipientName}},\n\nYour business reached verification tier {{tier}}.\n\nDetails: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"BusinessVerified">, dir) {
+      return fan(await membersOf(dir, e.payload.businessId, { ownersOnly: true }), { businessId: e.payload.businessId, vars: { tier: e.payload.tier }, href: "/verification" });
+    },
+  }),
+  kind({
+    key: "trust.badge_revoked",
+    name: "Verified badge removed",
+    description: "The trust score dropped below the badge threshold.",
+    category: "listings",
+    app: "seller",
+    event: "TrustScoreChanged",
+    variables: [v("score", "New trust score", "58"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "Your verified badge was removed", body: "Your trust score dropped to {{score}}. Respond to leads quickly to earn it back." },
+      email: { subject: "Your verified badge was removed", body: "Hi {{recipientName}},\n\nYour trust score dropped to {{score}}, so the verified badge was removed. Respond to leads quickly to earn it back.\n\nDetails: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"TrustScoreChanged">, dir) {
+      const { from, to, badgeActive } = e.payload;
+      if (badgeActive || !(from >= BADGE_THRESHOLD && to < BADGE_THRESHOLD)) return [];
+      return fan(await membersOf(dir, e.payload.businessId, { ownersOnly: true }), { businessId: e.payload.businessId, vars: { score: to }, href: "/verification" });
+    },
+  }),
+];
+
+const KEY_INDEX = new Map(KINDS.map((k) => [k.key, k]));
+export const getKind = (key: string) => KEY_INDEX.get(key);
+export const kindsFor = (event: DomainEventType) => KINDS.filter((k) => k.event === event);
+export const observedEvents = (): DomainEventType[] => [...new Set(KINDS.map((k) => k.event))];
+
+const templateCategory = (c: NotificationCategory): TemplateDefinition["category"] => (c === "security" ? "security" : c === "marketing" ? "marketing" : "transactional");
+
+export function templateDefinitions(): TemplateDefinition[] {
+  return KINDS.map((k) => ({
+    key: k.key,
+    name: k.name,
+    description: k.description,
+    category: templateCategory(k.category),
+    channels: k.defaults.email ? ["in_app", "email"] : ["in_app"],
+    variables: k.variables,
+    defaults: { in_app: k.defaults.in_app, ...(k.defaults.email ? { email: k.defaults.email } : {}) },
+  }));
+}
+
+let registered = false;
+/** Register template keys with @cnote/templates (idempotent; called on module import and by the worker). */
+export function registerNotificationTemplates(): void {
+  if (registered) return;
+  defineTemplates(templateDefinitions());
+  registered = true;
+}

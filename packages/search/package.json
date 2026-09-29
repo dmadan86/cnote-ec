@@ -16,6 +16,7 @@
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",
     "@cnote/identity": "workspace:*",
+    "@opensearch-project/opensearch": "^3.9.0",
     "zod": "^4.6.5"
   }
 }

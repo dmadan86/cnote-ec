@@ -3,12 +3,21 @@ import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { buttonClasses, Chip, Container, EmptyState, Grid, LinkTabs } from "@cnote/ui";
 import { ListingCard, SellerTile } from "@/features/search/cards";
-import { loadCategories, loadHits, loadSellers } from "@/features/search/data";
+import { JsonLd } from "@/lib/json-ld";
+import { itemListLd } from "@/lib/schema";
+import { loadCategories, loadHits, loadRatings, loadSellers } from "@/features/search/data";
 import { firstParam } from "@/features/search/format";
 
+// Free-text search results are a dynamic, unbounded URL space: crawlable (follow) but never indexed. The curated,
+// indexable equivalents are the category pages (/c/<slug>) and keyword landing pages (/s/<category>/<keyword>).
 export async function generateMetadata(props: PageProps<"/search">): Promise<Metadata> {
   const q = firstParam((await props.searchParams).q);
-  return { title: q ? `Results for "${q}"` : "Search" };
+  return {
+    title: q ? `Results for "${q}"` : "Search products and manufacturers",
+    description: "Search verified Indian manufacturers and suppliers. Results are ranked by relevance and supplier trust, never by payment.",
+    alternates: { canonical: "/search" },
+    robots: { index: false, follow: true },
+  };
 }
 
 const COMING = new Set(["templates", "services"]);
@@ -50,19 +59,22 @@ export default async function SearchPage(props: PageProps<"/search">) {
     const sellers = await loadSellers({ q: q || undefined, limit: 24 });
     count = sellers.length;
     body = sellers.length ? (
+      <><h2 className="sr-only">Supplier results</h2>
       <Grid cols={3} className="grid-cols-1 sm:grid-cols-2">
         {sellers.map((s) => (
           <SellerTile key={s.businessId} seller={s} />
         ))}
-      </Grid>
+      </Grid></>
     ) : (
       <NoResults q={q} />
     );
   } else {
     const [{ hits, failed }, categories] = await Promise.all([loadHits({ q, categorySlug: category || undefined, limit: 24 }), loadCategories()]);
     count = hits.length;
+    const ratings = await loadRatings(hits.map((h) => h.listing.id));
     body = (
       <>
+        {hits.length ? <JsonLd data={itemListLd(q ? `Results for ${q}` : "Products", hits.map((h) => h.listing))} /> : null}
         {categories.length ? (
           <ul className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0" aria-label="Filter by category">
             <li>
@@ -80,11 +92,14 @@ export default async function SearchPage(props: PageProps<"/search">) {
           </ul>
         ) : null}
         {hits.length ? (
+          <>
+          <h2 className="sr-only">Product results</h2>
           <Grid>
             {hits.map((h, i) => (
-              <ListingCard key={h.listing.id} listing={h.listing} seller={h.seller} priority={i < 4} />
+              <ListingCard key={h.listing.id} listing={h.listing} seller={h.seller} rating={ratings[h.listing.id]} priority={i < 4} />
             ))}
           </Grid>
+          </>
         ) : (
           <NoResults q={q} failed={failed} />
         )}
@@ -97,7 +112,7 @@ export default async function SearchPage(props: PageProps<"/search">) {
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight text-ink">{q ? <>Results for &ldquo;{q}&rdquo;</> : "Search products and manufacturers"}</h1>
         {count !== null ? (
-          <p className="text-sm text-muted" aria-live="polite">
+          <p className="text-sm text-muted" role="status" aria-live="polite">
             {count} {count === 1 ? "result" : "results"}
           </p>
         ) : null}

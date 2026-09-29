@@ -1,3 +1,4 @@
+import { cachedManyTagged, cacheTags } from "@cnote/core";
 import { prisma, type Tx } from "@cnote/db";
 import type { RatingSummary } from "./types";
 
@@ -34,14 +35,26 @@ export async function recomputeSummary(tx: Tx, listingId: string): Promise<void>
 }
 
 export async function getRatingSummary(listingId: string): Promise<RatingSummary> {
-  return toView(listingId, await prisma.listingRatingSummary.findUnique({ where: { listingId } }));
+  return (await getRatingSummaries([listingId])).get(listingId) ?? toView(listingId, null);
 }
 
-/** One entry per requested id (zero-count summary when unrated). For product cards and search results. */
+/**
+ * One entry per requested id (zero-count summary when unrated). For product cards and search results.
+ * Cached per listing (5 min fresh + SWR); approved-only by construction; moderation/edit/report purge `rating:<id>`.
+ */
 export async function getRatingSummaries(listingIds: string[]): Promise<Map<string, RatingSummary>> {
   const ids = [...new Set(listingIds)];
   if (!ids.length) return new Map();
-  const rows = await prisma.listingRatingSummary.findMany({ where: { listingId: { in: ids } } });
-  const byId = new Map(rows.map((r) => [r.listingId, r]));
-  return new Map(ids.map((id) => [id, toView(id, byId.get(id))]));
+  const found = await cachedManyTagged<RatingSummary>(ids, {
+    prefix: "reviews:rating:v1",
+    tags: (id) => [cacheTags.rating(id)],
+    ttlSeconds: 300,
+    staleSeconds: 900,
+    load: async (missing) => {
+      const rows = await prisma.listingRatingSummary.findMany({ where: { listingId: { in: missing } } });
+      const byId = new Map(rows.map((r) => [r.listingId, r]));
+      return new Map(missing.map((id) => [id, toView(id, byId.get(id))]));
+    },
+  });
+  return new Map(ids.map((id) => [id, found.get(id) ?? toView(id, null)]));
 }

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import * as ai from "@cnote/ai";
-import { getCategoryBySlug, getListingsByIds, retrieveListings } from "@cnote/catalogue";
-import { cached } from "@cnote/core";
+import { getCategoryBySlug, getPublicListingsByIds, retrieveListings } from "@cnote/catalogue";
+import { cachedTagged, cacheTags } from "@cnote/core";
 import { getTrustProfiles } from "@cnote/identity";
 import { z } from "zod";
 import { locationBoost, rrfFuse, trustFactor } from "./fusion";
@@ -18,9 +18,18 @@ export async function searchListings(opts: { q: string; categorySlug?: string; l
   const started = Date.now();
   const { q, categorySlug, limit } = optsSchema.parse(opts);
   const nq = normaliseQuery(q);
-  const key = `search:q:v1:${createHash("sha1").update(JSON.stringify([nq, categorySlug ?? null, limit])).digest("hex")}`;
-  // 60s cache of identical queries; tookMs always reflects this call.
-  const hits = await cached(key, 60, () => run(nq, categorySlug, limit));
+  const key = `search:q:v2:${createHash("sha1").update(JSON.stringify([nq, categorySlug ?? null, limit])).digest("hex")}`;
+  // Cached per NORMALISED query (so "boxes for cosmetics in India" and "boxes cosmetics" share one entry): 2 min fresh +
+  // 10 min stale-while-revalidate. Entries are tagged with every listing/seller they contain, so a moderation/archive/trust
+  // event purges exactly the results that show it (hard); new publications refresh the `search` tag softly.
+  // tookMs always reflects this call.
+  const hits = await cachedTagged(
+    key,
+    (v: SearchHit[]) => [cacheTags.search, ...(categorySlug ? [cacheTags.category(categorySlug)] : []), ...v.flatMap((h) => [cacheTags.listing(h.listing.id), cacheTags.seller(h.seller.businessId)])],
+    120,
+    () => run(nq, categorySlug, limit),
+    { staleSeconds: 600, softTags: [cacheTags.search] },
+  );
   return { hits, tookMs: Date.now() - started };
 }
 
@@ -56,7 +65,7 @@ async function run(nq: ReturnType<typeof normaliseQuery>, categorySlug: string |
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 
-  const listings = new Map((await getListingsByIds(scored.map((s) => s.id))).map((l) => [l.id, l]));
+  const listings = new Map((await getPublicListingsByIds(scored.map((s) => s.id))).map((l) => [l.id, l]));
   return scored.flatMap((s) => {
     const listing = listings.get(s.id);
     return listing ? [{ listing, seller: s.seller, score: Number(s.score.toFixed(5)), sponsored: false as const }] : [];

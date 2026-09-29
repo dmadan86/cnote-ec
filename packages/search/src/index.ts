@@ -14,3 +14,5 @@ export interface SearchHit {
 export { searchListings } from "./search";
 export { suggest, EXAMPLE_QUERIES } from "./suggest";
 export { normaliseQuery, type NormalisedQuery } from "./normalise";
+
+export { cacheWorker, cacheHandlers } from "./cache-worker";

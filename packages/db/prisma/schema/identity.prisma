@@ -67,6 +67,22 @@ model Business {
   name             String
   gstin            String?  @unique
   udyam            String?
+  /// Company profile (seller-declared, verified against GST/MCA data)
+  legalName        String?  @map("legal_name")
+  tradeName        String?  @map("trade_name")
+  /// proprietorship | partnership | llp | private_limited | public_limited | huf | other
+  companyType      String?  @map("company_type")
+  /// Corporate Identification Number (MCA) for companies/LLPs
+  cin              String?
+  /// PAN is personal/business identity data: store only when the business declares it (DPDP)
+  pan              String?
+  /// { line1, line2, city, state, stateCode, pincode }
+  registeredAddress Json?   @map("registered_address")
+  website          String?
+  /// Latest GST check snapshot (full evidence lives in VerificationRecord.details)
+  gstStatus        String?  @map("gst_status") // Active | Cancelled | Suspended | Inactive
+  gstVerifiedAt    DateTime? @map("gst_verified_at") @db.Timestamptz
+  gstLastCheckedAt DateTime? @map("gst_last_checked_at") @db.Timestamptz
   city             String?
   state            String?
   pincode          String?

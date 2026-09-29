@@ -1,6 +1,7 @@
 import { DomainError, rateLimit } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { REACTIONS_PER_HOUR, REPORT_THRESHOLD } from "./constants";
+import { bustReviewCaches } from "./cache";
 import { recomputeSummary } from "./summary";
 import type { Actor } from "./types";
 import { reportReason } from "./validate";
@@ -27,13 +28,15 @@ export async function react(actor: Actor, input: ReactInput): Promise<{ changed:
   const reason = kind === "report" ? reportReason.parse(input.reason) : null;
   if (!(await rateLimit(`reviews:react:${actor.personId}`, REACTIONS_PER_HOUR, 3_600))) throw new DomainError("rate_limited", "Too many actions. Please slow down.");
 
+  let touched: string | null = null;
   try {
-    return await prisma.$transaction(async (tx) => {
+    const res = await prisma.$transaction(async (tx) => {
       const subject =
         subjectType === "review"
           ? await tx.productReview.findUnique({ where: { id: subjectId }, select: { authorPersonId: true, status: true, listingId: true } })
           : await tx.productComment.findUnique({ where: { id: subjectId }, select: { authorPersonId: true, status: true, listingId: true } });
       if (!subject || subject.status !== "approved") throw new DomainError("not_found", "Nothing to react to here.");
+      touched = subject.listingId;
       if (subject.authorPersonId === actor.personId) throw new DomainError("forbidden", kind === "helpful" ? "You can't vote on your own review." : "You can't report your own post.");
 
       const dup = await tx.ugcReaction.findUnique({ where: { subjectType_subjectId_personId_kind: { subjectType, subjectId, personId: actor.personId, kind } } });
@@ -57,6 +60,8 @@ export async function react(actor: Actor, input: ReactInput): Promise<{ changed:
       }
       return { changed: true };
     });
+    if (res.changed && kind === "report" && touched) await bustReviewCaches(touched); // may have auto-flagged (hidden) the item
+    return res;
   } catch (e) {
     if (isUniqueViolation(e)) return { changed: false }; // concurrent duplicate
     throw e;

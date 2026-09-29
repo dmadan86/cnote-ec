@@ -6,6 +6,7 @@ import * as enquiry from "@cnote/enquiry";
 import * as identity from "@cnote/identity";
 import { currentSession } from "@cnote/next-kit";
 import type { Session } from "@cnote/identity";
+import { unstable_rethrow } from "next/navigation";
 
 export { billing, catalogue, enquiry, identity };
 
@@ -14,6 +15,9 @@ export async function currentSessionSafe(): Promise<Session | null> {
   try {
     return await currentSession();
   } catch (err) {
+    // Next signals "this route is dynamic" (cookies()) by throwing; swallowing it would bake a
+    // signed-out page into the static build.
+    unstable_rethrow(err);
     console.error("[seller] currentSession failed", err);
     return null;
   }

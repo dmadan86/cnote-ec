@@ -1,4 +1,5 @@
 import { listSellerListings } from "@cnote/catalogue";
+import { cachedTagged, cacheTags } from "@cnote/core";
 import { getTrustProfiles } from "@cnote/identity";
 import { prisma, type Prisma } from "@cnote/db";
 import { PAGE_SIZE, isTombstone } from "./constants";
@@ -41,9 +42,20 @@ export async function listApprovedReviews(
 ): Promise<Page<PublicReview>> {
   const take = Math.min(Math.max(opts.limit ?? PAGE_SIZE, 1), 50);
   const skip = offsetOf(opts.cursor);
+  // Public + identical for everyone, so cache every (sort, offset, size) page; moderation/edit/report/erasure purge it.
+  return cachedTagged(
+    `reviews:list:v1:${listingId}:${opts.sort ?? "recent"}:${skip}:${take}`,
+    [cacheTags.reviews(listingId), cacheTags.reviewsAll],
+    60,
+    () => loadApprovedReviews(listingId, opts.sort, skip, take),
+    { staleSeconds: 300 },
+  );
+}
+
+async function loadApprovedReviews(listingId: string, sort: ReviewSort | undefined, skip: number, take: number): Promise<Page<PublicReview>> {
   const rows = await prisma.productReview.findMany({
     where: { listingId, status: "approved" },
-    orderBy: REVIEW_ORDER[opts.sort ?? "recent"],
+    orderBy: REVIEW_ORDER[sort ?? "recent"],
     skip,
     take: take + 1,
   });
@@ -67,6 +79,16 @@ export async function listApprovedReviews(
 
 /** Approved top-level comments (oldest first) with their approved replies. */
 export async function listApprovedComments(listingId: string, opts: { limit?: number } = {}): Promise<PublicComment[]> {
+  return cachedTagged(
+    `reviews:comments:v1:${listingId}:${opts.limit ?? 50}`,
+    [cacheTags.reviews(listingId), cacheTags.reviewsAll],
+    60,
+    () => loadApprovedComments(listingId, opts),
+    { staleSeconds: 300 },
+  );
+}
+
+async function loadApprovedComments(listingId: string, opts: { limit?: number }): Promise<PublicComment[]> {
   const rows = await prisma.productComment.findMany({
     where: { listingId, status: "approved", parentId: null },
     include: { replies: { where: { status: "approved" }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] } },

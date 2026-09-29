@@ -47,3 +47,9 @@ packages/db/src/generated/
 
 # local media storage
 .data/
+
+# test coverage output
+coverage/
+
+# generated knowledge graph (graphify)
+graphify-out/

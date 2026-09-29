@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { CreditCalculator } from "@/features/billing/credit-calculator";
 import { PlanCards } from "@/features/billing/plan-cards";
 
-export const metadata: Metadata = { title: "Pricing", description: "Public, self-serve pricing. Pay only for leads you accept." };
+export const metadata: Metadata = { title: "Pricing", description: "Public, self-serve pricing. Pay only for leads you accept.", alternates: { canonical: "/pricing" } };
 export const revalidate = 300;
 
 const PROMISES = [

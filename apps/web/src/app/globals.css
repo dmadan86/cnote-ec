@@ -15,9 +15,18 @@ body {
   font-family: var(--font-sans);
 }
 
+/* WCAG 2.4.7 / 2.4.11: a visible, high-contrast focus ring everywhere (components may override the colour). */
 :focus-visible {
-  outline-color: var(--color-brand-600);
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
 }
+
+/* Keep focused controls clear of the sticky header (WCAG 2.4.11 Focus Not Obscured). */
+:target,
+:focus {
+  scroll-margin-top: 6rem;
+}
+
 
 @media (prefers-reduced-motion: reduce) {
   html {

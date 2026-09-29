@@ -1,5 +1,5 @@
 "use server";
-import { getListingsByIds } from "@cnote/catalogue";
+import { getPublicListingsByIds } from "@cnote/catalogue";
 import type { CompareToggleResult } from "@cnote/ui";
 import { addToCompare, COMPARE_COOKIE, COMPARE_COOKIE_MAX_AGE, COMPARE_MAX, parseCompareIds, serializeCompareIds } from "@cnote/wishlist";
 import { cookies } from "next/headers";
@@ -24,7 +24,7 @@ export async function toggleCompareAction(listingId: string, opts?: { replace?: 
     await writeTray(tray.filter((x) => x !== id));
     return { status: "removed" };
   }
-  const [listing, ...trayListings] = (await getListingsByIds([id, ...tray])).filter(isPublicListing);
+  const [listing, ...trayListings] = (await getPublicListingsByIds([id, ...tray])).filter(isPublicListing);
   if (!listing || listing.id !== id) return { status: "error", message: "This product is no longer available." };
   const base = opts?.replace ? [] : tray;
   const res = addToCompare(base, id, listing.category.id, trayListings[0]?.category.id ?? null);

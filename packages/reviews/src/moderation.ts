@@ -1,6 +1,7 @@
 import { DomainError, emit } from "@cnote/core";
 import { prisma, type Prisma } from "@cnote/db";
 import { PAGE_SIZE } from "./constants";
+import { bustReviewCaches } from "./cache";
 import { recomputeSummary } from "./summary";
 import type { ModerationItem, ModerationResult, ModerationSnapshot, Page, UgcKind, UgcStatus } from "./types";
 
@@ -77,6 +78,12 @@ const snap = (status: UgcStatus, moderationNote: string | null, reportCount: num
  * Approve/reject changes the rating aggregate in the same transaction.
  */
 export async function moderate(kind: UgcKind, id: string, decision: "approved" | "rejected", note: string | null, staffId: string): Promise<ModerationResult> {
+  const result = await moderateInTx(kind, id, decision, note, staffId);
+  await bustReviewCaches(result.listingId); // approved/rejected content must appear/disappear from cached pages immediately
+  return result;
+}
+
+async function moderateInTx(kind: UgcKind, id: string, decision: "approved" | "rejected", note: string | null, staffId: string): Promise<ModerationResult> {
   const cleanNote = note?.trim() || null;
   if (decision === "rejected" && !cleanNote) throw new DomainError("validation", "A note is required when rejecting, so the author knows why.");
   if (cleanNote && cleanNote.length > 500) throw new DomainError("validation", "Keep the note under 500 characters.");

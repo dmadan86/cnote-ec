@@ -1,5 +1,6 @@
 import { emit, redis, type EventHandlers, type ModuleWorker } from "@cnote/core";
 import { prisma } from "@cnote/db";
+import { bustSellerCaches } from "./business";
 import { computeTrustScore, emptySignals, RESPONSE_SLA_MS, type TrustSignals } from "./trust";
 
 const counterKey = (businessId: string) => `trust:${businessId}`;
@@ -32,6 +33,7 @@ export async function recomputeTrust(businessId: string, now = Date.now()): Prom
     await tx.business.update({ where: { id: businessId }, data: { trustScore: score, badgeActive } });
     await emit(tx, "TrustScoreChanged", { type: "Business", id: businessId }, { businessId, from: b.trustScore, to: score, badgeActive });
   });
+  await bustSellerCaches(businessId);
   return { changed: true, score };
 }
 

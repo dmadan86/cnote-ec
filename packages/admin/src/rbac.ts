@@ -27,6 +27,9 @@ export const PRIVILEGES = [
   "api_keys.revoke", // revoke a user's API key (abuse/security)
   "queues.read", // inspect job queues and dead letters
   "queues.replay", // replay dead-lettered jobs
+  "storefronts.review", // approve/reject flagged storefront versions; suspend storefronts
+  "storefronts.templates", // curate the Studio template gallery
+  "leadgen.read", // lead-capture funnel analytics (no raw phone numbers)
 ] as const;
 export type Privilege = (typeof PRIVILEGES)[number];
 
@@ -42,13 +45,14 @@ export const ROLE_PRIVILEGES: Record<Role, readonly Privilege[]> = {
   ops_moderator: [
     "reviews.read", "reviews.resolve", "listings.moderate", "enquiries.review", "businesses.read", "ai.decisions.read",
     "ugc.read", "ugc.moderate", "images.moderate", "api_keys.read", "api_keys.revoke", "queues.read",
+    "storefronts.review",
   ],
   /** Business verification (ADR-003). Sees the queue read-only for context. */
   verification_officer: ["businesses.read", "businesses.verify", "reviews.read"],
   /** Customer support: look up businesses and their credit ledger; cannot change anything. */
   support: ["businesses.read", "billing.read", "reviews.read", "ugc.read", "api_keys.read", "templates.read", "queues.read"],
   /** Marketing/CRM: owns email + notification copy and layouts (publishing goes live to users). */
-  marketing: ["templates.read", "templates.manage", "templates.publish", "businesses.read"],
+  marketing: ["templates.read", "templates.manage", "templates.publish", "businesses.read", "storefronts.templates", "leadgen.read"],
   /** Finance: ledger visibility and (future) credit adjustments, plus audit visibility for reconciliation. */
   finance: ["billing.read", "billing.adjust", "businesses.read", "audit.read"],
   /** Read-only observer: queue, directory, AI decisions. No billing, staff or audit data. */

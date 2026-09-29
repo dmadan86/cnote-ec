@@ -43,7 +43,7 @@ export function MessageThread({ conversation, myPersonId, counterpartyName }: { 
 export function QuoteCard({ quote, from, at }: { quote: ConversationView["quotes"][number]; from: string; at: string }) {
   return (
     <div className="rounded-card border border-accent-100 bg-accent-50 p-4 text-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-accent-600">Quote from {from}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-accent-700">Quote from {from}</p>
       <p className="mt-1 text-lg">
         <Money paise={quote.pricePaise} unit={quote.unit} />
       </p>

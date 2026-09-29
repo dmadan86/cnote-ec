@@ -1,0 +1,164 @@
+// Owned by @cnote/storefront: seller mini-sites built from block-based JSON documents.
+// Templates are curated presets (staff-managed); sellers apply one and customise it in apps/studio.
+// Rendered on the buyer web at /store/<slug>. Platform-owned facts (verification tier, trust score,
+// approved ratings) are injected at render time and can never be edited by the seller.
+
+enum StorefrontStatus {
+  draft // never published
+  live
+  suspended // hidden by staff (policy violation)
+
+  @@map("storefront_status")
+}
+
+enum StorefrontVersionStatus {
+  draft
+  in_review // flagged by AI pre-screen; needs a staff decision before going live
+  published
+  rejected
+  archived
+
+  @@map("storefront_version_status")
+}
+
+model Storefront {
+  id                 String           @id @default(uuid()) @db.Uuid
+  sellerBusinessId   String           @unique @map("seller_business_id") @db.Uuid
+  /// public URL segment /store/<slug>; lowercase, 3–40 chars, reserved words blocked
+  slug               String           @unique
+  status             StorefrontStatus @default(draft)
+  templateKey        String?          @map("template_key")
+  publishedVersionId String?          @unique @map("published_version_id") @db.Uuid
+  suspendedReason    String?          @map("suspended_reason")
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  versions  StorefrontVersion[] @relation("StorefrontVersions")
+  published StorefrontVersion?  @relation("StorefrontPublished", fields: [publishedVersionId], references: [id])
+  domains   StorefrontDomain[]
+  traffic   StorefrontTrafficDaily[]
+
+  @@map("storefronts")
+}
+
+model StorefrontVersion {
+  id           String                  @id @default(uuid()) @db.Uuid
+  storefrontId String                  @map("storefront_id") @db.Uuid
+  version      Int
+  /// StorefrontDocument JSON (schema-validated by @cnote/storefront): { theme, pages: [{ slug, title, seo, sections: [...] }] }
+  document     Json
+  /// document schema version, for migrations of stored documents
+  schemaVersion Int                    @default(1) @map("schema_version")
+  status       StorefrontVersionStatus @default(draft)
+  aiVerdict    String?                 @map("ai_verdict")
+  reviewNote   String?                 @map("review_note") // shown to the seller on rejection
+  reviewedBy   String?                 @map("reviewed_by") @db.Uuid
+  reviewedAt   DateTime?               @map("reviewed_at") @db.Timestamptz
+  createdBy    String?                 @map("created_by") @db.Uuid // person id
+  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  publishedAt  DateTime?               @map("published_at") @db.Timestamptz
+
+  storefront  Storefront  @relation("StorefrontVersions", fields: [storefrontId], references: [id])
+  publishedOf Storefront? @relation("StorefrontPublished")
+
+  @@unique([storefrontId, version])
+  @@index([status, createdAt])
+  @@map("storefront_versions")
+}
+
+/// Curated starting points in the Studio gallery. `document` is a full StorefrontDocument with
+/// placeholder content that is swapped for the seller's real data on apply.
+model StorefrontTemplate {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique // "industrial-classic", "packaging-bold", …
+  name        String
+  description String
+  /// verticals this suits, e.g. ["packaging", "industrial-mro"]; empty = any
+  verticals   String[] @default([])
+  tags        String[] @default([])
+  document    Json
+  /// preview image (TemplateAsset / media key) for the gallery card
+  previewUrl  String?  @map("preview_url")
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdBy   String?  @map("created_by") @db.Uuid // staff id
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("storefront_templates")
+}
+
+enum DomainStatus {
+  pending_dns // waiting for the seller to add the CNAME + TXT records
+  verifying // checks running (queued job with backoff)
+  verified // DNS ownership + routing confirmed
+  provisioning_tls // certificate being issued by the edge provider
+  active // serving traffic
+  misconfigured // was working or partially set up; see lastError
+  removed
+
+  @@map("domain_status")
+}
+
+/// Seller-owned custom hostnames pointing at their storefront (e.g. "www.acme.com").
+/// Platform subdomains (<slug>.<root>) are implicit and need no row.
+model StorefrontDomain {
+  id            String       @id @default(uuid()) @db.Uuid
+  storefrontId  String       @map("storefront_id") @db.Uuid
+  /// lowercase, IDNA-normalised hostname
+  hostname      String       @unique
+  /// "subdomain" (www.acme.com → CNAME) | "apex" (acme.com → A/ALIAS)
+  kind          String
+  status        DomainStatus @default(pending_dns)
+  /// TXT value expected at _cnote-verify.<hostname>
+  verifyToken   String       @map("verify_token")
+  /// CNAME target / A record values we asked for (shown to the seller)
+  expectedRecords Json       @map("expected_records")
+  /// last observed DNS answers + TLS state (for the seller-facing diagnostics panel)
+  lastCheck     Json?        @map("last_check")
+  lastError     String?      @map("last_error")
+  checkCount    Int          @default(0) @map("check_count")
+  lastCheckedAt DateTime?    @map("last_checked_at") @db.Timestamptz
+  verifiedAt    DateTime?    @map("verified_at") @db.Timestamptz
+  activatedAt   DateTime?    @map("activated_at") @db.Timestamptz
+  /// edge provider reference (Cloudflare custom hostname id / Vercel domain id)
+  providerRef   String?      @map("provider_ref")
+  /// exactly one domain per storefront is canonical (SEO); others 301 to it
+  isPrimary     Boolean      @default(false) @map("is_primary")
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  storefront Storefront @relation(fields: [storefrontId], references: [id])
+
+  @@index([storefrontId])
+  @@index([status, lastCheckedAt])
+  @@map("storefront_domains")
+}
+
+/// Daily per-storefront metering + traffic analytics, flushed from Redis counters. Privacy: no IPs
+/// or user ids; unique visitors are counted with a daily-rotating salted hash (cookie-less).
+model StorefrontTrafficDaily {
+  storefrontId   String   @map("storefront_id") @db.Uuid
+  day            DateTime @db.Date
+  requests       Int      @default(0) // all HTTP requests served for the storefront (metering)
+  pageviews      Int      @default(0)
+  uniqueVisitors Int      @default(0) @map("unique_visitors")
+  /// humans by source: { direct, organic_search, social, ai_assistant, paid, email, referral } → count
+  bySource       Json     @default("{}") @map("by_source")
+  /// finer detail: { "google": 12, "chatgpt.com": 3, "facebook": 5, … }
+  byReferrer     Json     @default("{}") @map("by_referrer")
+  /// { "/": 40, "/products": 12 }
+  byPage         Json     @default("{}") @map("by_page")
+  /// { mobile, desktop, tablet }
+  byDevice       Json     @default("{}") @map("by_device")
+  /// AI/search crawlers (GPTBot, ClaudeBot, PerplexityBot, Googlebot…) — not counted as visitors
+  botHits        Json     @default("{}") @map("bot_hits")
+  /// requests arriving via custom domain vs platform subdomain vs /store path
+  byHostKind     Json     @default("{}") @map("by_host_kind")
+  enquiries      Int      @default(0) // RFQs started from the storefront (conversion)
+
+  storefront Storefront @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+
+  @@id([storefrontId, day])
+  @@map("storefront_traffic_daily")
+}

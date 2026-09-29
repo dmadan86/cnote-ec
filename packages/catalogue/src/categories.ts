@@ -1,16 +1,23 @@
-import { cached, redis } from "@cnote/core";
+import { cachedTagged, cacheTags, invalidateTags } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { toCategoryView } from "./mappers";
 import type { CategoryView } from "./index";
 
-const KEY = "catalogue:categories:v1";
-const TTL_S = 60; // short: category edits are rare, but ops should see them within a minute even if invalidation is missed
+const KEY = "catalogue:categories:v2";
+const TTL_S = 300; // categories change rarely; upsertCategories invalidates the tag, so TTL is only the safety net
+const STALE_S = 3600; // stale-while-revalidate window
 
 export async function listCategories(): Promise<CategoryView[]> {
-  return cached(KEY, TTL_S, async () => {
-    const rows = await prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });
-    return rows.map(toCategoryView);
-  });
+  return cachedTagged(
+    KEY,
+    [cacheTags.categories],
+    TTL_S,
+    async () => {
+      const rows = await prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });
+      return rows.map(toCategoryView);
+    },
+    { staleSeconds: STALE_S },
+  );
 }
 
 export async function getCategoryBySlug(slug: string): Promise<CategoryView | null> {
@@ -72,6 +79,6 @@ export async function upsertCategories(defs: CategoryDef[]): Promise<CategoryVie
     ids.set(d.slug, row.id);
     out.push(toCategoryView(row));
   }
-  await redis.del(KEY);
+  await invalidateTags([cacheTags.categories, cacheTags.sitemap, ...out.map((c) => cacheTags.category(c.slug))]);
   return out;
 }

@@ -16,7 +16,7 @@ export function CompareTrayShell({ count, children }: { count: number; children:
           aria-expanded={open}
           aria-controls="compare-tray-body"
           onClick={() => setOpen((v) => !v)}
-          className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-brand-600"
+          className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-medium text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-brand-600"
         >
           {open ? <ChevronDown className="size-4" aria-hidden /> : <ChevronUp className="size-4" aria-hidden />}
           {open ? "Hide" : "Show"}

@@ -1,0 +1,43 @@
+// Owned by @cnote/leadgen: buyer lead capture from gated, high-intent actions (Get best price,
+// View contact, Request quote, …) unlocked by phone OTP. Funnel analytics + follow-up (consented).
+
+enum LeadCaptureStatus {
+  started // unlock prompt shown / phone entered
+  otp_sent
+  verified // phone verified → session issued
+  converted // resulting enquiry created (or unlocked action completed)
+  abandoned // gave up before verifying (follow-up only with consent)
+
+  @@map("lead_capture_status")
+}
+
+model LeadCapture {
+  id            String            @id @default(uuid()) @db.Uuid
+  /// anonymous visitor id (first-party cookie) to stitch pre-login funnel steps
+  visitorId     String            @map("visitor_id")
+  personId      String?           @map("person_id") @db.Uuid
+  /// sha256(E.164 phone) — raw phone lives only on Person after verification (DPDP minimisation)
+  phoneHash     String?           @map("phone_hash")
+  /// what triggered the prompt: "pdp_best_price" | "pdp_contact_seller" | "request_quote" | "wishlist" | "compare" | "catalogue_download" | "return_visit" | …
+  trigger       String
+  /// what the verified user unlocks: "enquiry" | "seller_contact" | "quotes" | "save" | …
+  unlock        String
+  listingId     String?           @map("listing_id") @db.Uuid
+  sellerBusinessId String?        @map("seller_business_id") @db.Uuid
+  categoryId    String?           @map("category_id") @db.Uuid
+  /// resulting enquiry when the unlock created one
+  enquiryId     String?           @map("enquiry_id") @db.Uuid
+  status        LeadCaptureStatus @default(started)
+  /// consent to be contacted about this requirement if abandoned (DPDP, purpose-scoped)
+  followUpConsent Boolean         @default(false) @map("follow_up_consent")
+  /// { utm_source, utm_medium, utm_campaign, referrer, landingPath, device }
+  attribution   Json              @default("{}")
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([visitorId, createdAt])
+  @@index([status, createdAt])
+  @@index([trigger, createdAt])
+  @@index([personId])
+  @@map("lead_captures")
+}
