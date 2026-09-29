@@ -1,0 +1,14 @@
+[
+  { "id": "box-hinglish", "anchor": "corrugated box 5 ply", "positive": "gatta dabba 5 ply", "negative": "cotton fabric 150 gsm" },
+  { "id": "fabric-hinglish", "anchor": "cotton fabric 150 gsm", "positive": "sooti kapda 150 gsm", "negative": "steel pipes seamless" },
+  { "id": "sack-hinglish", "anchor": "jute sack 50 kg", "positive": "jute boriya 50 kg", "negative": "LED bulb 9 watt" },
+  { "id": "units", "anchor": "500 pcs plastic containers", "positive": "500 pieces plastic container", "negative": "hydraulic hose 1/2 inch" },
+  { "id": "meter-units", "anchor": "cotton fabric 200 meters", "positive": "cotton cloth 200 mtr", "negative": "corrugated boxes 3 ply" },
+  { "id": "paraphrase-steel", "anchor": "stainless steel pipes SS304 seamless", "positive": "SS304 seamless stainless pipe", "negative": "printed cotton t-shirts" },
+  { "id": "typo", "anchor": "packaging tape brown 48 mm", "positive": "packging tape brown 48mm", "negative": "welding rods E6013" },
+  { "id": "bolts", "anchor": "hex bolts grade 8.8 M12", "positive": "M12 hex bolt grade 8.8 zinc plated", "negative": "polyester fabric roll" },
+  { "id": "plastic", "anchor": "plastik ki bori PP woven", "positive": "PP woven sack bags", "negative": "brass water tap fittings" },
+  { "id": "led", "anchor": "LED bulb 9W cool white", "positive": "9 watt cool white LED lamp", "negative": "jute bags for grain" },
+  { "id": "carton-order", "anchor": "carton boxes for export packing", "positive": "gatte ke dabbe export packing", "negative": "silk saree fabric" },
+  { "id": "oil", "anchor": "mustard oil 15 litre tin", "positive": "sarson tel 15 ltr tin", "negative": "steel angle 50x50x5" }
+]

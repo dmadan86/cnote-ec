@@ -11,13 +11,6 @@ export interface SearchHit {
   sponsored: false;
 }
 
-export async function searchListings(opts: { q: string; categorySlug?: string; limit?: number }): Promise<{ hits: SearchHit[]; tookMs: number }> {
-  void opts;
-  throw new Error("not implemented");
-}
-
-/** Query suggestions for the search box ("Try asking" chips + typeahead). */
-export async function suggest(prefix: string, limit = 8): Promise<string[]> {
-  void prefix; void limit;
-  throw new Error("not implemented");
-}
+export { searchListings } from "./search";
+export { suggest, EXAMPLE_QUERIES } from "./suggest";
+export { normaliseQuery, type NormalisedQuery } from "./normalise";

@@ -3,6 +3,9 @@
 // model id, prompt version, latency), and enqueues a ReviewItem when confidence < threshold.
 // PUBLIC CONTRACT — other modules depend on these signatures. Extend, don't break.
 import type { ModuleWorker } from "@cnote/core";
+import { INPUT_RETENTION_DAYS, listOpenReviewsImpl, purgeOldDecisionInputs, resolveReviewImpl, runLogged } from "./decisions";
+import { redactDeep } from "./redact";
+import { getProviders } from "./registry";
 
 export type Lang = "en" | "hi" | "kn" | "ta" | "te" | "mr" | "gu" | "bn";
 
@@ -68,24 +71,24 @@ export interface ModerateOutput {
 }
 
 export async function scoreIntent(input: IntentInput, subject: Subject): Promise<AiResult<IntentOutput>> {
-  void input; void subject;
-  throw new Error("not implemented");
+  return runLogged("intent", subject, redactDeep(input), () => getProviders().intent.score(input));
 }
 
 /** Embeddings in the platform vector space (EMBEDDING_DIM from @cnote/db). Not logged as decisions. */
 export async function embed(texts: string[]): Promise<{ vectors: number[][]; version: string }> {
-  void texts;
-  throw new Error("not implemented");
+  const e = getProviders().embedder;
+  return { vectors: await e.embed(texts), version: e.version };
 }
 
 export async function extractListing(input: ExtractListingInput, subject: Subject): Promise<AiResult<ExtractListingOutput>> {
-  void input; void subject;
-  throw new Error("not implemented");
+  const audit = { text: input.text, language: input.language, categories: input.categories.map((c) => c.slug) };
+  return runLogged("extract", subject, redactDeep(audit), () => getProviders().extractor.extract(input));
 }
 
 export async function moderate(input: ModerateInput, subject: Subject): Promise<AiResult<ModerateOutput>> {
-  void input; void subject;
-  throw new Error("not implemented");
+  return runLogged("moderate", subject, redactDeep(input), () => getProviders().moderator.moderate(input),
+    // ADR-003: a "review" verdict always goes to a human, whatever the confidence
+    (o) => (o.verdict === "review" ? `Moderation needs review: ${o.reason ?? o.flags.join(", ")}` : null));
 }
 
 /** Cosine similarity helper for callers comparing embeddings in memory. */
@@ -111,13 +114,33 @@ export interface ReviewItemView {
   createdAt: string;
 }
 export async function listOpenReviews(limit = 50): Promise<ReviewItemView[]> {
-  void limit;
-  throw new Error("not implemented");
+  return listOpenReviewsImpl(limit);
 }
 /** Marks the item resolved. Owning modules react to the outcome via their own ops actions. */
 export async function resolveReview(id: string, outcome: "approved" | "rejected", reviewerPersonId: string): Promise<ReviewItemView> {
-  void id; void outcome; void reviewerPersonId;
-  throw new Error("not implemented");
+  return resolveReviewImpl(id, outcome, reviewerPersonId);
 }
 
-export const worker: ModuleWorker = { name: "ai", handlers: {}, jobs: [] };
+// ---- Additions (non-breaking) ----
+export { redactPii, redactDeep } from "./redact";
+export { REVIEW_THRESHOLDS, purgeOldDecisionInputs } from "./decisions";
+export { EMBEDDER_VERSION, embedText } from "./embedder";
+export { getProviders, setProvidersForTests, heuristicProviders, anthropicProviders } from "./registry";
+export type { Providers, IntentScorer, ListingExtractor, Moderator, Embedder, ProviderResult } from "./types";
+
+const DAY_MS = 86_400_000;
+export const worker: ModuleWorker = {
+  name: "ai",
+  handlers: {},
+  jobs: [
+    {
+      // ADR-010: input retention. Rows stay for audit; only the redacted input is dropped.
+      name: "ai.purge-decision-inputs",
+      everyMs: DAY_MS,
+      run: async () => {
+        const n = await purgeOldDecisionInputs(new Date(), INPUT_RETENTION_DAYS);
+        if (n) console.log(`[ai] purged input of ${n} decisions older than ${INPUT_RETENTION_DAYS}d`);
+      },
+    },
+  ],
+};

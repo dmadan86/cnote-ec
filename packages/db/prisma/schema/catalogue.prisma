@@ -65,11 +65,44 @@ model Listing {
   createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  seller   Business @relation(fields: [sellerBusinessId], references: [id])
-  category Category @relation(fields: [categoryId], references: [id])
+  seller   Business       @relation(fields: [sellerBusinessId], references: [id])
+  category Category       @relation(fields: [categoryId], references: [id])
+  images   ListingImage[]
 
   @@index([sellerBusinessId])
   @@index([categoryId, status])
   @@index([searchTsv], map: "listings_search_tsv_idx", type: Gin)
   @@map("listings")
+}
+
+/// Seller-uploaded product image. Never public until a staff member with "images.moderate"
+/// approves it; the seller sees their own pending/rejected images (with the note). Binary lives in
+/// object storage via @cnote/media (storageKey), never in Postgres.
+model ListingImage {
+  id               String    @id @default(uuid()) @db.Uuid
+  listingId        String    @map("listing_id") @db.Uuid
+  sellerBusinessId String    @map("seller_business_id") @db.Uuid
+  storageKey       String    @unique @map("storage_key")
+  mimeType         String    @map("mime_type") // image/jpeg | image/png | image/webp
+  bytes            Int
+  width            Int?
+  height           Int?
+  /// sha256 of the bytes: dedupe per listing and block re-upload of rejected images
+  sha256           String
+  sortOrder        Int       @default(0) @map("sort_order")
+  altText          String?   @map("alt_text")
+  status           UgcStatus @default(pending)
+  moderationNote   String?   @map("moderation_note") // shown to the seller on rejection
+  aiVerdict        String?   @map("ai_verdict") // pre-screen only; never auto-approves
+  moderatedBy      String?   @map("moderated_by") @db.Uuid // StaffMember id
+  moderatedAt      DateTime? @map("moderated_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+
+  listing Listing @relation(fields: [listingId], references: [id])
+
+  @@index([listingId, status, sortOrder])
+  @@index([status, createdAt])
+  @@index([listingId, sha256])
+  @@map("listing_images")
 }

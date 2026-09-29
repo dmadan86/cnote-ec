@@ -1,0 +1,101 @@
+// Owned by @cnote/reviews: product ratings/reviews and product comments (Q&A), all user-generated
+// and held for moderation. Only `approved` content is public or counted in rating aggregates.
+
+enum UgcStatus {
+  pending // awaiting staff decision (default for everything)
+  flagged // AI pre-screen or user reports raised concerns; still needs a staff decision
+  approved
+  rejected
+
+  @@map("ugc_status")
+}
+
+/// One review per (listing, author). Editing resets it to pending.
+model ProductReview {
+  id               String    @id @default(uuid()) @db.Uuid
+  listingId        String    @map("listing_id") @db.Uuid
+  sellerBusinessId String    @map("seller_business_id") @db.Uuid // denormalised for seller dashboards
+  authorPersonId   String    @map("author_person_id") @db.Uuid
+  authorBusinessId String?   @map("author_business_id") @db.Uuid
+  rating           Int       @db.SmallInt // 1–5
+  title            String?
+  body             String
+  language         String    @default("en")
+  /// author had an accepted lead/conversation with this seller (checked at write time)
+  verifiedEnquiry  Boolean   @default(false) @map("verified_enquiry")
+  status           UgcStatus @default(pending)
+  moderationNote   String?   @map("moderation_note") // shown to author on rejection
+  aiVerdict        String?   @map("ai_verdict") // allow | review | block (pre-screen only)
+  aiDecisionId     String?   @map("ai_decision_id") @db.Uuid
+  moderatedBy      String?   @map("moderated_by") @db.Uuid // StaffMember id
+  moderatedAt      DateTime? @map("moderated_at") @db.Timestamptz
+  sellerReply      String?   @map("seller_reply") // public once review approved; reply itself moderated
+  sellerReplyStatus UgcStatus? @map("seller_reply_status")
+  sellerRepliedAt  DateTime? @map("seller_replied_at") @db.Timestamptz
+  helpfulCount     Int       @default(0) @map("helpful_count")
+  reportCount      Int       @default(0) @map("report_count")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([listingId, authorPersonId])
+  @@index([listingId, status, createdAt])
+  @@index([sellerBusinessId, status])
+  @@index([status, createdAt])
+  @@map("product_reviews")
+}
+
+/// Product comments / questions, threaded one level (parentId). Sellers answer via replies.
+model ProductComment {
+  id             String    @id @default(uuid()) @db.Uuid
+  listingId      String    @map("listing_id") @db.Uuid
+  parentId       String?   @map("parent_id") @db.Uuid
+  authorPersonId String    @map("author_person_id") @db.Uuid
+  authorBusinessId String? @map("author_business_id") @db.Uuid
+  /// true when the author belongs to the listing's seller business ("Seller" badge)
+  isSeller       Boolean   @default(false) @map("is_seller")
+  body           String
+  language       String    @default("en")
+  status         UgcStatus @default(pending)
+  moderationNote String?   @map("moderation_note")
+  aiVerdict      String?   @map("ai_verdict")
+  aiDecisionId   String?   @map("ai_decision_id") @db.Uuid
+  moderatedBy    String?   @map("moderated_by") @db.Uuid
+  moderatedAt    DateTime? @map("moderated_at") @db.Timestamptz
+  reportCount    Int       @default(0) @map("report_count")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  parent  ProductComment?  @relation("CommentThread", fields: [parentId], references: [id])
+  replies ProductComment[] @relation("CommentThread")
+
+  @@index([listingId, status, createdAt])
+  @@index([status, createdAt])
+  @@map("product_comments")
+}
+
+/// Per-user "helpful" votes and abuse reports on reviews/comments (dedupe + audit).
+model UgcReaction {
+  id          String   @id @default(uuid()) @db.Uuid
+  subjectType String   @map("subject_type") // "review" | "comment"
+  subjectId   String   @map("subject_id") @db.Uuid
+  personId    String   @map("person_id") @db.Uuid
+  kind        String // "helpful" | "report"
+  reason      String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([subjectType, subjectId, personId, kind])
+  @@index([subjectType, subjectId])
+  @@map("ugc_reactions")
+}
+
+/// Denormalised approved-only rating aggregate per listing (read path for cards/search).
+model ListingRatingSummary {
+  listingId   String   @id @map("listing_id") @db.Uuid
+  ratingCount Int      @default(0) @map("rating_count")
+  ratingSum   Int      @default(0) @map("rating_sum")
+  /// counts per star, index 0 = 1★ … 4 = 5★
+  histogram   Int[]    @default([0, 0, 0, 0, 0])
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("listing_rating_summaries")
+}

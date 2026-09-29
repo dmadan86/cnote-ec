@@ -4,8 +4,27 @@
 /* Shared UI package ships Tailwind classes in TS source; let Tailwind scan it. */
 @source "../../../../packages/ui/src";
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 6rem;
+}
+
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline-color: var(--color-brand-600);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -1,0 +1,72 @@
+// Owned by @cnote/email (EmailMessage) and @cnote/notifications (Notification, NotificationPreference).
+// Delivery is asynchronous through the JobQueue in @cnote/core (Redis today, Kafka-ready).
+
+enum DeliveryStatus {
+  queued
+  sending
+  sent
+  failed // gave up after max attempts (dead-lettered)
+  suppressed // not sent: no consent / preference off / erased recipient
+
+  @@map("delivery_status")
+}
+
+/// Audit log of every outbound email. Body is not stored (PII); template + params hash only.
+model EmailMessage {
+  id                String         @id @default(uuid()) @db.Uuid
+  toPersonId        String?        @map("to_person_id") @db.Uuid
+  /// masked address for support ("a***@gmail.com"); raw address lives only in the queued job
+  toMasked          String         @map("to_masked")
+  template          String
+  category          String // "transactional" | "marketing" | "security"
+  subject           String
+  status            DeliveryStatus @default(queued)
+  provider          String?
+  providerMessageId String?        @map("provider_message_id")
+  attempts          Int            @default(0)
+  lastError         String?        @map("last_error")
+  /// idempotency: the same logical email is never sent twice
+  dedupeKey         String?        @unique @map("dedupe_key")
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  sentAt            DateTime?      @map("sent_at") @db.Timestamptz
+
+  @@index([toPersonId, createdAt])
+  @@index([status, createdAt])
+  @@map("email_messages")
+}
+
+/// In-app notification (bell/inbox). One row per recipient.
+model Notification {
+  id          String    @id @default(uuid()) @db.Uuid
+  personId    String    @map("person_id") @db.Uuid
+  businessId  String?   @map("business_id") @db.Uuid
+  /// catalogue of kinds lives in packages/notifications/src/kinds.ts, e.g. "lead.matched"
+  kind        String
+  title       String
+  body        String
+  /// relative path in the app the notification belongs to, e.g. "/leads"
+  href        String?
+  app         String // "web" | "seller" | "admin"
+  /// source domain event id, for idempotency (one notification per event per recipient)
+  sourceEventId BigInt? @map("source_event_id")
+  readAt      DateTime? @map("read_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([personId, kind, sourceEventId])
+  @@index([personId, app, readAt, createdAt])
+  @@map("notifications")
+}
+
+/// Per-person channel preferences per notification category. Missing row = category default.
+model NotificationPreference {
+  personId  String   @map("person_id") @db.Uuid
+  category  String // "leads" | "messages" | "reviews" | "listings" | "billing" | "security" | "marketing"
+  inApp     Boolean  @default(true) @map("in_app")
+  email     Boolean  @default(true)
+  whatsapp  Boolean  @default(false)
+  sms       Boolean  @default(false)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@id([personId, category])
+  @@map("notification_preferences")
+}

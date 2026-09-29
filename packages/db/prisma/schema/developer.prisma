@@ -1,0 +1,43 @@
+// Owned by @cnote/developer: personal API keys for the public REST API + MCP server (apps/api).
+// Modelled on Vercel/Supabase access tokens: named, scoped per feature, optional expiry, shown once.
+
+/// The secret is never stored: only sha256(secret). `prefix` (e.g. "ck_live_3fA9") is shown in
+/// lists so users can tell keys apart.
+model ApiKey {
+  id          String    @id @default(uuid()) @db.Uuid
+  personId    String    @map("person_id") @db.Uuid
+  /// business the key acts for (buyer/seller actions); null = person-level (read-only scopes)
+  businessId  String?   @map("business_id") @db.Uuid
+  name        String
+  prefix      String    @unique
+  secretHash  String    @unique @map("secret_hash")
+  /// e.g. ["listings:read", "enquiries:write"]; see packages/developer/src/scopes.ts
+  scopes      String[]
+  /// null = never expires
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz
+  lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz
+  lastUsedIp  String?   @map("last_used_ip")
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz
+  /// staff id when revoked from the admin app
+  revokedBy   String?   @map("revoked_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  usage ApiKeyUsageDaily[]
+
+  @@index([personId, revokedAt])
+  @@map("api_keys")
+}
+
+/// Per-key daily request counters (flushed from Redis by a worker job).
+model ApiKeyUsageDaily {
+  apiKeyId  String   @map("api_key_id") @db.Uuid
+  day       DateTime @db.Date
+  requests  Int      @default(0)
+  errors    Int      @default(0)
+  mcpCalls  Int      @default(0) @map("mcp_calls")
+
+  apiKey ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@id([apiKeyId, day])
+  @@map("api_key_usage_daily")
+}

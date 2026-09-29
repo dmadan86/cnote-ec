@@ -3,11 +3,15 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "grant": "tsx --env-file=../../.env.local src/cli.ts grant"
+    "grant": "tsx --env-file=../../.env.local src/cli.ts grant",
+    "staff:list": "tsx --env-file=../../.env.local src/cli.ts list",
+    "staff:revoke": "tsx --env-file=../../.env.local src/cli.ts revoke"
   },
   "dependencies": {
     "@cnote/core": "workspace:*",

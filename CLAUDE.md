@@ -12,11 +12,13 @@ An AI-first B2B marketplace for Indian MSMEs, positioned against IndiaMART's bro
 
 pnpm monorepo (Node ≥ 22). Internal packages ship TypeScript source (no build step); `apps/web` transpiles them via `transpilePackages`.
 
-- `apps/web`: Next.js 16 (App Router), UI and route handlers/server actions. **Next 16 has breaking changes vs. older docs** (async `cookies()`/`params`, `middleware` → `proxy.ts`, etc.). Read `apps/web/AGENTS.md` and `node_modules/next/dist/docs/` before writing Next code.
+- `apps/web`: buyer marketplace (port 3000). `apps/seller`: seller onboarding + seller portal (port 3002). `apps/admin`: back office (port 3001). All three are Next.js 16 App Router apps, **deployed separately** (separate hosts, so auth cookies are host-scoped per app). **Next 16 has breaking changes vs. older docs** (async `cookies()`/`params`, `middleware` → `proxy.ts`, etc.). Read `apps/web/AGENTS.md` and `node_modules/next/dist/docs/` before writing Next code.
 - `apps/worker`: runs the outbox relay (Postgres → Redis Streams), each module's event handlers and scheduled jobs.
 - `packages/db`: Prisma 7 (driver adapter `@prisma/adapter-pg`) with a **multi-file schema, one file per module** in `prisma/schema/`. It also has migrations and the generated client (gitignored, created by `postinstall`).
 - `packages/core`: shared kernel: domain event catalogue + `emit()` + bus, Redis (`cached`, `rateLimit`), money (paise), `DomainError`, and the `ModuleWorker` type.
 - `packages/ui`: shared React UI library plus design tokens. See `DESIGN.md`.
+- `packages/next-kit`: Next.js glue shared by the three apps: cookie sessions over `@cnote/identity`, `authRoute` (mount at `src/app/api/auth/[action]/route.ts`), `createAuthProxy` (`src/proxy.ts`), auth server actions and client forms, and `runAction`/`errorResponse`. Each app's pages stay thin: they compose module functions and `@cnote/ui`.
+- `packages/admin`: staff RBAC (roles → privileges defined in code in `rbac.ts`) and the append-only `AdminAuditLog`. Every admin mutation goes through `audited()`. Grant access with `pnpm admin:grant <email> <role...>`.
 - Domain modules: `packages/{identity,catalogue,billing,enquiry,search,ai}`.
 
 PostgreSQL 17 + pgvector (embeddings, HNSW) + Postgres FTS; Redis for cache, rate limits, session revocation and the event stream.
@@ -31,7 +33,8 @@ cp .env.example .env.local                 # first time
 pnpm install                               # also runs prisma generate
 pnpm db:migrate                            # apply migrations (prisma migrate deploy)
 pnpm db:seed                               # dummy categories, sellers, products
-pnpm dev                                   # web on :3000
+pnpm dev                                   # buyer web on :3000
+pnpm dev:seller | pnpm dev:admin           # seller app :3002, admin app :3001
 pnpm worker                                # outbox relay + handlers + jobs (needed for async flows)
 
 pnpm typecheck | pnpm lint | pnpm test | pnpm build   # all workspaces
@@ -50,7 +53,7 @@ CI (`.github/workflows/ci.yml`) runs `db:check`, `db:migrate`, then typecheck, l
 
 **Modular monolith (ADR-006).** Each domain module is a workspace package with a single public entry (`src/index.ts`, the module's contract). Boundaries are enforced by package `exports` and declared dependencies. The allowed dependency graph is:
 
-- `identity` and `billing` → `core`, `db`
+- `identity`, `billing` and `admin` → `core`, `db`
 - `catalogue` → + `ai`, `identity`
 - `search` → + `ai`, `catalogue`, `identity`
 - `enquiry` → + `ai`, `catalogue`, `identity`, `billing`
@@ -90,7 +93,7 @@ Keep matching synchronous and under 2s. Cataloguing and extraction run as async 
 
 **Bharat-native UX (ADR-004).** Build for vernacular and Hinglish-first, low bandwidth and mobile first. Seller onboarding is WhatsApp-first; the web is the tertiary path. Search must handle mixed-script and transliterated queries.
 
-**Auth (identity).** Sign-in is by email/password or Google OAuth (PKCE). A short-lived HS256 JWT access token (`cnote_at`, 15 min) is paired with an opaque rotating refresh token (`cnote_rt`, 30 days). Only the refresh token's hash is stored, in `AuthSession`, and reusing an old refresh token revokes the session. Redis caches session revocation and holds the rate limits for sign-in, sign-up, reset and OTP. Refresh happens in `apps/web/src/proxy.ts`, because Server Components can't set cookies. Phone OTP is T0 *verification* (ADR-003), not login. Ops access is granted by the `OPS_EMAILS` env var.
+**Auth (identity).** Sign-in is by email/password or Google OAuth (PKCE). A short-lived HS256 JWT access token (`cnote_at`, 15 min) is paired with an opaque rotating refresh token (`cnote_rt`, 30 days). Only the refresh token's hash is stored, in `AuthSession`, and reusing an old refresh token revokes the session. Redis caches session revocation and holds the rate limits for sign-in, sign-up, reset and OTP. Refresh happens in `apps/web/src/proxy.ts`, because Server Components can't set cookies. Phone OTP is T0 *verification* (ADR-003), not login. Back-office access is granted only through `StaffMember` rows (see `packages/admin`), never through env vars or plan.
 
 **Seed data.** `pnpm db:seed` loads dummy categories, sellers and products for development. Real catalogue data will replace it, so don't build logic that depends on specific seed rows.
 

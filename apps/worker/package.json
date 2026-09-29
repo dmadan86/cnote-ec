@@ -15,8 +15,16 @@
     "@cnote/catalogue": "workspace:*",
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",
+    "@cnote/developer": "workspace:*",
+    "@cnote/email": "workspace:*",
     "@cnote/enquiry": "workspace:*",
     "@cnote/identity": "workspace:*",
-    "@cnote/search": "workspace:*"
+    "@cnote/notifications": "workspace:*",
+    "@cnote/observability": "workspace:*",
+    "@cnote/reviews": "workspace:*",
+    "@cnote/search": "workspace:*",
+    "@cnote/templates": "workspace:*",
+    "@cnote/wishlist": "workspace:*",
+    "@sentry/node": "^11.1.0"
   }
 }

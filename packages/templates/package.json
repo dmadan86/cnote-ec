@@ -1,0 +1,26 @@
+{
+  "name": "@cnote/templates",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@cnote/core": "workspace:*",
+    "@cnote/db": "workspace:*",
+    "@cnote/media": "workspace:*",
+    "juice": "^12.2.0",
+    "mustache": "^4.2.0",
+    "sanitize-html": "^2.17.7",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/mustache": "^4.2.6",
+    "@types/sanitize-html": "^2.16.2"
+  }
+}

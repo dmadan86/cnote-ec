@@ -1,0 +1,19 @@
+[
+  { "slug": "corrugated-boxes", "name": "Corrugated Boxes", "attributeSchema": { "fields": [
+    { "key": "ply", "label": "Ply", "type": "number" },
+    { "key": "gsm", "label": "GSM", "type": "number", "unit": "gsm" },
+    { "key": "material", "label": "Material", "type": "text" } ] } },
+  { "slug": "fabric", "name": "Fabric", "attributeSchema": { "fields": [
+    { "key": "material", "label": "Material", "type": "select", "options": ["cotton", "polyester", "silk", "linen", "denim"] },
+    { "key": "gsm", "label": "GSM", "type": "number" },
+    { "key": "width", "label": "Width", "type": "text" } ] } },
+  { "slug": "sacks-bags", "name": "Sacks and Bags", "attributeSchema": { "fields": [
+    { "key": "material", "label": "Material", "type": "select", "options": ["jute", "pp", "hdpe", "cotton"] },
+    { "key": "capacity_kg", "label": "Capacity", "type": "number", "unit": "kg" } ] } },
+  { "slug": "fasteners", "name": "Fasteners", "attributeSchema": { "fields": [
+    { "key": "grade", "label": "Grade", "type": "text" },
+    { "key": "size", "label": "Size", "type": "text" } ] } },
+  { "slug": "steel-pipes", "name": "Steel Pipes", "attributeSchema": { "fields": [
+    { "key": "grade", "label": "Grade", "type": "text" },
+    { "key": "thickness", "label": "Thickness", "type": "number" } ] } }
+]

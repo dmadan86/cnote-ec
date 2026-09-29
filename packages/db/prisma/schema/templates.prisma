@@ -1,0 +1,124 @@
+// Owned by @cnote/templates: admin-editable email + notification content. Code declares template
+// KEYS and their variables (packages/templates/src/registry.ts); the database holds the content.
+// Versions are append-only; a template/layout points at its published version (rollback = repoint).
+
+enum TemplateChannel {
+  email
+  in_app
+  sms
+  whatsapp
+
+  @@map("template_channel")
+}
+
+enum TemplateVersionStatus {
+  draft
+  published
+  archived
+
+  @@map("template_version_status")
+}
+
+/// Email wrapper: header + footer + brand styles, shared by many templates.
+model MessageLayout {
+  id                 String   @id @default(uuid()) @db.Uuid
+  key                String   @unique // "default", "marketing"
+  name               String
+  publishedVersionId String?  @unique @map("published_version_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  versions  MessageLayoutVersion[] @relation("LayoutVersions")
+  published MessageLayoutVersion?  @relation("LayoutPublished", fields: [publishedVersionId], references: [id])
+  templates MessageTemplate[]
+
+  @@map("message_layouts")
+}
+
+model MessageLayoutVersion {
+  id          String                @id @default(uuid()) @db.Uuid
+  layoutId    String                @map("layout_id") @db.Uuid
+  version     Int
+  /// sanitised rich-text HTML; may use {{brand.*}} and {{unsubscribeUrl}} variables
+  headerHtml  String                @map("header_html")
+  footerHtml  String                @map("footer_html")
+  /// brand tokens: { primaryColor, accentColor, backgroundColor, textColor, fontFamily, logoAssetId }
+  theme       Json                  @default("{}")
+  status      TemplateVersionStatus @default(draft)
+  createdBy   String?               @map("created_by") @db.Uuid // StaffMember id
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  publishedBy String?               @map("published_by") @db.Uuid
+  publishedAt DateTime?             @map("published_at") @db.Timestamptz
+
+  layout      MessageLayout  @relation("LayoutVersions", fields: [layoutId], references: [id])
+  publishedOf MessageLayout? @relation("LayoutPublished")
+
+  @@unique([layoutId, version])
+  @@map("message_layout_versions")
+}
+
+/// One row per (key, channel, locale), e.g. ("lead.matched", email, "en").
+model MessageTemplate {
+  id                 String          @id @default(uuid()) @db.Uuid
+  key                String
+  channel            TemplateChannel
+  locale             String          @default("en")
+  name               String
+  description        String?
+  /// email only; null = "default" layout
+  layoutId           String?         @map("layout_id") @db.Uuid
+  /// disabled templates are not sent (the notification still lands in-app if that channel is on)
+  enabled            Boolean         @default(true)
+  publishedVersionId String?         @unique @map("published_version_id") @db.Uuid
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  layout    MessageLayout?           @relation(fields: [layoutId], references: [id])
+  versions  MessageTemplateVersion[] @relation("TemplateVersions")
+  published MessageTemplateVersion?  @relation("TemplatePublished", fields: [publishedVersionId], references: [id])
+
+  @@unique([key, channel, locale])
+  @@map("message_templates")
+}
+
+model MessageTemplateVersion {
+  id          String                @id @default(uuid()) @db.Uuid
+  templateId  String                @map("template_id") @db.Uuid
+  version     Int
+  /// email subject / in-app title / sms+whatsapp: unused
+  subject     String?
+  /// email inbox preview text
+  preheader   String?
+  /// email: sanitised rich-text HTML; in_app/sms/whatsapp: plain text with {{variables}}
+  body        String
+  status      TemplateVersionStatus @default(draft)
+  changeNote  String?               @map("change_note")
+  createdBy   String?               @map("created_by") @db.Uuid
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  publishedBy String?               @map("published_by") @db.Uuid
+  publishedAt DateTime?             @map("published_at") @db.Timestamptz
+
+  template    MessageTemplate  @relation("TemplateVersions", fields: [templateId], references: [id])
+  publishedOf MessageTemplate? @relation("TemplatePublished")
+
+  @@unique([templateId, version])
+  @@map("message_template_versions")
+}
+
+/// Images uploaded in the template editor (logos, banners). Public, served by the web app at
+/// /media/template-assets/<id> so email clients can load them.
+model TemplateAsset {
+  id         String   @id @default(uuid()) @db.Uuid
+  storageKey String   @unique @map("storage_key")
+  mimeType   String   @map("mime_type")
+  bytes      Int
+  width      Int?
+  height     Int?
+  sha256     String
+  altText    String?  @map("alt_text")
+  uploadedBy String?  @map("uploaded_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([sha256])
+  @@map("template_assets")
+}

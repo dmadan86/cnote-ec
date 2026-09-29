@@ -1,0 +1,35 @@
+// Owned by @cnote/wishlist: buyers' saved products, organised into named lists (B2B buyers source
+// per project). Compare is cookie-based and has no tables.
+
+model Wishlist {
+  id        String   @id @default(uuid()) @db.Uuid
+  personId  String   @map("person_id") @db.Uuid
+  name      String
+  /// exactly one default list per person ("Saved items"), created lazily
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  items WishlistItem[]
+
+  @@unique([personId, name])
+  @@index([personId])
+  @@map("wishlists")
+}
+
+model WishlistItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  wishlistId String   @map("wishlist_id") @db.Uuid
+  listingId  String   @map("listing_id") @db.Uuid
+  /// buyer's private note, e.g. "ask for 5-ply sample"
+  note       String?
+  /// price at save time, to show "price dropped" later
+  savedPricePaise BigInt? @map("saved_price_paise")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  wishlist Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+
+  @@unique([wishlistId, listingId])
+  @@index([listingId])
+  @@map("wishlist_items")
+}

@@ -1,0 +1,150 @@
+"use server";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { z } from "zod";
+import { DomainError, rupeesToPaise } from "@cnote/core";
+import { actorOf, type ActionResult } from "@cnote/next-kit";
+import type { ListingInput, ListingView } from "@cnote/catalogue";
+import { requireSeller } from "@/lib/auth";
+import { ONB, readOnb, writeOnb } from "@/lib/cookies";
+import { numOrNull, str } from "@/lib/form-data";
+import { logEvent } from "@/lib/metrics";
+import { run } from "@/lib/run";
+import { catalogue } from "@/lib/services";
+
+export type DraftResult = ActionResult<{ listingId: string }>;
+export type SaveResult = ActionResult<{ listing: ListingView; intent: "save" | "publish" }>;
+export type RowResult = ActionResult<null>;
+
+const draftSchema = z.object({
+  text: z.string().min(10, "Write at least a sentence about what you sell.").max(2000, "Please keep it under 2,000 characters."),
+  language: z.string().min(2).max(5),
+});
+
+/** ADR-004: free text (Hindi/Hinglish/English) -> AI draft listing. Never auto-published (DESIGN principle 5). */
+export async function draftListingAction(_prev: DraftResult | null, fd: FormData): Promise<DraftResult> {
+  const mode = str(fd, "mode") === "onboarding" ? "onboarding" : "portal";
+  const session = await requireSeller(mode === "onboarding" ? "/onboarding" : "/listings/new");
+  const result = await run(async () => {
+    const input = draftSchema.parse({ text: str(fd, "text"), language: str(fd, "language") || "en" });
+    const started = Date.now();
+    const listing = await catalogue.draftListingFromText(session.business.id, input.text, input.language);
+    logEvent("seller.listing_drafted", { businessId: session.business.id, listingId: listing.id, aiMs: Date.now() - started });
+    return { listingId: listing.id };
+  });
+  if (result.ok) {
+    revalidatePath("/listings");
+    redirect(mode === "onboarding" ? "/onboarding" : `/listings/${result.data.listingId}/edit`);
+  }
+  return result;
+}
+
+const formSchema = z.object({
+  id: z.string().optional(),
+  categoryId: z.string().min(1, "Choose a category."),
+  title: z.string().min(3, "Give the listing a short title.").max(140, "Keep the title under 140 characters."),
+  description: z.string().min(10, "Describe the product in a sentence or two.").max(4000),
+  priceRupees: z.number().min(0, "Price cannot be negative.").nullable().refine((v) => v === null || Number.isFinite(v), "Enter a number, like 120 or 5.20."),
+  priceUnit: z.string().max(20),
+  moq: z.number().int("Use a whole number.").min(1, "Minimum order must be at least 1.").nullable().refine((v) => v === null || Number.isFinite(v), "Enter a whole number."),
+  moqUnit: z.string().max(20),
+  hsn: z.string().regex(/^(\d{4}|\d{6}|\d{8})?$/, "HSN is 4, 6 or 8 digits.").optional(),
+  language: z.string().min(2).max(5),
+  imageUrls: z.array(z.url("Use full links starting with https://").refine((u) => u.startsWith("https://"), "Use full links starting with https://")).max(5, "Add up to 5 image links."),
+});
+
+function issue(path: string, message: string): z.core.$ZodIssue {
+  return { code: "custom", path: [path], message, input: undefined };
+}
+
+/** Create/update a listing; with intent=publish also validates + moderates via catalogue.publishListing (ADR-003/004). */
+export async function saveListingAction(_prev: SaveResult | null, fd: FormData): Promise<SaveResult> {
+  const session = await requireSeller("/listings");
+  const actor = actorOf(session);
+  return run(async () => {
+    const intent: "save" | "publish" = str(fd, "intent") === "publish" ? "publish" : "save";
+    const parsed = formSchema.parse({
+      id: str(fd, "id") || undefined,
+      categoryId: str(fd, "categoryId"),
+      title: str(fd, "title"),
+      description: str(fd, "description"),
+      priceRupees: numOrNull(fd, "priceRupees"),
+      priceUnit: str(fd, "priceUnit"),
+      moq: numOrNull(fd, "moq"),
+      moqUnit: str(fd, "moqUnit"),
+      hsn: str(fd, "hsn"),
+      language: str(fd, "language") || "en",
+      imageUrls: str(fd, "imageUrls").split(/[\n,]+/).map((s) => s.trim()).filter(Boolean),
+    });
+
+    const category = (await catalogue.listCategories()).find((c) => c.id === parsed.categoryId);
+    if (!category) throw new DomainError("validation", "Choose a category.");
+    if (category.prohibited) throw new DomainError("validation", "This category is not allowed on the marketplace. See the prohibited-category policy.");
+
+    const issues: z.core.$ZodIssue[] = [];
+    if (parsed.priceRupees !== null && !parsed.priceUnit) issues.push(issue("priceUnit", "Choose the unit this price is for."));
+    if (parsed.moq !== null && !parsed.moqUnit) issues.push(issue("moqUnit", "Choose the unit for the minimum order."));
+    const attributes: Record<string, string | number> = {};
+    for (const f of category.attributeSchema.fields) {
+      const raw = str(fd, `attr.${f.key}`);
+      if (raw === "") {
+        if (f.required && intent === "publish") issues.push(issue(`attr.${f.key}`, `${f.label} is needed to publish.`));
+        continue;
+      }
+      if (f.type === "number") {
+        const n = Number(raw);
+        if (!Number.isFinite(n)) issues.push(issue(`attr.${f.key}`, "Enter a number."));
+        else attributes[f.key] = n;
+      } else attributes[f.key] = raw;
+    }
+    if (issues.length) throw new z.ZodError(issues);
+
+    const input: ListingInput = {
+      categoryId: parsed.categoryId,
+      title: parsed.title,
+      description: parsed.description,
+      attributes,
+      pricePaise: parsed.priceRupees === null ? null : rupeesToPaise(parsed.priceRupees),
+      priceUnit: parsed.priceRupees === null ? null : parsed.priceUnit,
+      moq: parsed.moq,
+      moqUnit: parsed.moq === null ? null : parsed.moqUnit,
+      hsn: parsed.hsn || null,
+      language: parsed.language,
+      imageUrls: parsed.imageUrls,
+    };
+
+    let listing = parsed.id ? await catalogue.updateListing(actor.businessId, parsed.id, input) : await catalogue.createListing(actor.businessId, input);
+    if (intent === "publish") {
+      listing = await catalogue.publishListing(actor.businessId, listing.id);
+      logEvent("seller.listing_publish_attempt", { businessId: actor.businessId, listingId: listing.id, status: listing.status, moderation: listing.moderationStatus, aiGenerated: listing.aiGenerated });
+      if (listing.status === "published" && !(await readOnb(ONB.firstListing))) {
+        // ADR-004 metric: time from business creation to first published listing.
+        const t0 = Number(await readOnb(ONB.startedAt));
+        logEvent("seller.first_listing_published", { businessId: actor.businessId, listingId: listing.id, timeToFirstListingMs: Number.isFinite(t0) && t0 > 0 ? Date.now() - t0 : null });
+        await writeOnb(ONB.firstListing, String(Date.now()));
+      }
+    }
+    revalidatePath("/listings");
+    return { listing, intent };
+  });
+}
+
+export async function publishListingAction(_prev: RowResult | null, fd: FormData): Promise<RowResult> {
+  const session = await requireSeller("/listings");
+  return run(async () => {
+    const id = z.string().min(1).parse(str(fd, "id"));
+    const listing = await catalogue.publishListing(session.business.id, id);
+    logEvent("seller.listing_publish_attempt", { businessId: session.business.id, listingId: id, status: listing.status, moderation: listing.moderationStatus });
+    revalidatePath("/listings");
+    return null;
+  });
+}
+
+export async function archiveListingAction(_prev: RowResult | null, fd: FormData): Promise<RowResult> {
+  const session = await requireSeller("/listings");
+  return run(async () => {
+    await catalogue.archiveListing(session.business.id, z.string().min(1).parse(str(fd, "id")));
+    revalidatePath("/listings");
+    return null;
+  });
+}

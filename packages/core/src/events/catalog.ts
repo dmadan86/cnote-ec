@@ -14,6 +14,8 @@ export interface DomainEventPayloads {
   ListingPublished: { listingId: string; sellerBusinessId: string; categoryId: string };
   ListingModerated: { listingId: string; sellerBusinessId: string; status: "approved" | "review" | "rejected"; reason?: string };
   ListingArchived: { listingId: string; sellerBusinessId: string };
+  ListingImageUploaded: { imageId: string; listingId: string; sellerBusinessId: string; aiVerdict: string | null };
+  ListingImageModerated: { imageId: string; listingId: string; sellerBusinessId: string; status: "approved" | "rejected"; moderatedBy: string };
   // enquiry & matching
   EnquiryCreated: { enquiryId: string; buyerBusinessId: string; categoryId: string | null };
   EnquiryScored: { enquiryId: string; intentScore: number; needsReview: boolean };
@@ -26,6 +28,14 @@ export interface DomainEventPayloads {
   MessageSent: { conversationId: string; messageId: string; senderPersonId: string };
   QuoteSent: { quoteId: string; conversationId: string; sellerBusinessId: string; pricePaise: number; quantity: number };
   DealReportedOffPlatform: { matchId: string; reportedByBusinessId: string; outcome: "won" | "lost" | "pending"; valuePaise?: number };
+  // reviews (user-generated content; public only after staff approval)
+  ReviewSubmitted: { reviewId: string; listingId: string; sellerBusinessId: string; authorPersonId: string; rating: number; aiVerdict: string | null };
+  ReviewModerated: { reviewId: string; listingId: string; sellerBusinessId: string; status: "approved" | "rejected"; rating: number; moderatedBy: string };
+  CommentSubmitted: { commentId: string; listingId: string; parentId: string | null; authorPersonId: string; isSeller: boolean; aiVerdict: string | null };
+  CommentModerated: { commentId: string; listingId: string; status: "approved" | "rejected"; moderatedBy: string };
+  // wishlist (demand signal for sellers/search; no PII beyond ids)
+  WishlistItemAdded: { wishlistId: string; personId: string; listingId: string };
+  WishlistItemRemoved: { wishlistId: string; personId: string; listingId: string };
   // billing
   CreditsGranted: { businessId: string; amount: number; reason: string; expiresAt: string };
   CreditConsumed: { businessId: string; txnId: string; refType: string; refId: string };
@@ -47,6 +57,8 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   ListingPublished: 1,
   ListingModerated: 1,
   ListingArchived: 1,
+  ListingImageUploaded: 1,
+  ListingImageModerated: 1,
   EnquiryCreated: 1,
   EnquiryScored: 1,
   LeadMatched: 1,
@@ -58,6 +70,12 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   MessageSent: 1,
   QuoteSent: 1,
   DealReportedOffPlatform: 1,
+  ReviewSubmitted: 1,
+  ReviewModerated: 1,
+  CommentSubmitted: 1,
+  CommentModerated: 1,
+  WishlistItemAdded: 1,
+  WishlistItemRemoved: 1,
   CreditsGranted: 1,
   CreditConsumed: 1,
   CreditRefunded: 1,

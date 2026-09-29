@@ -1,0 +1,131 @@
+import { DomainError, emit } from "@cnote/core";
+import { prisma } from "@cnote/db";
+import { z } from "zod";
+import { getGstnProvider, isValidGstin, isValidUdyam, normaliseGstin } from "./gstin";
+import type { CreateBusinessInput, TrustProfile } from "./types";
+
+const createSchema = z.object({
+  name: z.string().trim().min(2, "Enter your business name.").max(120),
+  city: z.string().trim().max(80).optional(),
+  state: z.string().trim().max(80).optional(),
+  pincode: z.string().trim().regex(/^[1-9]\d{5}$/, "Enter a valid 6-digit pincode.").optional().or(z.literal("").transform(() => undefined)),
+  isSeller: z.boolean(),
+  languages: z.array(z.string().min(2).max(8)).max(12).optional(),
+});
+
+/** Creates a Business owned by the person; emits BusinessCreated (billing grants free-plan credits). */
+export async function createBusiness(personId: string, input: CreateBusinessInput): Promise<{ businessId: string }> {
+  const d = createSchema.parse(input);
+  return prisma.$transaction(async (tx) => {
+    const person = await tx.person.findUnique({ where: { id: personId }, select: { id: true, erasedAt: true } });
+    if (!person || person.erasedAt) throw new DomainError("not_found", "Account not found.");
+    const b = await tx.business.create({
+      data: {
+        name: d.name,
+        city: d.city || null,
+        state: d.state || null,
+        pincode: d.pincode || null,
+        isSeller: d.isSeller,
+        isBuyer: true,
+        languages: d.languages?.length ? d.languages : ["en"],
+        members: { create: { personId, role: "owner" } },
+      },
+      select: { id: true },
+    });
+    await emit(tx, "BusinessCreated", { type: "Business", id: b.id }, { businessId: b.id, personId, isSeller: d.isSeller });
+    return { businessId: b.id };
+  });
+}
+
+export async function updateProfile(personId: string, input: { name?: string; preferredLanguage?: string }): Promise<void> {
+  const d = z
+    .object({
+      name: z.string().trim().min(1, "Enter your name.").max(100).optional(),
+      preferredLanguage: z.string().regex(/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/, "Invalid language.").optional(),
+    })
+    .parse(input);
+  await prisma.person.update({ where: { id: personId }, data: d });
+}
+
+const toProfile = (b: {
+  id: string; name: string; city: string | null; state: string | null; pincode: string | null;
+  verificationTier: number; trustScore: number; badgeActive: boolean; languages: string[];
+}): TrustProfile => ({
+  businessId: b.id,
+  name: b.name,
+  city: b.city,
+  state: b.state,
+  pincode: b.pincode,
+  verificationTier: b.verificationTier,
+  trustScore: b.trustScore,
+  badgeActive: b.badgeActive,
+  languages: b.languages,
+});
+
+export async function getTrustProfiles(businessIds: string[]): Promise<Map<string, TrustProfile>> {
+  if (businessIds.length === 0) return new Map();
+  const rows = await prisma.business.findMany({ where: { id: { in: [...new Set(businessIds)] } } });
+  return new Map(rows.map((b) => [b.id, toProfile(b)]));
+}
+
+/** Verified sellers, trust-ranked, for manufacturer discovery pages. */
+export async function listSellers(opts: { q?: string; city?: string; limit?: number; offset?: number }): Promise<TrustProfile[]> {
+  const q = opts.q?.trim();
+  const city = opts.city?.trim();
+  const rows = await prisma.business.findMany({
+    where: {
+      isSeller: true,
+      ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
+      ...(city ? { city: { equals: city, mode: "insensitive" } } : {}),
+    },
+    orderBy: [{ badgeActive: "desc" }, { trustScore: "desc" }, { createdAt: "asc" }],
+    take: Math.min(Math.max(opts.limit ?? 20, 1), 100),
+    skip: Math.max(opts.offset ?? 0, 0),
+  });
+  return rows.map(toProfile);
+}
+
+/** T1: GSTIN checksum + GSTN provider lookup (mock in dev), Udyam optional. Emits BusinessVerified. */
+export async function verifyGstin(businessId: string, gstinInput: string, udyamInput?: string): Promise<{ passed: boolean; tier: number; reason?: string }> {
+  const business = await prisma.business.findUnique({ where: { id: businessId }, select: { id: true, verificationTier: true } });
+  if (!business) throw new DomainError("not_found", "Business not found.");
+  const gstin = normaliseGstin(gstinInput);
+  const udyam = udyamInput?.trim() ? udyamInput.trim().toUpperCase() : undefined;
+  const provider = getGstnProvider();
+
+  const fail = async (reason: string, details: object = {}) => {
+    await prisma.verificationRecord.create({
+      data: { businessId, tier: 1, kind: "gstin", status: "failed", provider: provider.name, details: { gstin, reason, ...details } },
+    });
+    return { passed: false, tier: business.verificationTier, reason };
+  };
+
+  if (!isValidGstin(gstin)) return fail("Invalid GSTIN. Check the 15 characters and try again.");
+  if (udyam && !isValidUdyam(udyam)) return fail("Invalid Udyam number. Expected format UDYAM-XX-00-0000000.");
+  const record = await provider.lookup(gstin);
+  if (!record) return fail("GSTIN not found in the GST registry.");
+  if (record.status !== "Active") return fail(`GSTIN is ${record.status.toLowerCase()}.`, { status: record.status });
+
+  const tier = Math.max(business.verificationTier, 1);
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.business.update({ where: { id: businessId }, data: { gstin, ...(udyam ? { udyam } : {}), verificationTier: tier } });
+      await tx.verificationRecord.create({
+        data: { businessId, tier: 1, kind: "gstin", status: "passed", provider: provider.name, details: { gstin, legalName: record.legalName, state: record.state, status: record.status } },
+      });
+      if (udyam) {
+        await tx.verificationRecord.create({ data: { businessId, tier: 1, kind: "udyam", status: "passed", provider: "format-check", details: { udyam } } });
+      }
+      await emit(tx, "BusinessVerified", { type: "Business", id: businessId }, { businessId, tier, kind: "gstin" });
+    });
+  } catch (err) {
+    if ((err as { code?: string }).code === "P2002") return fail("This GSTIN is already registered to another business.");
+    throw err;
+  }
+  return { passed: true, tier };
+}
+
+export async function listVerificationRecords(businessId: string) {
+  const rows = await prisma.verificationRecord.findMany({ where: { businessId }, orderBy: { createdAt: "desc" } });
+  return rows.map((r) => ({ id: r.id, tier: r.tier, kind: r.kind, status: r.status, provider: r.provider, createdAt: r.createdAt.toISOString() }));
+}

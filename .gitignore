@@ -44,3 +44,6 @@ next-env.d.ts
 # prisma client
 packages/db/src/generated/
 *.tsbuildinfo
+
+# local media storage
+.data/
