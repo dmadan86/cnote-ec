@@ -1,0 +1,30 @@
+{
+  "name": "@cnote/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "reset": "prisma migrate reset --force",
+    "seed": "tsx prisma/seed.ts",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
+    "migrate:new": "tsx scripts/new-migration.ts",
+    "migrate:check": "tsx scripts/raw-sql-guard.ts check"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "pg": "^8.16.0"
+  },
+  "devDependencies": {
+    "prisma": "7.10.0",
+    "dotenv": "^17.2.0",
+    "@types/pg": "^8.15.0"
+  }
+}

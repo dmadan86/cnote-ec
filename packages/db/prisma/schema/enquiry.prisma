@@ -1,0 +1,153 @@
+// Owned by @cnote/enquiry (Enquiry & Matching + Messaging). ADR-002, ADR-007.
+// Phase-2 Order / EscrowTransaction / Dispute models are intentionally absent; Quote and DealReport
+// keep the enquiry → quote → deal lifecycle complete for off-platform deals.
+
+enum EnquiryStatus {
+  scoring
+  review
+  matched
+  unmatched
+  closed
+  rejected
+
+  @@map("enquiry_status")
+}
+
+enum MatchStatus {
+  offered
+  accepted
+  declined
+  expired
+  refunded
+
+  @@map("match_status")
+}
+
+enum DealOutcome {
+  won
+  lost
+  pending
+
+  @@map("deal_outcome")
+}
+
+model Enquiry {
+  id               String           @id @default(uuid()) @db.Uuid
+  buyerBusinessId  String           @map("buyer_business_id") @db.Uuid
+  buyerPersonId    String           @map("buyer_person_id") @db.Uuid
+  categoryId       String?          @map("category_id") @db.Uuid
+  title            String
+  requirement      String
+  quantity         Int?
+  quantityUnit     String?          @map("quantity_unit")
+  targetPricePaise BigInt?          @map("target_price_paise")
+  deliveryCity     String?          @map("delivery_city")
+  deliveryPincode  String?          @map("delivery_pincode")
+  neededBy         DateTime?        @map("needed_by") @db.Date
+  language         String           @default("en")
+  /// 0–100, visible to sellers (ADR-002)
+  intentScore      Int?             @map("intent_score")
+  intentReasons    Json             @default("[]") @map("intent_reasons")
+  /// pgvector; read/write via $queryRaw
+  embedding        Unsupported("vector(256)")?
+  embeddingVersion String?          @map("embedding_version")
+  moderationStatus ModerationStatus @default(pending) @map("moderation_status")
+  status           EnquiryStatus    @default(scoring)
+  sellerCap        Int              @default(3) @map("seller_cap")
+  /// ADR-002 option 4: buyer picks sellers manually from a ranked list
+  buyerPicks       Boolean          @default(false) @map("buyer_picks")
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  buyer       Business  @relation(fields: [buyerBusinessId], references: [id])
+  buyerPerson Person    @relation(fields: [buyerPersonId], references: [id])
+  category    Category? @relation(fields: [categoryId], references: [id])
+  matches     Match[]
+
+  @@index([buyerBusinessId, createdAt])
+  @@map("enquiries")
+}
+
+model Match {
+  id               String      @id @default(uuid()) @db.Uuid
+  enquiryId        String      @map("enquiry_id") @db.Uuid
+  sellerBusinessId String      @map("seller_business_id") @db.Uuid
+  rank             Int // 1-based among the offered set
+  matchScore       Float       @map("match_score") @db.Real
+  status           MatchStatus @default(offered)
+  offeredAt        DateTime    @default(now()) @map("offered_at") @db.Timestamptz
+  /// offeredAt + 2h; after that the slot cascades to the next-ranked seller
+  respondBy        DateTime    @map("respond_by") @db.Timestamptz
+  respondedAt      DateTime?   @map("responded_at") @db.Timestamptz
+  /// credit_ledger row consumed on accept; refunded per ADR-002 auto-refund
+  creditTxnId      String?     @map("credit_txn_id") @db.Uuid
+
+  enquiry      Enquiry       @relation(fields: [enquiryId], references: [id])
+  seller       Business      @relation(fields: [sellerBusinessId], references: [id])
+  conversation Conversation?
+  dealReports  DealReport[]
+
+  @@unique([enquiryId, sellerBusinessId])
+  @@index([sellerBusinessId, status])
+  @@index([status, respondBy])
+  @@map("matches")
+}
+
+model Conversation {
+  id        String   @id @default(uuid()) @db.Uuid
+  matchId   String   @unique @map("match_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  match    Match     @relation(fields: [matchId], references: [id])
+  messages Message[]
+  quotes   Quote[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  senderPersonId String   @map("sender_person_id") @db.Uuid
+  body           String
+  language       String   @default("en")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  sender       Person       @relation(fields: [senderPersonId], references: [id])
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+model Quote {
+  id               String    @id @default(uuid()) @db.Uuid
+  conversationId   String    @map("conversation_id") @db.Uuid
+  sellerBusinessId String    @map("seller_business_id") @db.Uuid
+  pricePaise       BigInt    @map("price_paise") // per unit
+  quantity         Int
+  unit             String
+  leadTimeDays     Int?      @map("lead_time_days")
+  notes            String?
+  validUntil       DateTime? @map("valid_until") @db.Date
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  seller       Business     @relation(fields: [sellerBusinessId], references: [id])
+
+  @@map("quotes")
+}
+
+/// One-tap "did this close?" reports for off-platform deals (ADR-007).
+model DealReport {
+  id                   String      @id @default(uuid()) @db.Uuid
+  matchId              String      @map("match_id") @db.Uuid
+  reportedByBusinessId String      @map("reported_by_business_id") @db.Uuid
+  outcome              DealOutcome
+  valuePaise           BigInt?     @map("value_paise")
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  match      Match    @relation(fields: [matchId], references: [id])
+  reportedBy Business @relation(fields: [reportedByBusinessId], references: [id])
+
+  @@map("deal_reports")
+}

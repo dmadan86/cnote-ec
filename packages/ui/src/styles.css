@@ -1,0 +1,32 @@
+/*
+ * Design tokens for all apps. Import once from the app's global CSS, after `@import "tailwindcss"`,
+ * and add `@source` for packages/ui/src so Tailwind sees these classes.
+ * Palette follows docs/design/home-reference.png: purple primary, orange accent for quote CTAs.
+ */
+@theme {
+  --color-brand-50: #f5f3ff;
+  --color-brand-100: #ede9fe;
+  --color-brand-200: #ddd6fe;
+  --color-brand-500: #7c5cf5;
+  --color-brand-600: #6d3ff0;
+  --color-brand-700: #5b2fd6;
+  --color-brand-900: #2e1a70;
+
+  --color-accent-50: #fff7ed;
+  --color-accent-100: #ffedd5;
+  --color-accent-500: #f97316;
+  --color-accent-600: #ea580c;
+
+  --color-ink: #111827;
+  --color-muted: #6b7280;
+  --color-line: #e5e7eb;
+  --color-surface: #ffffff;
+  --color-canvas: #f8f9fc;
+
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --radius-card: 0.875rem;
+}

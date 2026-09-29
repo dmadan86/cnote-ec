@@ -1,0 +1,175 @@
+// Owned by @cnote/identity (Identity/Verification + consent ledger). ADR-003, ADR-007, ADR-010.
+
+enum ConsentPurpose {
+  matching
+  marketing
+  voice_retention
+  counterparty_sharing
+
+  @@map("consent_purpose")
+}
+
+enum VerificationKind {
+  phone_otp
+  gstin
+  udyam
+  document
+  video_kyc
+  audit
+
+  @@map("verification_kind")
+}
+
+enum VerificationStatus {
+  pending
+  passed
+  failed
+
+  @@map("verification_status")
+}
+
+enum MemberRole {
+  owner
+  staff
+
+  @@map("member_role")
+}
+
+model Person {
+  id                String    @id @default(uuid()) @db.Uuid
+  email             String?   @unique // lower-cased
+  emailVerifiedAt   DateTime? @map("email_verified_at") @db.Timestamptz
+  /// scrypt hash ("scrypt$N$r$p$salt$hash"); null for Google-only accounts
+  passwordHash      String?   @map("password_hash")
+  phone             String?   @unique // E.164, e.g. +919876543210; verified via OTP for T0
+  phoneVerifiedAt   DateTime? @map("phone_verified_at") @db.Timestamptz
+  name              String?
+  avatarUrl         String?   @map("avatar_url")
+  preferredLanguage String    @default("en") @map("preferred_language")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  /// DPDP erasure: PII nulled/tombstoned, row kept for referential integrity
+  erasedAt          DateTime? @map("erased_at") @db.Timestamptz
+
+  memberships    BusinessMember[]
+  consents       Consent[]
+  authIdentities AuthIdentity[]
+  authSessions   AuthSession[]
+  enquiries   Enquiry[]
+  messages    Message[]
+
+  @@map("persons")
+}
+
+/// Buyer and seller are roles on one Business, not separate types (ADR-007).
+model Business {
+  id               String   @id @default(uuid()) @db.Uuid
+  name             String
+  gstin            String?  @unique
+  udyam            String?
+  city             String?
+  state            String?
+  pincode          String?
+  isSeller         Boolean  @default(false) @map("is_seller")
+  isBuyer          Boolean  @default(true) @map("is_buyer")
+  /// T0 phone/OTP, T1 GSTIN+Udyam, T2 docs+KYC, T3 audit
+  verificationTier Int      @default(0) @map("verification_tier") @db.SmallInt
+  /// 0–100 continuous trust score; decays; badge revoked below threshold
+  trustScore       Int      @default(50) @map("trust_score") @db.SmallInt
+  badgeActive      Boolean  @default(false) @map("badge_active")
+  languages        String[] @default(["en"])
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  members       BusinessMember[]
+  verifications VerificationRecord[]
+  listings      Listing[]
+  enquiries     Enquiry[]
+  matches       Match[]
+  quotes        Quote[]
+  dealReports   DealReport[]
+  subscriptions Subscription[]
+  creditLedger  CreditLedgerEntry[]
+
+  @@index([isSeller, trustScore])
+  @@map("businesses")
+}
+
+model BusinessMember {
+  businessId String     @map("business_id") @db.Uuid
+  personId   String     @map("person_id") @db.Uuid
+  role       MemberRole @default(owner)
+
+  business Business @relation(fields: [businessId], references: [id])
+  person   Person   @relation(fields: [personId], references: [id])
+
+  @@id([businessId, personId])
+  @@map("business_members")
+}
+
+model VerificationRecord {
+  id         String             @id @default(uuid()) @db.Uuid
+  businessId String             @map("business_id") @db.Uuid
+  tier       Int                @db.SmallInt
+  kind       VerificationKind
+  status     VerificationStatus
+  provider   String
+  details    Json               @default("{}")
+  createdAt  DateTime           @default(now()) @map("created_at") @db.Timestamptz
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@index([businessId])
+  @@map("verification_records")
+}
+
+/// Append-only, purpose-scoped consent ledger. Current state = latest row per (person, purpose). ADR-010.
+model Consent {
+  id        String         @id @default(uuid()) @db.Uuid
+  personId  String         @map("person_id") @db.Uuid
+  purpose   ConsentPurpose
+  granted   Boolean
+  source    String // "web", "whatsapp", ...
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  person Person @relation(fields: [personId], references: [id])
+
+  @@index([personId, purpose, createdAt])
+  @@map("consents")
+}
+
+/// External login identities (Google today). ADR-010: store only what we need.
+model AuthIdentity {
+  id              String   @id @default(uuid()) @db.Uuid
+  personId        String   @map("person_id") @db.Uuid
+  provider        String // "google"
+  providerSubject String   @map("provider_subject") // Google "sub"
+  email           String?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  person Person @relation(fields: [personId], references: [id])
+
+  @@unique([provider, providerSubject])
+  @@index([personId])
+  @@map("auth_identities")
+}
+
+/// Durable login session behind the rotating refresh token. Short-lived JWT access tokens are
+/// minted from it; Redis caches validity for fast revocation checks.
+model AuthSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  personId         String    @map("person_id") @db.Uuid
+  /// sha256 of the current refresh token; rotated on every refresh
+  refreshTokenHash String    @unique @map("refresh_token_hash")
+  /// previous hash, kept to detect refresh-token reuse (→ revoke whole session)
+  prevTokenHash    String?   @map("prev_token_hash")
+  userAgent        String?   @map("user_agent")
+  ip               String?
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  lastUsedAt       DateTime  @default(now()) @map("last_used_at") @db.Timestamptz
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz
+
+  person Person @relation(fields: [personId], references: [id])
+
+  @@index([personId, revokedAt])
+  @@map("auth_sessions")
+}

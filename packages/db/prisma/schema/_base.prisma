@@ -1,0 +1,14 @@
+// Multi-file Prisma schema. One file per module; a module only queries the models in its own file
+// (ADR-006). Cross-module relations are declared here for referential integrity only.
+// Raw-SQL-only features (pgvector HNSW indexes, generated tsvector columns) are added by hand in
+// migrations — see the comments on those fields.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}

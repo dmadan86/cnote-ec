@@ -1,0 +1,68 @@
+// Owned by @cnote/billing. ADR-005: public plans, per-lead credits consumed only on accept,
+// auto-refund, 90-day rollover, no auto-renew.
+
+enum SubscriptionStatus {
+  active
+  cancelled
+  expired
+
+  @@map("subscription_status")
+}
+
+enum CreditReason {
+  grant
+  consume
+  refund
+  expire
+
+  @@map("credit_reason")
+}
+
+model Plan {
+  code              String @id // "free" | "starter" | "pro"
+  name              String
+  monthlyPricePaise BigInt @map("monthly_price_paise")
+  monthlyCredits    Int    @map("monthly_credits")
+  features          Json   @default("[]")
+  sortOrder         Int    @default(0) @map("sort_order")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id          String             @id @default(uuid()) @db.Uuid
+  businessId  String             @map("business_id") @db.Uuid
+  planCode    String             @map("plan_code")
+  status      SubscriptionStatus @default(active)
+  periodStart DateTime           @map("period_start") @db.Timestamptz
+  periodEnd   DateTime           @map("period_end") @db.Timestamptz
+  /// Renewals require explicit confirmation (ADR-005) — never defaults to true
+  autoRenew   Boolean            @default(false) @map("auto_renew")
+  cancelledAt DateTime?          @map("cancelled_at") @db.Timestamptz
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz
+
+  business Business @relation(fields: [businessId], references: [id])
+  plan     Plan     @relation(fields: [planCode], references: [code])
+
+  @@index([businessId, status])
+  @@map("subscriptions")
+}
+
+/// Append-only credit ledger. Balance = sum(delta). Grants carry expiresAt (+90 days rollover).
+model CreditLedgerEntry {
+  id         String       @id @default(uuid()) @db.Uuid
+  businessId String       @map("business_id") @db.Uuid
+  delta      Int
+  reason     CreditReason
+  refType    String?      @map("ref_type") // "match", "subscription", "grant"
+  refId      String?      @map("ref_id")
+  expiresAt  DateTime?    @map("expires_at") @db.Timestamptz
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@index([businessId, createdAt])
+  @@map("credit_ledger")
+}

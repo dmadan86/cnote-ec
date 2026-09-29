@@ -1,0 +1,75 @@
+// Owned by @cnote/catalogue (Catalogue + Moderation). ADR-003, ADR-004, ADR-007.
+
+enum ModerationStatus {
+  pending
+  approved
+  review
+  rejected
+
+  @@map("moderation_status")
+}
+
+enum ListingStatus {
+  draft
+  published
+  archived
+
+  @@map("listing_status")
+}
+
+model Category {
+  id              String  @id @default(uuid()) @db.Uuid
+  slug            String  @unique
+  name            String
+  parentId        String? @map("parent_id") @db.Uuid
+  /// Max sellers a lead is offered to (ADR-002, default 3)
+  leadCap         Int     @default(3) @map("lead_cap")
+  /// Prohibited categories cannot hold listings (ADR-003)
+  prohibited      Boolean @default(false)
+  /// { fields: [{ key, label, type, required, unit? }] }
+  attributeSchema Json    @default("{\"fields\":[]}") @map("attribute_schema")
+  icon            String? // lucide icon name
+  sortOrder       Int     @default(0) @map("sort_order")
+
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryTree")
+  listings  Listing[]
+  enquiries Enquiry[]
+
+  @@map("categories")
+}
+
+model Listing {
+  id               String           @id @default(uuid()) @db.Uuid
+  sellerBusinessId String           @map("seller_business_id") @db.Uuid
+  categoryId       String           @map("category_id") @db.Uuid
+  title            String
+  description      String           @default("")
+  attributes       Json             @default("{}")
+  pricePaise       BigInt?          @map("price_paise")
+  priceUnit        String?          @map("price_unit") // "piece", "kg", "meter", "set"
+  moq              Int?
+  moqUnit          String?          @map("moq_unit")
+  hsn              String?
+  language         String           @default("en")
+  imageUrls        String[]         @default([]) @map("image_urls")
+  aiGenerated      Boolean          @default(false) @map("ai_generated")
+  status           ListingStatus    @default(draft)
+  moderationStatus ModerationStatus @default(pending) @map("moderation_status")
+  moderationReason String?          @map("moderation_reason")
+  /// pgvector; read/write via $queryRaw. HNSW index added in raw SQL migration.
+  embedding        Unsupported("vector(256)")?
+  embeddingVersion String?          @map("embedding_version")
+  /// GENERATED ALWAYS AS to_tsvector('simple', title || ' ' || description) STORED — set in raw SQL migration.
+  searchTsv        Unsupported("tsvector")? @map("search_tsv")
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  seller   Business @relation(fields: [sellerBusinessId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@index([sellerBusinessId])
+  @@index([categoryId, status])
+  @@index([searchTsv], map: "listings_search_tsv_idx", type: Gin)
+  @@map("listings")
+}

@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: cnote
+          POSTGRES_PASSWORD: cnote
+          POSTGRES_DB: cnote
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cnote"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote
+      REDIS_URL: redis://localhost:6379
+      AI_PROVIDER: heuristic
+      JWT_SECRET: ci-only-jwt-secret-0123456789abcdef0123456789abcdef
+      APP_URL: http://localhost:3000
+      OTP_DEV_ECHO: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Migrations
+        run: |
+          pnpm db:check
+          pnpm db:migrate
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
