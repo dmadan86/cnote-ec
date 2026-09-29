@@ -42,7 +42,9 @@ pnpm --filter @cnote/api dev               # public API + MCP on :3003
 pnpm --filter @cnote/api openapi           # regenerate docs/api/openapi.json
 pnpm worker                                # outbox relay + handlers + jobs (needed for async flows)
 
+pnpm db:test:prepare                                 # once: create/migrate isolated cnote_test + cnote_live_test
 pnpm typecheck | pnpm lint | pnpm test | pnpm build   # all workspaces
+pnpm test:coverage                                   # per-package coverage thresholds (vitest.shared.ts)
 pnpm --filter @cnote/enquiry test                    # one package
 pnpm --filter @cnote/enquiry exec vitest run test/matching.test.ts -t "cascades"   # one test
 
@@ -110,6 +112,8 @@ Prefer `@cnote/ui` primitives, which carry the correct ARIA, over hand-rolled wi
 **Bharat-native UX (ADR-004).** Build for vernacular and Hinglish-first, low bandwidth and mobile first. Seller onboarding is WhatsApp-first; the web is the tertiary path. Search must handle mixed-script and transliterated queries.
 
 **Auth (identity).** Sign-in is by email/password or Google OAuth (PKCE). A short-lived HS256 JWT access token (`cnote_at`, 15 min) is paired with an opaque rotating refresh token (`cnote_rt`, 30 days). Only the refresh token's hash is stored, in `AuthSession`, and reusing an old refresh token revokes the session. Redis caches session revocation and holds the rate limits for sign-in, sign-up, reset and OTP. Refresh happens in `apps/web/src/proxy.ts`, because Server Components can't set cookies. Phone OTP is T0 *verification* (ADR-003), not login. Back-office access is granted only through `StaffMember` rows (see `packages/admin`), never through env vars or plan.
+
+**Tests** never touch dev data: `vitest.setup.ts` points Postgres at `<db>_test` / `<live_db>_test` and Redis at logical DB 1 (override with `TEST_DATABASE_URL`, `TEST_LIVE_DATABASE_URL`, `TEST_REDIS_URL`; CI sets them to its ephemeral services). Use unique ids/emails per test anyway, since packages run in parallel.
 
 **Seed data.** `pnpm db:seed` loads dummy categories, sellers and products for development. Real catalogue data will replace it, so don't build logic that depends on specific seed rows.
 
