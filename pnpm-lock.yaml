@@ -636,6 +636,9 @@ importers:
 
   packages/next-kit:
     dependencies:
+      '@cnote/admin':
+        specifier: workspace:*
+        version: link:../admin
       '@cnote/core':
         specifier: workspace:*
         version: link:../core

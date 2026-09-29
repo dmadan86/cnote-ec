@@ -1,22 +1,25 @@
 // Cookie names/options shared by server actions, route handlers and the proxy. No next/headers import
 // so it is safe in the proxy bundle.
-import { ACCESS_COOKIE, ACCESS_TTL_SECONDS, REFRESH_COOKIE, REFRESH_TTL_SECONDS, type AuthTokens } from "@cnote/identity";
+import type { AuthTokens } from "@cnote/identity";
+import { appRealm, realmCookies, realmPolicy } from "./realm";
 
-export const OAUTH_COOKIE = "cnote_oauth";
+/** PKCE/state cookie for the Google round trip, per realm so parallel sign-ins in two apps can't collide. */
+export const oauthCookieName = () => `cnote_${appRealm()}_oauth`;
 
 const base = () => ({ httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/" });
 
 export const accessCookie = (tokens: AuthTokens) => ({
-  name: ACCESS_COOKIE,
+  name: realmCookies().access,
   value: tokens.accessToken,
   ...base(),
-  maxAge: ACCESS_TTL_SECONDS,
+  maxAge: realmPolicy().accessTtlSeconds,
 });
 export const refreshCookie = (tokens: AuthTokens) => ({
-  name: REFRESH_COOKIE,
+  name: realmCookies().refresh,
   value: tokens.refreshToken,
   ...base(),
-  maxAge: REFRESH_TTL_SECONDS,
+  // Never outlive the session's absolute expiry (admin: 12h from sign-in).
+  maxAge: Math.max(0, Math.floor((new Date(tokens.refreshExpiresAt).getTime() - Date.now()) / 1000)),
 });
 
 interface CookieWriter {
@@ -28,8 +31,9 @@ export function setAuthCookies(store: CookieWriter, tokens: AuthTokens) {
   store.set(refreshCookie(tokens));
 }
 export function clearAuthCookies(store: CookieWriter) {
-  store.delete(ACCESS_COOKIE);
-  store.delete(REFRESH_COOKIE);
+  const names = realmCookies();
+  store.delete(names.access);
+  store.delete(names.refresh);
 }
 
 /** `next` must be a same-origin relative path; anything else falls back. Blocks `//host`, `/\host` and schemes. */

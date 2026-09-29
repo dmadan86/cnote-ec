@@ -1,14 +1,16 @@
 import "server-only";
 import { timingSafeEqual } from "node:crypto";
 import { DomainError } from "@cnote/core";
-import { completeGoogleSignIn, googleAuthorizationUrl, isGoogleConfigured, refreshSession, REFRESH_COOKIE, signOut } from "@cnote/identity";
+import { completeGoogleSignIn, googleAuthorizationUrl, isGoogleConfigured, refreshSession, signOut } from "@cnote/identity";
 import { NextResponse, type NextRequest } from "next/server";
 import { errorResponse } from "./action-result";
-import { clearAuthCookies, OAUTH_COOKIE, safeNext, setAuthCookies } from "./cookies";
+import { clearAuthCookies, oauthCookieName, safeNext, setAuthCookies } from "./cookies";
+import { appRealm, realmAuth, realmCookies } from "./realm";
 
 const ctxOf = (req: NextRequest) => ({
   ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip")?.trim() || null,
   userAgent: req.headers.get("user-agent"),
+  ...realmAuth(),
 });
 const redirectTo = (req: NextRequest, path: string, status = 303) => NextResponse.redirect(new URL(path, req.nextUrl.origin), status);
 const signInError = (req: NextRequest, error: string) => redirectTo(req, `/signin?error=${encodeURIComponent(error)}`);
@@ -61,7 +63,7 @@ async function googleStart(req: NextRequest) {
   const res = NextResponse.redirect(url, 303);
   // Lax (not Strict): the callback is a cross-site top-level navigation from Google.
   res.cookies.set({
-    name: OAUTH_COOKIE,
+    name: oauthCookieName(),
     value: JSON.stringify({ state, codeVerifier, next }),
     httpOnly: true,
     sameSite: "lax",
@@ -73,7 +75,7 @@ async function googleStart(req: NextRequest) {
 }
 
 async function googleCallback(req: NextRequest) {
-  const raw = req.cookies.get(OAUTH_COOKIE)?.value;
+  const raw = req.cookies.get(oauthCookieName())?.value;
   let saved: { state?: string; codeVerifier?: string; next?: string } = {};
   try {
     saved = raw ? JSON.parse(raw) : {};
@@ -83,7 +85,7 @@ async function googleCallback(req: NextRequest) {
   const q = req.nextUrl.searchParams;
   const fail = (msg: string) => {
     const res = signInError(req, msg);
-    res.cookies.delete({ name: OAUTH_COOKIE, path: "/api/auth" });
+    res.cookies.delete({ name: oauthCookieName(), path: "/api/auth" });
     return res;
   };
   if (q.get("error")) return fail("Google sign-in was cancelled.");
@@ -97,13 +99,13 @@ async function googleCallback(req: NextRequest) {
   );
   const res = redirectTo(req, safeNext(saved.next));
   setAuthCookies(res.cookies, tokens);
-  res.cookies.delete({ name: OAUTH_COOKIE, path: "/api/auth" });
+  res.cookies.delete({ name: oauthCookieName(), path: "/api/auth" });
   return res;
 }
 
 async function refresh(req: NextRequest) {
   if (!sameOrigin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  const rt = req.cookies.get(REFRESH_COOKIE)?.value;
+  const rt = req.cookies.get(realmCookies().refresh)?.value;
   try {
     if (!rt) throw new DomainError("unauthenticated", "Not signed in.");
     const tokens = await refreshSession(rt, ctxOf(req));
@@ -119,8 +121,8 @@ async function refresh(req: NextRequest) {
 
 async function signOutRoute(req: NextRequest) {
   if (!sameOrigin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  const rt = req.cookies.get(REFRESH_COOKIE)?.value;
-  if (rt) await signOut(rt);
+  const rt = req.cookies.get(realmCookies().refresh)?.value;
+  if (rt) await signOut(rt, appRealm());
   const res = redirectTo(req, "/");
   clearAuthCookies(res.cookies);
   return res;

@@ -1,3 +1,4 @@
+import type { Realm } from "./constants";
 export type ConsentPurpose = "matching" | "marketing" | "voice_retention" | "counterparty_sharing";
 export const CONSENT_PURPOSES: readonly ConsentPurpose[] = ["matching", "marketing", "voice_retention", "counterparty_sharing"];
 
@@ -39,6 +40,13 @@ export interface TrustProfile {
 export interface AuthContext {
   ip: string | null;
   userAgent: string | null;
+  /** Session realm (the app). Defaults to "web". Tokens and refresh sessions never cross realms. */
+  realm?: Realm;
+  /**
+   * Admission guard evaluated after credentials are verified and before a session is issued, e.g.
+   * the admin app requires an active StaffMember. Rejection looks identical to bad credentials.
+   */
+  allowPerson?: (personId: string) => Promise<boolean>;
 }
 export interface AuthTokens {
   personId: string;

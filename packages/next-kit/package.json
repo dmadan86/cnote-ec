@@ -13,6 +13,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@cnote/admin": "workspace:*",
     "@cnote/core": "workspace:*",
     "@cnote/email": "workspace:*",
     "@cnote/identity": "workspace:*",

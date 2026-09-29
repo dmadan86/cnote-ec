@@ -5,9 +5,10 @@
 //   export const config = { matcher: ["/((?!_next/|favicon.ico|api/auth/).*)"] };
 // PUBLIC CONTRACT. Extend, don't break.
 import { DomainError } from "@cnote/core";
-import { ACCESS_COOKIE, REFRESH_COOKIE, refreshSession, type AuthTokens } from "@cnote/identity";
+import { refreshSession, type AuthTokens } from "@cnote/identity";
 import { NextResponse, type NextRequest } from "next/server";
 import { clearAuthCookies, jwtExp, setAuthCookies } from "./cookies";
+import { realmAuth, realmCookies } from "./realm";
 
 export interface AuthProxyOptions {
   /** Paths that require a session; unauthenticated requests redirect to signInPath?next=… */
@@ -21,8 +22,9 @@ export function createAuthProxy(opts: AuthProxyOptions): (req: NextRequest) => P
   const isProtected = (path: string) => opts.protectedPrefixes.some((p) => path === p || path.startsWith(p.endsWith("/") ? p : `${p}/`));
 
   return async function proxy(req) {
-    let access = req.cookies.get(ACCESS_COOKIE)?.value;
-    const refresh = req.cookies.get(REFRESH_COOKIE)?.value;
+    const names = realmCookies();
+    let access = req.cookies.get(names.access)?.value;
+    const refresh = req.cookies.get(names.refresh)?.value;
     let rotated: AuthTokens | null = null;
     let cleared = false;
 
@@ -33,6 +35,7 @@ export function createAuthProxy(opts: AuthProxyOptions): (req: NextRequest) => P
         rotated = await refreshSession(refresh, {
           ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip")?.trim() || null,
           userAgent: req.headers.get("user-agent"),
+          ...realmAuth(),
         });
       } catch (err) {
         // Only an authoritative rejection clears cookies; transient errors (DB/Redis down) keep them for the next request.
@@ -42,12 +45,12 @@ export function createAuthProxy(opts: AuthProxyOptions): (req: NextRequest) => P
     }
     if (rotated) {
       // Forward to this request too, so Server Components rendered now see the new tokens.
-      req.cookies.set(ACCESS_COOKIE, rotated.accessToken);
-      req.cookies.set(REFRESH_COOKIE, rotated.refreshToken);
+      req.cookies.set(names.access, rotated.accessToken);
+      req.cookies.set(names.refresh, rotated.refreshToken);
       access = rotated.accessToken;
     } else if (cleared) {
-      req.cookies.delete(ACCESS_COOKIE);
-      req.cookies.delete(REFRESH_COOKIE);
+      req.cookies.delete(names.access);
+      req.cookies.delete(names.refresh);
       access = undefined;
     }
 

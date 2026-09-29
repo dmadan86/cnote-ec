@@ -174,6 +174,9 @@ model AuthIdentity {
 model AuthSession {
   id               String    @id @default(uuid()) @db.Uuid
   personId         String    @map("person_id") @db.Uuid
+  /// "web" | "seller" | "admin" — each app is its own session realm: tokens, cookies and refresh
+  /// sessions never cross realms (separate signing keys + JWT audience).
+  realm            String    @default("web")
   /// sha256 of the current refresh token; rotated on every refresh
   refreshTokenHash String    @unique @map("refresh_token_hash")
   /// previous hash, kept to detect refresh-token reuse (→ revoke whole session)
@@ -187,6 +190,6 @@ model AuthSession {
 
   person Person @relation(fields: [personId], references: [id])
 
-  @@index([personId, revokedAt])
+  @@index([personId, realm, revokedAt])
   @@map("auth_sessions")
 }

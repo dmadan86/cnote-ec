@@ -4,6 +4,7 @@ import { z } from "zod";
 import { enforceLimit } from "./limits";
 import { getMailer } from "./mailer";
 import { dummyVerify, hashPassword, normaliseEmail, passwordSchema, verifyPassword } from "./password";
+import { REALM_POLICY } from "./constants";
 import { issueTokens, revokeAllSessions } from "./sessions";
 import { randomToken, sha256 } from "./tokens";
 import type { AuthContext, AuthTokens, ConsentPurpose } from "./types";
@@ -68,16 +69,15 @@ const RESET_TTL = 30 * 60;
 const resetKey = (tokenHash: string) => `pwreset:${tokenHash}`;
 
 /** Emails a reset link (dev: logged). Always resolves (no account enumeration). Rate-limited. */
-export async function requestPasswordReset(email: string, ctx: AuthContext): Promise<void> {
-  void ctx;
-  const parsed = emailSchema.safeParse(email);
+export async function requestPasswordReset(email: string, ctx: AuthContext): Promise<void> {  const parsed = emailSchema.safeParse(email);
   if (!parsed.success) return;
   await enforceLimit(`pwreset:email:${parsed.data}`, 3, 3600);
   const person = await prisma.person.findUnique({ where: { email: parsed.data }, select: { id: true, erasedAt: true } });
   if (!person || person.erasedAt) return;
   const token = randomToken(32);
   await redis.set(resetKey(sha256(token)), person.id, "EX", RESET_TTL);
-  const base = process.env.APP_URL ?? "http://localhost:3000";
+  const policy = REALM_POLICY[ctx.realm ?? "web"];
+  const base = process.env[policy.appUrlEnv] ?? policy.appUrlDefault;
   await getMailer().send({
     to: parsed.data,
     subject: "Reset your password",
@@ -85,7 +85,7 @@ export async function requestPasswordReset(email: string, ctx: AuthContext): Pro
   });
 }
 
-/** Single-use token; resetting revokes every session. */
+/** Single-use token; the password is shared across apps, so resetting revokes sessions in every realm. */
 export async function resetPassword(token: string, newPassword: string): Promise<void> {
   const password = passwordSchema.parse(newPassword);
   const bad = () => new DomainError("validation", "This reset link is invalid or has expired.");

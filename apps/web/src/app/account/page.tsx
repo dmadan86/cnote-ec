@@ -8,7 +8,7 @@ export const metadata = { title: "Your account" };
 
 export default async function AccountPage() {
   const s = await requireSession("/account");
-  const [consents, sessions] = await Promise.all([getConsents(s.personId), listAuthSessions(s.personId, s.sessionId)]);
+  const [consents, sessions] = await Promise.all([getConsents(s.personId), listAuthSessions(s.personId, s.sessionId, "web")]);
   const fmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" });
 
   return (

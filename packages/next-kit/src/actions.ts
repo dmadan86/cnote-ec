@@ -1,11 +1,12 @@
 "use server";
 // Server actions for the auth forms. Each sets/clears cookies and redirects on success.
 // Only async functions may be exported from a "use server" module.
-import { REFRESH_COOKIE, requestPasswordReset, resetPassword, signInWithPassword, signOut, signUpWithPassword } from "@cnote/identity";
+import { requestPasswordReset, resetPassword, signInWithPassword, signOut, signUpWithPassword } from "@cnote/identity";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { runAction, type ActionResult } from "./action-result";
 import { clearAuthCookies, safeNext, setAuthCookies } from "./cookies";
+import { appRealm, realmCookies } from "./realm";
 import { requestContext } from "./session";
 
 const str = (fd: FormData, k: string) => {
@@ -58,8 +59,8 @@ export async function resetPasswordAction(_prev: ActionResult | null, formData: 
 
 export async function signOutAction(): Promise<void> {
   const store = await cookies();
-  const rt = store.get(REFRESH_COOKIE)?.value;
-  if (rt) await signOut(rt);
+  const rt = store.get(realmCookies().refresh)?.value;
+  if (rt) await signOut(rt, appRealm());
   clearAuthCookies(store);
   redirect("/");
 }

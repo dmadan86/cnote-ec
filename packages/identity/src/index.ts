@@ -1,7 +1,8 @@
 // @cnote/identity — Identity/Verification, sessions, trust score, consent ledger (ADR-003, ADR-010).
 // Framework-free: apps/web reads the cookie and passes the token in.
 // PUBLIC CONTRACT — other modules depend on these signatures. Extend, don't break.
-export { ACCESS_COOKIE, REFRESH_COOKIE, ACCESS_TTL_SECONDS, REFRESH_TTL_SECONDS } from "./constants";
+export { REALMS, REALM_POLICY, cookieNames, isRealm, ACCESS_TTL_SECONDS, REFRESH_TTL_SECONDS } from "./constants";
+export type { Realm, RealmPolicy } from "./constants";
 export type {
   ConsentPurpose, SessionBusiness, Session, TrustProfile, AuthContext, AuthTokens, CreateBusinessInput,
 } from "./types";

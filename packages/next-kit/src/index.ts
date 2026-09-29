@@ -7,6 +7,7 @@ import "server-only";
 import "./bootstrap";
 
 export * from "./action-result";
+export { appRealm, realmAuth, realmCookies } from "./realm";
 export { currentSession, requireSession, requireBusiness, actorOf, requestContext, type SessionWithBusiness } from "./session";
 export { safeNext, setAuthCookies, clearAuthCookies } from "./cookies";
 

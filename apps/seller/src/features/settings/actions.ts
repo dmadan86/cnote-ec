@@ -40,6 +40,6 @@ export async function updateConsentsAction(_prev: SettingsResult | null, fd: For
 
 export async function signOutEverywhereAction(): Promise<void> {
   const session = await requireSeller("/settings");
-  await identity.signOutAllSessions(session.personId);
+  await identity.signOutAllSessions(session.personId, "seller");
   redirect("/signin");
 }

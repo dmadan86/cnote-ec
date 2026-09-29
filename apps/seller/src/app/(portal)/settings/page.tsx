@@ -15,7 +15,7 @@ export default async function SettingsPage() {
   const session = await requireSeller("/settings");
   const [consents, sessions, profile] = await Promise.all([
     load(() => identity.getConsents(session.personId)),
-    load(() => identity.listAuthSessions(session.personId)),
+    load(() => identity.listAuthSessions(session.personId, session.sessionId, "seller")),
     load(async () => (await identity.getTrustProfiles([session.business.id])).get(session.business.id) ?? null),
   ]);
 

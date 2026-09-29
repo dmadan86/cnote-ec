@@ -1,15 +1,16 @@
 import "server-only";
-import { getSession, ACCESS_COOKIE, type Session } from "@cnote/identity";
+import { getSession, type AuthContext, type Session } from "@cnote/identity";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
+import { appRealm, realmAuth, realmCookies } from "./realm";
 
 export type SessionWithBusiness = Session & { business: NonNullable<Session["business"]> };
 
-/** Current session from the access-token cookie, or null. Cached per request (React `cache`). */
+/** Current session from this app's realm cookie, or null. Cached per request (React `cache`). */
 export const currentSession = cache(async (): Promise<Session | null> => {
   const store = await cookies();
-  return getSession(store.get(ACCESS_COOKIE)?.value);
+  return getSession(store.get(realmCookies().access)?.value, appRealm());
 });
 
 const signInUrl = (path: string, returnTo: string) => `${path}?next=${encodeURIComponent(returnTo)}`;
@@ -32,9 +33,12 @@ export function actorOf(s: SessionWithBusiness): { personId: string; businessId:
   return { personId: s.personId, businessId: s.business.id };
 }
 
-/** Request context (ip, user agent) for rate limiting and session metadata, from next/headers. */
-export async function requestContext(): Promise<{ ip: string | null; userAgent: string | null }> {
+/**
+ * Auth context for identity calls: ip + user agent (rate limiting, session metadata) plus this app's
+ * realm and admission guard. Always pass this to identity auth functions so sessions stay in-realm.
+ */
+export async function requestContext(): Promise<AuthContext & { ip: string | null; userAgent: string | null }> {
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip")?.trim() || null;
-  return { ip, userAgent: h.get("user-agent") };
+  return { ip, userAgent: h.get("user-agent"), ...realmAuth() };
 }

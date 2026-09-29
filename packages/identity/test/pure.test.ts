@@ -45,6 +45,30 @@ describe("JWT", () => {
     const ok = (await signAccessToken("p1", "s1")).token;
     expect(await verifyAccessToken(ok.slice(0, -2) + "xx")).toBeNull();
   });
+  it("never verifies a token in another realm (distinct keys + audience)", async () => {
+    const web = (await signAccessToken("p1", "s1", Date.now(), "web")).token;
+    const admin = (await signAccessToken("p1", "s1", Date.now(), "admin")).token;
+    expect(await verifyAccessToken(web, undefined, "admin")).toBeNull();
+    expect(await verifyAccessToken(web, undefined, "seller")).toBeNull();
+    expect(await verifyAccessToken(admin, undefined, "web")).toBeNull();
+    expect(await verifyAccessToken(admin, undefined, "admin")).toEqual({ personId: "p1", sessionId: "s1" });
+  });
+  it("admin access tokens live 5 minutes", async () => {
+    const { token } = await signAccessToken("p1", "s1", Date.now() - 6 * 60 * 1000, "admin");
+    expect(await verifyAccessToken(token, undefined, "admin")).toBeNull();
+    const fresh = await signAccessToken("p1", "s1", Date.now() - 4 * 60 * 1000, "admin");
+    expect(await verifyAccessToken(fresh.token, undefined, "admin")).not.toBeNull();
+  });
+  it("uses a dedicated realm secret when configured", async () => {
+    const prev = process.env.JWT_SECRET_SELLER;
+    process.env.JWT_SECRET_SELLER = "s".repeat(40);
+    const { token } = await signAccessToken("p1", "s1", Date.now(), "seller");
+    expect(await verifyAccessToken(token, undefined, "seller")).not.toBeNull();
+    process.env.JWT_SECRET_SELLER = "t".repeat(40);
+    expect(await verifyAccessToken(token, undefined, "seller")).toBeNull();
+    if (prev === undefined) delete process.env.JWT_SECRET_SELLER;
+    else process.env.JWT_SECRET_SELLER = prev;
+  });
   it("fails fast on a short secret", async () => {
     const prev = process.env.JWT_SECRET;
     process.env.JWT_SECRET = "short";

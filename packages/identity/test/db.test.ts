@@ -50,6 +50,44 @@ describe("sessions", () => {
     expect(await getSession(t.accessToken)).toBeNull();
   });
 
+  it("keeps realms apart: tokens and refresh sessions never cross apps", async () => {
+    const { email } = await signUp();
+    const seller = await signInWithPassword({ email, password: PW }, { ...ctx, ip: randomUUID(), realm: "seller" });
+    expect((await getSession(seller.accessToken, "seller"))?.personId).toBe(seller.personId);
+    expect(await getSession(seller.accessToken, "web")).toBeNull();
+    expect(await getSession(seller.accessToken, "admin")).toBeNull();
+
+    // A seller refresh token presented to the admin realm is rejected AND burns the seller session.
+    await expect(refreshSession(seller.refreshToken, { ...ctx, realm: "admin" })).rejects.toMatchObject({ code: "unauthenticated" });
+    expect(await getSession(seller.accessToken, "seller")).toBeNull();
+  });
+
+  it("admission guard blocks the session and looks like bad credentials", async () => {
+    const { email } = await signUp();
+    const deny = async () => false;
+    await expect(signInWithPassword({ email, password: PW }, { ...ctx, ip: randomUUID(), realm: "admin", allowPerson: deny })).rejects.toMatchObject({
+      code: "unauthenticated",
+      message: "Invalid email or password",
+    });
+    let allowed = true;
+    const guard = async () => allowed;
+    const t = await signInWithPassword({ email, password: PW }, { ...ctx, ip: randomUUID(), realm: "admin", allowPerson: guard });
+    // Guard is re-checked on refresh: revoking staff access ends the admin session.
+    allowed = false;
+    await expect(refreshSession(t.refreshToken, { ...ctx, realm: "admin", allowPerson: guard })).rejects.toMatchObject({ code: "unauthenticated" });
+    expect(await getSession(t.accessToken, "admin")).toBeNull();
+  });
+
+  it("admin refresh sessions are capped at 12 hours from sign-in", async () => {
+    const { email } = await signUp();
+    const t = await signInWithPassword({ email, password: PW }, { ...ctx, ip: randomUUID(), realm: "admin" });
+    const hours = (new Date(t.refreshExpiresAt).getTime() - Date.now()) / 3_600_000;
+    expect(hours).toBeGreaterThan(11.9);
+    expect(hours).toBeLessThanOrEqual(12);
+    const r = await refreshSession(t.refreshToken, { ...ctx, realm: "admin" });
+    expect(r.refreshExpiresAt).toBe(t.refreshExpiresAt);
+  });
+
   it("revocation is seen even when the Redis cache is cold", async () => {
     const { t } = await signUp();
     const claims = JSON.parse(Buffer.from(t.accessToken.split(".")[1]!, "base64url").toString());

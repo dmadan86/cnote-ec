@@ -56,7 +56,7 @@ export async function saveConsentsAction(_prev: ActionResult | null, fd: FormDat
 
 export async function signOutEverywhereAction(): Promise<void> {
   const s = await requireSession("/account");
-  await signOutAllSessions(s.personId);
+  await signOutAllSessions(s.personId, "web");
   clearAuthCookies(await cookies());
   redirect("/signin");
 }
