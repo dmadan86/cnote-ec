@@ -3,10 +3,19 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
   },
-  "dependencies": {"@cnote/core": "workspace:*", "@cnote/db": "workspace:*", "@cnote/ai": "workspace:*", "@cnote/catalogue": "workspace:*", "@cnote/identity": "workspace:*"}
+  "dependencies": {
+    "@cnote/ai": "workspace:*",
+    "@cnote/catalogue": "workspace:*",
+    "@cnote/core": "workspace:*",
+    "@cnote/db": "workspace:*",
+    "@cnote/identity": "workspace:*",
+    "zod": "^4.6.5"
+  }
 }

@@ -3,10 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
   },
-  "dependencies": {"@cnote/core": "workspace:*", "@cnote/db": "workspace:*"}
+  "dependencies": {
+    "@cnote/core": "workspace:*",
+    "@cnote/db": "workspace:*",
+    "zod": "^4.6.5"
+  }
 }

@@ -1,0 +1,38 @@
+// Owned by @cnote/admin: staff RBAC + audit trail for the separately hosted admin app.
+// Role → privilege mapping lives in code (packages/admin/src/rbac.ts) so it is reviewed and versioned.
+
+/// A Person with back-office access. No row (or active=false) = no admin access.
+model StaffMember {
+  id        String    @id @default(uuid()) @db.Uuid
+  personId  String    @unique @map("person_id") @db.Uuid
+  /// role codes from packages/admin/src/rbac.ts, e.g. ["moderator", "verification_officer"]
+  roles     String[]
+  active    Boolean   @default(true)
+  createdBy String?   @map("created_by") @db.Uuid // staff id that granted access; null = bootstrap CLI
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  lastSeenAt DateTime? @map("last_seen_at") @db.Timestamptz
+
+  person Person @relation(fields: [personId], references: [id])
+
+  @@map("staff_members")
+}
+
+/// Append-only record of every privileged action (who, what, on which subject, before/after).
+model AdminAuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  staffId     String?  @map("staff_id") @db.Uuid // null = system/CLI
+  privilege   String
+  action      String // e.g. "listing.moderation.resolve"
+  subjectType String?  @map("subject_type")
+  subjectId   String?  @map("subject_id")
+  details     Json     @default("{}")
+  ip          String?
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([staffId, createdAt])
+  @@index([subjectType, subjectId])
+  @@index([createdAt])
+  @@map("admin_audit_log")
+}

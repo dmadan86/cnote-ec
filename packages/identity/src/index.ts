@@ -31,7 +31,6 @@ export interface Session {
   preferredLanguage: string;
   /** Active business (a person may belong to several; first owned one for now). */
   business: SessionBusiness | null;
-  isOps: boolean; // email listed in OPS_EMAILS env
 }
 
 export interface TrustProfile {

@@ -54,6 +54,7 @@ model Person {
   consents       Consent[]
   authIdentities AuthIdentity[]
   authSessions   AuthSession[]
+  staffMember    StaffMember?
   enquiries   Enquiry[]
   messages    Message[]
 

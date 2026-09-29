@@ -1,0 +1,33 @@
+{
+  "name": "@cnote/next-kit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./proxy": "./src/proxy.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@cnote/core": "workspace:*",
+    "@cnote/identity": "workspace:*",
+    "@cnote/ui": "workspace:*",
+    "server-only": "^0.0.1",
+    "zod": "^4.1.0"
+  },
+  "peerDependencies": {
+    "next": "^16",
+    "react": "^19"
+  },
+  "devDependencies": {
+    "next": "16.3.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "@types/react": "^19",
+    "@types/react-dom": "^19"
+  }
+}

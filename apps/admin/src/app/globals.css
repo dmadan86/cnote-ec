@@ -1,0 +1,11 @@
+@import "tailwindcss";
+@import "@cnote/ui/styles.css";
+
+/* Shared UI package ships Tailwind classes in TS source; let Tailwind scan it. */
+@source "../../../../packages/ui/src";
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}

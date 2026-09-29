@@ -1,19 +1,17 @@
 {
-  "name": "@cnote/identity",
+  "name": "@cnote/admin",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
-  },
+  "exports": { ".": "./src/index.ts" },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "grant": "tsx --env-file=../../.env.local src/cli.ts grant"
   },
   "dependencies": {
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",
-    "jose": "^6.2.12",
-    "zod": "^4.6.5"
+    "zod": "^4.1.0"
   }
 }

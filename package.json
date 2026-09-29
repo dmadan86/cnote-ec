@@ -15,10 +15,13 @@
     "db:generate": "pnpm --filter @cnote/db generate",
     "db:migrate": "pnpm --filter @cnote/db migrate:deploy",
     "db:deploy": "pnpm --filter @cnote/db migrate:deploy",
-    "db:seed": "pnpm --filter @cnote/db seed",
+    "db:seed": "pnpm --filter @cnote/worker seed",
     "db:reset": "pnpm --filter @cnote/db reset",
     "db:new": "pnpm --filter @cnote/db migrate:new",
-    "db:check": "pnpm --filter @cnote/db migrate:check"
+    "db:check": "pnpm --filter @cnote/db migrate:check",
+    "dev:seller": "pnpm --filter @cnote/seller-app dev",
+    "dev:admin": "pnpm --filter @cnote/admin-app dev",
+    "admin:grant": "pnpm --filter @cnote/admin grant"
   },
   "devDependencies": {
     "@types/node": "^22",
