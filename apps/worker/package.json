@@ -16,6 +16,7 @@
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",
     "@cnote/developer": "workspace:*",
+    "@cnote/domains": "workspace:*",
     "@cnote/email": "workspace:*",
     "@cnote/enquiry": "workspace:*",
     "@cnote/identity": "workspace:*",
@@ -24,6 +25,7 @@
     "@cnote/observability": "workspace:*",
     "@cnote/reviews": "workspace:*",
     "@cnote/search": "workspace:*",
+    "@cnote/storefront": "workspace:*",
     "@cnote/templates": "workspace:*",
     "@cnote/wishlist": "workspace:*",
     "@sentry/node": "^11.1.0"

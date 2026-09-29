@@ -193,3 +193,19 @@ model AuthSession {
   @@index([personId, realm, revokedAt])
   @@map("auth_sessions")
 }
+
+/// TOTP multi-factor auth (required for admin realm; optional for sellers). Secret is encrypted with
+/// @cnote/security field encryption; recovery codes are stored as sha256 hashes only.
+model PersonMfa {
+  personId          String    @id @map("person_id") @db.Uuid
+  /// envelope-encrypted TOTP secret (base32), see @cnote/security encryptField
+  totpSecretEnc     String?   @map("totp_secret_enc")
+  enabledAt         DateTime? @map("enabled_at") @db.Timestamptz
+  /// sha256 hashes of unused one-time recovery codes
+  recoveryCodeHashes String[] @default([]) @map("recovery_code_hashes")
+  /// last accepted TOTP time-step, to block code replay within the window
+  lastUsedStep      BigInt?   @map("last_used_step")
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("person_mfa")
+}

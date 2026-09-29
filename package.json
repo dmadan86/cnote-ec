@@ -22,7 +22,8 @@
     "dev:seller": "pnpm --filter @cnote/seller-app dev",
     "dev:admin": "pnpm --filter @cnote/admin-app dev",
     "admin:grant": "pnpm --filter @cnote/admin grant",
-    "test:coverage": "pnpm -r --if-present exec vitest run --coverage"
+    "test:coverage": "pnpm -r --if-present exec vitest run --coverage",
+    "dev:studio": "pnpm --filter @cnote/studio-app dev"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

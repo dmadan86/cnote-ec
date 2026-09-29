@@ -23,3 +23,9 @@ export { passwordProblem } from "./password";
 
 /** Consumes lead/dispute/moderation events to recompute trust scores; decay job. */
 export { worker } from "./trust-worker";
+
+// Sub-modules owned by parallel work streams (each adds its own exports in its file).
+export * from "./gst";
+export * from "./phone-login";
+export * from "./directory";
+export * from "./mfa";

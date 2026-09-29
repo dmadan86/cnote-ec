@@ -76,3 +76,6 @@ export const worker: ModuleWorker = {
     { name: "catalogue.purge-deleted-images", everyMs: DAY_MS, run: async () => void (await purgeDeletedListingImages()) },
   ],
 };
+
+export * from "./getters";
+export * from "./versions";

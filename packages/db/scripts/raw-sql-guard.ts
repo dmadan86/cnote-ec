@@ -16,6 +16,10 @@ export const FORBIDDEN: RegExp[] = [
 export function strip(sql: string): string {
   let out = sql;
   for (const re of FORBIDDEN.slice(0, 2)) out = out.replace(re, "");
+  // Prisma also folds the bogus DROP DEFAULT into a multi-clause ALTER TABLE:
+  //   ALTER TABLE "listings" ADD COLUMN "x" UUID,\nALTER COLUMN "search_tsv" DROP DEFAULT;
+  out = out.replace(/,\s*\n\s*ALTER COLUMN "search_tsv" DROP DEFAULT;/g, ";");
+  out = out.replace(/ALTER COLUMN "search_tsv" DROP DEFAULT,\s*\n\s*/g, "");
   return out.replace(/\n{3,}/g, "\n\n");
 }
 

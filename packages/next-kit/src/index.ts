@@ -20,3 +20,7 @@ export { authRoute } from "./route";
 
 // Server actions ("use server" in their own module), used by the client forms.
 export { signInAction, signUpAction, forgotPasswordAction, resetPasswordAction, signOutAction } from "./actions";
+
+// Owned by parallel work streams.
+export * from "./otp";
+export * from "./security";

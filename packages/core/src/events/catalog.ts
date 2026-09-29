@@ -15,6 +15,11 @@ export interface DomainEventPayloads {
   ListingModerated: { listingId: string; sellerBusinessId: string; status: "approved" | "review" | "rejected"; reason?: string };
   ListingArchived: { listingId: string; sellerBusinessId: string };
   ListingImageUploaded: { imageId: string; listingId: string; sellerBusinessId: string; aiVerdict: string | null };
+  ListingVersionSubmitted: { listingId: string; versionId: string; version: number; sellerBusinessId: string; aiVerdict: string | null };
+  ListingVersionReviewed: { listingId: string; versionId: string; version: number; sellerBusinessId: string; status: "approved" | "rejected"; reviewedBy: string | null };
+  /** Emitted by the publisher after the live DB projection commits. */
+  ListingVersionPublished: { listingId: string; versionId: string; version: number; sellerBusinessId: string; previousVersionId: string | null };
+  ListingUnpublished: { listingId: string; sellerBusinessId: string; reason: string };
   ListingImageProcessed: { imageId: string; listingId: string; variants: number };
   ListingImageModerated: { imageId: string; listingId: string; sellerBusinessId: string; status: "approved" | "rejected"; moderatedBy: string };
   // enquiry & matching
@@ -69,6 +74,10 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   ListingImageUploaded: 1,
   ListingImageModerated: 1,
   ListingImageProcessed: 1,
+  ListingVersionSubmitted: 1,
+  ListingVersionReviewed: 1,
+  ListingVersionPublished: 1,
+  ListingUnpublished: 1,
   EnquiryCreated: 1,
   EnquiryScored: 1,
   LeadMatched: 1,

@@ -10,3 +10,5 @@ export {
 } from "./leads";
 export { getConversation, sendMessage, sendQuote, reportDeal } from "./messaging";
 export { worker } from "./worker";
+
+export * from "./getters";

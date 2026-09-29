@@ -65,9 +65,14 @@ model Listing {
   createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  seller   Business       @relation(fields: [sellerBusinessId], references: [id])
-  category Category       @relation(fields: [categoryId], references: [id])
+  /// version currently projected to the live read database (null = never published)
+  liveVersionId    String?          @unique @map("live_version_id") @db.Uuid
+
+  seller   Business         @relation(fields: [sellerBusinessId], references: [id])
+  category Category         @relation(fields: [categoryId], references: [id])
   images   ListingImage[]
+  versions ListingVersion[] @relation("ListingVersions")
+  liveVersion ListingVersion? @relation("ListingLiveVersion", fields: [liveVersionId], references: [id])
 
   @@index([sellerBusinessId])
   @@index([categoryId, status])
@@ -111,4 +116,46 @@ model ListingImage {
   @@index([status, createdAt])
   @@index([listingId, sha256])
   @@map("listing_images")
+}
+
+enum ListingVersionStatus {
+  submitted // seller submitted this snapshot for review
+  in_review // AI pre-screen flagged it (or policy requires staff) — waiting for a decision
+  approved // cleared; waiting for its publishAt (or the next publisher run)
+  published // projected to the live read database (the current live version)
+  superseded // was live; replaced by a newer published version
+  rejected
+  withdrawn // seller pulled it before it went live
+
+  @@map("listing_version_status")
+}
+
+/// Immutable snapshot of a listing as submitted (history + audit). The Listing row is the seller's
+/// working copy; buyers only ever see a published version, served from the LIVE database.
+model ListingVersion {
+  id            String               @id @default(uuid()) @db.Uuid
+  listingId     String               @map("listing_id") @db.Uuid
+  version       Int
+  /// full content: title, description, categoryId, attributes, pricePaise, priceUnit, moq, moqUnit, hsn, language, imageIds[]
+  snapshot      Json
+  /// field-level diff vs the previous published version (for reviewers + history UI)
+  changes       Json                 @default("[]")
+  changeNote    String?              @map("change_note")
+  status        ListingVersionStatus @default(submitted)
+  aiVerdict     String?              @map("ai_verdict")
+  reviewNote    String?              @map("review_note")
+  reviewedBy    String?              @map("reviewed_by") @db.Uuid // StaffMember id; null = auto-approved by policy
+  reviewedAt    DateTime?            @map("reviewed_at") @db.Timestamptz
+  /// scheduled go-live; null = at the next publisher run after approval
+  publishAt     DateTime?            @map("publish_at") @db.Timestamptz
+  publishedAt   DateTime?            @map("published_at") @db.Timestamptz
+  createdBy     String               @map("created_by") @db.Uuid // person id
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz
+
+  listing   Listing  @relation("ListingVersions", fields: [listingId], references: [id])
+  liveOf    Listing? @relation("ListingLiveVersion")
+
+  @@unique([listingId, version])
+  @@index([status, publishAt])
+  @@map("listing_versions")
 }
