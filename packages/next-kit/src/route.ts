@@ -5,6 +5,7 @@ import { completeGoogleSignIn, googleAuthorizationUrl, isGoogleConfigured, refre
 import { NextResponse, type NextRequest } from "next/server";
 import { errorResponse } from "./action-result";
 import { clearAuthCookies, oauthCookieName, safeNext, setAuthCookies } from "./cookies";
+import { beginMfaChallenge } from "./mfa-flow";
 import { appRealm, realmAuth, realmCookies } from "./realm";
 
 const ctxOf = (req: NextRequest) => ({
@@ -97,8 +98,11 @@ async function googleCallback(req: NextRequest) {
     { code, codeVerifier: saved.codeVerifier, redirectUri: `${req.nextUrl.origin}/api/auth/google-callback` },
     ctxOf(req),
   );
-  const res = redirectTo(req, safeNext(saved.next));
-  setAuthCookies(res.cookies, tokens);
+  // Second factor due (always for admin, opt-in elsewhere): park the session behind the MFA step.
+  const challenge = await beginMfaChallenge(tokens, saved.next);
+  const res = redirectTo(req, challenge ? challenge.path : safeNext(saved.next));
+  if (challenge) res.cookies.set(challenge.cookie);
+  else setAuthCookies(res.cookies, tokens);
   res.cookies.delete({ name: oauthCookieName(), path: "/api/auth" });
   return res;
 }

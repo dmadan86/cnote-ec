@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
 import * as ai from "@cnote/ai";
 import { cachedManyTagged, cachedTagged, cacheTags, DomainError, emit } from "@cnote/core";
-import { prisma, toVectorLiteral, type Prisma, type Tx } from "@cnote/db";
+import { prisma, type Prisma } from "@cnote/db";
+import { liveDb } from "@cnote/live-db";
 import { bustListingCaches } from "./cache";
 import { getCategoryById, listCategories } from "./categories";
-import { isUuid, listingInclude, toListingView, type ListingRow } from "./mappers";
-import { assess } from "./moderation";
-import { LANGS, coerceAttributes, listingInputSchema, listingPatchSchema, parseOrThrow, validateAttributes, validatePublishable } from "./validate";
+import { unpublishFromLive } from "./live";
+import { isUuid, listingInclude, liveToListingView, toListingView, type ListingRow } from "./mappers";
+import { LANGS, coerceAttributes, listingInputSchema, listingPatchSchema, parseOrThrow } from "./validate";
+import { reviewListingVersion, submitListingVersion } from "./versions";
 import type { ListingInput, ListingView } from "./index";
 
 async function loadOwned(sellerBusinessId: string, listingId: string): Promise<ListingRow> {
@@ -20,10 +22,6 @@ async function requireCategory(id: string) {
   const c = await getCategoryById(id);
   if (!c) throw new DomainError("validation", "Unknown category");
   return c;
-}
-
-async function writeEmbedding(tx: Tx, id: string, embedding: number[], version: string) {
-  await tx.$executeRaw`UPDATE listings SET embedding = ${toVectorLiteral(embedding)}::vector, embedding_version = ${version} WHERE id = ${id}::uuid`;
 }
 
 export async function getListing(id: string): Promise<ListingView | null> {
@@ -41,22 +39,20 @@ export async function getListingsByIds(ids: string[]): Promise<ListingView[]> {
   return ids.flatMap((id) => byId.get(id) ?? []);
 }
 
-const isLive = (l: ListingView) => l.status === "published" && l.moderationStatus === "approved";
-
 /**
- * Cached, PUBLIC-ONLY reads for buyer surfaces (web, search, API). A listing that is not published+approved is
- * never written to the cache and is simply absent from the result, so moderation state can't leak through it.
- * Write paths hard-invalidate the `listing:<id>` tag after commit; TTL is the safety net.
+ * Cached PUBLIC reads for buyer surfaces (web, search, API). They read the LIVE database only, which contains nothing
+ * but published projections, so unpublished/pending/rejected content can never be served. The publisher purges the
+ * `listing:<id>` tags on publish/unpublish; TTL is the safety net.
  */
 export async function getPublicListingsByIds(ids: string[]): Promise<ListingView[]> {
   const valid = [...new Set(ids.filter(isUuid))];
   if (!valid.length) return [];
   const byId = await cachedManyTagged<ListingView>(valid, {
-    prefix: "catalogue:listing:v1",
+    prefix: "catalogue:listing:v2",
     tags: (id) => [cacheTags.listing(id)],
     ttlSeconds: 300,
     staleSeconds: 600,
-    load: async (missing) => new Map((await getListingsByIds(missing)).filter(isLive).map((l) => [l.id, l])),
+    load: async (missing) => new Map((await liveDb.liveListing.findMany({ where: { id: { in: missing } } })).map((r) => [r.id, liveToListingView(r)])),
   });
   return ids.flatMap((id) => byId.get(id) ?? []);
 }
@@ -65,14 +61,14 @@ export async function getPublicListing(id: string): Promise<ListingView | null> 
   return (await getPublicListingsByIds([id]))[0] ?? null;
 }
 
-/** Published + approved listings of one seller (manufacturer page). Cached; invalidated by any write to the seller's listings. */
+/** Live listings of one seller (manufacturer page). Cached; invalidated when any of the seller's listings is (un)published. */
 export async function listPublicSellerListings(sellerBusinessId: string): Promise<ListingView[]> {
   if (!isUuid(sellerBusinessId)) return [];
   return cachedTagged(
-    `catalogue:seller-listings:v1:${sellerBusinessId}`,
+    `catalogue:seller-listings:v2:${sellerBusinessId}`,
     (v: ListingView[]) => [cacheTags.sellerListings(sellerBusinessId), ...v.map((l) => cacheTags.listing(l.id))],
     300,
-    async () => (await listSellerListings(sellerBusinessId)).filter(isLive),
+    async () => (await liveDb.liveListing.findMany({ where: { sellerBusinessId }, orderBy: [{ publishedAt: "desc" }, { id: "asc" }] })).map(liveToListingView),
     { staleSeconds: 600, softTags: [cacheTags.featured] },
   );
 }
@@ -89,31 +85,19 @@ export async function listPublicListingIndex(opts: { offset: number; limit: numb
   const offset = Math.max(0, Math.trunc(opts.offset));
   const limit = Math.max(1, Math.min(10_000, Math.trunc(opts.limit)));
   return cachedTagged(
-    `catalogue:index:v1:${offset}:${limit}`,
+    `catalogue:index:v2:${offset}:${limit}`,
     [cacheTags.sitemap],
     600,
     async () => {
-      const rows = await prisma.$queryRaw<{ id: string; title: string; slug: string; updated_at: Date }[]>`
-        SELECT l.id, l.title, c.slug, l.updated_at FROM listings l JOIN categories c ON c.id = l.category_id
-        WHERE l.status = 'published' AND l.moderation_status = 'approved' AND NOT c.prohibited
-        ORDER BY l.created_at DESC, l.id LIMIT ${limit} OFFSET ${offset}`;
-      return rows.map((r) => ({ id: r.id, title: r.title, categorySlug: r.slug, updatedAt: r.updated_at.toISOString() }));
+      const rows = await liveDb.liveListing.findMany({ select: { id: true, title: true, categorySlug: true, publishedAt: true }, orderBy: [{ firstPublishedAt: "desc" }, { id: "asc" }], skip: offset, take: limit });
+      return rows.map((r) => ({ id: r.id, title: r.title, categorySlug: r.categorySlug, updatedAt: r.publishedAt.toISOString() }));
     },
     { staleSeconds: 3600 },
   );
 }
 
 export async function countPublicListings(): Promise<number> {
-  return cachedTagged(
-    "catalogue:index-count:v1",
-    [cacheTags.sitemap],
-    600,
-    async () => {
-      const [row] = await prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*)::bigint AS n FROM listings l JOIN categories c ON c.id = l.category_id WHERE l.status = 'published' AND l.moderation_status = 'approved' AND NOT c.prohibited`;
-      return Number(row?.n ?? 0);
-    },
-    { staleSeconds: 3600 },
-  );
+  return cachedTagged("catalogue:index-count:v2", [cacheTags.sitemap], 600, async () => liveDb.liveListing.count(), { staleSeconds: 3600 });
 }
 
 export async function listSellerListings(sellerBusinessId: string): Promise<ListingView[]> {
@@ -124,19 +108,21 @@ export async function listSellerListings(sellerBusinessId: string): Promise<List
 export async function listFeaturedListings(opts: { sort: "popular" | "new"; limit: number }): Promise<ListingView[]> {
   const limit = Math.max(1, Math.min(50, Math.trunc(opts.limit)));
   return cachedTagged(
-    `catalogue:featured:v1:${opts.sort}:${limit}`,
+    `catalogue:featured:v2:${opts.sort}:${limit}`,
     (v: ListingView[]) => [cacheTags.featured, ...v.map((l) => cacheTags.listing(l.id))],
     120,
     async () => {
       // "popular" is a placeholder until engagement events exist: complete listings (price + MOQ + image) first, then recency.
       const ids =
         opts.sort === "new"
-          ? await prisma.$queryRaw<{ id: string }[]>`SELECT id FROM listings WHERE status = 'published' AND moderation_status = 'approved' ORDER BY created_at DESC LIMIT ${limit}`
-          : await prisma.$queryRaw<{ id: string }[]>`
-              SELECT id FROM listings WHERE status = 'published' AND moderation_status = 'approved'
-              ORDER BY (price_paise IS NOT NULL)::int + (moq IS NOT NULL)::int + (cardinality(image_urls) > 0)::int DESC, created_at DESC
+          ? await liveDb.$queryRaw<{ id: string }[]>`SELECT id FROM live_listings ORDER BY first_published_at DESC, id LIMIT ${limit}`
+          : await liveDb.$queryRaw<{ id: string }[]>`
+              SELECT id FROM live_listings
+              ORDER BY (price_paise IS NOT NULL)::int + (moq IS NOT NULL)::int + (jsonb_array_length(images) > 0)::int DESC, first_published_at DESC, id
               LIMIT ${limit}`;
-      return (await getListingsByIds(ids.map((r) => r.id))).filter(isLive);
+      const rows = await liveDb.liveListing.findMany({ where: { id: { in: ids.map((r) => r.id) } } });
+      const byId = new Map(rows.map((r) => [r.id, liveToListingView(r)]));
+      return ids.flatMap((r) => byId.get(r.id) ?? []);
     },
     { staleSeconds: 600 },
   );
@@ -204,6 +190,10 @@ export async function draftListingFromText(sellerBusinessId: string, text: strin
 
 const CONTENT_KEYS = ["title", "description", "attributes", "categoryId"] as const;
 
+/**
+ * Edits the seller's WORKING COPY only. Nothing here touches what buyers see: content reaches the live database only
+ * through submitListingVersion → review → publisher (docs/design/listing-versioning-and-live-db.md).
+ */
 export async function updateListing(sellerBusinessId: string, listingId: string, input: Partial<ListingInput>): Promise<ListingView> {
   const patch = parseOrThrow(listingPatchSchema, input);
   const cur = await loadOwned(sellerBusinessId, listingId);
@@ -211,102 +201,58 @@ export async function updateListing(sellerBusinessId: string, listingId: string,
 
   const categoryId = patch.categoryId ?? cur.categoryId;
   const category = await requireCategory(categoryId);
-  const merged = {
-    title: patch.title ?? cur.title,
-    description: patch.description ?? cur.description,
-    attributes: coerceAttributes(category.attributeSchema, patch.attributes ?? attrsOf(cur.attributes)),
-  };
+  const attributes = coerceAttributes(category.attributeSchema, patch.attributes ?? attrsOf(cur.attributes));
   const contentChanged = CONTENT_KEYS.some((k) => {
     if (patch[k] === undefined) return false;
-    const next = k === "attributes" ? merged.attributes : patch[k];
+    const next = k === "attributes" ? attributes : patch[k];
     const prev = k === "attributes" ? attrsOf(cur.attributes) : cur[k];
     return JSON.stringify(next) !== JSON.stringify(prev);
   });
 
   const { attributes: _a, pricePaise, ...rest } = patch;
   void _a;
-  const data: Prisma.ListingUncheckedUpdateInput = { ...rest, attributes: merged.attributes };
+  const data: Prisma.ListingUncheckedUpdateInput = { ...rest, attributes };
   if (pricePaise !== undefined) data.pricePaise = pricePaise === null ? null : BigInt(pricePaise);
-
-  if (cur.status === "published" && contentChanged) {
-    // Published content edits must be re-validated, re-moderated and re-embedded before going live again.
-    return runPublish(cur, category, merged, data);
-  }
-  if (contentChanged && cur.status === "draft") {
+  if (contentChanged && cur.status === "draft" && !cur.liveVersionId) {
     data.moderationStatus = "pending";
     data.moderationReason = null;
   }
   const row = await prisma.listing.update({ where: { id: cur.id }, data, include: listingInclude });
-  await bustListingCaches(cur.id, cur.sellerBusinessId);
+  await bustListingCaches(cur.id, cur.sellerBusinessId); // seller-facing lists; buyers are unaffected until a version is published
   return toListingView(row);
 }
 
+/**
+ * Submit the working copy for review (compat wrapper over submitListingVersion). The listing is NOT live when this
+ * returns: it goes live after approval, through the publisher.
+ */
 export async function publishListing(sellerBusinessId: string, listingId: string): Promise<ListingView> {
-  const cur = await loadOwned(sellerBusinessId, listingId);
-  if (cur.status === "archived") throw new DomainError("conflict", "Archived listings cannot be published");
-  const category = await requireCategory(cur.categoryId);
-  return runPublish(cur, category, { title: cur.title, description: cur.description, attributes: coerceAttributes(category.attributeSchema, attrsOf(cur.attributes)) }, {});
+  await submitListingVersion(sellerBusinessId, listingId, { changeNote: null });
+  const row = await prisma.listing.findUniqueOrThrow({ where: { id: listingId }, include: listingInclude });
+  return toListingView(row);
 }
 
-async function runPublish(
-  cur: ListingRow,
-  category: NonNullable<Awaited<ReturnType<typeof getCategoryById>>>,
-  content: { title: string; description: string; attributes: Record<string, string | number> },
-  extra: Prisma.ListingUncheckedUpdateInput,
-): Promise<ListingView> {
-  const problems = [...validatePublishable(content), ...validateAttributes(category.attributeSchema, content.attributes)];
-  if (problems.length) throw new DomainError("validation", problems.join("; "), problems);
-
-  const a = await assess({ id: cur.id, ...content }, category);
-  const wasLive = cur.status === "published" && cur.moderationStatus === "approved";
-  const row = await prisma.$transaction(async (tx) => {
-    const updated = await tx.listing.update({
-      where: { id: cur.id },
-      data: {
-        ...extra,
-        attributes: content.attributes,
-        // rejected content never stays live: published → draft
-        status: a.outcome === "rejected" ? "draft" : "published",
-        moderationStatus: a.outcome,
-        moderationReason: a.reason,
-      },
-      include: listingInclude,
-    });
-    if (a.outcome !== "rejected") await writeEmbedding(tx, cur.id, a.embedding, a.embeddingVersion);
-    const base = { listingId: cur.id, sellerBusinessId: cur.sellerBusinessId };
-    await emit(tx, "ListingModerated", { type: "listing", id: cur.id }, { ...base, status: a.outcome, ...(a.reason ? { reason: a.reason } : {}) });
-    if (a.outcome === "approved" && !wasLive) await emit(tx, "ListingPublished", { type: "listing", id: cur.id }, { ...base, categoryId: updated.categoryId });
-    return updated;
-  });
-  await bustListingCaches(cur.id, cur.sellerBusinessId);
-  return toListingView(row);
+/** Take a live listing down (back to draft). Buyers stop seeing it immediately; history is kept. */
+export async function unpublishListing(sellerBusinessId: string, listingId: string): Promise<void> {
+  const cur = await loadOwned(sellerBusinessId, listingId);
+  if (cur.status === "archived") throw new DomainError("conflict", "Archived listings cannot be unpublished");
+  await unpublishFromLive(cur.id, cur.sellerBusinessId, "seller_unpublished", { status: "draft" });
 }
 
 export async function archiveListing(sellerBusinessId: string, listingId: string): Promise<void> {
   const cur = await loadOwned(sellerBusinessId, listingId);
   if (cur.status === "archived") return;
-  await prisma.$transaction(async (tx) => {
-    await tx.listing.update({ where: { id: cur.id }, data: { status: "archived" } });
-    await emit(tx, "ListingArchived", { type: "listing", id: cur.id }, { listingId: cur.id, sellerBusinessId: cur.sellerBusinessId });
-  });
-  await bustListingCaches(cur.id, cur.sellerBusinessId);
+  await unpublishFromLive(cur.id, cur.sellerBusinessId, "archived", { status: "archived" });
 }
 
-export async function resolveListingModeration(listingId: string, outcome: "approved" | "rejected", reason?: string): Promise<void> {
+/**
+ * Resolves a listing that is waiting in the AI/human review queue: delegates to the version review of its
+ * in-review version. `staffId` is recorded as the reviewer when known.
+ */
+export async function resolveListingModeration(listingId: string, outcome: "approved" | "rejected", reason?: string, staffId?: string): Promise<void> {
   const cur = isUuid(listingId) ? await prisma.listing.findUnique({ where: { id: listingId } }) : null;
   if (!cur) throw new DomainError("not_found", "Listing not found");
-  if (cur.moderationStatus !== "review") throw new DomainError("conflict", "Listing is not awaiting moderation review");
-  await prisma.$transaction(async (tx) => {
-    await tx.listing.update({
-      where: { id: cur.id },
-      data:
-        outcome === "approved"
-          ? { moderationStatus: "approved", moderationReason: reason ?? null }
-          : { moderationStatus: "rejected", moderationReason: reason ?? "Rejected by moderator", status: "draft" },
-    });
-    const base = { listingId: cur.id, sellerBusinessId: cur.sellerBusinessId };
-    await emit(tx, "ListingModerated", { type: "listing", id: cur.id }, { ...base, status: outcome, ...(reason ? { reason } : {}) });
-    if (outcome === "approved") await emit(tx, "ListingPublished", { type: "listing", id: cur.id }, { ...base, categoryId: cur.categoryId });
-  });
-  await bustListingCaches(cur.id, cur.sellerBusinessId);
+  const pending = await prisma.listingVersion.findFirst({ where: { listingId, status: "in_review" }, orderBy: { version: "desc" }, select: { id: true } });
+  if (!pending) throw new DomainError("conflict", "Listing is not awaiting moderation review");
+  await reviewListingVersion(pending.id, outcome, reason ?? (outcome === "rejected" ? "Rejected by moderator" : null), staffId ?? "00000000-0000-0000-0000-000000000000");
 }

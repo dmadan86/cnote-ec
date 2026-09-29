@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3002",
-    "build": "next build",
+    "build": "DATABASE_POOL_MAX=${DATABASE_POOL_MAX:-2} next build",
     "start": "next start -p 3002",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
@@ -13,6 +13,7 @@
   "dependencies": {
     "@cnote/ai": "workspace:*",
     "@cnote/billing": "workspace:*",
+    "@cnote/bulk": "workspace:*",
     "@cnote/catalogue": "workspace:*",
     "@cnote/core": "workspace:*",
     "@cnote/developer": "workspace:*",

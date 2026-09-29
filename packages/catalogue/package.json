@@ -8,7 +8,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "images:backfill": "tsx --env-file=../../.env.local scripts/images-backfill.ts",
+    "live:backfill": "tsx --env-file=../../.env.local scripts/live-backfill.ts"
   },
   "dependencies": {
     "@cnote/ai": "workspace:*",
@@ -16,6 +18,7 @@
     "@cnote/db": "workspace:*",
     "@cnote/identity": "workspace:*",
     "zod": "^4.6.5",
-    "@cnote/media": "workspace:*"
+    "@cnote/media": "workspace:*",
+    "@cnote/live-db": "workspace:*"
   }
 }

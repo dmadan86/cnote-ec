@@ -3,18 +3,42 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { dirname, resolve } from "node:path";
-import { isValidListingImageKey } from "./image";
+import { KEY_MIME, assertMediaKey, keyExt, type MediaBucket } from "./keys";
 
 export interface MediaObject {
   bytes: Uint8Array;
   contentType: string;
 }
 
+export interface MediaHead {
+  size: number;
+  contentType: string;
+}
+
+export interface PutOptions {
+  /** Defaults to "public, max-age=31536000, immutable" for the public bucket and "private, no-store" for the private one. */
+  cacheControl?: string;
+}
+
+/**
+ * Object storage port. One instance = one logical bucket (see getMediaStore). Every driver (local disk, R2, S3,
+ * Azure Blob, GCS) implements exactly this surface, so switching provider is configuration only.
+ */
 export interface MediaStore {
-  put(key: string, bytes: Uint8Array, contentType: string): Promise<void>;
+  readonly driver: string;
+  readonly bucket: MediaBucket;
+  put(key: string, bytes: Uint8Array, contentType: string, opts?: PutOptions): Promise<void>;
   get(key: string): Promise<MediaObject | null>;
   delete(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;
+  head(key: string): Promise<MediaHead | null>;
+  /** Short-lived direct URL for a private object, or null when the driver cannot sign (local): stream via our route instead. */
+  signedGetUrl(key: string, ttlSeconds: number): Promise<string | null>;
+  /**
+   * Stable, cacheable URL for an object in the PUBLIC bucket (CDN / R2 custom domain). Local driver returns a
+   * same-origin `/media/v/<key>` path served by apps/web. Null for private stores or when no public base is configured.
+   */
+  publicUrl(key: string): string | null;
 }
 
 /** Walk up from `start` to the pnpm workspace root (three apps run from different cwd's). */
@@ -28,27 +52,25 @@ export function findMonorepoRoot(start: string = process.cwd()): string {
   }
 }
 
-const EXT_MIME: Record<string, string> = { jpg: "image/jpeg", png: "image/png", webp: "image/webp" };
-
 /**
- * Local-disk driver. Keys are validated against a strict pattern, so no traversal is possible.
- * Content type is derived from the extension (validated at upload time) rather than a sidecar file.
+ * Local-disk driver. Keys are validated against a strict pattern (no traversal possible). Content type is derived
+ * from the extension and must match what the caller declares. The public bucket lives in `<MEDIA_DIR>/_public`.
  */
 export class LocalMediaStore implements MediaStore {
+  readonly driver = "local";
   readonly root: string;
-  constructor(dir: string) {
+  constructor(dir: string, readonly bucket: MediaBucket = "private") {
     this.root = resolve(dir);
   }
   private file(key: string): string {
-    if (!isValidListingImageKey(key)) throw new Error("Invalid media key");
+    assertMediaKey(key);
     const p = resolve(this.root, key);
     if (!p.startsWith(this.root + path.sep)) throw new Error("Invalid media key");
     return p;
   }
   async put(key: string, bytes: Uint8Array, contentType: string): Promise<void> {
     const p = this.file(key);
-    const ext = key.slice(key.lastIndexOf(".") + 1);
-    if (EXT_MIME[ext] !== contentType) throw new Error("Content type does not match key extension");
+    if (KEY_MIME[keyExt(key)] !== contentType) throw new Error("Content type does not match key extension");
     await mkdir(dirname(p), { recursive: true });
     const tmp = `${p}.${randomUUID()}.tmp`;
     await writeFile(tmp, bytes);
@@ -58,7 +80,7 @@ export class LocalMediaStore implements MediaStore {
     const p = this.file(key);
     try {
       const buf = await readFile(p);
-      return { bytes: new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength), contentType: EXT_MIME[key.slice(key.lastIndexOf(".") + 1)]! };
+      return { bytes: new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength), contentType: KEY_MIME[keyExt(key)]! };
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
       throw e;
@@ -70,32 +92,15 @@ export class LocalMediaStore implements MediaStore {
   async exists(key: string): Promise<boolean> {
     return stat(this.file(key)).then((s) => s.isFile(), () => false);
   }
-}
-
-/** Stub: S3/R2 arrives with credentials. Selecting it fails loudly at first use, never silently. */
-export class S3MediaStore implements MediaStore {
-  private fail(): never {
-    throw new Error("MEDIA_DRIVER=s3 is not configured yet (S3/R2 credentials and client are pending)");
+  async head(key: string): Promise<MediaHead | null> {
+    return stat(this.file(key)).then((s) => (s.isFile() ? { size: s.size, contentType: KEY_MIME[keyExt(key)]! } : null), () => null);
   }
-  put(): Promise<void> { return this.fail(); }
-  get(): Promise<MediaObject | null> { return this.fail(); }
-  delete(): Promise<void> { return this.fail(); }
-  exists(): Promise<boolean> { return this.fail(); }
-}
-
-let cached: MediaStore | undefined;
-
-/** Driver from env: MEDIA_DRIVER (local|s3, default local), MEDIA_DIR (default .data/media, relative to the repo root). */
-export function getMediaStore(): MediaStore {
-  if (cached) return cached;
-  const driver = process.env.MEDIA_DRIVER ?? "local";
-  if (driver === "s3") return (cached = new S3MediaStore());
-  if (driver !== "local") throw new Error(`Unknown MEDIA_DRIVER "${driver}"`);
-  const dir = process.env.MEDIA_DIR || ".data/media";
-  return (cached = new LocalMediaStore(path.isAbsolute(dir) ? dir : resolve(findMonorepoRoot(), dir)));
-}
-
-/** Test hook. */
-export function setMediaStore(store: MediaStore | undefined): void {
-  cached = store;
+  async signedGetUrl(): Promise<string | null> {
+    return null;
+  }
+  publicUrl(key: string): string | null {
+    if (this.bucket !== "public") return null;
+    assertMediaKey(key);
+    return `/media/v/${key}`;
+  }
 }

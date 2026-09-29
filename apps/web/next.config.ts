@@ -1,4 +1,5 @@
 import { withSentryConfig } from "@sentry/nextjs/config";
+import { staticHeaderList } from "@cnote/security";
 import type { NextConfig } from "next";
 
 // Security + caching headers shared by every route. Public pages are ISR (Next adds s-maxage + stale-while-revalidate);
@@ -10,7 +11,7 @@ const nextConfig: NextConfig = {
   env: { CNOTE_AUTH_REALM: "web" },
   // Workspace packages ship TypeScript source.
   transpilePackages: ["@cnote/storefront", "@cnote/domains", "@cnote/security", "@cnote/leadgen", "@cnote/templates", "@cnote/email", "@cnote/notifications", "@cnote/developer", "@cnote/observability", "@cnote/media", "@cnote/wishlist", "@cnote/reviews", "@cnote/next-kit", "@cnote/ui", "@cnote/core", "@cnote/ai", "@cnote/identity", "@cnote/catalogue", "@cnote/billing", "@cnote/enquiry", "@cnote/search"],
-  serverExternalPackages: ["juice", "sanitize-html", "mustache", "@cnote/db", "@prisma/client", "@prisma/adapter-pg", "pg", "ioredis"],
+  serverExternalPackages: ["@cnote/live-db", "juice", "sanitize-html", "mustache", "@cnote/db", "@prisma/client", "@prisma/adapter-pg", "pg", "ioredis"],
   poweredByHeader: false,
   images: {
     formats: ["image/avif", "image/webp"],
@@ -25,7 +26,9 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
-      { source: "/:path*", headers: [{ key: "X-Content-Type-Options", value: "nosniff" }, { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" }] },
+      // Security headers + static-mode CSP for every route (public pages skip the proxy's header work). Proxy-handled
+      // dynamic routes override the CSP with a per-request nonce policy.
+      { source: "/:path*", headers: staticHeaderList({ app: "web" }) },
       // Account / transactional areas: never stored by a browser cache, proxy or CDN, never indexed.
       ...PRIVATE_AREAS.map((p) => ({
         source: `${p}/:path*`,

@@ -1,4 +1,4 @@
-import { readListingImage } from "@cnote/catalogue";
+import { getListingImageDelivery } from "@cnote/catalogue";
 import { canViewImages } from "@/features/images/privilege";
 import { getStaffFromSession } from "@/features/images/staff";
 
@@ -10,8 +10,9 @@ export async function GET(_req: Request, ctx: RouteContext<"/media/listing-image
   const auth = await getStaffFromSession();
   if (!auth) return deny(401);
   if (!auth.staff || !canViewImages(auth.staff)) return deny(403);
-  const img = await readListingImage(id, { kind: "staff" });
+  const img = await getListingImageDelivery(id, { kind: "staff" });
   if (!img) return deny(404);
+  if (img.kind === "redirect") return new Response(null, { status: 302, headers: { Location: img.url, "Cache-Control": "private, no-store" } });
   return new Response(Buffer.from(img.bytes), {
     headers: { "Content-Type": img.contentType, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Content-Disposition": "inline" },
   });

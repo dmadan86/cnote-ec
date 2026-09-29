@@ -1,0 +1,23 @@
+# Build context is the repo root for every Dockerfile (docker build -f apps/<app>/Dockerfile .)
+.git
+.github
+.data
+.env
+.env.*
+!.env.example
+**/node_modules
+**/.next
+**/coverage
+**/*.tsbuildinfo
+**/.turbo
+graphify-out
+docs
+deploy
+**/*.md
+!packages/**/README.md
+**/test-results
+**/playwright-report
+.DS_Store
+# Prisma generated clients are rebuilt in the image by `postinstall`
+packages/db/src/generated
+packages/live-db/src/generated

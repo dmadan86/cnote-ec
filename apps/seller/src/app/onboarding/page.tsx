@@ -8,7 +8,7 @@ import { billing, catalogue, identity } from "@/lib/services";
 import { getOnboardingState, STEPS } from "@/features/onboarding/state";
 import { BusinessStep, PhoneStep, PlanStep, SkipButton } from "@/features/onboarding/steps";
 import { ImageManager } from "@/features/images/image-manager";
-import { GstForm } from "@/features/verification/gst-form";
+import { CompanyForm } from "@/features/company/company-form";
 import { AiDraftBox } from "@/features/listings/ai-draft-box";
 import { ListingEditor } from "@/features/listings/listing-editor";
 
@@ -45,7 +45,7 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
   else if (step === 3) {
     body = (
       <div className="space-y-6">
-        <GstForm mode="onboarding" />
+        <CompanyForm mode="onboarding" states={Object.entries(identity.GST_STATES).map(([code, name]) => ({ code, name }))} defaults={{ legalName: session.business?.name }} submitLabel="Save and verify GST" />
         <div className="rounded-card border border-line bg-surface p-4">
           <p className="text-sm font-semibold text-ink">No GST yet?</p>
           <p className="mt-1 text-sm text-muted">You can skip and start listing. You will show as Unverified (phone only), which buyers trust less, and you may rank lower than GST-verified sellers with similar listings. Verify any time from the Verification page.</p>

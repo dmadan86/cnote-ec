@@ -1,0 +1,25 @@
+# Non-secret configuration shared by every workload. Secrets live in the `cnote-secrets` Secret (see secret.example.yaml).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cnote-config
+data:
+  NODE_ENV: production
+  QUEUE_DRIVER: redis
+  SEARCH_BACKEND: postgres
+  AI_PROVIDER: heuristic
+  EMAIL_PROVIDER: console
+  OTP_DEV_ECHO: "false"
+  MEDIA_DRIVER: r2
+  # Overlays patch hostnames, bucket names and public URLs.
+  APP_URL: https://www.example.com
+  ADMIN_APP_URL: https://admin.example.com
+  SELLER_APP_URL: https://seller.example.com
+  API_PUBLIC_URL: https://api.example.com
+  API_CORS_ORIGINS: https://www.example.com,https://seller.example.com
+  MEDIA_BUCKET: cnote-public
+  MEDIA_PRIVATE_BUCKET: cnote-private
+  MEDIA_REGION: auto
+  MEDIA_ENDPOINT: https://ACCOUNT_ID.r2.cloudflarestorage.com
+  MEDIA_PUBLIC_BASE_URL: https://media.example.com
+  SENTRY_ENVIRONMENT: production

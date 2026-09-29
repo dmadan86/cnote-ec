@@ -13,15 +13,24 @@ import { worker as developer } from "@cnote/developer";
 import { worker as email } from "@cnote/email";
 import { worker as notifications } from "@cnote/notifications";
 import { worker as reviews } from "@cnote/reviews";
-import { cacheWorker } from "@cnote/search";
+import { worker as domains } from "@cnote/domains";
+import { setListingHsnSource } from "@cnote/identity";
+import { getSellerListingHsns } from "@cnote/catalogue";
+import { worker as leadgen } from "@cnote/leadgen";
+import { seedStorefrontTemplates, worker as storefront } from "@cnote/storefront";
+import { assertRequiredSecrets } from "@cnote/security";
+import { cacheWorker, searchIndexer } from "@cnote/search";
 import { seedDefaultTemplates } from "@cnote/templates";
 import { worker as wishlist } from "@cnote/wishlist";
 import { hostname } from "node:os";
 
+assertRequiredSecrets("worker");
 // No-op until SENTRY_DSN is set.
 Sentry.init(sentryOptions("worker", "nodejs"));
+// identity can't import catalogue (cycle); the composition root supplies the GST HSN-alignment source.
+setListingHsnSource(getSellerListingHsns);
 
-const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, notifications, developer, email, cacheWorker];
+const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, notifications, developer, email, cacheWorker, searchIndexer, leadgen, domains, storefront];
 const consumer = `${hostname()}-${process.pid}`;
 let running = true;
 
@@ -43,6 +52,12 @@ void loop("relay", () => relayOutbox(), 250);
 // published DB version before anything is sent (idempotent, never overwrites staff edits).
 await seedDefaultTemplates().catch((err) => {
   console.error("[worker] template seed failed", err);
+  Sentry.captureException(err);
+});
+
+// Curated Studio templates (idempotent upsert by key; never overwrites staff edits).
+await seedStorefrontTemplates().catch((err) => {
+  console.error("[worker] storefront template seed failed", err);
   Sentry.captureException(err);
 });
 

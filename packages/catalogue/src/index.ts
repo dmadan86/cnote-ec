@@ -1,8 +1,10 @@
 // @cnote/catalogue — categories, listings, moderation (ADR-003, ADR-004).
 // PUBLIC CONTRACT — other modules depend on these signatures. Extend, don't break.
-import type { ModuleWorker } from "@cnote/core";
+import { queueConsumer, type ModuleWorker } from "@cnote/core";
 import { reindexStaleEmbeddings } from "./reindex";
 import { purgeDeletedListingImages, type ListingImageView } from "./images";
+import { versionHandlers, versionJobs } from "./worker";
+import { processListingImage } from "./image-variants";
 
 export interface CategoryView {
   id: string;
@@ -37,6 +39,9 @@ export interface ListingView {
   moderationReason: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Present on views served from the LIVE database: the published version number and the seller snapshot taken at publish. */
+  liveVersion?: number;
+  seller?: { name: string; city: string | null; state: string | null; verificationTier: number; trustScore: number; badgeActive: boolean };
 }
 
 export interface ListingInput {
@@ -56,22 +61,28 @@ export interface ListingInput {
 export { listCategories, getCategoryBySlug, getCategoryById, upsertCategories, type CategoryDef } from "./categories";
 export {
   getListing, getListingsByIds, getPublicListing, getPublicListingsByIds, listPublicSellerListings, listPublicListingIndex, countPublicListings, type ListingIndexEntry, listSellerListings, listFeaturedListings, draftListingFromText,
-  createListing, updateListing, publishListing, archiveListing, resolveListingModeration,
+  createListing, updateListing, publishListing, unpublishListing, archiveListing, resolveListingModeration,
 } from "./listings";
 export { findSellerCandidates, retrieveListings, suggestListingTitles } from "./retrieval";
 export {
   uploadListingImage, listSellerListingImages, getListingForSeller, deleteListingImage, reorderListingImages, setImageAltText,
   listImageModerationQueue, getImageForModeration, moderateListingImage, readListingImage, purgeDeletedListingImages,
-  listingImageUrl, MAX_IMAGES_PER_LISTING,
+  listingImageUrl, MAX_IMAGES_PER_LISTING, getListingImageDelivery, type ImageDelivery,
   type ListingImageView, type ImageModerationItem, type ImageViewer, type ImageStatus,
 } from "./images";
+export {
+  publicImagesForListing, publicImagesForListings, toPublicImage, processListingImage, backfillImageVariants, enqueueImageProcessing,
+  type PublicListingImage, type StoredVariant, type ProcessResult,
+} from "./image-variants";
 export { reindexEmbeddings, reindexStaleEmbeddings } from "./reindex";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const worker: ModuleWorker = {
   name: "catalogue",
-  handlers: {},
+  handlers: { ...versionHandlers },
+  queues: [queueConsumer("media.process_image", async (msg) => void (await processListingImage(msg.payload.imageId)), 2)],
   jobs: [
+    ...versionJobs,
     { name: "catalogue.reembed-stale", everyMs: DAY_MS, run: async () => void (await reindexStaleEmbeddings()) },
     { name: "catalogue.purge-deleted-images", everyMs: DAY_MS, run: async () => void (await purgeDeletedListingImages()) },
   ],
@@ -79,3 +90,4 @@ export const worker: ModuleWorker = {
 
 export * from "./getters";
 export * from "./versions";
+export { publishVersion, publishDueVersions, reconcileLive, reprojectSeller, reprojectImages, backfillLiveListings } from "./live";

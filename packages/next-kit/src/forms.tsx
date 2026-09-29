@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, type ReactNode } from "react";
 import type { ActionResult } from "./action-result";
 import { forgotPasswordAction, resetPasswordAction, signInAction, signUpAction } from "./actions";
+import { TurnstileWidget } from "./turnstile-client";
 
 export interface AuthFormProps {
   /** Where to go after success (validated to be a same-origin path). */
@@ -121,6 +122,7 @@ export function SignUpForm({ next, googleEnabled, paths }: AuthFormProps) {
             <span>Send me product updates and offers (optional).</span>
           </label>
         </div>
+        <TurnstileWidget resetKey={state} />
         <Button type="submit" size="lg" disabled={pending}>{pending ? "Creating account…" : "Create account"}</Button>
       </form>
       <p className="text-center text-sm text-muted">

@@ -12,6 +12,7 @@
   "dependencies": {
     "@cnote/ai": "workspace:*",
     "@cnote/billing": "workspace:*",
+    "@cnote/bulk": "workspace:*",
     "@cnote/catalogue": "workspace:*",
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",
@@ -25,6 +26,7 @@
     "@cnote/observability": "workspace:*",
     "@cnote/reviews": "workspace:*",
     "@cnote/search": "workspace:*",
+    "@cnote/security": "workspace:*",
     "@cnote/storefront": "workspace:*",
     "@cnote/templates": "workspace:*",
     "@cnote/wishlist": "workspace:*",

@@ -47,6 +47,8 @@ export interface DomainEventPayloads {
   StorefrontVersionReviewed: { storefrontId: string; sellerBusinessId: string; versionId: string; status: "published" | "rejected"; reviewedBy: string };
   StorefrontSuspended: { storefrontId: string; sellerBusinessId: string; reason: string };
   StorefrontDomainStatusChanged: { domainId: string; storefrontId: string; sellerBusinessId: string; hostname: string; from: string; to: string; error: string | null };
+  // bulk import / export
+  BulkJobFinished: { jobId: string; sellerBusinessId: string; createdBy: string; kind: "import" | "export"; status: string; created: number; updated: number; errors: number };
   // lead generation (buyer unlock funnel)
   LeadCaptureVerified: { captureId: string; personId: string; trigger: string; unlock: string; listingId: string | null; isNewPerson: boolean };
   LeadCaptureConverted: { captureId: string; personId: string; trigger: string; enquiryId: string | null };
@@ -99,6 +101,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   StorefrontVersionReviewed: 1,
   StorefrontSuspended: 1,
   StorefrontDomainStatusChanged: 1,
+  BulkJobFinished: 1,
   LeadCaptureVerified: 1,
   LeadCaptureConverted: 1,
   CreditsGranted: 1,

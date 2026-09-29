@@ -35,6 +35,7 @@ export async function erasePerson(personId: string): Promise<void> {
       data: { email: null, emailVerifiedAt: null, phone: null, phoneVerifiedAt: null, name: null, avatarUrl: null, passwordHash: null, erasedAt: new Date() },
     });
     await tx.authIdentity.deleteMany({ where: { personId } });
+    await tx.personMfa.deleteMany({ where: { personId } });
     await tx.consent.createMany({ data: CONSENT_PURPOSES.map((purpose) => ({ personId, purpose, granted: false, source: "erasure" })) });
     await emit(tx, "DataErasureRequested", { type: "Person", id: personId }, { personId });
   });

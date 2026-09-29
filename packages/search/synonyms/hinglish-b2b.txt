@@ -1,0 +1,19 @@
+# Hinglish / Hindi transliterations and B2B synonyms -> canonical English token (Solr synonym format).
+# Mirrors the SYNONYMS map in @cnote/ai (packages/ai/src/text.ts); keep the two in step.
+# AWS OpenSearch Service: upload this file as a "package" (type TXT-DICTIONARY), associate it with the domain, and set
+# OPENSEARCH_SYNONYMS_PACKAGE_PATH=analyzers/<package-id> so synonyms can be updated without reindexing.
+dabba, dabbe, dibba, डिब्बा, डिब्बे, boxes => box
+gatta, gatte, gata, गत्ता, गत्ते, cartons, corrugated => carton
+kapda, kapde, कपड़ा, कपड़े, cloth, textile, fabrics => fabric
+boriya, bori, boria, बोरी, बोरिया, sacks => sack
+thaila, thele, थैला, थैले => bag
+kagaz, kagad, कागज, कागज़ => paper
+plastik, प्लास्टिक => plastic
+loha, लोहा, lohe => iron
+dhaga, धागा => thread
+chawal, चावल => rice
+aata, atta, आटा => flour
+cheeni, chini, चीनी => sugar
+tel, तेल => oil
+rang, रंग => paint
+bijli, बिजली => electric

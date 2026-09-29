@@ -3,7 +3,7 @@
 // PUBLIC CONTRACT. Extend, don't break.
 import { DomainError, getJobQueue, queueConsumer, type ModuleWorker, type QueueMessage } from "@cnote/core";
 import { prisma } from "@cnote/db";
-import { hasConsent, type Mailer } from "@cnote/identity";
+import { hasConsent, isPersonErased, type Mailer } from "@cnote/identity";
 import { exampleVars, getTemplateDefinition, renderEmail } from "@cnote/templates";
 import { randomUUID } from "node:crypto";
 import { PermanentEmailError, fromAddress, getEmailProvider } from "./providers";
@@ -47,14 +47,7 @@ export function maskEmail(email: string): string {
 const ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const isUnique = (e: unknown) => (e as { code?: string })?.code === "P2002";
 
-/**
- * Person.erasedAt is read directly: @cnote/identity has no public "is erased" accessor yet.
- * TODO(lead): replace with an identity export (e.g. isPersonErased) and drop this cross-module read.
- */
-async function isErased(personId: string): Promise<boolean> {
-  const p = await prisma.person.findUnique({ where: { id: personId }, select: { erasedAt: true } });
-  return !p || p.erasedAt !== null;
-}
+const isErased = isPersonErased; // identity's public accessor (unknown or erased persons are suppressed)
 
 /**
  * Queue an email. Checks consent for marketing templates (identity), suppresses erased

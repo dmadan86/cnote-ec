@@ -1,6 +1,7 @@
 import { emit, redis, type EventHandlers, type ModuleWorker } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { bustSellerCaches } from "./business";
+import { gstWorkerJobs } from "./gst/continuous";
 import { computeTrustScore, emptySignals, RESPONSE_SLA_MS, type TrustSignals } from "./trust";
 
 const counterKey = (businessId: string) => `trust:${businessId}`;
@@ -97,5 +98,5 @@ export async function runTrustDecay(): Promise<number> {
 export const worker: ModuleWorker = {
   name: "identity",
   handlers: trustHandlers,
-  jobs: [{ name: "identity.trust-decay", everyMs: DAY, run: async () => void (await runTrustDecay()) }],
+  jobs: [{ name: "identity.trust-decay", everyMs: DAY, run: async () => void (await runTrustDecay()) }, ...gstWorkerJobs],
 };

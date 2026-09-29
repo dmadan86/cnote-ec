@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./render": "./src/render/index.ts",
+    "./document": "./src/document/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -18,5 +20,14 @@
     "@cnote/identity": "workspace:*",
     "@cnote/reviews": "workspace:*",
     "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "react": "^19"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "react": "19.2.8",
+    "@types/react-dom": "^19",
+    "react-dom": "19.2.8"
   }
 }

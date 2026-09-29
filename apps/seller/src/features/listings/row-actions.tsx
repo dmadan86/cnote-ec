@@ -14,7 +14,7 @@ export function ListingRowActions({ id, canPublish, canArchive }: { id: string; 
         {canPublish ? (
           <form action={publish}>
             <input type="hidden" name="id" value={id} />
-            <SubmitButton size="sm" pendingText="Publishing…">Publish</SubmitButton>
+            <SubmitButton size="sm" pendingText="Submitting…">Submit for review</SubmitButton>
           </form>
         ) : null}
         {canArchive ? (

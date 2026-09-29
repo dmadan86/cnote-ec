@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { DomainError, rupeesToPaise } from "@cnote/core";
 import { actorOf, type ActionResult } from "@cnote/next-kit";
-import type { ListingInput, ListingView } from "@cnote/catalogue";
+import type { ListingInput, ListingView, VersionView } from "@cnote/catalogue";
 import { requireSeller } from "@/lib/auth";
 import { ONB, readOnb, writeOnb } from "@/lib/cookies";
 import { numOrNull, str } from "@/lib/form-data";
@@ -13,7 +13,7 @@ import { run } from "@/lib/run";
 import { catalogue } from "@/lib/services";
 
 export type DraftResult = ActionResult<{ listingId: string }>;
-export type SaveResult = ActionResult<{ listing: ListingView; intent: "save" | "publish" }>;
+export type SaveResult = ActionResult<{ listing: ListingView; intent: "save" | "publish"; version?: VersionView }>;
 export type RowResult = ActionResult<null>;
 
 const draftSchema = z.object({
@@ -114,18 +114,21 @@ export async function saveListingAction(_prev: SaveResult | null, fd: FormData):
     };
 
     let listing = parsed.id ? await catalogue.updateListing(actor.businessId, parsed.id, input) : await catalogue.createListing(actor.businessId, input);
+    let version: VersionView | undefined;
     if (intent === "publish") {
-      listing = await catalogue.publishListing(actor.businessId, listing.id);
-      logEvent("seller.listing_publish_attempt", { businessId: actor.businessId, listingId: listing.id, status: listing.status, moderation: listing.moderationStatus, aiGenerated: listing.aiGenerated });
-      if (listing.status === "published" && !(await readOnb(ONB.firstListing))) {
-        // ADR-004 metric: time from business creation to first published listing.
+      // Never goes live directly: snapshots a version for review; the publisher takes it live once approved.
+      version = await catalogue.submitListingVersion(actor.businessId, listing.id, { changeNote: null, createdBy: session.personId });
+      listing = (await catalogue.getListing(listing.id)) ?? listing;
+      logEvent("seller.listing_publish_attempt", { businessId: actor.businessId, listingId: listing.id, status: version.status, version: version.version, aiGenerated: listing.aiGenerated });
+      if (version.status !== "rejected" && !(await readOnb(ONB.firstListing))) {
+        // ADR-004 metric: time from business creation to first listing submitted for publication.
         const t0 = Number(await readOnb(ONB.startedAt));
         logEvent("seller.first_listing_published", { businessId: actor.businessId, listingId: listing.id, timeToFirstListingMs: Number.isFinite(t0) && t0 > 0 ? Date.now() - t0 : null });
         await writeOnb(ONB.firstListing, String(Date.now()));
       }
     }
     revalidatePath("/listings");
-    return { listing, intent };
+    return { listing, intent, version };
   });
 }
 
@@ -133,8 +136,8 @@ export async function publishListingAction(_prev: RowResult | null, fd: FormData
   const session = await requireSeller("/listings");
   return run(async () => {
     const id = z.string().min(1).parse(str(fd, "id"));
-    const listing = await catalogue.publishListing(session.business.id, id);
-    logEvent("seller.listing_publish_attempt", { businessId: session.business.id, listingId: id, status: listing.status, moderation: listing.moderationStatus });
+    const version = await catalogue.submitListingVersion(session.business.id, id, { changeNote: null, createdBy: session.personId });
+    logEvent("seller.listing_publish_attempt", { businessId: session.business.id, listingId: id, status: version.status, version: version.version });
     revalidatePath("/listings");
     return null;
   });
@@ -146,5 +149,59 @@ export async function archiveListingAction(_prev: RowResult | null, fd: FormData
     await catalogue.archiveListing(session.business.id, z.string().min(1).parse(str(fd, "id")));
     revalidatePath("/listings");
     return null;
+  });
+}
+
+const submitSchema = z.object({
+  listingId: z.string().min(1),
+  changeNote: z.string().max(500).optional(),
+  publishAt: z.string().optional(),
+});
+
+export type VersionActionResult = ActionResult<{ message: string }>;
+
+/** Snapshot the saved working copy as a new version; optional schedule (datetime-local, interpreted in the seller's timezone offset sent by the form). */
+export async function submitVersionAction(_prev: VersionActionResult | null, fd: FormData): Promise<VersionActionResult> {
+  const session = await requireSeller("/listings");
+  return run(async () => {
+    const d = submitSchema.parse({ listingId: str(fd, "listingId"), changeNote: str(fd, "changeNote") || undefined, publishAt: str(fd, "publishAt") || undefined });
+    let publishAt: Date | null = null;
+    if (d.publishAt) {
+      // <input type=datetime-local> has no zone; the form also posts tzOffset (minutes, Date#getTimezoneOffset).
+      const off = Number(str(fd, "tzOffset") || 0);
+      const local = new Date(`${d.publishAt}:00Z`);
+      if (Number.isNaN(local.getTime())) throw new DomainError("validation", "Pick a valid date and time.");
+      publishAt = new Date(local.getTime() + (Number.isFinite(off) ? off : 0) * 60_000);
+    }
+    const v = await catalogue.submitListingVersion(session.business.id, d.listingId, { changeNote: d.changeNote, publishAt, createdBy: session.personId });
+    logEvent("seller.listing_version_submitted", { businessId: session.business.id, listingId: d.listingId, version: v.version, status: v.status, scheduled: !!publishAt });
+    revalidatePath("/listings");
+    revalidatePath(`/listings/${d.listingId}/edit`);
+    const message =
+      v.status === "approved" ? (publishAt ? `Version ${v.version} approved. It goes live at the scheduled time.` : `Version ${v.version} approved. It goes live within a minute.`)
+      : v.status === "rejected" ? `Version ${v.version} was not accepted: ${v.reviewNote ?? "policy check failed"}`
+      : `Version ${v.version} submitted. Our team will review it; your live listing stays unchanged meanwhile.`;
+    return { message };
+  });
+}
+
+export async function withdrawVersionAction(_prev: VersionActionResult | null, fd: FormData): Promise<VersionActionResult> {
+  const session = await requireSeller("/listings");
+  return run(async () => {
+    const v = await catalogue.withdrawVersion(session.business.id, z.string().min(1).parse(str(fd, "versionId")));
+    revalidatePath("/listings");
+    revalidatePath(`/listings/${v.listingId}/edit`);
+    return { message: `Version ${v.version} withdrawn.` };
+  });
+}
+
+export async function unpublishListingAction(_prev: VersionActionResult | null, fd: FormData): Promise<VersionActionResult> {
+  const session = await requireSeller("/listings");
+  return run(async () => {
+    const id = z.string().min(1).parse(str(fd, "id"));
+    await catalogue.unpublishListing(session.business.id, id);
+    revalidatePath("/listings");
+    revalidatePath(`/listings/${id}/edit`);
+    return { message: "Listing taken offline. Buyers no longer see it." };
   });
 }

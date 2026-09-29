@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
-    "./proxy": "./src/proxy.ts"
+    "./proxy": "./src/proxy.ts",
+    "./security": "./src/security.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -17,6 +18,8 @@
     "@cnote/core": "workspace:*",
     "@cnote/email": "workspace:*",
     "@cnote/identity": "workspace:*",
+    "@cnote/security": "workspace:*",
+    "@cnote/leadgen": "workspace:*",
     "@cnote/ui": "workspace:*",
     "server-only": "^0.0.1",
     "zod": "^4.1.0"

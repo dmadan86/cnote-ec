@@ -6,13 +6,20 @@ on:
   pull_request:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+# Least privilege: jobs only read the repo. Jobs needing more declare it themselves.
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
 
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     services:
       postgres:
         image: pgvector/pgvector:pg17
@@ -32,6 +39,7 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote
+      LIVE_DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote_live
       REDIS_URL: redis://localhost:6379
       AI_PROVIDER: heuristic
       JWT_SECRET: ci-only-jwt-secret-0123456789abcdef0123456789abcdef
@@ -42,14 +50,156 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Create live database
+        run: PGPASSWORD=cnote psql -h localhost -U cnote -d cnote -c 'CREATE DATABASE cnote_live'
       - name: Migrations
         run: |
           pnpm db:check
           pnpm db:migrate
+          pnpm --filter @cnote/live-db migrate:deploy
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
-      - run: pnpm build
+      # TODO: enforce coverage thresholds once a baseline is agreed; then remove continue-on-error.
+      - name: Coverage
+        run: pnpm test:coverage
+        continue-on-error: true
+      - name: Build all workspaces (web, seller, admin, studio)
+        run: pnpm build
+      # The api and worker have no build step (tsx runtime); typecheck above covers them. Explicit for clarity.
+      - name: Typecheck api and worker
+        run: pnpm --filter @cnote/api --filter @cnote/worker typecheck
+
+  # Only builds when a Docker-related file changed. No push, no registry login.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      docker: ${{ steps.filter.outputs.docker }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            docker:
+              - '.dockerignore'
+              - 'apps/*/Dockerfile'
+              - 'deploy/docker/**'
+              - 'docker-compose*.yml'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'package.json'
+
+  docker:
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: web, file: apps/web/Dockerfile }
+          - { name: seller, file: apps/seller/Dockerfile }
+          - { name: admin, file: apps/admin/Dockerfile }
+          - { name: studio, file: apps/studio/Dockerfile }
+          - { name: api, file: apps/api/Dockerfile }
+          - { name: worker, file: apps/worker/Dockerfile }
+          - { name: migrate, file: deploy/docker/migrate.Dockerfile }
+    services:
+      # Next builds call generateStaticParams against the database (apps/web), so the build container reaches this one.
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: cnote
+          POSTGRES_PASSWORD: cnote
+          POSTGRES_DB: cnote
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cnote"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Migrate (Next builds read the schema)
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote
+      - uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.name }} (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          push: false
+          # host network: the build stage reaches the service containers on localhost.
+          network: host
+          build-args: |
+            DATABASE_URL=postgres://cnote:cnote@localhost:5432/cnote
+            REDIS_URL=redis://localhost:6379
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  # Optional: runs only when the repository has an OPENSEARCH_URL secret (a reachable test cluster).
+  # Secrets cannot be used in `if:` directly, so the job exposes it via an env check step.
+  opensearch-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OPENSEARCH_URL: ${{ secrets.OPENSEARCH_URL }}
+      OPENSEARCH_USERNAME: ${{ secrets.OPENSEARCH_USERNAME }}
+      OPENSEARCH_PASSWORD: ${{ secrets.OPENSEARCH_PASSWORD }}
+      SEARCH_BACKEND: opensearch
+      DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-only-jwt-secret-0123456789abcdef0123456789abcdef
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: cnote
+          POSTGRES_PASSWORD: cnote
+          POSTGRES_DB: cnote
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cnote"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports: ["6379:6379"]
+    steps:
+      - name: Skip when no OpenSearch cluster is configured
+        id: gate
+        run: |
+          if [ -z "$OPENSEARCH_URL" ]; then echo "run=false" >> "$GITHUB_OUTPUT"; echo "OPENSEARCH_URL secret not set; skipping"; else echo "run=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+      - uses: pnpm/action-setup@v4
+        if: steps.gate.outputs.run == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.run == 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - if: steps.gate.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.gate.outputs.run == 'true'
+        run: pnpm db:migrate
+      - name: Search contract tests against OpenSearch
+        if: steps.gate.outputs.run == 'true'
+        run: pnpm --filter @cnote/search test

@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: cnote
+resources:
+  - ../../base
+# Pin immutable tags or digests (set by the release pipeline: `kustomize edit set image cnote-web=ghcr.io/OWNER/cnote-web@sha256:...`).
+images:
+  - {name: cnote-web, newName: ghcr.io/OWNER/cnote-web, newTag: REPLACE_WITH_RELEASE}
+  - {name: cnote-seller, newName: ghcr.io/OWNER/cnote-seller, newTag: REPLACE_WITH_RELEASE}
+  - {name: cnote-admin, newName: ghcr.io/OWNER/cnote-admin, newTag: REPLACE_WITH_RELEASE}
+  - {name: cnote-studio, newName: ghcr.io/OWNER/cnote-studio, newTag: REPLACE_WITH_RELEASE}
+  - {name: cnote-api, newName: ghcr.io/OWNER/cnote-api, newTag: REPLACE_WITH_RELEASE}
+  - {name: cnote-worker, newName: ghcr.io/OWNER/cnote-worker, newTag: REPLACE_WITH_RELEASE}
+  - {name: cnote-migrate, newName: ghcr.io/OWNER/cnote-migrate, newTag: REPLACE_WITH_RELEASE}
+patches:
+  - target: {kind: Deployment, name: cnote-web}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 3}
+  - target: {kind: HorizontalPodAutoscaler, name: cnote-web}
+    patch: |-
+      - {op: replace, path: /spec/minReplicas, value: 3}
+      - {op: replace, path: /spec/maxReplicas, value: 12}
+  - target: {kind: ConfigMap, name: cnote-config}
+    patch: |-
+      - {op: replace, path: /data/SENTRY_ENVIRONMENT, value: production}

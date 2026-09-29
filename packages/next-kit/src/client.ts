@@ -5,3 +5,5 @@ export type { AuthFormProps } from "./forms";
 export { SignInForm, SignUpForm, ForgotPasswordForm, ResetPasswordForm, GoogleButton } from "./forms";
 
 export * from "./otp-client";
+export * from "./turnstile-client";
+export * from "./mfa-client";

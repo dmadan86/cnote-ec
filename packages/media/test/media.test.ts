@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { LocalMediaStore, S3MediaStore, findMonorepoRoot, isValidListingImageKey, listingImageKey, readImageDimensions, sha256Hex, sniffImageMime, validateImage } from "../src/index";
+import { LocalMediaStore, AzureMediaStore, GcsMediaStore, S3MediaStore, getMediaStore, isValidMediaKey, setMediaStore, findMonorepoRoot, isValidListingImageKey, listingImageKey, readImageDimensions, sha256Hex, sniffImageMime, validateImage } from "../src/index";
 
 const png = (w: number, h: number) => {
   const b = new Uint8Array(33);
@@ -117,10 +117,45 @@ describe("LocalMediaStore", () => {
     await expect(s.put("../../etc/passwd", png(1, 1), "image/png")).rejects.toThrow(/Invalid/);
     await expect(s.get(`listings/${a}/../../x.png`)).rejects.toThrow(/Invalid/);
     await expect(s.put(key, png(1, 1), "image/jpeg")).rejects.toThrow(/match/);
+    await expect(s.put("templates/x/../../y.png", png(1, 1), "image/png")).rejects.toThrow(/Invalid/);
   });
 });
 
 describe("misc", () => {
   it("finds the monorepo root", () => expect(findMonorepoRoot()).toMatch(/cnote$/));
-  it("s3 stub throws", async () => { expect(() => new S3MediaStore().put()).toThrow(/not configured/); });
+  it("azure/gcs stubs throw", async () => {
+    expect(() => new AzureMediaStore("private").put()).toThrow(/not configured/);
+    expect(() => new GcsMediaStore("public").signedGetUrl()).toThrow(/not configured/);
+  });
+  it("generic keys", () => {
+    expect(isValidMediaKey("templates/abc-123.png")).toBe(true);
+    expect(isValidMediaKey("listings/a/b/640.avif")).toBe(true);
+    expect(isValidMediaKey("storefronts/x/logo.webp")).toBe(true);
+    for (const k of ["other/a.png", "templates/../a.png", "templates//a.png", "templates/.x.png", "templates/A.png", "templates/a", "/templates/a.png"]) expect(isValidMediaKey(k)).toBe(false);
+  });
+  it("public local store gives /media/v urls, private none", () => {
+    expect(new LocalMediaStore("/tmp/x", "public").publicUrl("templates/a.png")).toBe("/media/v/templates/a.png");
+    expect(new LocalMediaStore("/tmp/x", "private").publicUrl("templates/a.png")).toBeNull();
+  });
+  it("factory: r2 requires config, builds public url", () => {
+    const env = { ...process.env };
+    setMediaStore(undefined);
+    Object.assign(process.env, { MEDIA_DRIVER: "r2" });
+    delete process.env.MEDIA_BUCKET;
+    expect(() => getMediaStore("public")).toThrow(/MEDIA_BUCKET/);
+    Object.assign(process.env, { MEDIA_BUCKET: "pub", MEDIA_PRIVATE_BUCKET: "priv", MEDIA_ENDPOINT: "https://acct.r2.cloudflarestorage.com", MEDIA_ACCESS_KEY_ID: "k", MEDIA_SECRET_ACCESS_KEY: "s", MEDIA_PUBLIC_BASE_URL: "https://img.example.com/" });
+    setMediaStore(undefined);
+    const pub = getMediaStore("public");
+    expect(pub).toBeInstanceOf(S3MediaStore);
+    expect(pub.publicUrl("listings/a/b/640.avif")).toBe("https://img.example.com/listings/a/b/640.avif");
+    expect(getMediaStore("private").publicUrl("listings/a/b/640.avif")).toBeNull();
+    process.env = env;
+    setMediaStore(undefined);
+  });
+  it("r2 presigns without network", async () => {
+    const s = new S3MediaStore({ driver: "r2", kind: "private", bucket: "priv", endpoint: "https://acct.r2.cloudflarestorage.com", region: "auto", accessKeyId: "k", secretAccessKey: "s" });
+    const url = await s.signedGetUrl("listings/a/b.jpg", 300);
+    expect(url).toMatch(/^https:\/\/.*acct\.r2\.cloudflarestorage\.com.*X-Amz-Signature=/);
+    expect(url).toContain("X-Amz-Expires=300");
+  });
 });

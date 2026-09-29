@@ -11,10 +11,13 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@cnote/catalogue": "workspace:*",
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",
     "@cnote/email": "workspace:*",
+    "@cnote/enquiry": "workspace:*",
     "@cnote/identity": "workspace:*",
+    "@cnote/reviews": "workspace:*",
     "@cnote/templates": "workspace:*",
     "zod": "^4.6.5"
   }

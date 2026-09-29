@@ -1,0 +1,78 @@
+// LIVE read database: published projections only (docs/design/listing-versioning-and-live-db.md).
+// Written exclusively by the catalogue publisher; read by web, search and the public API.
+// Nothing here has a foreign key to the authoring database — ids are copied, not referenced.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../../src/generated/live"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// One row per live listing. id = authoring Listing.id; the row is replaced atomically when a new version publishes.
+model LiveListing {
+  id               String   @id @db.Uuid
+  versionId        String   @map("version_id") @db.Uuid
+  version          Int
+  sellerBusinessId String   @map("seller_business_id") @db.Uuid
+  categoryId       String   @map("category_id") @db.Uuid
+  categorySlug     String   @map("category_slug")
+  categoryName     String   @map("category_name")
+  title            String
+  description      String   @default("")
+  attributes       Json     @default("{}")
+  pricePaise       BigInt?  @map("price_paise")
+  priceUnit        String?  @map("price_unit")
+  moq              Int?
+  moqUnit          String?  @map("moq_unit")
+  hsn              String?
+  language         String   @default("en")
+  aiGenerated      Boolean  @default(false) @map("ai_generated")
+  /// public image data, ordered: [{ id, url, alt, width, height, blur, variants: [{ width, height, format, key }] }]
+  images           Json     @default("[]")
+  /// seller snapshot for fast cards; re-projected on TrustScoreChanged / BusinessVerified
+  sellerName       String   @map("seller_name")
+  sellerCity       String?  @map("seller_city")
+  sellerState      String?  @map("seller_state")
+  sellerTier       Int      @default(0) @map("seller_tier")
+  sellerTrustScore Int      @default(0) @map("seller_trust_score")
+  sellerBadgeActive Boolean @default(false) @map("seller_badge_active")
+  /// pgvector; read/write via $queryRaw. HNSW index added in raw SQL migration.
+  embedding        Unsupported("vector(256)")?
+  embeddingVersion String?  @map("embedding_version")
+  /// GENERATED ALWAYS AS to_tsvector('simple', title || ' ' || description) STORED — set in raw SQL migration.
+  searchTsv        Unsupported("tsvector")? @map("search_tsv")
+  /// first time this listing ever went live (stable ordering for "new")
+  firstPublishedAt DateTime @map("first_published_at") @db.Timestamptz
+  publishedAt      DateTime @map("published_at") @db.Timestamptz
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([categoryId])
+  @@index([sellerBusinessId])
+  @@index([firstPublishedAt(sort: Desc)])
+  @@index([searchTsv], map: "live_listings_search_tsv_idx", type: Gin)
+  @@map("live_listings")
+}
+
+/// Mirror of the categories that have live listings (slug/name for facets and links without touching authoring).
+model LiveCategory {
+  id        String @id @db.Uuid
+  slug      String @unique
+  name      String
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("live_categories")
+}
+
+/// Idempotency ledger for projectors: (consumer, key) already applied. key is a versionId / event id.
+model ProjectionCheckpoint {
+  consumer  String
+  key       String
+  appliedAt DateTime @default(now()) @map("applied_at") @db.Timestamptz
+
+  @@id([consumer, key])
+  @@map("projection_checkpoints")
+}

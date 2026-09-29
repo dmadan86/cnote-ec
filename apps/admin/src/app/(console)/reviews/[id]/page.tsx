@@ -1,6 +1,7 @@
 import { hasPrivilege } from "@cnote/admin";
-import { listOpenReviews } from "@cnote/ai";
+import { getReview } from "@cnote/ai";
 import { getListing } from "@cnote/catalogue";
+import { getEnquiryForOps } from "@cnote/enquiry";
 import { Alert, Card, CardBody, CardHeader, CardTitle, Field, Money, PageHeader, Textarea } from "@cnote/ui";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -16,13 +17,13 @@ export const metadata = { title: "Review item" };
 export default async function ReviewDetailPage({ params }: PageProps<"/reviews/[id]">) {
   const { id } = await params;
   const { staff } = await requireStaff(`/reviews/${id}`, "reviews.read");
-  const items = await safe("ai.listOpenReviews", () => listOpenReviews(500));
-  if (items === null) return <Alert tone="warning">The review queue is currently unavailable.</Alert>;
-  const item = items.find((r) => r.id === id);
-  if (!item) notFound(); // resolved by someone else, or never existed
+  const item = await safe("ai.getReview", () => getReview(id));
+  if (item === null) return <Alert tone="warning">The review queue is currently unavailable.</Alert>;
+  if (!item || item.status !== "open") notFound(); // resolved by someone else, or never existed
 
   const neededPrivilege = item.subjectType === "listing" ? "listings.moderate" : item.subjectType === "enquiry" ? "enquiries.review" : null;
   const canResolve = hasPrivilege(staff, "reviews.resolve") && (!neededPrivilege || hasPrivilege(staff, neededPrivilege));
+  const enquiry = item.subjectType === "enquiry" && hasPrivilege(staff, "enquiries.review") ? await safe("enquiry.getEnquiryForOps", () => getEnquiryForOps(item.subjectId)) : null;
   const listing = item.subjectType === "listing" ? await safe("catalogue.getListing", () => getListing(item.subjectId)) : null;
 
   return (
@@ -55,7 +56,19 @@ export default async function ReviewDetailPage({ params }: PageProps<"/reviews/[
                 <Alert tone="warning">Listing preview unavailable.</Alert>
               )
             ) : item.subjectType === "enquiry" ? (
-              <Alert tone="info">Enquiry preview isn&apos;t available to ops yet (needs an ops getter in the enquiry module). Decide using the AI output on the left.</Alert>
+              enquiry ? (
+                <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1">
+                  <dt className="text-muted">Title</dt><dd className="font-medium">{enquiry.title}</dd>
+                  <dt className="text-muted">Requirement</dt><dd className="whitespace-pre-wrap">{enquiry.requirement}</dd>
+                  <dt className="text-muted">Quantity</dt><dd>{enquiry.quantity != null ? `${enquiry.quantity} ${enquiry.quantityUnit ?? ""}` : "—"}</dd>
+                  <dt className="text-muted">Target price</dt><dd>{enquiry.targetPricePaise != null ? <Money paise={enquiry.targetPricePaise} /> : "—"}</dd>
+                  <dt className="text-muted">Deliver to</dt><dd>{[enquiry.deliveryCity, enquiry.deliveryPincode].filter(Boolean).join(" ") || "—"}</dd>
+                  <dt className="text-muted">Intent score</dt><dd>{enquiry.intentScore ?? "—"}</dd>
+                  <dt className="text-muted">Status</dt><dd>{enquiry.status} · moderation {enquiry.moderationStatus}</dd>
+                </dl>
+              ) : (
+                <Alert tone="warning">Enquiry preview unavailable.</Alert>
+              )
             ) : (
               <p className="text-muted">No preview for this subject type.</p>
             )}

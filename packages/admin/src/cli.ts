@@ -4,11 +4,9 @@
 //   pnpm --filter @cnote/admin staff:revoke <email>   deactivate
 // Every change writes an AdminAuditLog row with staffId = null (CLI/system).
 //
-// Boundary note: Person belongs to @cnote/identity and identity has no lookup-by-email export.
-// This CLI is an operator bootstrap tool (the first super_admin must exist before any UI does), so a
-// direct read-only prisma lookup of persons by email is acceptable here. Nothing else in this
-// package touches the persons table.
+// Person lookups go through @cnote/identity's public getPersonByEmail.
 import { prisma } from "@cnote/db";
+import { getPersonByEmail } from "@cnote/identity";
 import { ROLES, isRole } from "./rbac";
 import { applyStaffChange } from "./staff";
 import { writeAudit } from "./audit";
@@ -19,7 +17,7 @@ const usage = `Usage:
   revoke <email>`;
 
 async function personByEmail(email: string) {
-  const person = await prisma.person.findUnique({ where: { email: email.trim().toLowerCase() }, select: { id: true, email: true } });
+  const person = await getPersonByEmail(email);
   if (!person) throw new Error(`No person with email ${email}. They must sign up (or sign in with Google) on the public site first.`);
   return person;
 }

@@ -3,32 +3,29 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import { CheckCircle2, Clock, ShieldAlert } from "lucide-react";
 import { Alert, Badge, Card, CardBody, Field, Input, Select, Textarea, buttonClasses } from "@cnote/ui";
-import type { CategoryView, ListingView } from "@cnote/catalogue";
+import type { CategoryView, ListingView, VersionView } from "@cnote/catalogue";
 import { LANGUAGES, UNITS } from "@/lib/constants";
 import { FormAlert, SubmitButton, fieldError } from "@/features/shell/form-bits";
 import { saveListingAction, type SaveResult } from "./actions";
 
-function Outcome({ listing, continueHref, continueLabel }: { listing: ListingView; continueHref: string; continueLabel: string }) {
-  const live = listing.status === "published" && listing.moderationStatus === "approved";
-  const review = listing.moderationStatus === "review";
-  const rejected = listing.moderationStatus === "rejected";
+function Outcome({ version, continueHref, continueLabel }: { version: VersionView | undefined; continueHref: string; continueLabel: string }) {
+  const rejected = version?.status === "rejected";
+  const approved = version?.status === "approved";
   return (
-    <Card className={live ? "border-green-200" : rejected ? "border-red-200" : "border-amber-200"}>
+    <Card className={rejected ? "border-red-200" : approved ? "border-green-200" : "border-amber-200"}>
       <CardBody className="space-y-3">
         <div className="flex items-start gap-3">
-          {live ? <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" aria-hidden /> : rejected ? <ShieldAlert className="mt-0.5 size-5 shrink-0 text-danger" aria-hidden /> : <Clock className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />}
+          {approved ? <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" aria-hidden /> : rejected ? <ShieldAlert className="mt-0.5 size-5 shrink-0 text-danger" aria-hidden /> : <Clock className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />}
           <div>
             <h2 className="font-semibold text-ink">
-              {live ? "Your listing is live" : review ? "Sent for a manual check" : rejected ? "We could not publish this listing" : "Saved, not live yet"}
+              {approved ? "Approved: going live shortly" : rejected ? "We could not accept this version" : "Submitted for review"}
             </h2>
             <p className="mt-1 text-sm text-muted">
-              {live
-                ? "Buyers searching for this can now find it, and matching leads can reach you."
-                : review
-                  ? "Our team is checking it against the marketplace policy. It goes live automatically if approved, and you can keep working meanwhile."
-                  : rejected
-                    ? (listing.moderationReason ?? "It appears to break the prohibited-category policy.") + " You can edit it and publish again, or contact us to appeal."
-                    : "It will be visible once it passes the checks."}
+              {approved
+                ? "Your version passed the checks and is being published. Buyers will find it within a minute or so."
+                : rejected
+                  ? (version?.reviewNote ?? "It appears to break the marketplace policy.") + " You can edit it and submit again, or contact us to appeal."
+                  : "Our team is checking it against the marketplace policy. It goes live automatically once approved. Anything already live stays unchanged meanwhile."}
             </p>
           </div>
         </div>
@@ -58,7 +55,7 @@ export function ListingEditor({
   const published = state?.ok && state.data.intent === "publish";
 
   if (published && current) {
-    return <Outcome listing={current} continueHref={mode === "onboarding" ? "/onboarding" : "/listings"} continueLabel={mode === "onboarding" ? "Continue" : "Back to listings"} />;
+    return <Outcome version={state.data.version} continueHref={mode === "onboarding" ? "/onboarding" : "/listings"} continueLabel={mode === "onboarding" ? "Continue" : "Back to listings"} />;
   }
 
   const attrs = current?.attributes ?? {};
@@ -68,10 +65,10 @@ export function ListingEditor({
       {current?.aiGenerated && current.status === "draft" ? (
         <Alert tone="info">
           <Badge tone="brand" className="mr-2">AI draft</Badge>
-          AI draft, check before publishing. Fix anything that is wrong: price, minimum order and specs matter most to buyers.
+          AI draft, check before submitting. Fix anything that is wrong: price, minimum order and specs matter most to buyers.
         </Alert>
       ) : null}
-      {state?.ok && state.data.intent === "save" ? <Alert tone="success">Saved. It is not live until you publish.</Alert> : null}
+      {state?.ok && state.data.intent === "save" ? <Alert tone="success">Saved to your working copy. Buyers see nothing new until you submit it for review.</Alert> : null}
 
       <Field label="Category" htmlFor="categoryId" error={fieldError(state, "categoryId")}>
         <Select id="categoryId" name="categoryId" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-11" required>
@@ -153,18 +150,18 @@ export function ListingEditor({
         </Select>
       </Field>
 
-      {current && current.moderationStatus === "rejected" ? <Alert tone="danger">{current.moderationReason ?? "This listing was rejected by the policy check."}</Alert> : null}
+      {current && current.moderationStatus === "rejected" && current.status === "draft" ? <Alert tone="danger">{current.moderationReason ?? "This listing was rejected by the policy check."}</Alert> : null}
       <FormAlert state={state} />
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <SubmitButton name="intent" value="publish" size="lg" pendingText="Publishing…">
-          Publish listing
+        <SubmitButton name="intent" value="publish" size="lg" pendingText="Submitting…">
+          Save and submit for review
         </SubmitButton>
         <SubmitButton name="intent" value="save" variant="outline" size="lg" pendingText="Saving…">
           Save as draft
         </SubmitButton>
       </div>
-      <p className="text-xs text-muted">Every listing, including AI drafts, is checked against our prohibited-category policy before it goes live.</p>
+      <p className="text-xs text-muted">Every version, including AI drafts, is checked against our prohibited-category policy and is reviewed before it goes live.</p>
     </form>
   );
 }

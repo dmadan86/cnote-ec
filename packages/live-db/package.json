@@ -1,0 +1,28 @@
+{
+  "name": "@cnote/live-db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:new": "tsx scripts/new-migration.ts",
+    "migrate:check": "tsx scripts/raw-sql-guard.ts check",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
+    "test": "vitest run scripts --passWithNoTests"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "pg": "^8.16.0"
+  },
+  "devDependencies": {
+    "prisma": "7.10.0",
+    "dotenv": "^17.2.0",
+    "@types/pg": "^8.15.0"
+  }
+}

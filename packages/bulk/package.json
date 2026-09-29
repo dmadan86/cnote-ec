@@ -1,0 +1,25 @@
+{
+  "name": "@cnote/bulk",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@cnote/catalogue": "workspace:*",
+    "@cnote/core": "workspace:*",
+    "@cnote/db": "workspace:*",
+    "@cnote/identity": "workspace:*",
+    "@cnote/media": "workspace:*",
+    "csv-parse": "^7.0.3",
+    "csv-stringify": "^6.9.0",
+    "exceljs": "^4.4.0",
+    "fflate": "^0.8.3",
+    "zod": "^4.6.5"
+  }
+}

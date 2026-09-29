@@ -1,9 +1,11 @@
 import { sentryOptions } from "@cnote/observability";
 import { serve } from "@hono/node-server";
+import { assertRequiredSecrets } from "@cnote/security";
 import * as Sentry from "@sentry/node";
 import { createApp } from "./app";
 import { config } from "./env";
 
+assertRequiredSecrets("api");
 Sentry.init(sentryOptions("api", "nodejs"));
 
 const app = createApp({ onServerError: (err, requestId) => void Sentry.captureException(err, { tags: { requestId } }) });

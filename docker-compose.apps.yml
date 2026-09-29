@@ -1,0 +1,85 @@
+# Runs the whole stack in containers. Merge with the infra file:
+#   docker compose -f docker-compose.yml -f docker-compose.apps.yml up --build
+# Then seed once:  docker compose -f docker-compose.yml -f docker-compose.apps.yml run --rm worker pnpm --filter @cnote/worker seed
+# Ports: web 3000, admin 3001, seller 3002, api 3003, studio 3004. Values below are LOCAL DEV ONLY.
+# Build context is the repo root. Next apps read the database during `next build` (generateStaticParams), so the
+# build stage points at the host Postgres; start infra first:  docker compose up -d postgres redis && pnpm db:migrate
+x-app-env: &app-env
+  DATABASE_URL: postgres://cnote:cnote@postgres:5432/cnote
+  LIVE_DATABASE_URL: postgres://cnote:cnote@postgres:5432/cnote_live
+  REDIS_URL: redis://redis:6379
+  AI_PROVIDER: heuristic
+  JWT_SECRET: dev-only-insecure-jwt-secret-change-me-please-0123456789
+  OTP_DEV_ECHO: "true"
+  APP_URL: http://localhost:3000
+  ADMIN_APP_URL: http://localhost:3001
+  SELLER_APP_URL: http://localhost:3002
+  API_PUBLIC_URL: http://localhost:3003
+  MEDIA_DRIVER: local
+  MEDIA_DIR: /data/media
+  QUEUE_DRIVER: redis
+  SEARCH_BACKEND: postgres
+  EMAIL_PROVIDER: console
+
+x-build-args: &build-args
+  DATABASE_URL: postgres://cnote:cnote@host.docker.internal:5432/cnote
+  REDIS_URL: redis://host.docker.internal:6379
+
+services:
+  migrate:
+    build: { context: ., dockerfile: deploy/docker/migrate.Dockerfile }
+    environment:
+      DATABASE_URL: postgres://cnote:cnote@postgres:5432/cnote
+      LIVE_DATABASE_URL: postgres://cnote:cnote@postgres:5432/cnote_live
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  web:
+    build: { context: ., dockerfile: apps/web/Dockerfile, args: *build-args }
+    environment: *app-env
+    ports: ["3000:3000"]
+    volumes:
+      - media:/data/media
+    depends_on: &after-migrate
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+  seller:
+    build: { context: ., dockerfile: apps/seller/Dockerfile, args: *build-args }
+    environment: *app-env
+    ports: ["3002:3002"]
+    volumes:
+      - media:/data/media
+    depends_on: *after-migrate
+  admin:
+    build: { context: ., dockerfile: apps/admin/Dockerfile, args: *build-args }
+    environment: *app-env
+    ports: ["3001:3001"]
+    volumes:
+      - media:/data/media
+    depends_on: *after-migrate
+  studio:
+    build: { context: ., dockerfile: apps/studio/Dockerfile, args: *build-args }
+    environment: *app-env
+    ports: ["3004:3004"]
+    volumes:
+      - media:/data/media
+    depends_on: *after-migrate
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    environment:
+      <<: *app-env
+      API_CORS_ORIGINS: http://localhost:3000,http://localhost:3002
+    ports: ["3003:3003"]
+    init: true
+    depends_on: *after-migrate
+  worker:
+    build: { context: ., dockerfile: apps/worker/Dockerfile }
+    environment: *app-env
+    volumes:
+      - media:/data/media
+    init: true
+    depends_on: *after-migrate
+
+volumes:
+  media:

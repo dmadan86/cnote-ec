@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: cnote
+resources:
+  - configmap.yaml
+  - migrate-job.yaml
+  - web.yaml
+  - seller.yaml
+  - admin.yaml
+  - studio.yaml
+  - api.yaml
+  - worker.yaml
+# Placeholder registry; overlays pin tags (use digests in prod).
+images:
+  - {name: cnote-web, newName: ghcr.io/OWNER/cnote-web, newTag: latest}
+  - {name: cnote-seller, newName: ghcr.io/OWNER/cnote-seller, newTag: latest}
+  - {name: cnote-admin, newName: ghcr.io/OWNER/cnote-admin, newTag: latest}
+  - {name: cnote-studio, newName: ghcr.io/OWNER/cnote-studio, newTag: latest}
+  - {name: cnote-api, newName: ghcr.io/OWNER/cnote-api, newTag: latest}
+  - {name: cnote-worker, newName: ghcr.io/OWNER/cnote-worker, newTag: latest}
+  - {name: cnote-migrate, newName: ghcr.io/OWNER/cnote-migrate, newTag: latest}

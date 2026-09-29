@@ -1,9 +1,7 @@
 import { DomainError } from "@cnote/core";
 import { prisma } from "@cnote/db";
-import { findMonorepoRoot, readImageDimensions, sha256Hex, sniffImageMime } from "@cnote/media";
+import { getMediaStore, readImageDimensions, sha256Hex, sniffImageMime } from "@cnote/media";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { appUrl } from "./assemble";
 import { TEMPLATE_ASSET_PATH } from "./sanitize";
 
@@ -50,17 +48,10 @@ function sniff(b: Uint8Array): string | null {
   return head === "GIF87a" || head === "GIF89a" ? "image/gif" : null;
 }
 
-// Storage: same MEDIA_DIR root as @cnote/media, key `templates/<id>.<ext>`. (@cnote/media's LocalMediaStore only
-// accepts listing keys, so template assets use a small dedicated writer until it is generalised; S3 arrives with it.)
-function root(): string {
-  if ((process.env.MEDIA_DRIVER ?? "local") !== "local") throw new Error(`MEDIA_DRIVER=${process.env.MEDIA_DRIVER} is not supported for template assets yet`);
-  const dir = process.env.MEDIA_DIR || ".data/media";
-  return path.isAbsolute(dir) ? dir : path.resolve(findMonorepoRoot(), dir);
-}
-function file(key: string): string {
-  if (!KEY.test(key)) throw new Error("Invalid template asset key");
-  return path.resolve(root(), key);
-}
+// Storage: @cnote/media PUBLIC bucket, key `templates/<id>.<ext>` (emails must load these anywhere, so they are public
+// by design; ids are random UUIDs). Driver (local | r2 | s3 | ...) is chosen by MEDIA_DRIVER.
+const store = () => getMediaStore("public");
+const CACHE = "public, max-age=31536000, immutable";
 
 /** Validate (jpeg/png/webp/gif ≤ 2 MB, readable dimensions) and store. Content type comes from magic bytes, never the client. */
 export async function uploadTemplateAsset(bytes: Uint8Array, opts: { altText?: string | null; uploadedBy?: string | null } = {}): Promise<TemplateAssetView> {
@@ -74,18 +65,15 @@ export async function uploadTemplateAsset(bytes: Uint8Array, opts: { altText?: s
   const id = randomUUID();
   const ext = EXT[mime]!;
   const key = `templates/${id}.${ext}`;
-  const p = file(key);
-  await mkdir(path.dirname(p), { recursive: true });
-  const tmp = `${p}.${randomUUID()}.tmp`;
-  await writeFile(tmp, bytes);
-  await rename(tmp, p);
+  if (!KEY.test(key)) throw new Error("Invalid template asset key");
+  await store().put(key, bytes, mime, { cacheControl: CACHE });
   try {
     const row = await prisma.templateAsset.create({
       data: { id, storageKey: key, mimeType: mime, bytes: bytes.length, width: dim.width, height: dim.height, sha256: sha256Hex(bytes), altText: opts.altText?.slice(0, 300) || null, uploadedBy: opts.uploadedBy ?? null },
     });
     return view(row);
   } catch (e) {
-    await rm(p, { force: true });
+    await store().delete(key).catch(() => undefined);
     throw e;
   }
 }
@@ -100,13 +88,18 @@ export async function readTemplateAsset(id: string): Promise<{ bytes: Uint8Array
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
   const row = await prisma.templateAsset.findUnique({ where: { id: id.toLowerCase() } });
   if (!row) return null;
-  try {
-    const buf = await readFile(file(row.storageKey));
-    return { bytes: new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength), contentType: MIME[row.storageKey.split(".").pop()!]!, sha256: row.sha256 };
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
-    throw e;
-  }
+  if (!KEY.test(row.storageKey)) return null;
+  const obj = await store().get(row.storageKey);
+  return obj ? { bytes: obj.bytes, contentType: MIME[row.storageKey.split(".").pop()!] ?? obj.contentType, sha256: row.sha256 } : null;
+}
+
+/** CDN URL of the asset when a remote driver is configured (routes redirect to it); null for the local driver (stream instead). */
+export async function templateAssetCdnUrl(id: string): Promise<string | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const s = store();
+  if (s.driver === "local") return null;
+  const row = await prisma.templateAsset.findUnique({ where: { id: id.toLowerCase() } });
+  return row && KEY.test(row.storageKey) ? s.publicUrl(row.storageKey) : null;
 }
 
 /** Number of template/layout versions (any status) and layout themes that reference the asset. */
@@ -125,7 +118,7 @@ export async function deleteTemplateAsset(id: string): Promise<void> {
   if (!row) throw new DomainError("not_found", "Image not found.");
   if ((await assetUsage(id)) > 0) throw new DomainError("conflict", "This image is used by a template or layout version and can't be deleted.");
   await prisma.templateAsset.delete({ where: { id } });
-  await rm(file(row.storageKey), { force: true });
+  await store().delete(row.storageKey);
 }
 
 /**

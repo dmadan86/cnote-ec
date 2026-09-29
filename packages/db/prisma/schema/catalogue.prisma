@@ -51,6 +51,8 @@ model Listing {
   moq              Int?
   moqUnit          String?          @map("moq_unit")
   hsn              String?
+  /// seller's own product code; the stable key for bulk upsert (unique per seller)
+  sku              String?
   language         String           @default("en")
   imageUrls        String[]         @default([]) @map("image_urls")
   aiGenerated      Boolean          @default(false) @map("ai_generated")
@@ -74,6 +76,7 @@ model Listing {
   versions ListingVersion[] @relation("ListingVersions")
   liveVersion ListingVersion? @relation("ListingLiveVersion", fields: [liveVersionId], references: [id])
 
+  @@unique([sellerBusinessId, sku])
   @@index([sellerBusinessId])
   @@index([categoryId, status])
   @@index([searchTsv], map: "listings_search_tsv_idx", type: Gin)

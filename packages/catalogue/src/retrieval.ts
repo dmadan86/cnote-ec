@@ -1,8 +1,8 @@
 import { cached } from "@cnote/core";
-import { Prisma, prisma, toVectorLiteral } from "@cnote/db";
+import { Prisma, liveDb, toVectorLiteral } from "@cnote/live-db";
 import { isUuid } from "./mappers";
 
-const LIVE = Prisma.sql`l.status = 'published' AND l.moderation_status = 'approved'`;
+// Every read here hits the LIVE database: live_listings holds only published, approved projections.
 
 function filters(categoryId?: string | null, excludeSellerIds?: string[]) {
   const parts: Prisma.Sql[] = [];
@@ -14,9 +14,9 @@ function filters(categoryId?: string | null, excludeSellerIds?: string[]) {
 
 /** Runs an HNSW scan with a wider candidate pool so category/seller filters and dedupe still leave enough rows. */
 async function knn<T>(query: (ef: number) => Prisma.Sql, ef: number): Promise<T[]> {
-  const [, rows] = await prisma.$transaction([
-    prisma.$executeRaw`SELECT set_config('hnsw.ef_search', ${String(ef)}, true), set_config('hnsw.iterative_scan', 'relaxed_order', true)`,
-    prisma.$queryRaw<T[]>(query(ef)),
+  const [, rows] = await liveDb.$transaction([
+    liveDb.$executeRaw`SELECT set_config('hnsw.ef_search', ${String(ef)}, true), set_config('hnsw.iterative_scan', 'relaxed_order', true)`,
+    liveDb.$queryRaw<T[]>(query(ef)),
   ]);
   return rows as T[];
 }
@@ -35,8 +35,8 @@ export async function findSellerCandidates(opts: {
     () => Prisma.sql`
       WITH near AS (
         SELECT l.id, l.seller_business_id, (l.embedding <=> ${q}::vector) AS dist
-        FROM listings l
-        WHERE ${LIVE} AND l.embedding IS NOT NULL ${filters(opts.categoryId, opts.excludeSellerIds)}
+        FROM live_listings l
+        WHERE l.embedding IS NOT NULL ${filters(opts.categoryId, opts.excludeSellerIds)}
         ORDER BY l.embedding <=> ${q}::vector
         LIMIT ${pool}
       ), best AS (
@@ -59,31 +59,31 @@ function tokens(text: string): string[] {
  * get prefix matching so typeahead-ish input like "cotton tsh" still hits. ts_rank_cd scores; AND matches weigh double.
  * Returns the raw score in `lexicalRank` (0 when absent); rank ordering is search's job.
  */
-async function lexical(text: string, categoryId: string | null | undefined, limit: number): Promise<Map<string, number>> {
+async function lexical(text: string, categoryId: string | null | undefined, limit: number): Promise<Map<string, { score: number; seller: string }>> {
   const toks = tokens(text);
   if (!toks.length) return new Map();
   const prefix = toks.length <= 3;
   const orQuery = toks.filter((t) => t.length >= 3 || toks.length === 1).map((t) => (prefix ? `${t}:*` : t)).join(" | ");
   const orSql = orQuery ? Prisma.sql`to_tsquery('simple', ${orQuery})` : Prisma.sql`''::tsquery`;
-  const rows = await prisma.$queryRaw<{ id: string; score: number }[]>`
+  const rows = await liveDb.$queryRaw<{ id: string; seller_business_id: string; score: number }[]>`
     WITH q AS (SELECT websearch_to_tsquery('simple', ${text}) AS strict, ${orSql} AS loose)
-    SELECT l.id, (2 * ts_rank_cd(l.search_tsv, q.strict) + ts_rank_cd(l.search_tsv, q.loose))::float8 AS score
-    FROM listings l, q
-    WHERE ${LIVE} AND (l.search_tsv @@ q.strict OR l.search_tsv @@ q.loose) ${filters(categoryId)}
+    SELECT l.id, l.seller_business_id, (2 * ts_rank_cd(l.search_tsv, q.strict) + ts_rank_cd(l.search_tsv, q.loose))::float8 AS score
+    FROM live_listings l, q
+    WHERE (l.search_tsv @@ q.strict OR l.search_tsv @@ q.loose) ${filters(categoryId)}
     ORDER BY score DESC LIMIT ${limit}`;
-  return new Map(rows.map((r) => [r.id, Number(r.score)]));
+  return new Map(rows.map((r) => [r.id, { score: Number(r.score), seller: r.seller_business_id }]));
 }
 
-async function vector(embedding: number[], categoryId: string | null | undefined, limit: number): Promise<Map<string, number>> {
+async function vector(embedding: number[], categoryId: string | null | undefined, limit: number): Promise<Map<string, { score: number; seller: string }>> {
   const q = toVectorLiteral(embedding);
-  const rows = await knn<{ id: string; dist: number }>(
+  const rows = await knn<{ id: string; seller_business_id: string; dist: number }>(
     () => Prisma.sql`
-      SELECT l.id, (l.embedding <=> ${q}::vector) AS dist FROM listings l
-      WHERE ${LIVE} AND l.embedding IS NOT NULL ${filters(categoryId)}
+      SELECT l.id, l.seller_business_id, (l.embedding <=> ${q}::vector) AS dist FROM live_listings l
+      WHERE l.embedding IS NOT NULL ${filters(categoryId)}
       ORDER BY l.embedding <=> ${q}::vector LIMIT ${limit}`,
     Math.max(100, limit * 2),
   );
-  return new Map(rows.map((r) => [r.id, 1 - Number(r.dist)]));
+  return new Map(rows.map((r) => [r.id, { score: 1 - Number(r.dist), seller: r.seller_business_id }]));
 }
 
 export async function retrieveListings(opts: {
@@ -94,17 +94,11 @@ export async function retrieveListings(opts: {
 }): Promise<{ listingId: string; sellerBusinessId: string; lexicalRank: number; similarity: number }[]> {
   const limit = Math.max(1, Math.min(200, Math.trunc(opts.limit)));
   const [lex, vec] = await Promise.all([
-    opts.text?.trim() ? lexical(opts.text.trim().slice(0, 300), opts.categoryId, limit) : new Map<string, number>(),
-    opts.embedding ? vector(opts.embedding, opts.categoryId, limit) : new Map<string, number>(),
+    opts.text?.trim() ? lexical(opts.text.trim().slice(0, 300), opts.categoryId, limit) : new Map<string, { score: number; seller: string }>(),
+    opts.embedding ? vector(opts.embedding, opts.categoryId, limit) : new Map<string, { score: number; seller: string }>(),
   ]);
   const ids = [...new Set([...lex.keys(), ...vec.keys()])];
-  if (!ids.length) return [];
-  const sellers = await prisma.listing.findMany({ where: { id: { in: ids } }, select: { id: true, sellerBusinessId: true } });
-  const sellerOf = new Map(sellers.map((s) => [s.id, s.sellerBusinessId]));
-  return ids.flatMap((id) => {
-    const sellerBusinessId = sellerOf.get(id);
-    return sellerBusinessId ? [{ listingId: id, sellerBusinessId, lexicalRank: lex.get(id) ?? 0, similarity: vec.get(id) ?? 0 }] : [];
-  });
+  return ids.map((id) => ({ listingId: id, sellerBusinessId: (lex.get(id) ?? vec.get(id))!.seller, lexicalRank: lex.get(id)?.score ?? 0, similarity: vec.get(id)?.score ?? 0 }));
 }
 
 /** Typeahead over live listing titles: word-prefix match, cached briefly per prefix. */
@@ -114,12 +108,12 @@ export async function suggestListingTitles(prefix: string, limit = 8): Promise<s
   const n = Math.max(1, Math.min(20, Math.trunc(limit)));
   return cached(`catalogue:titles:${n}:${p}`, 120, async () => {
     const esc = p.replace(/[\\%_]/g, "\\$&");
-    const rows = await prisma.$queryRaw<{ title: string }[]>`
+    const rows = await liveDb.$queryRaw<{ title: string }[]>`
       SELECT title FROM (
-        SELECT DISTINCT ON (lower(l.title)) l.title, l.created_at FROM listings l
-        WHERE ${LIVE} AND (lower(l.title) LIKE ${esc + "%"} OR lower(l.title) LIKE ${"% " + esc + "%"})
-        ORDER BY lower(l.title), l.created_at DESC
-      ) t ORDER BY (lower(title) LIKE ${esc + "%"}) DESC, created_at DESC LIMIT ${n}`;
+        SELECT DISTINCT ON (lower(l.title)) l.title, l.first_published_at FROM live_listings l
+        WHERE (lower(l.title) LIKE ${esc + "%"} OR lower(l.title) LIKE ${"% " + esc + "%"})
+        ORDER BY lower(l.title), l.first_published_at DESC
+      ) t ORDER BY (lower(title) LIKE ${esc + "%"}) DESC, first_published_at DESC LIMIT ${n}`;
     return rows.map((r) => r.title);
   });
 }

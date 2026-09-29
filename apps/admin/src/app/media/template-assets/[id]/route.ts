@@ -1,5 +1,5 @@
 import { hasPrivilege } from "@cnote/admin";
-import { readTemplateAsset } from "@cnote/templates";
+import { readTemplateAsset, templateAssetCdnUrl } from "@cnote/templates";
 import { getStaffFromSession } from "@/features/images/staff";
 
 const deny = (status: number) => new Response(status === 401 ? "Unauthorized" : status === 403 ? "Forbidden" : "Not found", { status, headers: { "Cache-Control": "no-store" } });
@@ -10,6 +10,8 @@ export async function GET(_req: Request, ctx: RouteContext<"/media/template-asse
   const auth = await getStaffFromSession();
   if (!auth) return deny(401);
   if (!auth.staff || !hasPrivilege(auth.staff, "templates.read")) return deny(403);
+  const cdn = await templateAssetCdnUrl(id);
+  if (cdn) return new Response(null, { status: 302, headers: { Location: cdn, "Cache-Control": "private, max-age=3600" } });
   const img = await readTemplateAsset(id);
   if (!img) return deny(404);
   return new Response(Buffer.from(img.bytes), {

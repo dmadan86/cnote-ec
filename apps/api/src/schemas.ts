@@ -286,5 +286,10 @@ export const Me = z
   .object({
     personId: uuid(), keyId: uuid(), scopes: z.array(z.string()), businessId: z.string().nullable(),
     business: TrustProfile.nullable(),
+    person: z.object({ id: uuid(), name: z.string().nullable(), email: z.string().nullable().openapi({ description: "Masked, e.g. a***@gmail.com" }) }),
+    businesses: z.array(z.object({
+      businessId: uuid(), name: z.string(), role: z.enum(["owner", "staff"]), isSeller: z.boolean(), isBuyer: z.boolean(),
+      verificationTier: z.number().int(), badgeActive: z.boolean(),
+    })),
   })
   .openapi("Me");

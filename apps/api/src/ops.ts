@@ -12,7 +12,7 @@ import {
   acceptLead, createEnquiry, declineLead, getBuyerEnquiry, getConversation, getSellerLead, listBuyerEnquiries, listSellerLeads,
   reportDeal, sendMessage, sendQuote, type EnquiryInput, type EnquiryView, type LeadView,
 } from "@cnote/enquiry";
-import { getTrustProfiles } from "@cnote/identity";
+import { getPersonBusinesses, getPersonSummaries, getTrustProfiles } from "@cnote/identity";
 import { getRatingSummary, listApprovedReviews, submitReview, type ReviewInput } from "@cnote/reviews";
 import { searchListings } from "@cnote/search";
 import { addItem, getList, listLists, removeItem } from "@cnote/wishlist";
@@ -81,7 +81,13 @@ export async function seller(id: string) {
 }
 export async function me(p: P) {
   const business = p.businessId ? ((await getTrustProfiles([p.businessId])).get(p.businessId) ?? null) : null;
-  return { personId: p.personId, keyId: p.keyId, scopes: [...p.scopes], businessId: p.businessId, business };
+  const [person, businesses] = await Promise.all([getPersonSummaries([p.personId]), getPersonBusinesses(p.personId)]);
+  const me = person.get(p.personId);
+  return {
+    personId: p.personId, keyId: p.keyId, scopes: [...p.scopes], businessId: p.businessId, business,
+    person: { id: p.personId, name: me?.name ?? null, email: me?.email ?? null },
+    businesses: businesses.map((b) => ({ businessId: b.businessId, name: b.name, role: b.role, isSeller: b.isSeller, isBuyer: b.isBuyer, verificationTier: b.verificationTier, badgeActive: b.badgeActive })),
+  };
 }
 
 // --- seller listings ---

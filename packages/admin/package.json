@@ -16,6 +16,7 @@
   "dependencies": {
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",
+    "@cnote/identity": "workspace:*",
     "zod": "^4.1.0"
   }
 }

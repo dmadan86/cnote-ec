@@ -1,0 +1,34 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: cnote-dev
+resources:
+  - ../../base
+images:
+  - {name: cnote-web, newName: ghcr.io/OWNER/cnote-web, newTag: dev}
+  - {name: cnote-seller, newName: ghcr.io/OWNER/cnote-seller, newTag: dev}
+  - {name: cnote-admin, newName: ghcr.io/OWNER/cnote-admin, newTag: dev}
+  - {name: cnote-studio, newName: ghcr.io/OWNER/cnote-studio, newTag: dev}
+  - {name: cnote-api, newName: ghcr.io/OWNER/cnote-api, newTag: dev}
+  - {name: cnote-worker, newName: ghcr.io/OWNER/cnote-worker, newTag: dev}
+  - {name: cnote-migrate, newName: ghcr.io/OWNER/cnote-migrate, newTag: dev}
+patches:
+  # One replica each; HPAs pinned to 1..2. Dev may use MinIO/local media and console email.
+  - target: {kind: Deployment}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 1}
+  - target: {kind: HorizontalPodAutoscaler}
+    patch: |-
+      - {op: replace, path: /spec/minReplicas, value: 1}
+      - {op: replace, path: /spec/maxReplicas, value: 2}
+  - target: {kind: PodDisruptionBudget}
+    patch: |-
+      - {op: replace, path: /spec/maxUnavailable, value: 1}
+  - target: {kind: ConfigMap, name: cnote-config}
+    patch: |-
+      - {op: replace, path: /data/NODE_ENV, value: production}
+      - {op: replace, path: /data/OTP_DEV_ECHO, value: "true"}
+      - {op: replace, path: /data/SENTRY_ENVIRONMENT, value: dev}
+      - {op: replace, path: /data/APP_URL, value: https://dev.example.com}
+      - {op: replace, path: /data/ADMIN_APP_URL, value: https://admin.dev.example.com}
+      - {op: replace, path: /data/SELLER_APP_URL, value: https://seller.dev.example.com}
+      - {op: replace, path: /data/API_PUBLIC_URL, value: https://api.dev.example.com}

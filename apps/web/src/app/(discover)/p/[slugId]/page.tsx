@@ -12,6 +12,8 @@ import { moqText } from "@/features/search/format";
 import { ProductImage } from "@/features/search/product-image";
 import { ProductReviewsStatic } from "@/features/reviews";
 import { RatingStars } from "@/features/reviews/stars";
+import { LeadNudge } from "@/features/leadgen/nudge";
+import { UnlockButton } from "@/features/leadgen/unlock-buttons";
 import { CompareIsland, SaveIsland } from "@/features/user-state/islands";
 
 // Product pages are static: the top 100 listings are prerendered at build time, everything else renders on first
@@ -128,12 +130,14 @@ export default async function ProductPage(props: PageProps<"/p/[slugId]">) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Link href={`/rfq/new?listing=${listing.id}`} className={buttonClasses("accent", "lg", "w-full sm:w-auto")}>
-              Request Quote
-            </Link>
+            {/* Client islands: the dialog opens only on click (never on load), signed-in buyers skip it. */}
+            <UnlockButton trigger="pdp_best_price" unlock="enquiry" listingId={listing.id} listingTitle={listing.title} label="Get best price" className="w-full sm:w-auto" />
+            <UnlockButton trigger="request_quote" unlock="quotes" listingId={listing.id} listingTitle={listing.title} label="Request quote" variant="outline-brand" className="w-full sm:w-auto" />
             <SaveIsland id={listing.id} title={listing.title} className="size-12" />
             <CompareIsland id={listing.id} title={listing.title} variant="button" />
           </div>
+
+          <LeadNudge listingId={listing.id} listingTitle={listing.title} />
 
           {seller ? (
             <Card>
@@ -152,6 +156,9 @@ export default async function ProductPage(props: PageProps<"/p/[slugId]">) {
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <TrustBadge tier={seller.verificationTier} badgeActive={seller.badgeActive} />
                     <span className="text-xs text-muted">Trust score {seller.trustScore}/100</span>
+                  </div>
+                  <div className="mt-3">
+                    <UnlockButton trigger="pdp_contact_seller" unlock="seller_contact" listingId={listing.id} listingTitle={listing.title} label="Contact seller" variant="outline" size="md" />
                   </div>
                 </div>
               </CardBody>

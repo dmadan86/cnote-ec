@@ -1,0 +1,12 @@
+import { getMfaPending } from "@cnote/next-kit";
+import { MfaChallengeForm } from "@cnote/next-kit/client";
+import { redirect } from "next/navigation";
+
+export const metadata = { title: "Two-factor authentication" };
+
+/** Second step of sign-in for sellers who turned on two-factor. No session exists until a code is verified. */
+export default async function MfaPage() {
+  const pending = await getMfaPending();
+  if (!pending || pending.mode !== "verify") redirect("/signin");
+  return <MfaChallengeForm />;
+}

@@ -61,6 +61,9 @@ async function sellerChanged(businessId: string) {
 
 export const cacheHandlers: EventHandlers = {
   ListingPublished: async (e) => listingChanged(e.payload.listingId, e.payload.sellerBusinessId, false),
+  // Live-DB publisher (CQRS): a new version went live, or the listing was pulled from LIVE.
+  ListingVersionPublished: async (e) => listingChanged(e.payload.listingId, e.payload.sellerBusinessId, false),
+  ListingUnpublished: async (e) => listingChanged(e.payload.listingId, e.payload.sellerBusinessId, true),
   ListingModerated: async (e) => listingChanged(e.payload.listingId, e.payload.sellerBusinessId, true),
   ListingArchived: async (e) => listingChanged(e.payload.listingId, e.payload.sellerBusinessId, true),
   ListingImageModerated: async (e) => listingChanged(e.payload.listingId, e.payload.sellerBusinessId, true),

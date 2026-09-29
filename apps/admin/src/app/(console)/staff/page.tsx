@@ -1,4 +1,5 @@
 import { ROLES, ROLE_PRIVILEGES, hasPrivilege, listStaff } from "@cnote/admin";
+import { getPersonSummaries } from "@cnote/identity";
 import { Alert, Badge, Card, CardBody, CardHeader, CardTitle, Field, Input, PageHeader } from "@cnote/ui";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Mono, Table, Td, Th } from "@/components/table";
@@ -24,16 +25,17 @@ export default async function StaffPage() {
   const { ctx, staff, staff: me } = await requireStaff("/staff", "staff.read");
   const canManage = hasPrivilege(staff, "staff.manage");
   const list = await safe("listStaff", () => listStaff(ctx));
+  const people = list ? await safe("identity.getPersonSummaries", () => getPersonSummaries(list.map((s) => s.personId), { unmasked: true })) : null;
   return (
     <>
       <PageHeader title="Staff" description="Who has back-office access and with which roles. Hover a role for its privileges." />
       {list === null ? <Alert tone="warning">Staff list unavailable.</Alert> : (
         <Table>
-          <thead><tr><Th>Person ID</Th><Th>Roles</Th><Th>Status</Th><Th>Last seen</Th>{canManage ? <Th>Manage</Th> : null}</tr></thead>
+          <thead><tr><Th>Person</Th><Th>Roles</Th><Th>Status</Th><Th>Last seen</Th>{canManage ? <Th>Manage</Th> : null}</tr></thead>
           <tbody>
             {list.map((s) => (
               <tr key={s.id}>
-                <Td><Mono>{s.personId}</Mono>{s.personId === me.personId ? <Badge tone="brand" className="ml-2">you</Badge> : null}</Td>
+                <Td>{people?.get(s.personId)?.name ?? people?.get(s.personId)?.email ?? "Unnamed"}{people?.get(s.personId)?.email ? <span className="block text-xs text-muted">{people.get(s.personId)?.email}</span> : null}<Mono>{s.personId}</Mono>{s.personId === me.personId ? <Badge tone="brand" className="ml-2">you</Badge> : null}</Td>
                 <Td>{s.roles.join(", ") || "—"}</Td>
                 <Td><Badge tone={s.active ? "success" : "neutral"}>{s.active ? "active" : "inactive"}</Badge></Td>
                 <Td className="whitespace-nowrap">{s.lastSeenAt ? fmtDate(s.lastSeenAt) : "never"}</Td>

@@ -1,16 +1,21 @@
 import { type Privilege, type StaffView, hasPrivilege } from "@cnote/admin";
 import { signOutAction } from "@cnote/next-kit";
-import { Activity, Building2, ImageIcon, KeyRound, LayoutDashboard, ListChecks, LogOut, Mail, MessageSquareWarning, ScrollText, ShieldCheck, UserCog, UserRound } from "lucide-react";
+import { Globe, Activity, Building2, FileClock, Filter, ImageIcon, KeyRound, LayoutDashboard, LayoutTemplate, ListChecks, LogOut, Mail, MessageSquareWarning, ScrollText, ShieldCheck, Store, UserCog, UserRound } from "lucide-react";
 import { NavLink } from "./nav";
 
 const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Privilege }[] = [
   { href: "/", label: "Dashboard", icon: <LayoutDashboard className="size-4" aria-hidden /> },
   { href: "/reviews", label: "Review queue", icon: <ShieldCheck className="size-4" aria-hidden />, privilege: "reviews.read" },
   { href: "/moderation", label: "Moderation", icon: <MessageSquareWarning className="size-4" aria-hidden />, privilege: "ugc.read" },
+  { href: "/listings", label: "Listing versions", icon: <FileClock className="size-4" aria-hidden />, privilege: "listings.moderate" },
   { href: "/images", label: "Images", icon: <ImageIcon className="size-4" aria-hidden />, privilege: "images.moderate" },
   { href: "/templates", label: "Templates", icon: <Mail className="size-4" aria-hidden />, privilege: "templates.read" },
+  { href: "/storefronts/review", label: "Storefront review", icon: <Store className="size-4" aria-hidden />, privilege: "storefronts.review" },
+  { href: "/storefronts/templates", label: "Storefront templates", icon: <LayoutTemplate className="size-4" aria-hidden />, privilege: "storefronts.templates" },
   { href: "/developers", label: "API keys", icon: <KeyRound className="size-4" aria-hidden />, privilege: "api_keys.read" },
   { href: "/queues", label: "Queues", icon: <ListChecks className="size-4" aria-hidden />, privilege: "queues.read" },
+  { href: "/leadgen", label: "Lead funnel", icon: <Filter className="size-4" aria-hidden />, privilege: "leadgen.read" },
+  { href: "/domains", label: "Domains", icon: <Globe className="size-4" aria-hidden />, privilege: "storefronts.review" },
   { href: "/businesses", label: "Businesses", icon: <Building2 className="size-4" aria-hidden />, privilege: "businesses.read" },
   { href: "/staff", label: "Staff", icon: <UserCog className="size-4" aria-hidden />, privilege: "staff.read" },
   { href: "/audit", label: "Audit log", icon: <ScrollText className="size-4" aria-hidden />, privilege: "audit.read" },

@@ -24,3 +24,5 @@ export { signInAction, signUpAction, forgotPasswordAction, resetPasswordAction, 
 // Owned by parallel work streams.
 export * from "./otp";
 export * from "./security";
+export * from "./human";
+export { getMfaPending, getMfaEnrollmentInfo, MFA_PATH, mfaPendingCookieName, type MfaPendingView, type MfaMode } from "./mfa-flow";

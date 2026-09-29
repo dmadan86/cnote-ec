@@ -1,4 +1,5 @@
 import type { Prisma } from "@cnote/db";
+import type { LiveListing } from "@cnote/live-db";
 import type { CategoryView, ListingView } from "./index";
 
 export const listingInclude = {
@@ -47,5 +48,45 @@ export function toListingView(l: ListingRow): ListingView {
     moderationReason: l.moderationReason,
     createdAt: l.createdAt.toISOString(),
     updatedAt: l.updatedAt.toISOString(),
+  };
+}
+
+/** Public image entry stored in LIVE (`live_listings.images`): same shape as PublicListingImage; `id` is null for placeholder urls. */
+export interface LiveImage {
+  id: string | null;
+  src: string;
+  srcSet: string;
+  width: number;
+  height: number;
+  blurDataUrl: string | null;
+  alt: string;
+  sources: { type: string; srcSet: string }[];
+}
+
+/** A LIVE row as the public ListingView (always published + approved: that is the only thing LIVE contains). */
+export function liveToListingView(l: LiveListing): ListingView {
+  const images = Array.isArray(l.images) ? (l.images as unknown as LiveImage[]) : [];
+  return {
+    id: l.id,
+    sellerBusinessId: l.sellerBusinessId,
+    category: { id: l.categoryId, slug: l.categorySlug, name: l.categoryName },
+    title: l.title,
+    description: l.description,
+    attributes: (l.attributes && typeof l.attributes === "object" && !Array.isArray(l.attributes) ? l.attributes : {}) as Record<string, string | number>,
+    pricePaise: l.pricePaise === null ? null : Number(l.pricePaise),
+    priceUnit: l.priceUnit,
+    moq: l.moq,
+    moqUnit: l.moqUnit,
+    hsn: l.hsn,
+    language: l.language,
+    imageUrls: images.map((i) => i.src),
+    aiGenerated: l.aiGenerated,
+    status: "published",
+    moderationStatus: "approved",
+    moderationReason: null,
+    createdAt: l.firstPublishedAt.toISOString(),
+    updatedAt: l.publishedAt.toISOString(),
+    liveVersion: l.version,
+    seller: { name: l.sellerName, city: l.sellerCity, state: l.sellerState, verificationTier: l.sellerTier, trustScore: l.sellerTrustScore, badgeActive: l.sellerBadgeActive },
   };
 }

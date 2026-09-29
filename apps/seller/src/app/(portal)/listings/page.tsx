@@ -6,6 +6,7 @@ import { requireSeller } from "@/lib/auth";
 import { load } from "@/lib/safe";
 import { catalogue } from "@/lib/services";
 import { ListingStatusBadges } from "@/features/listings/status-badges";
+import { versionSummary } from "@/features/listings/version-utils";
 import { ListingRowActions } from "@/features/listings/row-actions";
 
 export const metadata: Metadata = { title: "Listings" };
@@ -13,11 +14,23 @@ export const metadata: Metadata = { title: "Listings" };
 export default async function ListingsPage() {
   const session = await requireSeller("/listings");
   const res = await load(() => catalogue.listSellerListings(session.business.id));
+  const summaries = new Map<string, string>();
+  if (res.ok) {
+    await Promise.all(
+      res.data.filter((l) => l.status !== "archived").map(async (l) => {
+        try {
+          summaries.set(l.id, versionSummary(await catalogue.getVersionOverview(session.business.id, l.id)));
+        } catch {
+          /* summary is optional */
+        }
+      }),
+    );
+  }
   return (
     <div className="space-y-6">
       <PageHeader
         title="Your listings"
-        description="Buyers and lead matching use your published listings. Every listing is checked against our prohibited-category policy."
+        description="Buyers and lead matching use your live listings. Every new version is checked, and often reviewed, before it goes live."
         actions={
           <Link href="/listings/new" className={buttonClasses("primary", "md", "min-h-11")}>
             <Plus className="size-4" aria-hidden /> New listing
@@ -48,7 +61,7 @@ export default async function ListingsPage() {
                       {l.moq ? <p className="text-muted">Min. order: {l.moq} {l.moqUnit}</p> : null}
                     </div>
                   </div>
-                  <ListingStatusBadges listing={l} />
+                  <ListingStatusBadges listing={l} summary={summaries.get(l.id)} />
                   {l.moderationStatus === "rejected" && l.moderationReason ? <p className="text-sm text-danger">{l.moderationReason}</p> : null}
                   <div className="flex flex-wrap items-start gap-2">
                     {l.status !== "archived" ? (
@@ -56,7 +69,7 @@ export default async function ListingsPage() {
                         Edit
                       </Link>
                     ) : null}
-                    <ListingRowActions id={l.id} canPublish={l.status === "draft"} canArchive={l.status !== "archived"} />
+                    <ListingRowActions id={l.id} canPublish={l.status === "draft" && l.moderationStatus !== "review"} canArchive={l.status !== "archived"} />
                   </div>
                 </CardBody>
               </Card>

@@ -19,6 +19,7 @@ export default async function BusinessesPage({ searchParams }: PageProps<"/busin
   return (
     <>
       <PageHeader title="Businesses" description="Sellers ranked by trust. Verified tier and badge come from the identity module, never from plan." />
+      <p className="text-sm"><Link href="/businesses/gst-reviews" className="text-brand-700 hover:underline">GST review queue</Link></p>
       <form className="flex flex-wrap gap-2" role="search">
         <Input name="q" defaultValue={q} placeholder="Search name…" className="max-w-xs" aria-label="Search by name" />
         <Input name="city" defaultValue={city} placeholder="City" className="max-w-40" aria-label="City" />

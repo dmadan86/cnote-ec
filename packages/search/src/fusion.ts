@@ -36,3 +36,8 @@ export function locationBoost(sellerCity: string | null, hint: string | null): n
   if (!hint || !sellerCity) return 1;
   return sellerCity.trim().toLowerCase() === hint ? LOCATION_BOOST : 1;
 }
+
+/** Port hits → fusion candidates. Shared by every backend so ranking is identical (RRF parity). */
+export function toCandidates(hits: { listingId: string; sellerBusinessId: string; lexicalScore: number; vectorScore: number }[]): Candidate[] {
+  return hits.map((h) => ({ listingId: h.listingId, sellerBusinessId: h.sellerBusinessId, lexicalRank: h.lexicalScore, similarity: h.vectorScore }));
+}

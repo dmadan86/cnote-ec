@@ -1,0 +1,58 @@
+// Owned by @cnote/bulk: seller bulk import (CSV / XLSX / ZIP with images) and export jobs.
+// Files live in object storage (@cnote/media private bucket); rows are processed by a queue worker.
+
+enum BulkJobKind {
+  import
+  export
+
+  @@map("bulk_job_kind")
+}
+
+enum BulkJobStatus {
+  uploaded // file stored, not yet validated
+  validating
+  validated // dry-run finished: counts + row errors ready for the seller to review
+  queued // seller confirmed; waiting for the worker
+  processing
+  completed
+  completed_with_errors
+  failed
+  cancelled
+  expired // files purged after retention
+
+  @@map("bulk_job_status")
+}
+
+model BulkJob {
+  id               String        @id @default(uuid()) @db.Uuid
+  sellerBusinessId String        @map("seller_business_id") @db.Uuid
+  createdBy        String        @map("created_by") @db.Uuid // person id
+  kind             BulkJobKind
+  status           BulkJobStatus @default(uploaded)
+  /// "csv" | "xlsx" | "zip"
+  format           String
+  originalName     String?       @map("original_name")
+  /// private-bucket keys: uploaded source / generated export / error report
+  sourceKey        String?       @map("source_key")
+  resultKey        String?       @map("result_key")
+  errorReportKey   String?       @map("error_report_key")
+  /// import options: { mode: "create" | "upsert", submitForReview: boolean, categorySlug?: string }
+  options          Json          @default("{}")
+  totalRows        Int           @default(0) @map("total_rows")
+  processedRows    Int           @default(0) @map("processed_rows")
+  createdCount     Int           @default(0) @map("created_count")
+  updatedCount     Int           @default(0) @map("updated_count")
+  errorCount       Int           @default(0) @map("error_count")
+  imageCount       Int           @default(0) @map("image_count")
+  /// first N row errors for the UI: [{ row, column, message }]; full list in the error report file
+  sampleErrors     Json          @default("[]") @map("sample_errors")
+  lastError        String?       @map("last_error")
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  startedAt        DateTime?     @map("started_at") @db.Timestamptz
+  finishedAt       DateTime?     @map("finished_at") @db.Timestamptz
+  expiresAt        DateTime?     @map("expires_at") @db.Timestamptz
+
+  @@index([sellerBusinessId, createdAt])
+  @@index([status, createdAt])
+  @@map("bulk_jobs")
+}

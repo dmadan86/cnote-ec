@@ -16,3 +16,8 @@ export { suggest, EXAMPLE_QUERIES } from "./suggest";
 export { normaliseQuery, type NormalisedQuery } from "./normalise";
 
 export { cacheWorker, cacheHandlers } from "./cache-worker";
+
+// Swappable index backend (postgres | opensearch by SEARCH_BACKEND) and its indexer worker.
+export { getSearchIndex, searchBackendName, OpenSearchIndex, postgresIndex } from "./index-port";
+export type { SearchIndex, SearchIndexQuery, SearchIndexResult, IndexDoc, RawHit, SearchFacets, FacetBucket, PriceBucket, IndexHealth, ReindexResult, SearchBackendName } from "./index-port";
+export { searchIndexer, indexerHandlers, syncListings, reindexAll } from "./indexer";

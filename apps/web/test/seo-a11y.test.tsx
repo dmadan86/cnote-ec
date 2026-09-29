@@ -121,7 +121,12 @@ describe("guards", () => {
   it("no raw <img> (next/image only, with alt) and external links carry rel=noopener", () => {
     for (const f of files.filter((x) => x.endsWith(".tsx"))) {
       const src = read(f);
-      expect(src, relative(SRC, f)).not.toMatch(/<img[\s>]/);
+      // Only allowed as the fallback inside <picture> (pre-generated AVIF/WebP variants), and it must carry alt.
+      if (src.includes("<picture>")) {
+        for (const m of src.matchAll(/<img\s[\s\S]*?\/>/g)) expect(m[0], relative(SRC, f)).toMatch(/\balt=\{/);
+      } else {
+        expect(src, relative(SRC, f)).not.toMatch(/<img[\s>]/);
+      }
       for (const m of src.matchAll(/<a\b[^>]*target="_blank"[^>]*>/g)) expect(m[0], relative(SRC, f)).toMatch(/rel="[^"]*noopener/);
     }
   });

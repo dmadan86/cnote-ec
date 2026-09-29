@@ -8,7 +8,8 @@ import { DomainError, emit, rateLimit } from "@cnote/core";
 import { prisma, type Prisma } from "@cnote/db";
 import { getTrustProfiles } from "@cnote/identity";
 import { bustListingCaches } from "./cache";
-import { ImageValidationError, getMediaStore, listingImageKey, validateImage, type ImageMime } from "@cnote/media";
+import { ImageValidationError, getMediaStore, getPublicMediaStore, listingImageKey, validateImage, type ImageMime } from "@cnote/media";
+import { enqueueImageProcessing, parseVariants, removePublicVariants } from "./image-variants";
 import { getListing } from "./listings";
 import { isUuid } from "./mappers";
 import type { ListingView } from "./index";
@@ -172,6 +173,7 @@ export async function deleteListingImage(sellerBusinessId: string, imageId: stri
   await prisma.listingImage.update({ where: { id: img.id }, data: { deletedAt: new Date() } });
   // Bytes go immediately; the row lingers 30 days (rejected-hash dedupe, audit) then the purge job removes it.
   await getMediaStore().delete(img.storageKey).catch((e) => console.error("[catalogue] image storage delete failed", e));
+  await removePublicVariants(img).catch((e) => console.error("[catalogue] variant cleanup failed", e));
   await bustListingCaches(img.listingId, img.sellerBusinessId);
 }
 
@@ -198,6 +200,8 @@ export async function setImageAltText(sellerBusinessId: string, imageId: string,
     where: { id: img.id },
     data: { altText: next, status: screen.flagged ? "flagged" : "pending", moderationNote: null, moderatedBy: null, moderatedAt: null, aiVerdict: screen.verdict },
   });
+  // Back in review: the public derivatives must disappear until re-approval (which regenerates them).
+  await removePublicVariants(img).catch((e) => console.error("[catalogue] variant cleanup failed", e));
   await bustListingCaches(img.listingId, sellerBusinessId);
   return toView(row);
 }
@@ -269,6 +273,8 @@ export async function moderateListingImage(
     if (res.count === 0) throw new DomainError("conflict", "Image was changed by someone else; refresh and retry");
     await emit(tx, "ListingImageModerated", { type: "listing_image", id: img.id }, { imageId: img.id, listingId: img.listingId, sellerBusinessId: img.sellerBusinessId, status: decision, moderatedBy: staffId });
   });
+  if (decision === "approved") await enqueueImageProcessing(img.id);
+  else await removePublicVariants(img).catch((e) => console.error("[catalogue] variant cleanup failed", e));
   await bustListingCaches(img.listingId, img.sellerBusinessId);
   return { before, after };
 }
@@ -293,6 +299,37 @@ export async function readListingImage(id: string, viewer: ImageViewer): Promise
   return { bytes: obj.bytes, contentType: obj.contentType || (img.mimeType as ImageMime), sha256: img.sha256, status: img.status };
 }
 
+export type ImageDelivery = { kind: "redirect"; url: string; cacheControl: string } | { kind: "bytes"; bytes: Uint8Array; contentType: string; sha256: string; status: ImageStatus };
+
+/**
+ * Same visibility rules as readListingImage, but remote drivers answer with a redirect instead of proxying bytes:
+ * public viewers get the CDN URL of a processed derivative (else a 5-minute signed URL of the private original);
+ * seller/staff get a 5-minute signed URL of the original (never cached). Local driver streams bytes.
+ */
+export async function getListingImageDelivery(id: string, viewer: ImageViewer, opts: { signedTtlSeconds?: number } = {}): Promise<ImageDelivery | null> {
+  if (!isUuid(id)) return null;
+  const img = await prisma.listingImage.findUnique({ where: { id }, include: { listing: { select: { status: true, moderationStatus: true } } } });
+  if (!img || img.deletedAt) return null;
+  if (viewer.kind === "public") {
+    if (img.status !== "approved" || img.listing.status !== "published" || img.listing.moderationStatus !== "approved") return null;
+  } else if (viewer.kind === "seller") {
+    if (img.sellerBusinessId !== viewer.sellerBusinessId) return null;
+  } else if (viewer.kind !== "staff") return null;
+  const ttl = opts.signedTtlSeconds ?? 300;
+  if (viewer.kind === "public" && img.processedAt) {
+    const jpegs = parseVariants(img.variants).filter((v) => v.format === "jpeg").sort((a, b) => a.width - b.width);
+    const best = [...jpegs].reverse().find((v) => v.width <= 1280) ?? jpegs[0];
+    const url = best ? getPublicMediaStore().publicUrl(best.key) : null;
+    if (url) return { kind: "redirect", url, cacheControl: "public, max-age=3600" };
+  }
+  const store = getMediaStore();
+  const signed = await store.signedGetUrl(img.storageKey, ttl);
+  if (signed) return { kind: "redirect", url: signed, cacheControl: viewer.kind === "public" ? `public, max-age=${Math.max(0, ttl - 60)}` : "private, no-store" };
+  const obj = await store.get(img.storageKey);
+  if (!obj) return null;
+  return { kind: "bytes", bytes: obj.bytes, contentType: obj.contentType || (img.mimeType as ImageMime), sha256: img.sha256, status: img.status };
+}
+
 /** Worker job: purge bytes + rows for images soft-deleted more than 30 days ago. */
 export async function purgeDeletedListingImages(now = new Date(), batch = 200): Promise<number> {
   const rows = await prisma.listingImage.findMany({ where: { deletedAt: { lt: new Date(now.getTime() - PURGE_AFTER_MS) } }, take: batch, orderBy: { deletedAt: "asc" } });
@@ -301,6 +338,7 @@ export async function purgeDeletedListingImages(now = new Date(), batch = 200): 
   for (const r of rows) {
     try {
       await store.delete(r.storageKey);
+      await removePublicVariants(r, { clearRow: false });
       await prisma.listingImage.delete({ where: { id: r.id } });
       n++;
     } catch (e) {

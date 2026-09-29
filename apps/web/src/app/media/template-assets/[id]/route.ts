@@ -1,9 +1,11 @@
-import { readTemplateAsset } from "@cnote/templates";
+import { readTemplateAsset, templateAssetCdnUrl } from "@cnote/templates";
 
 // Public: images used inside emails/templates must load in any mail client. Only files uploaded through the
 // template studio exist here (ids are random UUIDs); everything else is a 404.
 export async function GET(req: Request, ctx: RouteContext<"/media/template-assets/[id]">) {
   const { id } = await ctx.params;
+  const cdn = await templateAssetCdnUrl(id);
+  if (cdn) return new Response(null, { status: 302, headers: { Location: cdn, "Cache-Control": "public, max-age=3600" } });
   const img = await readTemplateAsset(id);
   if (!img) return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
   const etag = `"${img.sha256}"`;
