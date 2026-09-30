@@ -1,13 +1,17 @@
 "use client";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
-import { useId } from "react";
-import { isLocale, isLocalizedPath, LOCALE_META, LOCALES, localizePath, splitLocale, type Locale } from "./config";
+import { useId, useTransition } from "react";
+import { setLocaleAction } from "@/lib/locale-actions";
+import { rememberLocale } from "./locale-cookie";
+import { isLocale, isCookieLocalePath, isLocalizedPath, LOCALE_META, LOCALES, localizePath, splitLocale, type Locale } from "./config";
 
 /**
  * Accessible language switcher: a native <select> with a visible <label>, `lang` on every <option> (so screen
  * readers pronounce each language name correctly) and a no-JS fallback list of plain links. It keeps the current
- * path (and query/hash); on pages that are not localised yet it goes to the other language's home page instead.
+ * path (and query/hash). Every change stores the choice in the `cnote_locale` cookie (and as preferredLanguage when signed
+ * in, via a server action). On localised pages it navigates to the other language's URL; on pages without a locale prefix
+ * (account, buyer, rfq, sign-in, ...) the URL stays and the page refreshes in the new language.
  */
 export function LanguageSwitcher({ className }: { className?: string }) {
   const l = useLocale();
@@ -16,8 +20,10 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const id = useId();
+  const [, startTransition] = useTransition();
   const { rest } = splitLocale(pathname);
   const localizable = isLocalizedPath(rest);
+  const cookieRoute = isCookieLocalePath(rest);
   const target = (to: Locale) => localizePath(localizable ? rest : "/", to);
 
   return (
@@ -30,7 +36,12 @@ export function LanguageSwitcher({ className }: { className?: string }) {
         value={locale}
         onChange={(e) => {
           const to = e.target.value as Locale;
-          router.push(`${target(to)}${localizable ? `${window.location.search}${window.location.hash}` : ""}`);
+          rememberLocale(to); // immediate, so the next render already sees it
+          startTransition(async () => {
+            await setLocaleAction(to).catch(() => undefined); // persists preferredLanguage for a signed-in person
+            if (localizable || !cookieRoute) router.push(`${target(to)}${localizable ? `${window.location.search}${window.location.hash}` : ""}`);
+            else router.refresh();
+          });
         }}
         className="min-h-8 rounded-md border border-current/30 bg-transparent px-1.5 py-0.5 text-inherit focus-visible:outline-2 focus-visible:outline-offset-2"
       >

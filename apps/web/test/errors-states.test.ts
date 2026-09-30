@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ERROR_MESSAGE_KEYS } from "../../../packages/next-kit/src/error-catalogue";
-import { LOCALES } from "@/i18n/config";
+import { ALL_LOCALES as LOCALES } from "@/i18n/config";
 import { loadMessages } from "@/i18n/messages";
 import { INDIAN_STATES, STATE_TABLE, stateKey, stateLabel } from "@/features/identity/states";
 

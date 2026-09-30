@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import en from "../messages/en.json";
 import hi from "../messages/hi.json";
-import { DEFAULT_LOCALE, formatNumber, isLocalizedPath, LOCALE_META, LOCALES, localizePath, splitLocale, type Locale } from "@/i18n/config";
+import { ALL_LOCALES, DEFAULT_LOCALE, disabledLocaleRest, formatNumber, isLocale, isLocalizedPath, LOCALE_META, LOCALES, localizePath, splitLocale, type Locale } from "@/i18n/config";
 import { loadLocaleCatalogue, loadMessages } from "@/i18n/messages";
 import { localizedAlternates, sitemapLanguages } from "@/lib/seo-i18n";
 
@@ -38,8 +38,10 @@ const SCRIPT_RE: Record<string, RegExp> = {
 };
 // Values that legitimately stay Latin (product names, acronyms, numerals, brand words).
 const LATIN_OK = new Set(["unlock.sms", "unlock.whatsapp", "errors.notFoundCode"]);
-const TRANSLATED = LOCALES.filter((l) => l !== "en");
+// Catalogues on disk are checked for ALL locales, enabled or not, so re-enabling one is a one-line change.
+const TRANSLATED = ALL_LOCALES.filter((l) => l !== "en");
 const NEW_LOCALES = TRANSLATED.filter((l) => l !== "hi");
+const DISABLED = ALL_LOCALES.filter((l) => !(LOCALES as readonly string[]).includes(l));
 
 // Namespaced catalogue files: en.json plus en.<ns>.json (ads, promotions, ...), every locale must mirror them.
 const suffixes = readdirSync(MESSAGES_DIR)
@@ -83,13 +85,15 @@ describe("i18n: catalogues", () => {
     }
   });
 
-  it.each(LOCALES)("%s: every message is valid ICU (locale plural rules) and placeholders match English", async (code) => {
+  it.each(ALL_LOCALES)("%s: every message is valid ICU (locale plural rules) and placeholders match English", async (code) => {
     const cat = await merged(code);
     const flat = flatten(cat);
     const errors: string[] = [];
     const t = createTranslator({ locale: LOCALE_META[code].bcp47, messages: cat as never, onError: (e) => void errors.push(`${e.code}: ${e.message}`) });
     for (const [key, msg] of Object.entries(flat)) {
-      const values = Object.fromEntries(placeholders(msg).map((p) => [p, p === "count" || p === "n" ? 3 : "X"]));
+      // Rich-text tags (<strong>..</strong>, <link>..</link>) need a renderer; the check only cares that the message is valid.
+      const tags = [...msg.matchAll(/<(\w+)>/g)].map((x) => [x[1]!, (chunks: unknown) => chunks] as const);
+      const values = { ...Object.fromEntries(placeholders(msg).map((p) => [p, p === "count" || p === "n" ? 3 : "X"])), ...Object.fromEntries(tags) };
       expect(() => (t as (k: string, v: unknown) => string)(key, values), key).not.toThrow();
     }
     expect(errors, code).toEqual([]);
@@ -151,26 +155,22 @@ describe("i18n: routing helpers", () => {
 });
 
 describe("i18n: SEO", () => {
-  it("emits self-referencing canonicals with hreflang alternates and x-default", () => {
+  it("emits self-referencing canonicals with hreflang alternates (enabled locales only) and x-default", () => {
     expect(localizedAlternates("/c/packaging", "hi")).toEqual({
       canonical: "/hi/c/packaging",
-      languages: {
-        "en-IN": "/c/packaging",
-        "hi-IN": "/hi/c/packaging",
-        "kn-IN": "/kn/c/packaging",
-        "ta-IN": "/ta/c/packaging",
-        "te-IN": "/te/c/packaging",
-        "mr-IN": "/mr/c/packaging",
-        "gu-IN": "/gu/c/packaging",
-        "bn-IN": "/bn/c/packaging",
-        "x-default": "/c/packaging",
-      },
+      languages: { "en-IN": "/c/packaging", "hi-IN": "/hi/c/packaging", "x-default": "/c/packaging" },
     });
-    expect(localizedAlternates("/c/packaging", "kn").canonical).toBe("/kn/c/packaging");
     expect(localizedAlternates("/", "en").canonical).toBe("/");
     expect(localizedAlternates("/", "hi").languages).toMatchObject({ "hi-IN": "/hi", "en-IN": "/" });
-    expect(sitemapLanguages("/pricing", (p) => `https://x.test${p}`)).toMatchObject({ "en-IN": "https://x.test/pricing", "hi-IN": "https://x.test/hi/pricing", "bn-IN": "https://x.test/bn/pricing", "x-default": "https://x.test/pricing" });
+    expect(sitemapLanguages("/pricing", (p) => `https://x.test${p}`)).toEqual({ "en-IN": "https://x.test/pricing", "hi-IN": "https://x.test/hi/pricing", "x-default": "https://x.test/pricing" });
     expect(Object.keys(sitemapLanguages("/pricing", (p) => p))).toHaveLength(LOCALES.length + 1);
+  });
+  it("never emits a disabled locale in hreflang alternates or the sitemap", () => {
+    for (const code of DISABLED) {
+      const tag = LOCALE_META[code].hreflang;
+      expect(Object.keys(localizedAlternates("/c/packaging", "hi").languages)).not.toContain(tag);
+      expect(Object.keys(sitemapLanguages("/pricing", (p) => p))).not.toContain(tag);
+    }
   });
   it("gives every active locale a distinct BCP 47 tag", () => {
     expect(new Set(LOCALES.map((l) => LOCALE_META[l].bcp47)).size).toBe(LOCALES.length);
@@ -179,9 +179,9 @@ describe("i18n: SEO", () => {
     const props = { className: "x", messages: {}, skip: null, header: null, footer: null, extras: null };
     mockPath = "/hi/search";
     expect(renderToStaticMarkup(<HtmlShell {...props}>page</HtmlShell>)).toMatch(/<html lang="hi-IN"/);
-    for (const code of NEW_LOCALES) {
-      mockPath = `/${code}/search`;
-      expect(renderToStaticMarkup(<HtmlShell {...props}>page</HtmlShell>)).toContain(`<html lang="${code}-IN"`);
+    for (const code of DISABLED) {
+      mockPath = `/${code}/search`; // disabled locale segments are not localised: the shell stays en-IN
+      expect(renderToStaticMarkup(<HtmlShell {...props}>page</HtmlShell>)).toContain('<html lang="en-IN"');
     }
     mockPath = "/en/search";
     expect(renderToStaticMarkup(<HtmlShell {...props}>page</HtmlShell>)).toMatch(/<html lang="en-IN"/);
@@ -191,20 +191,28 @@ describe("i18n: SEO", () => {
 });
 
 describe("i18n: locales", () => {
-  it("routes every locale prefix and groups numbers the Indian way with Latin digits", () => {
-    for (const code of NEW_LOCALES) {
-      expect(splitLocale(`/${code}/c/x`)).toEqual({ locale: code, prefixed: true, rest: "/c/x" });
-      expect(localizePath("/p/abc", code)).toBe(`/${code}/p/abc`);
-      expect(formatNumber(1234567, code)).toBe("12,34,567");
+  it("routes only enabled locale prefixes and groups numbers the Indian way with Latin digits", () => {
+    expect([...LOCALES]).toEqual(["en", "hi"]);
+    expect(splitLocale("/hi/c/x")).toEqual({ locale: "hi", prefixed: true, rest: "/c/x" });
+    expect(localizePath("/p/abc", "hi")).toBe("/hi/p/abc");
+    for (const code of ALL_LOCALES) expect(formatNumber(1234567, code)).toBe("12,34,567");
+  });
+  it("disabled locales are not routable: isLocale/splitLocale reject them and disabledLocaleRest maps them to English paths", () => {
+    for (const code of DISABLED) {
+      expect(isLocale(code)).toBe(false);
+      expect(splitLocale(`/${code}/c/x`).prefixed).toBe(false);
+      expect(disabledLocaleRest(`/${code}/c/x`)).toBe("/c/x");
+      expect(disabledLocaleRest(`/${code}`)).toBe("/");
     }
+    for (const p of ["/hi/c/x", "/en/x", "/c/x", "/zz/x", "/account"]) expect(disabledLocaleRest(p), p).toBeNull();
   });
-  it("preferredLocale picks the first supported language from browser preferences", async () => {
+  it("preferredLocale ignores disabled languages and picks the first enabled one", async () => {
     const { preferredLocale } = await import("@/i18n/language-suggestion");
-    expect(preferredLocale(["ta-IN", "en"])).toBe("ta");
-    expect(preferredLocale(["fr", "bn"])).toBe("bn");
-    expect(preferredLocale(["fr"])).toBeNull();
+    expect(preferredLocale(["ta-IN", "hi"])).toBe("hi");
+    expect(preferredLocale(["fr", "bn"])).toBeNull();
+    expect(preferredLocale(["ta-IN"])).toBeNull();
   });
-  it("lists every locale in the switcher with a lang attribute and its native name", () => {
+  it("lists every enabled locale (and no disabled one) in the switcher with a lang attribute and its native name", () => {
     mockPath = "/search";
     const html = renderToStaticMarkup(
       <NextIntlClientProvider locale="en" messages={{ lang: en.lang }}>
@@ -213,6 +221,7 @@ describe("i18n: locales", () => {
     );
     for (const code of LOCALES) expect(html).toContain(`<option value="${code}" lang="${code}-IN"`);
     for (const code of LOCALES) expect(html).toContain(`>${LOCALE_META[code].native}</option>`);
+    for (const code of DISABLED) expect(html).not.toContain(`value="${code}"`);
   });
 });
 

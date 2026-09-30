@@ -32,6 +32,8 @@ export interface ListingView {
   hsn: string | null;
   language: string;
   imageUrls: string[];
+  /** Tiny blur-up data URLs parallel to `imageUrls` (null when an image has none). Only populated on views served from LIVE. */
+  imageBlurs?: (string | null)[];
   /** Seller's own product code (working copy only; not projected to LIVE). */
   sku?: string | null;
   /** Seller/admin contexts only (see getListingForSeller); never populated by getListing. */

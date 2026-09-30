@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "@cnote/ui/styles.css";
 
+/* Site rail state: <html data-rail="expanded"> is set before first paint from the cnote_rail cookie (features/rail/state.ts). */
+@custom-variant rail-expanded (html[data-rail="expanded"] &);
+
 /* Shared UI package ships Tailwind classes in TS source; let Tailwind scan it. */
 @source "../../../../packages/ui/src";
 

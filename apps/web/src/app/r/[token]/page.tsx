@@ -1,6 +1,7 @@
 import { Card, CardBody, Container } from "@cnote/ui";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { isLocale, LOCALE_META, LOCALES } from "@/i18n/config";
 import { confirmReachabilityAction } from "./actions";
 
 // Public, no login. The GET only renders; confirming is a POST (server action) so prefetchers cannot auto-confirm.
@@ -10,7 +11,7 @@ type Props = { params: Promise<{ token: string }>; searchParams: Promise<{ s?: s
 
 export default async function ReachabilityPage({ params, searchParams }: Props) {
   const [{ token }, sp] = await Promise.all([params, searchParams]);
-  const locale = sp.l === "hi" ? "hi" : "en";
+  const locale = isLocale(sp.l) ? sp.l : "en";
   const t = await getTranslations({ locale, namespace: "reachability" });
   const state = sp.s === "responded" ? "done" : sp.s === "expired" || sp.s === "not_found" ? "expired" : "ask";
   return (
@@ -34,9 +35,12 @@ export default async function ReachabilityPage({ params, searchParams }: Props) 
           </CardBody>
         </Card>
       </main>
-      <nav aria-label="Language" className="flex gap-4 text-sm">
-        <a lang="en" hrefLang="en" className="min-h-11 py-2 text-brand-700 underline" href={`/r/${encodeURIComponent(token)}${sp.s ? `?s=${encodeURIComponent(sp.s)}&l=en` : "?l=en"}`}>English</a>
-        <a lang="hi" hrefLang="hi" className="min-h-11 py-2 text-brand-700 underline" href={`/r/${encodeURIComponent(token)}${sp.s ? `?s=${encodeURIComponent(sp.s)}&l=hi` : "?l=hi"}`}>हिन्दी</a>
+      <nav aria-label={t("languages")} className="flex flex-wrap gap-x-4 text-sm">
+        {LOCALES.map((code) => (
+          <a key={code} lang={LOCALE_META[code].bcp47} hrefLang={code} className="min-h-11 py-2 text-brand-700 underline" href={`/r/${encodeURIComponent(token)}${sp.s ? `?s=${encodeURIComponent(sp.s)}&l=${code}` : `?l=${code}`}`}>
+            {LOCALE_META[code].native}
+          </a>
+        ))}
       </nav>
     </Container>
   );

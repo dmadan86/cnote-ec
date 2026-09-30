@@ -3,6 +3,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { Analytics } from "@/features/analytics";
+import { SiteFrame } from "@/features/rail/site-frame";
 import { SiteFooter } from "@/features/shell/site-footer";
 import { SiteHeader } from "@/features/shell/site-header";
 import { SkipLink } from "@/features/shell/skip-link";
@@ -38,10 +39,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
     <NextIntlClientProvider locale={locale} messages={messages} timeZone={IST}>
       <SkipLink label={(await getTranslations({ locale, namespace: "shell" }))("skipToContent")} />
       <SiteHeader locale={locale} />
-      <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
-        {children}
-      </main>
-      <SiteFooter locale={locale} />
+      <SiteFrame footer={<SiteFooter locale={locale} />}>{children}</SiteFrame>
       <Analytics />
     </NextIntlClientProvider>
   );

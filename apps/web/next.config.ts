@@ -1,7 +1,14 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { withSentryConfig } from "@sentry/nextjs/config";
 import { securityHeaders, staticHeaderList } from "@cnote/security";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+
+// Monorepo env: `next dev` only reads apps/<app>/.env*, but local config lives in the repo-root .env.local (as for the
+// api/worker `--env-file`). Load it when present; variables already set (CI, Docker, Playwright's e2e env) win.
+const ROOT_ENV = resolve(process.cwd(), "../../.env.local");
+if (existsSync(ROOT_ENV)) process.loadEnvFile(ROOT_ENV);
 
 // next-intl only supplies message/format helpers (server: getTranslations({ locale }), client: provider). Routing is
 // the [locale] segment + src/proxy.ts, so it never makes a public page dynamic (see docs/guides/i18n.md).

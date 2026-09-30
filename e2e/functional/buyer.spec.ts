@@ -108,8 +108,10 @@ test.describe("marketplace", () => {
     await page.getByRole("spinbutton", { name: "Quantity" }).fill("500");
     await page.getByRole("textbox", { name: "Delivery city" }).fill("Pune");
     await page.getByRole("button", { name: "Post requirement" }).click();
-    // Result view replaces the form; the form's submit button is gone.
-    await expect(page.getByRole("button", { name: "Post requirement" })).toHaveCount(0);
+    // Wait for the saved result (not just the button leaving: it also changes to "Posting…" while the action runs).
+    await expect(page.getByRole("link", { name: "View requirement" })).toBeVisible(); // posted (offered, unmatched or held for review)
+    // and it is listed under the buyer's requirements
+    await page.goto("/buyer/enquiries");
     await expect(page.locator("main")).toContainText(/3 ply corrugated boxes/i);
   });
 
@@ -144,6 +146,61 @@ test.describe("language", () => {
     await page.getByRole("combobox", { name: /language/i }).first().selectOption("hi");
     await expect(page).toHaveURL(/\/hi\/search\?q=box/);
     await expect(page.locator("main")).toContainText(/[ऀ-ॿ]/);
+  });
+
+  test("the chosen language carries to pages without a locale prefix (cookie) and can be switched in place", async ({ page }) => {
+    await page.goto("/hi"); // visiting a localised page remembers the language for /signin, /account, /rfq, ...
+    await expect.poll(async () => (await page.context().cookies()).find((c) => c.name === "cnote_locale")?.value).toBe("hi"); // written after hydration
+    await page.goto("/signin");
+    await expect(page).toHaveURL(/\/signin$/);
+    await expect(page.locator("html")).toHaveAttribute("lang", "hi-IN");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(/[ऀ-ॿ]/);
+    await page.getByRole("combobox", { name: /भाषा/ }).first().selectOption("en");
+    await expect(page.locator("html")).toHaveAttribute("lang", "en-IN");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Welcome back");
+    await expect(page).toHaveURL(/\/signin$/);
+  });
+
+  test("signed-in and transactional pages render in the chosen language (Hindi) with the profile language as fallback", async ({ page, context, baseURL }) => {
+    await signUpBuyer(page, "i18n");
+    const url = baseURL ?? "http://localhost:3000";
+    for (const [locale, script] of [["hi", /[ऀ-ॿ]/]] as const) {
+      await context.addCookies([{ name: "cnote_locale", value: locale, url }]);
+      for (const path of ["/account", "/wishlist", "/compare", "/rfq/new", "/buyer/enquiries", "/buyer/orders", "/account/notifications", "/account/notifications/preferences", "/grievance", "/account/grievances"]) {
+        await page.goto(path);
+        await expect(page.locator("html"), `${locale} ${path}`).toHaveAttribute("lang", `${locale}-IN`);
+        await expect(page.getByRole("heading", { level: 1 }), `${locale} ${path}`).toContainText(script);
+        await expect(page.locator("main"), `${locale} ${path}`).not.toContainText(/Application error|Something went wrong/);
+      }
+    }
+    // No cookie: the signed-in person's preferredLanguage (saved by the switcher on the last change) is used.
+    // Wait for each switch to render: the page refreshes only after setLocaleAction has saved preferredLanguage.
+    await page.getByRole("combobox", { name: /भाषा|language/i }).first().selectOption("en");
+    await expect(page.locator("html")).toHaveAttribute("lang", "en-IN");
+    await page.getByRole("combobox", { name: /भाषा|language/i }).first().selectOption("hi");
+    await expect(page.locator("html")).toHaveAttribute("lang", "hi-IN");
+    await context.clearCookies({ name: "cnote_locale" });
+    await page.goto("/account");
+    await expect(page.locator("html")).toHaveAttribute("lang", "hi-IN");
+  });
+
+  test("a posted requirement, its matches and detail page render translated (server components use the request language)", async ({ page, context, baseURL }) => {
+    await signUpBuyer(page, "i18nrfq");
+    await page.goto("/rfq/new?q=" + encodeURIComponent("3 ply corrugated boxes"));
+    await page.getByRole("textbox", { name: "Requirement details" }).fill("3 ply corrugated shipping boxes, 12x10x8 inch, printed logo, delivery in Pune.");
+    await page.getByRole("combobox", { name: "Category" }).selectOption({ label: "Packaging & Printing" });
+    await page.getByRole("spinbutton", { name: "Quantity" }).fill("500");
+    await page.getByRole("textbox", { name: "Delivery city" }).fill("Pune");
+    await page.getByRole("button", { name: "Post requirement" }).click();
+    // wait for the saved result (the button also disappears while "Posting…")
+    await expect(page.getByRole("link", { name: /View requirement|Pick sellers/ }).first()).toBeVisible();
+    const detail = await page.getByRole("link", { name: /View requirement|Pick sellers/ }).first().getAttribute("href");
+    expect(detail).toMatch(/^\/buyer\/enquiries\//);
+    await context.addCookies([{ name: "cnote_locale", value: "hi", url: baseURL ?? "http://localhost:3000" }]);
+    await page.goto(detail!);
+    await expect(page.locator("html")).toHaveAttribute("lang", "hi-IN");
+    await expect(page.locator("main")).toContainText(/[ऀ-ॿ]/);
+    await expect(page.locator("main")).not.toContainText(/Intent score|Sellers \(|Category|Quantity|Posted |Matched|Processing/);
   });
 
   test("Hindi is reachable directly and stays Hindi through navigation", async ({ page }) => {

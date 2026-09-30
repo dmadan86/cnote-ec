@@ -10,6 +10,7 @@ import {
   Noto_Sans_Telugu,
 } from "next/font/google";
 import { Analytics } from "@/features/analytics";
+import { RAIL_SCRIPT } from "@/features/rail/state";
 import { SiteFooter } from "@/features/shell/site-footer";
 import { SiteHeader } from "@/features/shell/site-header";
 import { SkipLink } from "@/features/shell/skip-link";
@@ -77,6 +78,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <HtmlShell
       className={`${FONT_VARS} h-full antialiased`}
       messages={messages}
+      head={<script dangerouslySetInnerHTML={{ __html: RAIL_SCRIPT }} />}
       skip={<SkipLink label={(await getTranslations({ locale: "en", namespace: "shell" }))("skipToContent")} />}
       header={<SiteHeader locale="en" />}
       footer={<SiteFooter locale="en" />}

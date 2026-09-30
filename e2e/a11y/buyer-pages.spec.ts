@@ -47,7 +47,7 @@ for (const locale of ["en", "hi"] as const) {
   });
 }
 
-// Not localised yet (they stay unprefixed English, see docs/guides/i18n.md): scan once.
+// Unprefixed routes: English by default, translated through the cnote_locale cookie (see docs/guides/i18n.md).
 test.describe("axe WCAG 2.2 AA (English-only pages)", () => {
   test("sign in", async ({ page }, info) => {
     await page.goto("/signin");
@@ -58,6 +58,14 @@ test.describe("axe WCAG 2.2 AA (English-only pages)", () => {
   test("sign up", async ({ page }, info) => {
     await page.goto("/signup");
     await settle(page);
+    await expectNoBlockingViolations(page, info);
+  });
+
+  test("sign in (Hindi, cookie locale)", async ({ page, context, baseURL }, info) => {
+    await context.addCookies([{ name: "cnote_locale", value: "hi", url: baseURL ?? "http://localhost:3000" }]);
+    await page.goto("/signin");
+    await settle(page);
+    await expect(page.locator("html")).toHaveAttribute("lang", "hi-IN");
     await expectNoBlockingViolations(page, info);
   });
 
