@@ -1,0 +1,37 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "back": "Back",
+    "loading": "Loading…",
+    "error": "Something went wrong. Please try again.",
+    "required": "Required"
+  },
+  "shell": {
+    "language": "Language",
+    "apply": "Apply",
+    "signOut": "Sign out",
+    "mainNav": "Main",
+    "nav": {
+      "home": "Home",
+      "leads": "Leads",
+      "listings": "Listings",
+      "orders": "Orders",
+      "disputes": "Disputes",
+      "reviews": "Reviews",
+      "storefront": "Storefront",
+      "domains": "Domains",
+      "analytics": "Analytics",
+      "priceBook": "Price book",
+      "offers": "Offers",
+      "sponsored": "Sponsored",
+      "referrals": "Refer & earn",
+      "ondc": "ONDC",
+      "notifications": "Notifications",
+      "billing": "Billing",
+      "verification": "Verification",
+      "appeals": "Appeals",
+      "settings": "Settings"
+    }
+  }
+}

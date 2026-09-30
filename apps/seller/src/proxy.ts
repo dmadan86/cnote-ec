@@ -8,10 +8,10 @@ const authProxy = createAuthProxy({
   signInPath: "/signin",
 });
 
-// Every seller page is rendered per request except these statically generated ones, which cannot carry a nonce
-// and so get the static-mode CSP. Add a path here if you add a page that reads no cookies/searchParams/headers.
+// Every seller page is rendered per request (the root layout reads the language cookie), so every page gets a nonce.
+// Add a path to STATIC_PATHS only for a page that is statically generated (reads no cookies/searchParams/headers).
 const VOICE_PATHS = ["/listings/new", "/onboarding"];
-const STATIC_PATHS = ["/forgot-password"];
+const STATIC_PATHS: string[] = [];
 
 const REF_COOKIE = "seller_ref";
 const REF_RE = /^[A-Za-z0-9_-]{4,64}$/;

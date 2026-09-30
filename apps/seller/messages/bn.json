@@ -1,0 +1,37 @@
+{
+  "common": {
+    "save": "সেভ করুন",
+    "cancel": "বাতিল",
+    "back": "পিছনে",
+    "loading": "লোড হচ্ছে…",
+    "error": "কিছু ভুল হয়েছে। আবার চেষ্টা করুন।",
+    "required": "প্রয়োজনীয়"
+  },
+  "shell": {
+    "language": "ভাষা",
+    "apply": "প্রয়োগ করুন",
+    "signOut": "সাইন আউট",
+    "mainNav": "প্রধান",
+    "nav": {
+      "home": "হোম",
+      "leads": "লিড",
+      "listings": "লিস্টিং",
+      "orders": "অর্ডার",
+      "disputes": "বিরোধ",
+      "reviews": "রিভিউ",
+      "storefront": "স্টোরফ্রন্ট",
+      "domains": "ডোমেন",
+      "analytics": "বিশ্লেষণ",
+      "priceBook": "মূল্য তালিকা",
+      "offers": "অফার",
+      "sponsored": "স্পনসরড",
+      "referrals": "রেফার করে আয় করুন",
+      "ondc": "ONDC",
+      "notifications": "বিজ্ঞপ্তি",
+      "billing": "বিলিং",
+      "verification": "যাচাই",
+      "appeals": "আপিল",
+      "settings": "সেটিংস"
+    }
+  }
+}

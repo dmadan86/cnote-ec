@@ -5,6 +5,7 @@ import { requireSession, type ActionResult } from "@cnote/next-kit";
 import { requireSeller } from "@/lib/auth";
 import { applyReferralCode } from "@cnote/promotions";
 import { ONB, clearOnb, readOnb, writeOnb } from "@/lib/cookies";
+import { isLocale, LOCALE_COOKIE } from "@/i18n/config";
 import { LANGUAGES } from "@/lib/constants";
 import { str, strs } from "@/lib/form-data";
 import { logEvent } from "@/lib/metrics";
@@ -27,6 +28,8 @@ export async function createBusinessAction(_prev: ActionResult | null, fd: FormD
       .parse({ name: str(fd, "name"), city: str(fd, "city"), state: str(fd, "state"), pincode: str(fd, "pincode"), languages: strs(fd, "languages") });
     const { businessId } = await identity.createBusiness(session.personId, { ...input, isSeller: true });
     await writeOnb(ONB.startedAt, String(Date.now()));
+    // Vernacular-first (ADR-004): the first business language becomes the app language unless the seller already chose one.
+    if (isLocale(input.languages[0]) && !(await readOnb(LOCALE_COOKIE))) await writeOnb(LOCALE_COOKIE, input.languages[0]);
     // A bad or self-referral code must never block onboarding; the reward is decided later (ADR-025).
     const ref = await readOnb(ONB.referral);
     if (ref) {

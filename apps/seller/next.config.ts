@@ -1,5 +1,8 @@
 import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
+
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   // Auth realm is baked in at build time: this app only ever accepts its own sessions/cookies.
@@ -14,11 +17,13 @@ const nextConfig: NextConfig = {
 
 // Source-map upload + release tagging only when Sentry build credentials are present; the runtime
 // SDK (src/instrumentation*.ts) works without the wrapper.
+const intlConfig = withNextIntl(nextConfig);
+
 export default process.env.SENTRY_AUTH_TOKEN
-  ? withSentryConfig(nextConfig, {
+  ? withSentryConfig(intlConfig, {
       org: process.env.SENTRY_ORG,
       project: process.env.SENTRY_PROJECT_SELLER ?? process.env.SENTRY_PROJECT,
       authToken: process.env.SENTRY_AUTH_TOKEN,
       silent: !process.env.CI,
     })
-  : nextConfig;
+  : intlConfig;

@@ -1,0 +1,37 @@
+{
+  "common": {
+    "save": "ಉಳಿಸಿ",
+    "cancel": "ರದ್ದುಮಾಡಿ",
+    "back": "ಹಿಂದೆ",
+    "loading": "ಲೋಡ್ ಆಗುತ್ತಿದೆ…",
+    "error": "ಏನೋ ತಪ್ಪಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    "required": "ಅಗತ್ಯ"
+  },
+  "shell": {
+    "language": "ಭಾಷೆ",
+    "apply": "ಅನ್ವಯಿಸಿ",
+    "signOut": "ಸೈನ್ ಔಟ್",
+    "mainNav": "ಮುಖ್ಯ",
+    "nav": {
+      "home": "ಮುಖಪುಟ",
+      "leads": "ಲೀಡ್‌ಗಳು",
+      "listings": "ಪಟ್ಟಿಗಳು",
+      "orders": "ಆರ್ಡರ್‌ಗಳು",
+      "disputes": "ವಿವಾದಗಳು",
+      "reviews": "ವಿಮರ್ಶೆಗಳು",
+      "storefront": "ಅಂಗಡಿ ಪುಟ",
+      "domains": "ಡೊಮೇನ್‌ಗಳು",
+      "analytics": "ವಿಶ್ಲೇಷಣೆ",
+      "priceBook": "ಬೆಲೆ ಪುಸ್ತಕ",
+      "offers": "ಆಫರ್‌ಗಳು",
+      "sponsored": "ಪ್ರಾಯೋಜಿತ",
+      "referrals": "ರೆಫರ್ ಮಾಡಿ ಗಳಿಸಿ",
+      "ondc": "ONDC",
+      "notifications": "ಅಧಿಸೂಚನೆಗಳು",
+      "billing": "ಬಿಲ್ಲಿಂಗ್",
+      "verification": "ಪರಿಶೀಲನೆ",
+      "appeals": "ಮೇಲ್ಮನವಿಗಳು",
+      "settings": "ಸೆಟ್ಟಿಂಗ್‌ಗಳು"
+    }
+  }
+}

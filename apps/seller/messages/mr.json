@@ -1,0 +1,37 @@
+{
+  "common": {
+    "save": "सेव्ह करा",
+    "cancel": "रद्द करा",
+    "back": "मागे",
+    "loading": "लोड होत आहे…",
+    "error": "काहीतरी चूक झाली. कृपया पुन्हा प्रयत्न करा.",
+    "required": "आवश्यक"
+  },
+  "shell": {
+    "language": "भाषा",
+    "apply": "लागू करा",
+    "signOut": "साइन आउट",
+    "mainNav": "मुख्य",
+    "nav": {
+      "home": "होम",
+      "leads": "लीड्स",
+      "listings": "लिस्टिंग्ज",
+      "orders": "ऑर्डर्स",
+      "disputes": "वाद",
+      "reviews": "रिव्ह्यू",
+      "storefront": "स्टोअरफ्रंट",
+      "domains": "डोमेन",
+      "analytics": "विश्लेषण",
+      "priceBook": "दर पुस्तिका",
+      "offers": "ऑफर्स",
+      "sponsored": "प्रायोजित",
+      "referrals": "रेफर करा आणि कमवा",
+      "ondc": "ONDC",
+      "notifications": "सूचना",
+      "billing": "बिलिंग",
+      "verification": "पडताळणी",
+      "appeals": "अपील",
+      "settings": "सेटिंग्ज"
+    }
+  }
+}

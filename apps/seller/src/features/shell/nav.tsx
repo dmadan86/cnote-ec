@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { cn } from "@cnote/ui";
 import { NAV_ITEMS } from "./nav-items";
 
@@ -11,9 +12,10 @@ function useActive() {
 
 export function SidebarNav() {
   const isActive = useActive();
+  const t = useTranslations("shell");
   return (
-    <nav aria-label="Main" className="flex flex-col gap-1">
-      {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+    <nav aria-label={t("mainNav")} className="flex flex-col gap-1">
+      {NAV_ITEMS.map(({ href, key, icon: Icon }) => {
         const active = isActive(href);
         return (
           <Link
@@ -25,7 +27,7 @@ export function SidebarNav() {
               active ? "bg-brand-50 text-brand-700" : "text-ink hover:bg-canvas",
             )}
           >
-            <Icon className="size-4" aria-hidden /> {label}
+            <Icon className="size-4" aria-hidden /> {t(`nav.${key}`)}
           </Link>
         );
       })}
@@ -35,11 +37,12 @@ export function SidebarNav() {
 
 export function BottomNav() {
   const isActive = useActive();
+  const t = useTranslations("shell");
   const items = NAV_ITEMS.filter((i) => i.primary);
   return (
-    <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
+    <nav aria-label={t("mainNav")} className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
       <ul className="grid grid-cols-5">
-        {items.map(({ href, label, icon: Icon }) => {
+        {items.map(({ href, key, icon: Icon }) => {
           const active = isActive(href);
           return (
             <li key={href}>
@@ -51,7 +54,7 @@ export function BottomNav() {
                   active ? "text-brand-700" : "text-muted",
                 )}
               >
-                <Icon className="size-5" aria-hidden /> {label}
+                <Icon className="size-5" aria-hidden /> {t(`nav.${key}`)}
               </Link>
             </li>
           );

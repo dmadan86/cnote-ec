@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { APP_NAME } from "@/lib/brand";
+import { bcp47, isLocale, DEFAULT_LOCALE } from "@/i18n/config";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
@@ -11,10 +14,16 @@ export const metadata: Metadata = {
 };
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#6d3ff0" };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const raw = await getLocale();
+  const locale = isLocale(raw) ? raw : DEFAULT_LOCALE;
   return (
-    <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col">{children}</body>
+    <html lang={bcp47(locale)} className={`${geistSans.variable} h-full antialiased`}>
+      <body className="flex min-h-full flex-col">
+        <NextIntlClientProvider locale={locale} messages={await getMessages()} timeZone="Asia/Kolkata">
+          {children}
+        </NextIntlClientProvider>
+      </body>
     </html>
   );
 }
