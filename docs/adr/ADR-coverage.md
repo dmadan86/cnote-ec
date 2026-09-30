@@ -1,6 +1,6 @@
 # ADR coverage: what the code implements against ADR-000 to ADR-025
 
-**As of:** 29 Sep 2026, repository HEAD `ff129bb` plus in-flight work from parallel agents (search index port, media/R2, leadgen, GST, storefronts, domains, security, live-db, versioning). Items in flight are marked "landing".
+**As of:** 30 Sep 2026, repository HEAD `17064c7` (all parallel work from 29 Sep has landed; ADR-003 and ADR-009 rows updated accordingly).
 **Method:** read `docs/adr/ADR-v0.1.md`, `ADR-024-025-proposed.md`, every `docs/design/*.md`, the package sources, the Prisma schemas and the event catalogue; then judged each ADR by what is actually in code. Evidence lists packages and files; gaps are stated against the ADR text.
 **Status values:** Implemented (Phase-1 scope is met) / Partial / Not started / Deferred by phase (the ADR itself is a Phase 2 or 3 item and correctly unbuilt).
 **Answer to "did we add all the ADRs?":** all 24 accepted or proposed decisions in ADR-000 to ADR-023 are recorded, and the Phase 1 ones are largely built. The Phase 1 ADRs with real holes are ADR-004 (WhatsApp, voice, vernacular), ADR-002 (reachability verification), ADR-003 (T2/T3 tiers) and ADR-005 (real payments). Fourteen decisions taken during the build are now recorded as ADR-026 to ADR-039 (this folder).
@@ -37,7 +37,8 @@ Nothing to build. Drivers 1 to 7 are visible in code: trust weighting (`identity
 
 ### ADR-003: Tiered, API-driven, continuous verification. Partial
 - **Evidence:** T0 phone OTP, T1 GSTIN checksum + GSTN provider (mock in dev) + Udyam format (`identity/business.ts verifyGstin`, `gstin.ts`); `VerificationRecord` with kinds `phone_otp, gstin, udyam, document, video_kyc, audit`; continuous `trust.ts` score (tier x SLA x deals x disputes x moderation flags, inactivity decay, badge threshold) with `trust-worker.ts` and `TrustScoreChanged`; prohibited-category `ai.moderate` on listings and versions; `moderation` and `businesses` admin screens; takedown via admin moderation.
-- **Gaps:** live GSP/GSTN integration is still a mock (a `gst` module is landing in `identity/src/gst`); no Udyam API verification, only format; **T2 not built** (document forensics, VLM checks, liveness/video KYC: enum values only); **T3 audit partner flow not built**; HSN alignment and filing-regularity checks not built; no published takedown/appeal workflow for sellers (DPDP/IT Rules) beyond the admin moderation queue; badge revocation below threshold is computed but the "false-badge rate" is not measured.
+- **Now built (30 Sep):** `identity/src/gst` with Cashfree and Surepass GSTIN adapters behind a `GstnProvider` port (mock in dev/CI), scored checks (status Active, legal/trade-name match, state code, PAN linkage, GSTR-3B filing regularity where the provider returns it, HSN alignment against the seller's listings), a staff review queue for ambiguous outcomes, monthly continuous re-verification that revokes the badge on Cancelled/Suspended, PAN stored field-encrypted and always masked.
+- **Gaps:** GST provider credentials not configured (runs on the mock until `GST_PROVIDER` + keys are set; Surepass field names still to confirm against their docs); no Udyam API verification, only format; no MCA/CIN lookup (format only); **T2 not built** (document forensics, VLM checks, liveness/video KYC: enum values only); **T3 audit partner flow not built**; no published takedown/appeal workflow for sellers (DPDP/IT Rules) beyond the admin moderation queue; badge revocation below threshold is computed but the "false-badge rate" is not measured.
 - **Metrics:** none implemented for T1+ share or false-badge rate.
 
 ### ADR-004: Vernacular, voice-first, WhatsApp-native onboarding. Partial, mostly not started (largest gap vs the ADR)
@@ -70,7 +71,7 @@ Nothing to build. Drivers 1 to 7 are visible in code: trust weighting (`identity
 - **Metrics:** latency is logged per decision; no p95 dashboard, no matching < 2s SLO alert.
 
 ### ADR-009: Hybrid search. Partial (OpenSearch superseded for Phase 1 by ADR-026)
-- **Evidence:** Postgres FTS + pgvector hybrid fusion (`search/fusion.ts`, `search.ts`, `suggest.ts`), Hinglish query normalisation and location hint, rank = relevance x trust (`trustFactor`), Redis result caching with tag invalidation (`cache-worker.ts`). `SEARCH_BACKEND=postgres|opensearch` port with an OpenSearch adapter and mapping (`search/src/index-port`, landing) so the ADR's original stack stays available.
+- **Evidence:** Postgres FTS + pgvector hybrid fusion (`search/fusion.ts`, `search.ts`, `suggest.ts`), Hinglish query normalisation and location hint, rank = relevance x trust (`trustFactor`), Redis result caching with tag invalidation (`cache-worker.ts`). `SEARCH_BACKEND=postgres|opensearch` port with a shipped OpenSearch adapter (Indic analyzer, typo tolerance, facets, alias-swap reindex, event-driven indexer; ranking parity with Postgres is tested) so the ADR's original stack is one config switch away.
 - **Gaps:** synonyms/transliteration for non-Latin vernacular scripts not implemented (Hinglish fillers only); **image-to-product search not started**; **voice search not started** (needs ASR); sponsored slots not built (ADR-024); no relevance judgement set or nDCG tracking; OpenSearch adapter is unproven in production.
 - **Metrics:** search latency and zero-result rate are not instrumented beyond `Server-Timing`.
 
@@ -121,7 +122,7 @@ Nothing to build. Drivers 1 to 7 are visible in code: trust weighting (`identity
 | 3 | WhatsApp seller onboarding channel (webhook, conversation state, templates, consent) | 004 | Primary onboarding path in the ADR; today only the tertiary web path exists | L |
 | 4 | Voice notes + ASR capability (`transcribe`) and photo-to-listing VLM extraction | 004, 008, 009 | Core of the onboarding promise and of voice/image search | L |
 | 5 | Vernacular UI: i18n framework, Hindi first, hreflang, translated key flows | 004 | Bharat-native driver; currently English only | M |
-| 6 | Live GSP/GSTN integration and T2 verification (document + video KYC) | 003 | Trust is the product; T1 is a mock | M to L |
+| 6 | GST provider credentials + T2 verification (document + video KYC) | 003 | Trust is the product; T1 checks are built but run on the mock until keys are set | M |
 | 7 | Data residency pinning, retention policies per module, 72h breach runbook, appeal workflow | 010 | Compliance moat and legal exposure | M |
 | 8 | Metrics layer: SQL views or a job over `DomainEvent` for each ADR target, admin dashboard, SLO alerts | 002 to 005 | Phase 1 gate cannot be evaluated without it | M |
 | 9 | Decide the Phase-1 vertical; load real category schemas and golden sets | 011 | Unblocks evals, language order and seller acquisition | S (decision) |
