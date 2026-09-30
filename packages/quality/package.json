@@ -1,0 +1,23 @@
+{
+  "name": "@cnote/quality",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@cnote/ai": "workspace:*",
+    "@cnote/catalogue": "workspace:*",
+    "@cnote/core": "workspace:*",
+    "@cnote/db": "workspace:*",
+    "@cnote/enquiry": "workspace:*",
+    "@cnote/identity": "workspace:*",
+    "@cnote/media": "workspace:*",
+    "zod": "^4.6.5"
+  }
+}

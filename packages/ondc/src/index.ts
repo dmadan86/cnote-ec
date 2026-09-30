@@ -1,0 +1,3 @@
+// @cnote/ondc: ADR-017 ONDC seller-network-participant adapter (Beckn). Flag ONDC_ENABLED.
+// PUBLIC CONTRACT.
+export {};

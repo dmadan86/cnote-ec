@@ -94,6 +94,31 @@ export interface DomainEventPayloads {
   PaymentSucceeded: { paymentOrderId: string; businessId: string; purpose: string; totalPaise: number; invoiceNumber: string | null };
   PaymentFailed: { paymentOrderId: string; businessId: string; purpose: string; reason: string };
   PaymentRefunded: { paymentOrderId: string; businessId: string; amountPaise: number; creditNoteNumber: string | null };
+  // escrow via PA partner (ADR-012, Phase 2, flag ESCROW_ENABLED)
+  EscrowCreated:          { escrowId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; amountPaise: number; feePaise: number; partner: string };
+  EscrowFunded:           { escrowId: string; orderId: string; amountPaise: number; partnerRef: string };
+  EscrowMilestoneReached: { escrowId: string; orderId: string; milestone: "confirmed" | "dispatched" | "delivered" | "accepted" };
+  EscrowFrozen:           { escrowId: string; orderId: string; disputeId: string };
+  EscrowUnfrozen:         { escrowId: string; orderId: string; disputeId: string };
+  EscrowReleased:         { escrowId: string; orderId: string; sellerBusinessId: string; amountPaise: number; feePaise: number; cause: "buyer_accepted" | "auto_release" | "dispute_resolution" | "staff" };
+  EscrowRefunded:         { escrowId: string; orderId: string; buyerBusinessId: string; amountPaise: number; cause: "cancelled" | "dispute_resolution" | "funding_expired" | "staff" };
+  PayoutSettled:          { payoutId: string; escrowId: string; sellerBusinessId: string; amountPaise: number; partnerRef: string; latencyMs: number };
+  // disputes (ADR-013)
+  DisputeOpened:    { disputeId: string; orderId: string; openedByBusinessId: string; againstBusinessId: string; type: string; amountPaise: number | null };
+  DisputeBriefReady: { disputeId: string; orderId: string; recommendation: string; confidence: number; autoResolvable: boolean };
+  DisputeEscalated: { disputeId: string; orderId: string; byBusinessId: string };
+  DisputeResolved:  { disputeId: string; orderId: string; outcome: "buyer_favour" | "seller_favour" | "split" | "withdrawn"; refundPaise: number; releasePaise: number; decidedBy: "auto" | "staff"; faultBusinessId: string | null };
+  // quote assist (ADR-014)
+  QuoteDraftGenerated:  { draftId: string; matchId: string; sellerBusinessId: string; pricePaise: number | null; confidence: number };
+  QuoteDraftApproved:   { draftId: string; matchId: string; quoteId: string; sellerBusinessId: string; edited: boolean };
+  CounterOfferProposed: { proposalId: string; enquiryId: string; quoteId: string; buyerBusinessId: string; pricePaise: number };
+  // CV quality checks (ADR-015)
+  QualityCheckCompleted: { checkId: string; orderId: string; sellerBusinessId: string; categorySlug: string; verdict: "consistent" | "inconsistent" | "inconclusive"; confidence: number };
+  // vertical playbooks (ADR-016)
+  VerticalStageChanged: { verticalId: string; slug: string; from: string; to: string; changedBy: string };
+  // ONDC adapter (ADR-017)
+  OndcCatalogPublished: { sellerBusinessId: string; providerId: string; items: number };
+  OndcOrderReceived:    { ondcOrderId: string; orderId: string | null; sellerBusinessId: string; bapId: string; transactionId: string };
   // T2/T3 verification (ADR-003)
   KycSubmitted: { sessionId: string; businessId: string; provider: string };
   KycDecided: { sessionId: string; businessId: string; status: "approved" | "rejected" | "review"; decidedBy: string | null };
@@ -191,6 +216,25 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   KycSubmitted: 1,
   KycDecided: 1,
   AuditCompleted: 1,
+  EscrowCreated: 1,
+  EscrowFunded: 1,
+  EscrowMilestoneReached: 1,
+  EscrowFrozen: 1,
+  EscrowUnfrozen: 1,
+  EscrowReleased: 1,
+  EscrowRefunded: 1,
+  PayoutSettled: 1,
+  DisputeOpened: 1,
+  DisputeBriefReady: 1,
+  DisputeEscalated: 1,
+  DisputeResolved: 1,
+  QuoteDraftGenerated: 1,
+  QuoteDraftApproved: 1,
+  CounterOfferProposed: 1,
+  QualityCheckCompleted: 1,
+  VerticalStageChanged: 1,
+  OndcCatalogPublished: 1,
+  OndcOrderReceived: 1,
   ReachabilityChecked: 1,
   CreditsGranted: 1,
   CreditConsumed: 1,

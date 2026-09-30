@@ -1,0 +1,24 @@
+{
+  "name": "@cnote/disputes",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@cnote/ai": "workspace:*",
+    "@cnote/core": "workspace:*",
+    "@cnote/db": "workspace:*",
+    "@cnote/enquiry": "workspace:*",
+    "@cnote/escrow": "workspace:*",
+    "@cnote/identity": "workspace:*",
+    "@cnote/media": "workspace:*",
+    "@cnote/quality": "workspace:*",
+    "zod": "^4.6.5"
+  }
+}

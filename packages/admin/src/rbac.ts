@@ -49,10 +49,18 @@ export const PRIVILEGES = [
   "payments.refund",
   "kyc.review",
   "audits.manage",
+  // Phase 2 (ADR-012..017), all behind feature flags
+  "escrow.read", // escrow agreements, milestones, ledger journal, reconciliation reports
+  "escrow.manage", // manual release/refund after reconciliation mismatch; partner webhook replay
+  "disputes.read", // dispute cases + AI briefs + evidence (personal data: least privilege)
+  "disputes.adjudicate", // decide a dispute (freezes/releases escrow through the outcome)
+  "quality.review", // label CV quality-check results (golden set for the >90% accuracy gate)
+  "verticals.manage", // vertical playbooks and stage transitions (ADR-016)
+  "ondc.manage", // ONDC adapter config, catalogue publish, inbound order log (ADR-017)
 ] as const;
 export type Privilege = (typeof PRIVILEGES)[number];
 
-export const ROLES = ["super_admin", "ops_moderator", "verification_officer", "support", "finance", "marketing", "viewer"] as const;
+export const ROLES = ["super_admin", "ops_moderator", "verification_officer", "support", "finance", "marketing", "adjudicator", "viewer"] as const;
 export type Role = (typeof ROLES)[number];
 
 const READ_ONLY: readonly Privilege[] = ["reviews.read", "businesses.read", "ai.decisions.read", "ugc.read", "metrics.read", "compliance.read"];
@@ -66,6 +74,7 @@ export const ROLE_PRIVILEGES: Record<Role, readonly Privilege[]> = {
     "ugc.read", "ugc.moderate", "images.moderate", "api_keys.read", "api_keys.revoke", "queues.read",
     "storefronts.review", "metrics.read", "compliance.read", "compliance.manage",
     "ads.read", "ads.review", "ads.suspend", "ads.fraud.review", "offers.review", "promotions.read", "kyc.review",
+    "disputes.read", "quality.review", "verticals.manage", "ondc.manage",
   ],
   /** Business verification (ADR-003). Sees the queue read-only for context. */
   verification_officer: ["businesses.read", "businesses.verify", "reviews.read", "kyc.review", "audits.manage"],
@@ -74,7 +83,9 @@ export const ROLE_PRIVILEGES: Record<Role, readonly Privilege[]> = {
   /** Marketing/CRM: owns email + notification copy and layouts (publishing goes live to users). */
   marketing: ["templates.read", "templates.manage", "templates.publish", "businesses.read", "storefronts.templates", "leadgen.read", "metrics.read", "promotions.read", "promotions.manage", "promotions.publish", "coupons.read", "coupons.manage", "ads.read"],
   /** Finance: ledger visibility and (future) credit adjustments, plus audit visibility for reconciliation. */
-  finance: ["billing.read", "billing.adjust", "businesses.read", "audit.read", "metrics.read", "ads.read", "ads.fraud.review", "coupons.read", "payments.read", "payments.refund"],
+  finance: ["billing.read", "billing.adjust", "businesses.read", "audit.read", "metrics.read", "ads.read", "ads.fraud.review", "coupons.read", "payments.read", "payments.refund", "escrow.read", "escrow.manage", "disputes.read"],
+  /** Dispute adjudication (ADR-013): decides cases using the AI brief; sees escrow state but cannot move money directly. */
+  adjudicator: ["disputes.read", "disputes.adjudicate", "escrow.read", "businesses.read", "quality.review", "ai.decisions.read"],
   /** Read-only observer: queue, directory, AI decisions. No billing, staff or audit data. */
   viewer: READ_ONLY,
 };

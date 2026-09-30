@@ -40,6 +40,13 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   "@cnote/ads": ["@cnote/billing", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/search"],
   // ADR-025 promotions/offers/coupons/referrals: price history via catalogue, rewards via billing.
   "@cnote/promotions": ["@cnote/billing", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media"],
+  // Phase 2 (ADR-012..017), each behind a flag. Escrow attaches to enquiry's Order; disputes sit above escrow + quality.
+  "@cnote/escrow": ["@cnote/billing", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity", "@cnote/media"],
+  "@cnote/quality": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity", "@cnote/media"],
+  "@cnote/disputes": ["@cnote/ai", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/escrow", "@cnote/identity", "@cnote/media", "@cnote/quality"],
+  "@cnote/negotiation": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity"],
+  "@cnote/verticals": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity"],
+  "@cnote/ondc": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity", "@cnote/security"],
   "@cnote/admin": ["@cnote/core", "@cnote/db", "@cnote/identity"],
   "@cnote/ai": ["@cnote/core", "@cnote/db"],
   "@cnote/templates": ["@cnote/core", "@cnote/db", "@cnote/media"],

@@ -62,6 +62,9 @@ importers:
       '@cnote/developer':
         specifier: workspace:*
         version: link:../../packages/developer
+      '@cnote/disputes':
+        specifier: workspace:*
+        version: link:../../packages/disputes
       '@cnote/domains':
         specifier: workspace:*
         version: link:../../packages/domains
@@ -71,6 +74,9 @@ importers:
       '@cnote/enquiry':
         specifier: workspace:*
         version: link:../../packages/enquiry
+      '@cnote/escrow':
+        specifier: workspace:*
+        version: link:../../packages/escrow
       '@cnote/identity':
         specifier: workspace:*
         version: link:../../packages/identity
@@ -83,6 +89,9 @@ importers:
       '@cnote/metrics':
         specifier: workspace:*
         version: link:../../packages/metrics
+      '@cnote/negotiation':
+        specifier: workspace:*
+        version: link:../../packages/negotiation
       '@cnote/next-kit':
         specifier: workspace:*
         version: link:../../packages/next-kit
@@ -92,9 +101,15 @@ importers:
       '@cnote/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@cnote/ondc':
+        specifier: workspace:*
+        version: link:../../packages/ondc
       '@cnote/promotions':
         specifier: workspace:*
         version: link:../../packages/promotions
+      '@cnote/quality':
+        specifier: workspace:*
+        version: link:../../packages/quality
       '@cnote/reviews':
         specifier: workspace:*
         version: link:../../packages/reviews
@@ -110,6 +125,9 @@ importers:
       '@cnote/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@cnote/verticals':
+        specifier: workspace:*
+        version: link:../../packages/verticals
       '@cnote/whatsapp':
         specifier: workspace:*
         version: link:../../packages/whatsapp
@@ -204,18 +222,33 @@ importers:
       '@cnote/developer':
         specifier: workspace:*
         version: link:../../packages/developer
+      '@cnote/disputes':
+        specifier: workspace:*
+        version: link:../../packages/disputes
       '@cnote/enquiry':
         specifier: workspace:*
         version: link:../../packages/enquiry
+      '@cnote/escrow':
+        specifier: workspace:*
+        version: link:../../packages/escrow
       '@cnote/identity':
         specifier: workspace:*
         version: link:../../packages/identity
+      '@cnote/negotiation':
+        specifier: workspace:*
+        version: link:../../packages/negotiation
       '@cnote/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@cnote/ondc':
+        specifier: workspace:*
+        version: link:../../packages/ondc
       '@cnote/promotions':
         specifier: workspace:*
         version: link:../../packages/promotions
+      '@cnote/quality':
+        specifier: workspace:*
+        version: link:../../packages/quality
       '@cnote/reviews':
         specifier: workspace:*
         version: link:../../packages/reviews
@@ -225,6 +258,9 @@ importers:
       '@cnote/security':
         specifier: workspace:*
         version: link:../../packages/security
+      '@cnote/verticals':
+        specifier: workspace:*
+        version: link:../../packages/verticals
       '@cnote/whatsapp':
         specifier: workspace:*
         version: link:../../packages/whatsapp
@@ -276,18 +312,27 @@ importers:
       '@cnote/developer':
         specifier: workspace:*
         version: link:../../packages/developer
+      '@cnote/disputes':
+        specifier: workspace:*
+        version: link:../../packages/disputes
       '@cnote/domains':
         specifier: workspace:*
         version: link:../../packages/domains
       '@cnote/enquiry':
         specifier: workspace:*
         version: link:../../packages/enquiry
+      '@cnote/escrow':
+        specifier: workspace:*
+        version: link:../../packages/escrow
       '@cnote/identity':
         specifier: workspace:*
         version: link:../../packages/identity
       '@cnote/media':
         specifier: workspace:*
         version: link:../../packages/media
+      '@cnote/negotiation':
+        specifier: workspace:*
+        version: link:../../packages/negotiation
       '@cnote/next-kit':
         specifier: workspace:*
         version: link:../../packages/next-kit
@@ -297,9 +342,15 @@ importers:
       '@cnote/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@cnote/ondc':
+        specifier: workspace:*
+        version: link:../../packages/ondc
       '@cnote/promotions':
         specifier: workspace:*
         version: link:../../packages/promotions
+      '@cnote/quality':
+        specifier: workspace:*
+        version: link:../../packages/quality
       '@cnote/reviews':
         specifier: workspace:*
         version: link:../../packages/reviews
@@ -312,6 +363,9 @@ importers:
       '@cnote/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@cnote/verticals':
+        specifier: workspace:*
+        version: link:../../packages/verticals
       '@cnote/wishlist':
         specifier: workspace:*
         version: link:../../packages/wishlist
@@ -464,12 +518,18 @@ importers:
       '@cnote/developer':
         specifier: workspace:*
         version: link:../../packages/developer
+      '@cnote/disputes':
+        specifier: workspace:*
+        version: link:../../packages/disputes
       '@cnote/domains':
         specifier: workspace:*
         version: link:../../packages/domains
       '@cnote/enquiry':
         specifier: workspace:*
         version: link:../../packages/enquiry
+      '@cnote/escrow':
+        specifier: workspace:*
+        version: link:../../packages/escrow
       '@cnote/identity':
         specifier: workspace:*
         version: link:../../packages/identity
@@ -479,6 +539,9 @@ importers:
       '@cnote/media':
         specifier: workspace:*
         version: link:../../packages/media
+      '@cnote/negotiation':
+        specifier: workspace:*
+        version: link:../../packages/negotiation
       '@cnote/next-kit':
         specifier: workspace:*
         version: link:../../packages/next-kit
@@ -488,9 +551,15 @@ importers:
       '@cnote/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@cnote/ondc':
+        specifier: workspace:*
+        version: link:../../packages/ondc
       '@cnote/promotions':
         specifier: workspace:*
         version: link:../../packages/promotions
+      '@cnote/quality':
+        specifier: workspace:*
+        version: link:../../packages/quality
       '@cnote/reviews':
         specifier: workspace:*
         version: link:../../packages/reviews
@@ -509,6 +578,9 @@ importers:
       '@cnote/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@cnote/verticals':
+        specifier: workspace:*
+        version: link:../../packages/verticals
       '@cnote/wishlist':
         specifier: workspace:*
         version: link:../../packages/wishlist
@@ -588,6 +660,9 @@ importers:
       '@cnote/developer':
         specifier: workspace:*
         version: link:../../packages/developer
+      '@cnote/disputes':
+        specifier: workspace:*
+        version: link:../../packages/disputes
       '@cnote/domains':
         specifier: workspace:*
         version: link:../../packages/domains
@@ -597,6 +672,9 @@ importers:
       '@cnote/enquiry':
         specifier: workspace:*
         version: link:../../packages/enquiry
+      '@cnote/escrow':
+        specifier: workspace:*
+        version: link:../../packages/escrow
       '@cnote/identity':
         specifier: workspace:*
         version: link:../../packages/identity
@@ -609,15 +687,24 @@ importers:
       '@cnote/metrics':
         specifier: workspace:*
         version: link:../../packages/metrics
+      '@cnote/negotiation':
+        specifier: workspace:*
+        version: link:../../packages/negotiation
       '@cnote/notifications':
         specifier: workspace:*
         version: link:../../packages/notifications
       '@cnote/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@cnote/ondc':
+        specifier: workspace:*
+        version: link:../../packages/ondc
       '@cnote/promotions':
         specifier: workspace:*
         version: link:../../packages/promotions
+      '@cnote/quality':
+        specifier: workspace:*
+        version: link:../../packages/quality
       '@cnote/reviews':
         specifier: workspace:*
         version: link:../../packages/reviews
@@ -633,6 +720,9 @@ importers:
       '@cnote/templates':
         specifier: workspace:*
         version: link:../../packages/templates
+      '@cnote/verticals':
+        specifier: workspace:*
+        version: link:../../packages/verticals
       '@cnote/whatsapp':
         specifier: workspace:*
         version: link:../../packages/whatsapp
@@ -863,6 +953,36 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
 
+  packages/disputes:
+    dependencies:
+      '@cnote/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@cnote/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cnote/db':
+        specifier: workspace:*
+        version: link:../db
+      '@cnote/enquiry':
+        specifier: workspace:*
+        version: link:../enquiry
+      '@cnote/escrow':
+        specifier: workspace:*
+        version: link:../escrow
+      '@cnote/identity':
+        specifier: workspace:*
+        version: link:../identity
+      '@cnote/media':
+        specifier: workspace:*
+        version: link:../media
+      '@cnote/quality':
+        specifier: workspace:*
+        version: link:../quality
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
   packages/domains:
     dependencies:
       '@cnote/core':
@@ -916,6 +1036,30 @@ importers:
       '@cnote/identity':
         specifier: workspace:*
         version: link:../identity
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
+  packages/escrow:
+    dependencies:
+      '@cnote/billing':
+        specifier: workspace:*
+        version: link:../billing
+      '@cnote/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cnote/db':
+        specifier: workspace:*
+        version: link:../db
+      '@cnote/enquiry':
+        specifier: workspace:*
+        version: link:../enquiry
+      '@cnote/identity':
+        specifier: workspace:*
+        version: link:../identity
+      '@cnote/media':
+        specifier: workspace:*
+        version: link:../media
       zod:
         specifier: ^4.6.5
         version: 4.6.5
@@ -1005,6 +1149,30 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
 
+  packages/negotiation:
+    dependencies:
+      '@cnote/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@cnote/catalogue':
+        specifier: workspace:*
+        version: link:../catalogue
+      '@cnote/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cnote/db':
+        specifier: workspace:*
+        version: link:../db
+      '@cnote/enquiry':
+        specifier: workspace:*
+        version: link:../enquiry
+      '@cnote/identity':
+        specifier: workspace:*
+        version: link:../identity
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
   packages/next-kit:
     dependencies:
       '@cnote/admin':
@@ -1083,6 +1251,30 @@ importers:
 
   packages/observability: {}
 
+  packages/ondc:
+    dependencies:
+      '@cnote/catalogue':
+        specifier: workspace:*
+        version: link:../catalogue
+      '@cnote/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cnote/db':
+        specifier: workspace:*
+        version: link:../db
+      '@cnote/enquiry':
+        specifier: workspace:*
+        version: link:../enquiry
+      '@cnote/identity':
+        specifier: workspace:*
+        version: link:../identity
+      '@cnote/security':
+        specifier: workspace:*
+        version: link:../security
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
   packages/promotions:
     dependencies:
       '@cnote/billing':
@@ -1097,6 +1289,33 @@ importers:
       '@cnote/db':
         specifier: workspace:*
         version: link:../db
+      '@cnote/identity':
+        specifier: workspace:*
+        version: link:../identity
+      '@cnote/media':
+        specifier: workspace:*
+        version: link:../media
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
+  packages/quality:
+    dependencies:
+      '@cnote/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@cnote/catalogue':
+        specifier: workspace:*
+        version: link:../catalogue
+      '@cnote/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cnote/db':
+        specifier: workspace:*
+        version: link:../db
+      '@cnote/enquiry':
+        specifier: workspace:*
+        version: link:../enquiry
       '@cnote/identity':
         specifier: workspace:*
         version: link:../identity
@@ -1250,6 +1469,24 @@ importers:
       react:
         specifier: 19.2.8
         version: 19.2.8
+
+  packages/verticals:
+    dependencies:
+      '@cnote/catalogue':
+        specifier: workspace:*
+        version: link:../catalogue
+      '@cnote/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cnote/db':
+        specifier: workspace:*
+        version: link:../db
+      '@cnote/identity':
+        specifier: workspace:*
+        version: link:../identity
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
 
   packages/whatsapp:
     dependencies:
