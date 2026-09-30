@@ -14,7 +14,9 @@ export const totalRepayablePaise = (t: OfferTerms): number => t.principalPaise +
 export function allInAprBps(t: OfferTerms): number {
   if (t.principalPaise <= 0 || t.tenorDays <= 0) return 0;
   const cost = interestPaise(t.principalPaise, t.aprBps, t.tenorDays) + t.processingFeePaise + t.otherFeesPaise;
-  return Math.round((cost / t.principalPaise) * (365 / t.tenorDays) * 10_000);
+  // Paise rounding of the interest can pull the recomputed rate a basis point under the contract rate on small, short
+  // loans; the disclosed all-in APR (contract rate + fees, RBI KFS) must never understate the contract rate.
+  return Math.max(t.aprBps, Math.round((cost / t.principalPaise) * (365 / t.tenorDays) * 10_000));
 }
 
 export function buildKfs(product: Product, t: OfferTerms, lender: LenderInfo, env: NodeJS.ProcessEnv = process.env): Kfs {

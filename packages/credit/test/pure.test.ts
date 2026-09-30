@@ -18,11 +18,14 @@ describe("kfs arithmetic", () => {
     expect(totalRepayablePaise(T)).toBe(10_000_000 + 197_260 + 100_000);
     expect(allInAprBps({ ...T, principalPaise: 0 })).toBe(0);
   });
+  it("all-in APR: CI counterexample (small principal, short tenor) still discloses at least the contract rate", () => {
+    expect(allInAprBps({ principalPaise: 100_000, aprBps: 559, tenorDays: 7, processingFeePaise: 0, otherFeesPaise: 0 })).toBeGreaterThanOrEqual(559);
+  });
   it("all-in APR is never below the contractual APR and total >= principal", () => {
     fc.assert(fc.property(fc.integer({ min: 100_000, max: 900_000_000 }), fc.integer({ min: 0, max: 4800 }), fc.integer({ min: 7, max: 120 }), fc.integer({ min: 0, max: 50_000 }), (p, apr, tenor, fee) => {
       const t = { principalPaise: p, aprBps: apr, tenorDays: tenor, processingFeePaise: fee, otherFeesPaise: 0 };
       expect(totalRepayablePaise(t)).toBeGreaterThanOrEqual(p);
-      expect(allInAprBps(t)).toBeGreaterThanOrEqual(apr - 1); // rounding of paise
+      expect(allInAprBps(t)).toBeGreaterThanOrEqual(apr); // never understates the contract rate, whatever the rounding
     }));
   });
   it("buildKfs discloses lender, fees, cooling-off, grievance officer", () => {
