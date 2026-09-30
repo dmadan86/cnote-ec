@@ -388,7 +388,7 @@ export async function listOrders(actor: Actor, opts: { role: OrderRole; cursor?:
 }
 
 /** System read for notifiers (no actor): the two businesses on an order. Null for unknown or malformed ids. */
-export async function getOrderParties(orderId: string): Promise<{ buyerBusinessId: string; sellerBusinessId: string } | null> {
+export async function getOrderParties(orderId: string): Promise<{ buyerBusinessId: string; sellerBusinessId: string; matchId: string | null } | null> {
   if (!UUID.test(orderId)) return null;
-  return prisma.order.findUnique({ where: { id: orderId }, select: { buyerBusinessId: true, sellerBusinessId: true } });
+  return prisma.order.findUnique({ where: { id: orderId }, select: { buyerBusinessId: true, sellerBusinessId: true, matchId: true } });
 }

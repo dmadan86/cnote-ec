@@ -1,12 +1,15 @@
 import { getTranslations } from "next-intl/server";
+import { LanguageSwitcher } from "@/i18n/language-switcher";
 import { Logo } from "@/features/shell/logo";
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   const t = await getTranslations("auth.aside");
   return (
     <div className="flex min-h-dvh flex-col bg-canvas">
-      <header className="px-4 py-4 sm:px-8">
+      <header className="flex items-center justify-between gap-3 px-4 py-4 sm:px-8">
         <Logo />
+        {/* choose the language before signing up (vernacular-first, ADR-004) */}
+        <LanguageSwitcher />
       </header>
       <main className="mx-auto grid w-full max-w-5xl flex-1 items-center gap-10 px-4 pb-12 md:grid-cols-2">
         <aside className="hidden md:block">

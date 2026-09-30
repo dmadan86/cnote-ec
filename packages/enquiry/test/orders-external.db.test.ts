@@ -107,7 +107,7 @@ describe("markOrderEscrowed (EscrowFunded)", () => {
     expect(await markOrderEscrowed("nope")).toBe(false);
     const o2 = await prisma.order.create({ data: { buyerBusinessId: buyer.businessId, sellerBusinessId: seller.businessId, externalRef: `test:${randomUUID()}` } });
     orderIds.push(o2.id);
-    await worker.handlers!.EscrowFunded!({ id: 1, type: "EscrowFunded", version: 1, aggregateType: "escrow", aggregateId: "e", occurredAt: new Date().toISOString(), payload: { escrowId: "e", orderId: o2.id, amountPaise: 1, partnerRef: "p" } });
+    await worker.handlers!.EscrowFunded!({ id: 1, type: "EscrowFunded", version: 1, aggregateType: "escrow", aggregateId: "e", occurredAt: new Date().toISOString(), payload: { escrowId: "e", orderId: o2.id, amountPaise: 1, partnerRef: "p", matchId: null } });
     expect((await prisma.order.findUniqueOrThrow({ where: { id: o2.id } })).settlement).toBe("escrow");
   });
 });
@@ -118,7 +118,7 @@ describe("getOrderParties (system read for notifiers)", () => {
     const network = await party("n5");
     const { orderId } = await recordExternalOrder(input(seller.businessId), network.businessId);
     orderIds.push(orderId);
-    expect(await getOrderParties(orderId)).toEqual({ buyerBusinessId: network.businessId, sellerBusinessId: seller.businessId });
+    expect(await getOrderParties(orderId)).toEqual({ buyerBusinessId: network.businessId, sellerBusinessId: seller.businessId, matchId: null });
     expect(await getOrderParties(randomUUID())).toBeNull();
     expect(await getOrderParties("nope")).toBeNull();
   });

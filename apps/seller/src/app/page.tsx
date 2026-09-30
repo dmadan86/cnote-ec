@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { load } from "@/lib/safe";
 import { Logo } from "@/features/shell/logo";
 import { billing, currentSessionSafe } from "@/lib/services";
+import { LanguageSwitcher } from "@/i18n/language-switcher";
 
 const VALUE = [
   { icon: Users, key: "cap" },

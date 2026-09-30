@@ -96,7 +96,8 @@ export interface DomainEventPayloads {
   PaymentRefunded: { paymentOrderId: string; businessId: string; amountPaise: number; creditNoteNumber: string | null };
   // escrow via PA partner (ADR-012, Phase 2, flag ESCROW_ENABLED)
   EscrowCreated:          { escrowId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; amountPaise: number; feePaise: number; partner: string };
-  EscrowFunded:           { escrowId: string; orderId: string; amountPaise: number; partnerRef: string };
+  /** v2 adds matchId (null for network orders) so the ADR-012 gate "accepted leads -> escrowed orders" is measurable */
+  EscrowFunded:           { escrowId: string; orderId: string; amountPaise: number; partnerRef: string; matchId: string | null };
   EscrowMilestoneReached: { escrowId: string; orderId: string; milestone: "confirmed" | "dispatched" | "delivered" | "accepted" };
   EscrowFrozen:           { escrowId: string; orderId: string; disputeId: string };
   EscrowUnfrozen:         { escrowId: string; orderId: string; disputeId: string };
@@ -257,7 +258,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   PriceBenchmarkPublished: 1,
   OndcIssueReceived: 1,
   EscrowCreated: 1,
-  EscrowFunded: 1,
+  EscrowFunded: 2,
   EscrowMilestoneReached: 1,
   EscrowFrozen: 1,
   EscrowUnfrozen: 1,

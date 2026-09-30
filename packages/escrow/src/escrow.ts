@@ -3,7 +3,7 @@
 import { issueInvoiceTx, platformSupplier, type Recipient } from "@cnote/billing";
 import { DomainError, emit } from "@cnote/core";
 import { prisma, type EscrowAgreement, type Tx } from "@cnote/db";
-import { getOrder, listOrders, transitionOrder, type Actor, type OrderView } from "@cnote/enquiry";
+import { getOrder, getOrderParties, listOrders, transitionOrder, type Actor, type OrderView } from "@cnote/enquiry";
 import { getBusinessBillingProfile } from "@cnote/identity";
 import { assertEscrowEnabled, autoReleaseDays, DAY_MS, escrowEnabled, feeBps, feeCapPaise, fundingTtlHours, gstRateBps, minAmountPaise } from "./config";
 import { computeFee, feeBreakdown } from "./fee";
@@ -306,7 +306,8 @@ export async function applyFundingTx(tx: Tx, escrowId: string, amountPaise: numb
     autoReleaseAt: e.deliveredAt && !e.frozen ? new Date(e.deliveredAt.getTime() + autoReleaseDays() * DAY_MS) : null,
   });
   row = (await stamp(tx, row, "funded", "buyer")).row;
-  await emit(tx, "EscrowFunded", { type: "escrow", id: e.id }, { escrowId: e.id, orderId: e.orderId, amountPaise, partnerRef: partnerRef ?? e.partnerRef ?? "" });
+  const matchId = (await getOrderParties(e.orderId))?.matchId ?? null; // lead attribution for the ADR-012 conversion gate
+  await emit(tx, "EscrowFunded", { type: "escrow", id: e.id }, { escrowId: e.id, orderId: e.orderId, amountPaise, partnerRef: partnerRef ?? e.partnerRef ?? "", matchId });
   return "funded";
 }
 

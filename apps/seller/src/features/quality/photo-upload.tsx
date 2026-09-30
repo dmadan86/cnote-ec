@@ -32,7 +32,8 @@ export function PhotoUpload({ orderId, maxPhotos, video }: { orderId: string; ma
   const videoInput = useRef<HTMLInputElement>(null);
   const camera = useRef<HTMLInputElement>(null);
   const gallery = useRef<HTMLInputElement>(null);
-  const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
+  // blob: object URLs of the seller's own files only (never a string that could carry markup or javascript:)
+  const previews = useMemo(() => files.map((f) => safeBlobUrl(URL.createObjectURL(f))), [files]);
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
 
   function add(list: FileList | null) {
@@ -119,4 +120,8 @@ export function PhotoUpload({ orderId, maxPhotos, video }: { orderId: string; ma
       <p className="text-xs text-muted">{t("privacy")}</p>
     </div>
   );
+}
+
+function safeBlobUrl(u: string): string {
+  return u.startsWith("blob:") ? u : "";
 }
