@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { moderateHeuristic } from "../src/heuristic/moderate";
 
 const verdict = (text: string) => moderateHeuristic({ text }).output.verdict;
+const flags = (text: string) => moderateHeuristic({ text }).output.flags;
 
 describe("moderation corpus: must block", () => {
   it.each([
@@ -62,17 +63,45 @@ describe("moderation properties of the output", () => {
   });
 });
 
-// KNOWN GAPS (heuristic v1): obfuscation the regex rules do not see. `it.fails` documents the DESIRED behaviour and
+// Formerly KNOWN GAPS of heuristic v1 (obfuscation + two false positives), closed by the v2 evasion-aware pass.
 // passes while the gap exists; when the heuristic learns to catch these, the test flips red so it can be promoted.
 describe("KNOWN GAPS: obfuscation and homoglyphs", () => {
-  it.fails("letter-spaced words: p i s t o l", () => expect(verdict("p i s t o l")).toBe("block"));
-  it.fails("leetspeak digit substitution: tramad0l", () => expect(verdict("tramad0l")).toBe("block"));
-  it.fails("leetspeak symbol substitution: tr@madol", () => expect(verdict("tr@madol")).toBe("block"));
-  it.fails("leetspeak in narcotics: c0caine", () => expect(verdict("c0caine")).toBe("block"));
-  it.fails("cyrillic homoglyph a in tramаdol", () => expect(verdict("tramаdol")).toBe("block"));
-  it.fails("hyphen-split word: tram-adol", () => expect(verdict("tram-adol")).toBe("block"));
-  it.fails("spaced narcotics: gan ja", () => expect(verdict("gan ja")).toBe("block"));
-  it.fails("mercury thermometer (hazardous, only 'mercury metal/liquid' matches)", () => expect(verdict("mercury thermometer")).not.toBe("allow"));
-  it.fails("false positive: colour 'ivory white paint' should not be blocked as wildlife", () => expect(verdict("ivory white paint")).not.toBe("block"));
-  it.fails("false positive: 'bomb calorimeter' lab instrument", () => expect(verdict("bomb calorimeter")).not.toBe("block"));
+  it("letter-spaced words: p i s t o l", () => expect(verdict("p i s t o l")).toBe("block"));
+  it("leetspeak digit substitution: tramad0l", () => expect(verdict("tramad0l")).toBe("block"));
+  it("leetspeak symbol substitution: tr@madol", () => expect(verdict("tr@madol")).toBe("block"));
+  it("leetspeak in narcotics: c0caine", () => expect(verdict("c0caine")).toBe("block"));
+  it("cyrillic homoglyph a in tramаdol", () => expect(verdict("tramаdol")).toBe("block"));
+  it("hyphen-split word: tram-adol", () => expect(verdict("tram-adol")).toBe("block"));
+  it("spaced narcotics: gan ja", () => expect(verdict("gan ja")).toBe("block"));
+  it("mercury thermometer (hazardous, only 'mercury metal/liquid' matches)", () => expect(verdict("mercury thermometer")).not.toBe("allow"));
+  it("false positive: colour 'ivory white paint' should not be blocked as wildlife", () => expect(verdict("ivory white paint")).not.toBe("block"));
+  it("false positive: 'bomb calorimeter' lab instrument", () => expect(verdict("bomb calorimeter")).not.toBe("block"));
+});
+
+// v2 must not create new false positives on everyday B2B text while hunting obfuscation.
+describe("evasion pass does not flag legitimate listings", () => {
+  it.each([
+    "organ jar for pharmacy display", "hot-melt glue gun 60W", "bath bomb gift set", "ivory colour silk saree", "ivory white wall paint 20L",
+    "SKU 7A-120 m8 bolts", "10mg sample sachets of food colour", "l shaped steel angle", "co2 cylinder 10 kg",
+    "a to z stationery kit", "i am a manufacturer of kraft boxes", "tr-01 tractor spare", "b2b bulk c0rrugated boxes",
+  ])("allows: %s", (t) => expect(verdict(t)).toBe("allow"));
+
+  it.each([
+    ["p.i.s.t.o.l for sale", "weapons"], ["cod-eine syrup", "pharma"], ["h e r o i n", "narcotics"], ["dyn@mite sticks", "explosives"], ["ivоry carving", "wildlife"],
+  ])("blocks obfuscated: %s", (t, cls) => {
+    expect(verdict(t)).toBe("block");
+    expect(flags(t)).toContain(cls);
+  });
+});
+
+describe("evasion pass internals", () => {
+  it("reports a class once when both de-obfuscation paths find it", () => {
+    const out = moderateHeuristic({ text: "tramad0l and t r a m a d o l" }).output;
+    expect(out.verdict).toBe("block");
+    expect(out.flags).toEqual(["pharma"]);
+  });
+  it("leaves non-look-alike Greek/Cyrillic letters alone (no false folding)", () => {
+    expect(verdict("λ-sensor module")).toBe("allow");
+    expect(verdict("Жаккард fabric roll")).toBe("allow");
+  });
 });
