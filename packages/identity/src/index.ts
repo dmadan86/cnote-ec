@@ -32,3 +32,5 @@ export * from "./mfa";
 export * from "./retention";
 export * from "./otp-senders";
 export { findOrCreatePersonByVerifiedPhone } from "./verified-phone";
+export * from "./kyc";
+export * from "./audits";

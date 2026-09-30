@@ -1,5 +1,5 @@
 {
-  "name": "@cnote/billing",
+  "name": "@cnote/promotions",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,10 +11,12 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@cnote/billing": "workspace:*",
+    "@cnote/catalogue": "workspace:*",
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",
     "@cnote/identity": "workspace:*",
-    "pdf-lib": "^1.17.1",
+    "@cnote/media": "workspace:*",
     "zod": "^4.6.5"
   }
 }

@@ -104,3 +104,4 @@ export { validateAttributes, coerceAttributes, LANGS, SKU_RE } from "./validate"
 export * from "./retention";
 export * from "./voice";
 export * from "./photo-draft";
+export * from "./price-history";

@@ -1,0 +1,306 @@
+// Owned by @cnote/ads. Sponsored placements (ADR-024). Money moves only through @cnote/billing's ad wallet.
+// Organic ranking (ADR-009) never reads any model in this file.
+
+enum AdObjective {
+  enquiries   // default and only Phase 1.5 objective
+  visibility  // Phase 2+
+
+  @@map("ad_objective")
+}
+
+enum AdCampaignStatus {
+  draft
+  pending_review
+  approved     // reviewed; serves when scheduled, funded and eligible
+  active       // derived/cached state, written by the scheduler job for reporting
+  paused       // by the seller
+  exhausted    // daily or total budget hit (resumes next IST day for daily)
+  suspended    // by staff (ads.suspend)
+  rejected
+  ended
+
+  @@map("ad_campaign_status")
+}
+
+enum AdReviewStatus {
+  pending
+  approved
+  rejected
+
+  @@map("ad_review_status")
+}
+
+enum AdKeywordMatch {
+  exact
+  phrase
+  broad
+
+  @@map("ad_keyword_match")
+}
+
+enum AdSurface {
+  search
+  category
+  product_similar
+  home_rail   // Phase 2
+  brand_banner // Phase 3 (creative review)
+
+  @@map("ad_surface")
+}
+
+enum AdClickValidity {
+  valid
+  pending   // real-time rules passed; async re-scoring window (72h) still open
+  invalid
+  self_click // never charged
+
+  @@map("ad_click_validity")
+}
+
+enum AdPricingModel {
+  rate_card // Phase 1.5: fixed CPC by category, ranked by relevance x trust
+  gsp       // Phase 2: generalized second price
+  cpm       // Phase 3: brand banners
+
+  @@map("ad_pricing_model")
+}
+
+model AdCampaign {
+  id                String           @id @default(uuid()) @db.Uuid
+  sellerBusinessId  String           @map("seller_business_id") @db.Uuid
+  name              String
+  objective         AdObjective      @default(enquiries)
+  status            AdCampaignStatus @default(draft)
+  dailyBudgetPaise  BigInt           @map("daily_budget_paise") // min Rs 100; IST day; never exceeded
+  totalBudgetPaise  BigInt?          @map("total_budget_paise")
+  startsAt          DateTime         @map("starts_at") @db.Timestamptz
+  endsAt            DateTime?        @map("ends_at") @db.Timestamptz // null = until paused
+  /// staff on-behalf creation during the pilot (design phase 1.5b); null = seller-created
+  createdByStaffId  String?          @map("created_by_staff_id") @db.Uuid
+  submittedAt       DateTime?        @map("submitted_at") @db.Timestamptz
+  reviewedAt        DateTime?        @map("reviewed_at") @db.Timestamptz
+  reviewedBy        String?          @map("reviewed_by") @db.Uuid // StaffMember id
+  rejectionReason   String?          @map("rejection_reason")
+  /// why an approved campaign is not serving right now: "wallet" | "eligibility" | "budget" | null
+  haltReason        String?          @map("halt_reason")
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  seller      Business           @relation(fields: [sellerBusinessId], references: [id])
+  adGroups    AdGroup[]
+  clicks      AdClick[]
+  settlements AdSpendSettlement[]
+  reviews     AdReviewAction[]
+
+  @@index([sellerBusinessId, status])
+  @@index([status, startsAt])
+  @@map("ad_campaigns")
+}
+
+model AdGroup {
+  id          String         @id @default(uuid()) @db.Uuid
+  campaignId  String         @map("campaign_id") @db.Uuid
+  name        String
+  surfaces    AdSurface[]    @default([search, category])
+  /// Phase 1.5: null (rate card sets the price). Phase 2: seller's max CPC. Never above the category max-CPC cap.
+  maxCpcPaise BigInt?        @map("max_cpc_paise")
+  /// targeting (all optional; empty = no restriction on that dimension)
+  categoryIds String[]       @default([]) @map("category_ids") // Category.id (uuid as text; cross-module, no FK)
+  states      String[]       @default([])
+  pincodePrefixes String[]   @default([]) @map("pincode_prefixes") // 3-digit prefixes
+  /// reserved for Phase 2 buyer-type targeting; validated by zod in code
+  extraTargeting Json        @default("{}") @map("extra_targeting")
+  status      AdReviewStatus @default(pending)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  campaign AdCampaign        @relation(fields: [campaignId], references: [id])
+  listings AdGroupListing[]
+  keywords AdKeyword[]
+
+  @@index([campaignId])
+  @@map("ad_groups")
+}
+
+/// A listing promoted in an ad group. Each row is reviewed independently so one bad listing does not sink a campaign.
+model AdGroupListing {
+  id            String         @id @default(uuid()) @db.Uuid
+  adGroupId     String         @map("ad_group_id") @db.Uuid
+  listingId     String         @map("listing_id") @db.Uuid
+  reviewStatus  AdReviewStatus @default(pending)
+  reviewNote    String?        @map("review_note")
+  /// latest eligibility verdict, refreshed by the eligibility sweep; the serving path uses the Redis snapshot
+  eligible      Boolean        @default(false)
+  ineligibleReason String?     @map("ineligible_reason") // "trust_below_floor" | "listing_unpublished" | "no_approved_image" | ...
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  adGroup AdGroup @relation(fields: [adGroupId], references: [id])
+  listing Listing @relation(fields: [listingId], references: [id])
+
+  @@unique([adGroupId, listingId])
+  @@index([listingId])
+  @@map("ad_group_listings")
+}
+
+model AdKeyword {
+  id           String         @id @default(uuid()) @db.Uuid
+  adGroupId    String         @map("ad_group_id") @db.Uuid
+  text         String
+  /// normaliseQuery() output (handles transliteration / Hinglish), used for matching
+  normalised   String
+  matchType    AdKeywordMatch @default(phrase) @map("match_type")
+  negative     Boolean        @default(false)
+  reviewStatus AdReviewStatus @default(pending) @map("review_status")
+  reviewNote   String?        @map("review_note") // "trademark" | "competitor_brand" | "irrelevant" | ...
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  adGroup AdGroup @relation(fields: [adGroupId], references: [id])
+
+  @@unique([adGroupId, normalised, matchType, negative])
+  @@index([normalised])
+  @@map("ad_keywords")
+}
+
+/// Public rate card and auction parameters per category group and surface (staff with ads.settings).
+/// Versioned by effectiveFrom so a price change never rewrites what an advertiser was shown or charged.
+model AdRateCard {
+  id            String         @id @default(uuid()) @db.Uuid
+  /// null = platform default; otherwise a Category.id (applies to its subtree)
+  categoryId    String?        @map("category_id") @db.Uuid
+  surface       AdSurface
+  pricingModel  AdPricingModel @default(rate_card) @map("pricing_model")
+  /// rate_card: the fixed CPC. gsp: the reserve price.
+  cpcPaise      BigInt         @map("cpc_paise")
+  maxCpcPaise   BigInt?        @map("max_cpc_paise") // cap so large sellers cannot price out MSMEs
+  effectiveFrom DateTime       @map("effective_from") @db.Timestamptz
+  createdBy     String?        @map("created_by") @db.Uuid
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([categoryId, surface, effectiveFrom])
+  @@map("ad_rate_cards")
+}
+
+/// Runtime knobs as data so staff can change them without a deploy: minRelevance, minTrust, minOrganicForAds,
+/// maxAdShare, frequencyCap, attributionWindowDays, invalidClickRescoreHours. Written only by ads.settings.
+model AdConfig {
+  key       String   @id
+  value     Json
+  updatedBy String?  @map("updated_by") @db.Uuid
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("ad_config")
+}
+
+/// One row per click. Impressions are NOT stored per row (Redis counters, rolled up hourly below).
+model AdClick {
+  id             String          @id @default(uuid()) @db.Uuid
+  campaignId     String          @map("campaign_id") @db.Uuid
+  adGroupId      String          @map("ad_group_id") @db.Uuid
+  listingId      String          @map("listing_id") @db.Uuid
+  sellerBusinessId String        @map("seller_business_id") @db.Uuid
+  surface        AdSurface
+  slot           Int             @db.SmallInt // 1-based position within the sponsored placement
+  /// price locked at decision time (never above the bid / rate card); charged only when validity = valid
+  chargedPaise   BigInt          @map("charged_paise")
+  validity       AdClickValidity @default(pending)
+  invalidReason  String?         @map("invalid_reason") // "duplicate" | "bot_ua" | "datacenter_asn" | "no_dwell" | "ip_burst" | "self" | ...
+  /// pseudonymous first-party id (cnote_vid) hashed with a rotating salt; used only for capping and fraud
+  visitorHash    String          @map("visitor_hash")
+  buyerPersonId  String?         @map("buyer_person_id") @db.Uuid
+  buyerBusinessId String?        @map("buyer_business_id") @db.Uuid
+  /// coarse network fingerprint for fraud clustering (IPv4 /24 or IPv6 /48 hash + ASN)
+  netHash        String          @map("net_hash")
+  userAgentClass String          @map("user_agent_class") // "browser" | "app" | "bot" | "unknown"
+  queryNormalised String?        @map("query_normalised")
+  /// one-time token id of the signed click URL; unique => replays cannot double-charge
+  tokenId        String          @unique @map("token_id")
+  settlementId   String?         @map("settlement_id") @db.Uuid
+  rescoredAt     DateTime?       @map("rescored_at") @db.Timestamptz
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  campaign   AdCampaign          @relation(fields: [campaignId], references: [id])
+  settlement AdSpendSettlement?  @relation(fields: [settlementId], references: [id])
+  attributions AdAttribution[]
+
+  @@index([campaignId, createdAt])
+  @@index([validity, createdAt])
+  @@index([visitorHash, listingId, createdAt])
+  @@index([netHash, createdAt])
+  @@index([sellerBusinessId, createdAt])
+  @@map("ad_clicks")
+}
+
+/// Hourly served-impression counts flushed from Redis. Used for CTR, pCTR and lost-impression-share reporting.
+model AdImpressionRollup {
+  id          String    @id @default(uuid()) @db.Uuid
+  hour        DateTime  @db.Timestamptz // truncated to the hour
+  campaignId  String    @map("campaign_id") @db.Uuid
+  listingId   String    @map("listing_id") @db.Uuid
+  categoryId  String?   @map("category_id") @db.Uuid
+  surface     AdSurface
+  slot        Int       @db.SmallInt
+  served      Int
+  /// candidate-not-served counts for lost-impression-share (budget vs quality)
+  lostBudget  Int       @default(0) @map("lost_budget")
+  lostQuality Int       @default(0) @map("lost_quality")
+
+  @@unique([hour, campaignId, listingId, surface, slot])
+  @@index([campaignId, hour])
+  @@map("ad_impression_rollups")
+}
+
+/// One settlement of valid click spend into the wallet per (campaign, window). Idempotent on (campaignId, windowStart).
+model AdSpendSettlement {
+  id            String    @id @default(uuid()) @db.Uuid
+  campaignId    String    @map("campaign_id") @db.Uuid
+  sellerBusinessId String @map("seller_business_id") @db.Uuid
+  windowStart   DateTime  @map("window_start") @db.Timestamptz
+  windowEnd     DateTime  @map("window_end") @db.Timestamptz
+  validClicks   Int       @map("valid_clicks")
+  spendPaise    BigInt    @map("spend_paise")
+  walletEntryId String?   @unique @map("wallet_entry_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  campaign AdCampaign @relation(fields: [campaignId], references: [id])
+  clicks   AdClick[]
+
+  @@unique([campaignId, windowStart])
+  @@map("ad_spend_settlements")
+}
+
+/// Ad-attributed enquiry: an enquiry by the same person/business on that seller's listing within the window after a click.
+model AdAttribution {
+  id          String   @id @default(uuid()) @db.Uuid
+  clickId     String   @map("click_id") @db.Uuid
+  enquiryId   String   @map("enquiry_id") @db.Uuid // Enquiry.id (cross-module, no FK)
+  campaignId  String   @map("campaign_id") @db.Uuid
+  listingId   String   @map("listing_id") @db.Uuid
+  lagSeconds  Int      @map("lag_seconds")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  click AdClick @relation(fields: [clickId], references: [id])
+
+  @@unique([enquiryId]) // an enquiry is attributed to at most one click (last click)
+  @@index([campaignId, createdAt])
+  @@map("ad_attributions")
+}
+
+/// Append-only staff review log for campaigns, ad groups, listings and keywords.
+model AdReviewAction {
+  id          String   @id @default(uuid()) @db.Uuid
+  campaignId  String   @map("campaign_id") @db.Uuid
+  /// "campaign" | "ad_group" | "listing" | "keyword"
+  subjectType String   @map("subject_type")
+  subjectId   String   @map("subject_id") @db.Uuid
+  decision    AdReviewStatus
+  /// reason codes: irrelevant_keyword | trademark | prohibited_category | misleading_listing | low_quality_listing | other
+  reasonCode  String?  @map("reason_code")
+  note        String?
+  staffId     String   @map("staff_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  campaign AdCampaign @relation(fields: [campaignId], references: [id])
+
+  @@index([campaignId, createdAt])
+  @@map("ad_review_actions")
+}

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@cnote/admin": "workspace:*",
+    "@cnote/ads": "workspace:*",
     "@cnote/ai": "workspace:*",
     "@cnote/billing": "workspace:*",
     "@cnote/catalogue": "workspace:*",
@@ -28,6 +29,7 @@
     "@cnote/next-kit": "workspace:*",
     "@cnote/notifications": "workspace:*",
     "@cnote/observability": "workspace:*",
+    "@cnote/promotions": "workspace:*",
     "@cnote/reviews": "workspace:*",
     "@cnote/security": "workspace:*",
     "@cnote/storefront": "workspace:*",

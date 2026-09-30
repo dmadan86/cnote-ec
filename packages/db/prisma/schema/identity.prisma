@@ -105,6 +105,14 @@ model Business {
   dealReports   DealReport[]
   subscriptions Subscription[]
   creditLedger  CreditLedgerEntry[]
+  // ads + promotions (ADR-024/025)
+  adCampaigns        AdCampaign[]
+  adWalletEntries    AdWalletEntry[]
+  adTopUps           AdTopUp[]
+  listingOffers      ListingOffer[]
+  couponRedemptions  CouponRedemption[]
+  referralsMade      Referral[] @relation("Referrer")
+  referralsReceived  Referral[] @relation("Referee")
 
   @@index([isSeller, trustScore])
   @@map("businesses")
@@ -208,4 +216,84 @@ model PersonMfa {
   updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("person_mfa")
+}
+
+// ---- T2 / T3 verification (ADR-003) — owned by @cnote/identity ------------------------------------------------
+
+enum KycStatus {
+  initiated
+  in_progress // with the provider (document capture / video call)
+  review // automated checks ambiguous → staff decision
+  approved
+  rejected
+  expired
+
+  @@map("kyc_status")
+}
+
+/// T2: document forensics (GST cert, PAN, bank proof, address proof) + liveness / video KYC via a provider port.
+model KycSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  businessId       String    @map("business_id") @db.Uuid
+  personId         String    @map("person_id") @db.Uuid // the authorised signatory doing KYC
+  provider         String // "hyperverge" | "signzy" | "idfy" | "mock"
+  providerRef      String?   @unique @map("provider_ref")
+  status           KycStatus @default(initiated)
+  /// liveness / face-match scores and provider verdicts (no raw biometrics stored)
+  livenessScore    Float?    @map("liveness_score") @db.Real
+  faceMatchScore   Float?    @map("face_match_score") @db.Real
+  outcome          Json      @default("{}")
+  reviewNote       String?   @map("review_note")
+  reviewedBy       String?   @map("reviewed_by") @db.Uuid
+  completedAt      DateTime? @map("completed_at") @db.Timestamptz
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  documents KycDocument[]
+
+  @@index([businessId, createdAt])
+  @@index([status, createdAt])
+  @@map("kyc_sessions")
+}
+
+model KycDocument {
+  id            String   @id @default(uuid()) @db.Uuid
+  sessionId     String   @map("session_id") @db.Uuid
+  /// "gst_certificate" | "pan_card" | "bank_proof" | "address_proof" | "udyam_certificate"
+  docType       String   @map("doc_type")
+  /// private media key; purged after the KYC retention window
+  storageKey    String?  @map("storage_key")
+  sha256        String
+  /// VLM/OCR extraction: { name, pan, gstin, address, issueDate, … } (PAN/Aadhaar stored masked)
+  extracted     Json     @default("{}")
+  /// forensic checks: { tamperScore, fontConsistency, metadataAnomalies, matchesDeclared: {...} }
+  checks        Json     @default("{}")
+  verdict       String   @default("pending") // pending | pass | fail | review
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  session KycSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("kyc_documents")
+}
+
+/// T3: physical / third-party audit by a partner agency (SGS, TÜV, local) when a category demands it.
+model VerificationAudit {
+  id            String    @id @default(uuid()) @db.Uuid
+  businessId    String    @map("business_id") @db.Uuid
+  partner       String // agency name / partner code
+  status        String    @default("requested") // requested | scheduled | completed | failed | cancelled
+  scheduledFor  DateTime? @map("scheduled_for") @db.Timestamptz
+  /// private media key of the audit report
+  reportKey     String?   @map("report_key")
+  findings      Json      @default("{}")
+  result        String? // pass | fail | conditional
+  validUntil    DateTime? @map("valid_until") @db.Timestamptz
+  requestedBy   String?   @map("requested_by") @db.Uuid // staff id
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([businessId, createdAt])
+  @@index([status])
+  @@map("verification_audits")
 }

@@ -7,8 +7,8 @@ const nextConfig: NextConfig = {
   // Bulk import uploads (CSV/XLSX/ZIP with images) stream through the proxy: allow up to 200 MB.
   experimental: { proxyClientMaxBodySize: "200mb" },
   // Workspace packages ship TypeScript source.
-  transpilePackages: ["@cnote/wishlist", "@cnote/compliance", "@cnote/metrics", "@cnote/whatsapp", "@cnote/bulk", "@cnote/storefront", "@cnote/domains", "@cnote/security", "@cnote/leadgen", "@cnote/templates", "@cnote/email", "@cnote/notifications", "@cnote/developer", "@cnote/observability", "@cnote/media", "@cnote/reviews", "@cnote/next-kit", "@cnote/ui", "@cnote/core", "@cnote/ai", "@cnote/identity", "@cnote/catalogue", "@cnote/billing", "@cnote/enquiry", "@cnote/search"],
-  serverExternalPackages: ["exceljs", "@cnote/live-db", "juice", "sanitize-html", "mustache", "@cnote/db", "@prisma/client", "@prisma/adapter-pg", "pg", "ioredis"],
+  transpilePackages: ["@cnote/ads", "@cnote/promotions", "@cnote/wishlist", "@cnote/compliance", "@cnote/metrics", "@cnote/whatsapp", "@cnote/bulk", "@cnote/storefront", "@cnote/domains", "@cnote/security", "@cnote/leadgen", "@cnote/templates", "@cnote/email", "@cnote/notifications", "@cnote/developer", "@cnote/observability", "@cnote/media", "@cnote/reviews", "@cnote/next-kit", "@cnote/ui", "@cnote/core", "@cnote/ai", "@cnote/identity", "@cnote/catalogue", "@cnote/billing", "@cnote/enquiry", "@cnote/search"],
+  serverExternalPackages: ["pdf-lib", "exceljs", "@cnote/live-db", "juice", "sanitize-html", "mustache", "@cnote/db", "@prisma/client", "@prisma/adapter-pg", "pg", "ioredis"],
 };
 
 // Source-map upload + release tagging only when Sentry build credentials are present; the runtime

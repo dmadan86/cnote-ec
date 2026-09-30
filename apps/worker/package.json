@@ -11,6 +11,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@cnote/ads": "workspace:*",
     "@cnote/ai": "workspace:*",
     "@cnote/billing": "workspace:*",
     "@cnote/bulk": "workspace:*",
@@ -27,6 +28,7 @@
     "@cnote/metrics": "workspace:*",
     "@cnote/notifications": "workspace:*",
     "@cnote/observability": "workspace:*",
+    "@cnote/promotions": "workspace:*",
     "@cnote/reviews": "workspace:*",
     "@cnote/search": "workspace:*",
     "@cnote/security": "workspace:*",

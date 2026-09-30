@@ -33,6 +33,22 @@ export const PRIVILEGES = [
   "metrics.read", // Phase-1 gate scorecard + metric alerts (aggregates only; resolving an alert is audited)
   "compliance.read", // grievance + appeal queues, retention run log, residency status (contacts are masked)
   "compliance.manage", // respond to grievances, decide appeals, trigger retention dry-runs (all audited)
+  "ads.read",
+  "ads.review",
+  "ads.suspend",
+  "ads.fraud.review",
+  "ads.settings",
+  "promotions.read",
+  "promotions.manage",
+  "promotions.publish",
+  "offers.review",
+  "coupons.read",
+  "coupons.manage",
+  "referrals.review",
+  "payments.read",
+  "payments.refund",
+  "kyc.review",
+  "audits.manage",
 ] as const;
 export type Privilege = (typeof PRIVILEGES)[number];
 
@@ -49,15 +65,16 @@ export const ROLE_PRIVILEGES: Record<Role, readonly Privilege[]> = {
     "reviews.read", "reviews.resolve", "listings.moderate", "enquiries.review", "businesses.read", "ai.decisions.read",
     "ugc.read", "ugc.moderate", "images.moderate", "api_keys.read", "api_keys.revoke", "queues.read",
     "storefronts.review", "metrics.read", "compliance.read", "compliance.manage",
+    "ads.read", "ads.review", "ads.suspend", "ads.fraud.review", "offers.review", "promotions.read", "kyc.review",
   ],
   /** Business verification (ADR-003). Sees the queue read-only for context. */
-  verification_officer: ["businesses.read", "businesses.verify", "reviews.read"],
+  verification_officer: ["businesses.read", "businesses.verify", "reviews.read", "kyc.review", "audits.manage"],
   /** Customer support: look up businesses and their credit ledger; cannot change anything. */
-  support: ["businesses.read", "billing.read", "reviews.read", "ugc.read", "api_keys.read", "templates.read", "queues.read", "compliance.read"],
+  support: ["businesses.read", "billing.read", "reviews.read", "ugc.read", "api_keys.read", "templates.read", "queues.read", "compliance.read", "ads.read", "promotions.read", "coupons.read", "referrals.review", "payments.read"],
   /** Marketing/CRM: owns email + notification copy and layouts (publishing goes live to users). */
-  marketing: ["templates.read", "templates.manage", "templates.publish", "businesses.read", "storefronts.templates", "leadgen.read", "metrics.read"],
+  marketing: ["templates.read", "templates.manage", "templates.publish", "businesses.read", "storefronts.templates", "leadgen.read", "metrics.read", "promotions.read", "promotions.manage", "promotions.publish", "coupons.read", "coupons.manage", "ads.read"],
   /** Finance: ledger visibility and (future) credit adjustments, plus audit visibility for reconciliation. */
-  finance: ["billing.read", "billing.adjust", "businesses.read", "audit.read", "metrics.read"],
+  finance: ["billing.read", "billing.adjust", "businesses.read", "audit.read", "metrics.read", "ads.read", "ads.fraud.review", "coupons.read", "payments.read", "payments.refund"],
   /** Read-only observer: queue, directory, AI decisions. No billing, staff or audit data. */
   viewer: READ_ONLY,
 };

@@ -74,6 +74,10 @@ model Listing {
   category Category         @relation(fields: [categoryId], references: [id])
   images   ListingImage[]
   versions ListingVersion[] @relation("ListingVersions")
+  priceHistory   ListingPriceHistory[]
+  adGroupListings AdGroupListing[]
+  promotionItems PromotionItem[]
+  offers         ListingOffer[]
   liveVersion ListingVersion? @relation("ListingLiveVersion", fields: [liveVersionId], references: [id])
 
   @@unique([sellerBusinessId, sku])
@@ -183,4 +187,19 @@ model VoiceNote {
   @@index([sellerBusinessId, createdAt])
   @@index([purgeAfter])
   @@map("voice_notes")
+}
+
+/// Append-only price history, written whenever Listing.pricePaise changes (and on publish).
+/// The promotions module derives the honest "reference price" (lowest price in the preceding 30 days) from it.
+model ListingPriceHistory {
+  id         String   @id @default(uuid()) @db.Uuid
+  listingId  String   @map("listing_id") @db.Uuid
+  pricePaise BigInt?  @map("price_paise") // null = price removed / on request
+  priceUnit  String?  @map("price_unit")
+  effectiveFrom DateTime @default(now()) @map("effective_from") @db.Timestamptz
+
+  listing Listing @relation(fields: [listingId], references: [id])
+
+  @@index([listingId, effectiveFrom])
+  @@map("listing_price_history")
 }

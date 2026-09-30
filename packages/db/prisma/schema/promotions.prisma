@@ -1,0 +1,292 @@
+// Owned by @cnote/promotions: editorial promotions, seller offers, coupons, referrals (ADR-025).
+// No relation to the ad wallet or invoices: editorial placements are never sold (firewall with @cnote/ads).
+
+enum PromotionKind {
+  hero_banner
+  collection
+  category_spotlight
+  announcement_strip
+
+  @@map("promotion_kind")
+}
+
+enum PromotionStatus {
+  draft
+  in_review   // submitted; needs a different staff member with promotions.publish
+  approved    // shown while now is inside [startsAt, endsAt)
+  archived    // pulled early or ended
+
+  @@map("promotion_status")
+}
+
+enum PromotionSurface {
+  home_hero
+  home_strip
+  home_category_tile
+  home_panel
+  category_top
+
+  @@map("promotion_surface")
+}
+
+enum OfferKind {
+  volume_tiers
+  timed_price
+  free_delivery_moq
+
+  @@map("offer_kind")
+}
+
+enum OfferStatus {
+  draft
+  needs_review
+  active
+  rejected
+  expired
+  cancelled
+  suspended   // staff or listing-change
+
+  @@map("offer_status")
+}
+
+enum CouponKind {
+  percent
+  flat
+  extra_credits
+  ad_credit   // restricted: super_admin only; spend on ads only, non-refundable, expires
+
+  @@map("coupon_kind")
+}
+
+enum CouponStatus {
+  draft
+  active
+  paused
+  expired
+  exhausted
+
+  @@map("coupon_status")
+}
+
+enum CouponRedemptionStatus {
+  reserved  // shown at checkout, not yet paid
+  applied
+  voided    // checkout abandoned or failed
+
+  @@map("coupon_redemption_status")
+}
+
+enum ReferralStatus {
+  pending    // referee joined, not yet qualified
+  qualified  // qualifying action done; 7-day fraud hold running
+  rewarded
+  rejected
+  expired
+
+  @@map("referral_status")
+}
+
+/// Editorial, admin-curated, never sold.
+model Promotion {
+  id           String          @id @default(uuid()) @db.Uuid
+  kind         PromotionKind
+  /// code-defined layout: "hero_split" | "hero_full_bleed" | "collection_rail" | "category_spotlight" | "strip"
+  template     String
+  internalName String          @map("internal_name") // staff-facing, e.g. "Diwali gifting 2026"
+  status       PromotionStatus @default(draft)
+  surfaces     PromotionSurface[]
+  priority     Int             @default(0) // higher wins when several are live on a surface
+  startsAt     DateTime        @map("starts_at") @db.Timestamptz
+  endsAt       DateTime        @map("ends_at") @db.Timestamptz
+  /// audience: { segment: "all"|"signed_in"|"buyers"|"sellers", states?: string[], languages?: string[] }
+  audience     Json            @default("{\"segment\":\"all\"}")
+  createdBy    String          @map("created_by") @db.Uuid // StaffMember id
+  approvedBy   String?         @map("approved_by") @db.Uuid // must differ from createdBy (enforced in code)
+  approvedAt   DateTime?       @map("approved_at") @db.Timestamptz
+  archivedReason String?       @map("archived_reason")
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  contents PromotionContent[]
+  items    PromotionItem[]
+
+  @@index([status, startsAt, endsAt])
+  @@map("promotions")
+}
+
+model PromotionContent {
+  id           String  @id @default(uuid()) @db.Uuid
+  promotionId  String  @map("promotion_id") @db.Uuid
+  locale       String  // "en", "hi", ...
+  headline     String
+  subline      String?
+  ctaLabel     String? @map("cta_label")
+  ctaHref      String? @map("cta_href") // relative or allow-listed path only
+  /// object-storage key via @cnote/media (never a hotlinked URL)
+  imageKey     String? @map("image_key")
+  altText      String? @map("alt_text") // required whenever imageKey is set (enforced in code)
+
+  promotion Promotion @relation(fields: [promotionId], references: [id])
+
+  @@unique([promotionId, locale])
+  @@map("promotion_contents")
+}
+
+/// Curated collection members. Chosen on merit by staff; each must pass standard eligibility at render time.
+model PromotionItem {
+  id            String  @id @default(uuid()) @db.Uuid
+  promotionId   String  @map("promotion_id") @db.Uuid
+  /// exactly one of the three is set (CHECK constraint added in the raw-SQL migration)
+  listingId     String? @map("listing_id") @db.Uuid
+  categoryId    String? @map("category_id") @db.Uuid
+  businessId    String? @map("business_id") @db.Uuid
+  position      Int
+  /// curator's reason, kept for audit and for grievance handling
+  editorNote    String? @map("editor_note")
+
+  promotion Promotion @relation(fields: [promotionId], references: [id])
+  listing   Listing?  @relation(fields: [listingId], references: [id])
+
+  @@index([promotionId, position])
+  @@map("promotion_items")
+}
+
+model ListingOffer {
+  id               String      @id @default(uuid()) @db.Uuid
+  listingId        String      @map("listing_id") @db.Uuid
+  sellerBusinessId String      @map("seller_business_id") @db.Uuid
+  kind             OfferKind
+  status           OfferStatus @default(draft)
+  /// discriminated by kind; validated by zod:
+  ///  volume_tiers:      { tiers: [{ minQty, unitPricePaise }] }               (<= 5 tiers, qty asc, price desc)
+  ///  timed_price:       { unitPricePaise }
+  ///  free_delivery_moq: { minQty?, minOrderValuePaise?, regions?: string[] }
+  terms            Json
+  startsAt         DateTime    @map("starts_at") @db.Timestamptz
+  endsAt           DateTime?   @map("ends_at") @db.Timestamptz // required for timed_price (max 30 days)
+  /// SYSTEM-DERIVED at activation from ListingPriceHistory: lowest price in the 30 days before startsAt.
+  /// null when history < 30 days: no strike-through and no percentage is shown.
+  referencePricePaise BigInt?  @map("reference_price_paise")
+  referenceComputedAt DateTime? @map("reference_computed_at") @db.Timestamptz
+  discountBps      Int?        @map("discount_bps") // rounded DOWN from the reference price; null when no reference
+  reviewFlags      String[]    @default([]) @map("review_flags") // "deep_discount" | "below_floor" | "prior_honour_complaint"
+  reviewedBy       String?     @map("reviewed_by") @db.Uuid
+  reviewNote       String?     @map("review_note")
+  endedReason      String?     @map("ended_reason") // "expired" | "cancelled" | "listing_changed" | "suspended"
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  listing Listing        @relation(fields: [listingId], references: [id])
+  seller  Business       @relation(fields: [sellerBusinessId], references: [id])
+  reports OfferHonourReport[]
+
+  @@index([listingId, status])
+  @@index([sellerBusinessId, status])
+  @@index([status, endsAt])
+  @@map("listing_offers")
+}
+
+/// "The seller did not honour this offer". Upheld reports feed the trust score (ADR-003).
+model OfferHonourReport {
+  id                 String   @id @default(uuid()) @db.Uuid
+  offerId            String   @map("offer_id") @db.Uuid
+  reportedByBusinessId String @map("reported_by_business_id") @db.Uuid
+  enquiryId          String?  @map("enquiry_id") @db.Uuid
+  note               String?
+  /// null = open; true = upheld against the seller; false = dismissed
+  upheld             Boolean?
+  decidedBy          String?  @map("decided_by") @db.Uuid
+  decidedAt          DateTime? @map("decided_at") @db.Timestamptz
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  offer ListingOffer @relation(fields: [offerId], references: [id])
+
+  @@index([offerId])
+  @@map("offer_honour_reports")
+}
+
+model Coupon {
+  id                String       @id @default(uuid()) @db.Uuid
+  /// stored upper-case, unique; random 10+ chars for targeted codes
+  code              String       @unique
+  name              String
+  kind              CouponKind
+  status            CouponStatus @default(draft)
+  percentBps        Int?         @map("percent_bps")       // percent kind
+  maxDiscountPaise  BigInt?      @map("max_discount_paise")
+  valuePaise        BigInt?      @map("value_paise")       // flat / ad_credit
+  extraCredits      Int?         @map("extra_credits")     // extra_credits kind
+  /// plan codes it applies to; empty = all paid plans
+  planCodes         String[]     @default([]) @map("plan_codes")
+  firstPurchaseOnly Boolean      @default(true) @map("first_purchase_only")
+  minTier           Int          @default(1) @map("min_tier") @db.SmallInt // verification tier required
+  perBusinessLimit  Int          @default(1) @map("per_business_limit")
+  maxRedemptions    Int?         @map("max_redemptions")
+  redeemedCount     Int          @default(0) @map("redeemed_count") // maintained in the redeem tx (SELECT ... FOR UPDATE)
+  /// coupons never stack with each other (one per checkout); kept explicit for future policy
+  stackable         Boolean      @default(false)
+  validFrom         DateTime     @map("valid_from") @db.Timestamptz
+  validTo           DateTime     @map("valid_to") @db.Timestamptz
+  createdBy         String       @map("created_by") @db.Uuid
+  /// second approver for large values (design 6.3)
+  approvedBy        String?      @map("approved_by") @db.Uuid
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  redemptions CouponRedemption[]
+
+  @@index([status, validTo])
+  @@map("coupons")
+}
+
+/// Append-only in spirit: status moves reserved -> applied | voided; amounts are never edited.
+model CouponRedemption {
+  id             String                 @id @default(uuid()) @db.Uuid
+  couponId       String                 @map("coupon_id") @db.Uuid
+  businessId     String                 @map("business_id") @db.Uuid
+  gstin          String?                // snapshot, for the one-per-GSTIN rule
+  planCode       String?                @map("plan_code")
+  discountPaise  BigInt                 @map("discount_paise")
+  creditsGranted Int                    @default(0) @map("credits_granted")
+  status         CouponRedemptionStatus @default(reserved)
+  /// checkout reference; unique per (coupon, business) so a retry is idempotent
+  checkoutRef    String                 @map("checkout_ref")
+  subscriptionId String?                @map("subscription_id") @db.Uuid
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  appliedAt      DateTime?              @map("applied_at") @db.Timestamptz
+
+  coupon   Coupon   @relation(fields: [couponId], references: [id])
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@unique([couponId, businessId, checkoutRef])
+  @@index([couponId, status])
+  @@index([businessId, createdAt])
+  @@index([couponId, gstin])
+  @@map("coupon_redemptions")
+}
+
+model Referral {
+  id                 String         @id @default(uuid()) @db.Uuid
+  referrerBusinessId String         @map("referrer_business_id") @db.Uuid
+  /// one referrer per referee
+  refereeBusinessId  String         @unique @map("referee_business_id") @db.Uuid
+  code               String         // referrer's public code
+  status             ReferralStatus @default(pending)
+  /// "listing_published" | "first_verified_enquiry"
+  qualifyingAction   String?        @map("qualifying_action")
+  qualifiedAt        DateTime?      @map("qualified_at") @db.Timestamptz
+  holdUntil          DateTime?      @map("hold_until") @db.Timestamptz // 7-day fraud hold after qualification
+  rewardedAt         DateTime?      @map("rewarded_at") @db.Timestamptz
+  rewardCredits      Int?           @map("reward_credits") // per side; granted via billing.grantCredits (refType "referral")
+  rejectedReason     String?        @map("rejected_reason") // shown to the referrer; no silent denial
+  /// fraud signals captured at signup: shared gstin/phone/device/ip cluster flags
+  riskFlags          String[]       @default([]) @map("risk_flags")
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  referrer Business  @relation("Referrer", fields: [referrerBusinessId], references: [id])
+  referee  Business  @relation("Referee", fields: [refereeBusinessId], references: [id])
+
+  @@index([referrerBusinessId, status])
+  @@index([status, holdUntil])
+  @@map("referrals")
+}

@@ -154,3 +154,23 @@ model DealReport {
 
   @@map("deal_reports")
 }
+
+/// ADR-002: automated buyer reachability check before an "unreachable" auto-refund is granted (and on intake for
+/// low-intent enquiries). A WhatsApp/SMS ping with a one-tap reply, optionally an IVR call via a telephony port.
+model ReachabilityCheck {
+  id          String    @id @default(uuid()) @db.Uuid
+  enquiryId   String    @map("enquiry_id") @db.Uuid
+  matchId     String?   @map("match_id") @db.Uuid // set when triggered by a seller's "unreachable" report
+  channel     String // "whatsapp" | "sms" | "ivr"
+  /// sent | responded | no_response | failed
+  status      String    @default("sent")
+  /// opaque token in the reply link / button payload
+  token       String    @unique
+  respondedAt DateTime? @map("responded_at") @db.Timestamptz
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([enquiryId])
+  @@index([status, expiresAt])
+  @@map("reachability_checks")
+}

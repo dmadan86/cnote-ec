@@ -66,3 +66,182 @@ model CreditLedgerEntry {
   @@index([businessId, createdAt])
   @@map("credit_ledger")
 }
+
+// Ad wallet (ADR-024), owned by @cnote/billing — see docs/design/promotions-and-sponsored.md
+enum AdWalletReason {
+  topup               // paid, GST-invoiced (see AdTopUp)
+  spend               // settled click spend (one row per campaign per settlement window)
+  refund_invalid_click // automatic, no ticket (design 5.6)
+  promo_credit        // coupon / campaign credit, expires, non-refundable
+  promo_expire
+  refund_to_source    // paid balance returned to the payer, with a GST credit note
+  adjustment          // finance only, needs billing.adjust and an audit log row
+
+  @@map("ad_wallet_reason")
+}
+
+/// Append-only prepaid ad wallet. Balance = sum(delta). Separate from lead credits (CreditLedgerEntry).
+/// Integer paise, ex-GST spendable value. Never updated or deleted; a correction is a new row.
+model AdWalletEntry {
+  id             String         @id @default(uuid()) @db.Uuid
+  businessId     String         @map("business_id") @db.Uuid
+  /// signed paise: + topup/refund/promo, - spend/expire/refund_to_source
+  deltaPaise     BigInt         @map("delta_paise")
+  reason         AdWalletReason
+  /// "ad_topup" | "ad_settlement" | "ad_click" | "coupon" | "staff"
+  refType        String?        @map("ref_type")
+  refId          String?        @map("ref_id")
+  /// promo credit lots expire (+90 days); paid top-ups never carry an expiry
+  expiresAt      DateTime?      @map("expires_at") @db.Timestamptz
+  /// idempotency: e.g. "settle:{campaignId}:{windowStart}", "invalid:{clickId}", "topup:{paymentRef}"
+  idempotencyKey String         @unique @map("idempotency_key")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@index([businessId, createdAt])
+  @@index([businessId, reason])
+  @@map("ad_wallet_ledger")
+}
+
+/// A wallet top-up with its GST breakdown. A tax invoice / receipt voucher is issued at top-up
+/// (advance for a service). SAC, rate and time-of-supply are to be confirmed by a CA before launch.
+model AdTopUp {
+  id                String   @id @default(uuid()) @db.Uuid
+  businessId        String   @map("business_id") @db.Uuid
+  /// ex-GST amount credited to the wallet
+  amountPaise       BigInt   @map("amount_paise")
+  gstPaise          BigInt   @map("gst_paise")
+  gstRateBps        Int      @map("gst_rate_bps") // 1800 = 18%, stored per row so a rate change never rewrites history
+  sacCode           String   @map("sac_code")
+  /// "CGST_SGST" | "IGST", derived from the seller's state and ours
+  taxType           String   @map("tax_type")
+  placeOfSupply     String   @map("place_of_supply") // state code
+  sellerGstin       String?  @map("seller_gstin")
+  invoiceNumber     String   @unique @map("invoice_number")
+  /// payment gateway reference (hosted checkout; no card data held) or "manual:{bankRef}" for the pilot
+  paymentRef        String   @unique @map("payment_ref")
+  walletEntryId     String?  @unique @map("wallet_entry_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@index([businessId, createdAt])
+  @@map("ad_top_ups")
+}
+
+// ---- Real payments + GST invoicing (ADR-001/005) — owned by @cnote/billing -------------------------------------
+// Hosted checkout only (Razorpay / Cashfree / mock): no card data ever touches our servers (PCI scope avoided, ADR-010).
+
+enum PaymentStatus {
+  created
+  pending // customer redirected / awaiting webhook
+  paid
+  failed
+  refunded
+  partially_refunded
+
+  @@map("payment_status")
+}
+
+/// One payment attempt for a purpose (plan subscription, lead-credit pack, ad-wallet top-up).
+model PaymentOrder {
+  id               String        @id @default(uuid()) @db.Uuid
+  businessId       String        @map("business_id") @db.Uuid
+  purpose          String // "subscription" | "credit_pack" | "ad_topup"
+  purposeRef       String?       @map("purpose_ref") // plan code / pack id / top-up id
+  provider         String // "razorpay" | "cashfree" | "mock"
+  providerOrderId  String?       @unique @map("provider_order_id")
+  providerPaymentId String?      @unique @map("provider_payment_id")
+  /// amounts in paise: taxable value, GST, total charged
+  amountPaise      BigInt        @map("amount_paise")
+  gstPaise         BigInt        @map("gst_paise")
+  totalPaise       BigInt        @map("total_paise")
+  currency         String        @default("INR")
+  status           PaymentStatus @default(created)
+  couponCode       String?       @map("coupon_code")
+  discountPaise    BigInt        @default(0) @map("discount_paise")
+  failureReason    String?       @map("failure_reason")
+  /// idempotency for "fulfil once": set when credits/subscription/wallet were applied
+  fulfilledAt      DateTime?     @map("fulfilled_at") @db.Timestamptz
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  invoice Invoice?
+  refunds PaymentRefund[]
+
+  @@index([businessId, createdAt])
+  @@index([status, createdAt])
+  @@map("payment_orders")
+}
+
+/// GST tax invoice (or credit note) with a gapless per-financial-year number series.
+model Invoice {
+  id             String   @id @default(uuid()) @db.Uuid
+  paymentOrderId String?  @unique @map("payment_order_id") @db.Uuid
+  businessId     String   @map("business_id") @db.Uuid
+  /// "tax_invoice" | "credit_note"
+  kind           String   @default("tax_invoice")
+  /// e.g. "CN/2026-27/000123" (FY series, gapless via a row lock on InvoiceSequence)
+  number         String   @unique
+  financialYear  String   @map("financial_year") // "2026-27"
+  /// seller-of-service (us) and buyer details snapshot at issue time
+  supplier       Json
+  recipient      Json // { name, gstin?, address, stateCode }
+  /// [{ description, sac, quantity, unitPaise, taxablePaise, gstRateBps, cgstPaise, sgstPaise, igstPaise }]
+  lines          Json
+  taxablePaise   BigInt   @map("taxable_paise")
+  cgstPaise      BigInt   @default(0) @map("cgst_paise")
+  sgstPaise      BigInt   @default(0) @map("sgst_paise")
+  igstPaise      BigInt   @default(0) @map("igst_paise")
+  totalPaise     BigInt   @map("total_paise")
+  placeOfSupply  String   @map("place_of_supply") // state code
+  /// private media key of the rendered PDF/HTML
+  documentKey    String?  @map("document_key")
+  /// original invoice for a credit note
+  refInvoiceId   String?  @map("ref_invoice_id") @db.Uuid
+  issuedAt       DateTime @default(now()) @map("issued_at") @db.Timestamptz
+
+  paymentOrder PaymentOrder? @relation(fields: [paymentOrderId], references: [id])
+
+  @@index([businessId, issuedAt])
+  @@map("invoices")
+}
+
+model InvoiceSequence {
+  series        String @id // "CN/2026-27" (tax invoices) or "CR/2026-27" (credit notes)
+  lastNumber    Int    @default(0) @map("last_number")
+
+  @@map("invoice_sequences")
+}
+
+model PaymentRefund {
+  id               String   @id @default(uuid()) @db.Uuid
+  paymentOrderId   String   @map("payment_order_id") @db.Uuid
+  amountPaise      BigInt   @map("amount_paise")
+  reason           String
+  providerRefundId String?  @unique @map("provider_refund_id")
+  status           String   @default("pending") // pending | processed | failed
+  creditNoteId     String?  @unique @map("credit_note_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  paymentOrder PaymentOrder @relation(fields: [paymentOrderId], references: [id])
+
+  @@index([paymentOrderId])
+  @@map("payment_refunds")
+}
+
+/// Raw provider webhook log for idempotency + audit (payload redacted of card/UPI identifiers).
+model PaymentWebhookEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  provider    String
+  eventId     String   @map("event_id")
+  type        String
+  payload     Json
+  processedAt DateTime? @map("processed_at") @db.Timestamptz
+  error       String?
+  receivedAt  DateTime @default(now()) @map("received_at") @db.Timestamptz
+
+  @@unique([provider, eventId])
+  @@map("payment_webhook_events")
+}

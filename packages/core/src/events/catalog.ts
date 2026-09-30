@@ -63,6 +63,43 @@ export interface DomainEventPayloads {
   // voice + WhatsApp onboarding (ADR-004)
   VoiceNoteTranscribed: { voiceNoteId: string; sellerBusinessId: string; listingId: string | null; language: string | null };
   WhatsAppOnboardingCompleted: { contactId: string; personId: string; businessId: string; listingId: string | null };
+  // ads (ADR-024)
+  AdCampaignSubmitted:     { campaignId: string; sellerBusinessId: string; objective: "enquiries" | "visibility"; dailyBudgetPaise: number; createdByStaff: boolean };
+  AdCampaignReviewed:      { campaignId: string; sellerBusinessId: string; decision: "approved" | "rejected"; reviewedBy: string; reasonCode?: string; note?: string };
+  AdCampaignStatusChanged: { campaignId: string; sellerBusinessId: string; from: string; to: string; cause: "seller" | "staff" | "budget" | "wallet" | "eligibility" | "schedule" };
+  AdBudgetExhausted:       { campaignId: string; sellerBusinessId: string; istDate: string; spentPaise: number; dailyBudgetPaise: number };
+  AdIneligible:            { listingId: string; sellerBusinessId: string; campaignId: string; reason: string }; // trust_below_floor | listing_unpublished | no_approved_image | category_prohibited | ...
+  AdWalletToppedUp:        { businessId: string; topUpId: string; amountPaise: number; gstPaise: number; invoiceNumber: string };
+  AdWalletLow:             { businessId: string; balancePaise: number; thresholdPaise: number };
+  AdClicked:               { clickId: string; campaignId: string; adGroupId: string; listingId: string; sellerBusinessId: string; surface: string; slot: number; chargedPaise: number; validity: "valid" | "pending" | "invalid" | "self_click"; invalidReason?: string };
+  AdClickInvalidated:      { clickId: string; campaignId: string; sellerBusinessId: string; reason: string; refundedPaise: number; source: "rules" | "rescore" | "staff" };
+  AdSpendSettled:          { settlementId: string; campaignId: string; sellerBusinessId: string; windowStart: string; windowEnd: string; validClicks: number; spendPaise: number };
+  AdImpressionsRolledUp:   { hour: string; campaignId: string; surface: string; served: number; lostBudget: number; lostQuality: number }; // one per campaign per surface per hour, not per impression
+  AdAttributionRecorded:   { attributionId: string; clickId: string; campaignId: string; listingId: string; enquiryId: string; lagSeconds: number };
+  // promotions (ADR-025)
+  PromotionPublished:      { promotionId: string; kind: string; surfaces: string[]; startsAt: string; endsAt: string; createdBy: string; approvedBy: string };
+  PromotionArchived:       { promotionId: string; reason: string; archivedBy: string };
+  OfferCreated:            { offerId: string; listingId: string; sellerBusinessId: string; kind: "volume_tiers" | "timed_price" | "free_delivery_moq"; needsReview: boolean };
+  OfferActivated:          { offerId: string; listingId: string; sellerBusinessId: string; referencePricePaise: number | null; discountBps: number | null; startsAt: string; endsAt: string | null };
+  OfferRejected:           { offerId: string; listingId: string; sellerBusinessId: string; reason: string; reviewedBy?: string };
+  OfferEnded:              { offerId: string; listingId: string; sellerBusinessId: string; reason: "expired" | "cancelled" | "listing_changed" | "suspended" };
+  OfferHonourReported:     { reportId: string; offerId: string; sellerBusinessId: string; reportedByBusinessId: string };
+  OfferHonourDecided:      { reportId: string; offerId: string; sellerBusinessId: string; upheld: boolean };
+  CouponRedeemed:          { couponId: string; redemptionId: string; businessId: string; planCode: string | null; discountPaise: number; creditsGranted: number };
+  CouponVoided:            { couponId: string; redemptionId: string; businessId: string; reason: string };
+  ReferralQualified:       { referralId: string; referrerBusinessId: string; refereeBusinessId: string; action: "listing_published" | "first_verified_enquiry"; holdUntil: string };
+  ReferralRewarded:        { referralId: string; referrerBusinessId: string; refereeBusinessId: string; creditsEach: number };
+  ReferralRejected:        { referralId: string; referrerBusinessId: string; refereeBusinessId: string; reason: string };
+  // payments + invoicing (ADR-001/005)
+  PaymentSucceeded: { paymentOrderId: string; businessId: string; purpose: string; totalPaise: number; invoiceNumber: string | null };
+  PaymentFailed: { paymentOrderId: string; businessId: string; purpose: string; reason: string };
+  PaymentRefunded: { paymentOrderId: string; businessId: string; amountPaise: number; creditNoteNumber: string | null };
+  // T2/T3 verification (ADR-003)
+  KycSubmitted: { sessionId: string; businessId: string; provider: string };
+  KycDecided: { sessionId: string; businessId: string; status: "approved" | "rejected" | "review"; decidedBy: string | null };
+  AuditCompleted: { auditId: string; businessId: string; result: "pass" | "fail" | "conditional"; validUntil: string | null };
+  // buyer reachability (ADR-002)
+  ReachabilityChecked: { checkId: string; enquiryId: string; matchId: string | null; channel: string; status: "responded" | "no_response" | "failed" };
   // billing
   CreditsGranted: { businessId: string; amount: number; reason: string; expiresAt: string };
   CreditConsumed: { businessId: string; txnId: string; refType: string; refId: string };
@@ -123,6 +160,38 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   AppealDecided: 1,
   VoiceNoteTranscribed: 1,
   WhatsAppOnboardingCompleted: 1,
+  AdCampaignSubmitted: 1,
+  AdCampaignReviewed: 1,
+  AdCampaignStatusChanged: 1,
+  AdBudgetExhausted: 1,
+  AdIneligible: 1,
+  AdWalletToppedUp: 1,
+  AdWalletLow: 1,
+  AdClicked: 1,
+  AdClickInvalidated: 1,
+  AdSpendSettled: 1,
+  AdImpressionsRolledUp: 1,
+  AdAttributionRecorded: 1,
+  PromotionPublished: 1,
+  PromotionArchived: 1,
+  OfferCreated: 1,
+  OfferActivated: 1,
+  OfferRejected: 1,
+  OfferEnded: 1,
+  OfferHonourReported: 1,
+  OfferHonourDecided: 1,
+  CouponRedeemed: 1,
+  CouponVoided: 1,
+  ReferralQualified: 1,
+  ReferralRewarded: 1,
+  ReferralRejected: 1,
+  PaymentSucceeded: 1,
+  PaymentFailed: 1,
+  PaymentRefunded: 1,
+  KycSubmitted: 1,
+  KycDecided: 1,
+  AuditCompleted: 1,
+  ReachabilityChecked: 1,
   CreditsGranted: 1,
   CreditConsumed: 1,
   CreditRefunded: 1,

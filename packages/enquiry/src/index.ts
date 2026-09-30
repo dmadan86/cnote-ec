@@ -14,3 +14,4 @@ export { worker } from "./worker";
 export * from "./getters";
 export * from "./orders";
 export * from "./retention";
+export * from "./reachability";
