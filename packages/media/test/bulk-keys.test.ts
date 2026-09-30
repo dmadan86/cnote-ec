@@ -1,0 +1,41 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { afterAll, describe, expect, it } from "vitest";
+import { isValidMediaKey, mimeForKey } from "../src/keys";
+import { LocalMediaStore } from "../src/store";
+
+// Sellers' product sheets (prices, SKUs) share the storage port but must never be publicly addressable.
+describe("bulk document keys", () => {
+  const key = "bulk/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/source.zip";
+
+  it("are valid in the private bucket only", () => {
+    expect(isValidMediaKey(key)).toBe(true);
+    expect(isValidMediaKey(key, "private")).toBe(true);
+    expect(isValidMediaKey(key, "public")).toBe(false);
+    expect(isValidMediaKey("bulk/../listings/x.csv", "private")).toBe(false);
+  });
+
+  it("map to document content types", () => {
+    expect(mimeForKey("bulk/a/products.csv")).toBe("text/csv");
+    expect(mimeForKey("bulk/a/products.xlsx")).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    expect(mimeForKey(key)).toBe("application/zip");
+  });
+
+  let dir: string;
+  afterAll(() => rm(dir, { recursive: true, force: true }));
+
+  it("round-trip through the local private store and are refused by the public one", async () => {
+    dir = await mkdtemp(path.join(tmpdir(), "media-bulk-"));
+    const priv = new LocalMediaStore(dir, "private");
+    const bytes = new TextEncoder().encode("sku,title\nA,B\n");
+    await priv.put("bulk/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/products.csv", bytes, "text/csv");
+    const got = await priv.get("bulk/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/products.csv");
+    expect(new TextDecoder().decode(got!.bytes)).toBe("sku,title\nA,B\n");
+    expect(got!.contentType).toBe("text/csv");
+
+    const pub = new LocalMediaStore(dir, "public");
+    await expect(pub.put("bulk/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/products.csv", bytes, "text/csv")).rejects.toThrow("Invalid media key");
+    expect(() => pub.publicUrl("bulk/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/products.csv")).toThrow("Invalid media key");
+  });
+});

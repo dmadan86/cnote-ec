@@ -1,7 +1,7 @@
 // @cnote/email — outbound email via the JobQueue ("email.send"), provider factory
 // (EMAIL_PROVIDER=console|smtp|ses|resend), content from @cnote/templates.
 // PUBLIC CONTRACT. Extend, don't break.
-import { DomainError, getJobQueue, queueConsumer, type ModuleWorker, type QueueMessage } from "@cnote/core";
+import { DomainError, getJobQueue, queueConsumer, redis, type ModuleWorker, type QueueMessage } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { hasConsent, isPersonErased, type Mailer } from "@cnote/identity";
 import { exampleVars, getTemplateDefinition, renderEmail } from "@cnote/templates";
@@ -115,7 +115,32 @@ export async function sendEmail(input: SendEmailInput): Promise<string | null> {
 const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e)).slice(0, 500);
 
 /** Queue consumer: renders at send time (so template edits apply to queued mail), sends, records the outcome. */
+/** Longer than any provider call; if a worker dies mid-send the lock lapses and the queue retry proceeds. */
+const SEND_LOCK_SECONDS = 120;
+
+/** Another worker is sending this message right now: the queue retries later and then sees it as sent. */
+export class EmailSendInProgress extends Error {
+  constructor(id: string) {
+    super(`email ${id} is being sent by another worker`);
+    this.name = "EmailSendInProgress";
+  }
+}
+
+/**
+ * Delivers one queued email. At-least-once delivery means the same message can reach two workers at once
+ * (redelivered pending entry, replayed dead letter); a per-message lock makes the provider call happen once.
+ */
 export async function handleEmailSend(msg: QueueMessage<EmailJob>): Promise<void> {
+  const lockKey = `email:send:${msg.payload.messageId}`;
+  if ((await redis.set(lockKey, msg.id, "EX", SEND_LOCK_SECONDS, "NX")) === null) throw new EmailSendInProgress(msg.payload.messageId);
+  try {
+    await deliver(msg);
+  } finally {
+    await redis.del(lockKey);
+  }
+}
+
+async function deliver(msg: QueueMessage<EmailJob>): Promise<void> {
   const job = msg.payload;
   const row = await prisma.emailMessage.findUnique({ where: { id: job.messageId } });
   if (!row || row.status === "sent" || row.status === "suppressed") return; // at-least-once delivery → idempotent

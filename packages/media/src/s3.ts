@@ -44,7 +44,7 @@ export class S3MediaStore implements MediaStore {
       });
   }
   async put(key: string, bytes: Uint8Array, contentType: string, opts: PutOptions = {}): Promise<void> {
-    assertMediaKey(key);
+    assertMediaKey(key, this.bucket);
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.cfg.bucket,
@@ -56,7 +56,7 @@ export class S3MediaStore implements MediaStore {
     );
   }
   async get(key: string): Promise<MediaObject | null> {
-    assertMediaKey(key);
+    assertMediaKey(key, this.bucket);
     try {
       const r = await this.client.send(new GetObjectCommand({ Bucket: this.cfg.bucket, Key: key }));
       const bytes = await r.Body!.transformToByteArray();
@@ -67,14 +67,14 @@ export class S3MediaStore implements MediaStore {
     }
   }
   async delete(key: string): Promise<void> {
-    assertMediaKey(key);
+    assertMediaKey(key, this.bucket);
     await this.client.send(new DeleteObjectCommand({ Bucket: this.cfg.bucket, Key: key })); // idempotent on S3/R2
   }
   async exists(key: string): Promise<boolean> {
     return (await this.head(key)) !== null;
   }
   async head(key: string): Promise<MediaHead | null> {
-    assertMediaKey(key);
+    assertMediaKey(key, this.bucket);
     try {
       const r = await this.client.send(new HeadObjectCommand({ Bucket: this.cfg.bucket, Key: key }));
       return { size: r.ContentLength ?? 0, contentType: r.ContentType || mimeForKey(key) };
@@ -84,12 +84,12 @@ export class S3MediaStore implements MediaStore {
     }
   }
   async signedGetUrl(key: string, ttlSeconds: number): Promise<string | null> {
-    assertMediaKey(key);
+    assertMediaKey(key, this.bucket);
     return getSignedUrl(this.client, new GetObjectCommand({ Bucket: this.cfg.bucket, Key: key }), { expiresIn: Math.max(1, Math.min(ttlSeconds, 3600)) });
   }
   publicUrl(key: string): string | null {
     if (this.bucket !== "public" || !this.cfg.publicBaseUrl) return null;
-    assertMediaKey(key);
+    assertMediaKey(key, this.bucket);
     return `${this.cfg.publicBaseUrl.replace(/\/+$/, "")}/${key}`;
   }
 }

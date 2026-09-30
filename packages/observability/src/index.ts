@@ -18,8 +18,13 @@ const PII_PATTERNS: [RegExp, string][] = [
 ];
 const SECRET_KEYS = /pass(word)?|token|secret|authorization|cookie|otp|code_verifier|refresh|jwt|api[-_]?key/i;
 
+// Credentials carried in URLs (password-reset/verification tokens, OAuth `code`/`state`, API keys, signed-URL
+// signatures) — redacted wherever a URL-ish `key=value` appears: request URLs, query_string, breadcrumbs, messages.
+const SECRET_QUERY = /([?&;]|^)((?:[\w.-]*(?:pass(?:word)?|token|secret|otp|code|state|nonce|jwt|api[-_]?key|key|signature|sig|session|auth)[\w.-]*|x-amz-[\w-]+))=([^&#\s"'<>]*)/gi;
+
 export function scrubString(s: string): string {
-  return PII_PATTERNS.reduce((acc, [re, sub]) => acc.replace(re, sub), s);
+  const masked = PII_PATTERNS.reduce((acc, [re, sub]) => acc.replace(re, sub), s);
+  return masked.replace(SECRET_QUERY, (_m, sep: string, key: string) => `${sep}${key}=[redacted]`);
 }
 
 /** Recursively masks PII in strings and drops values under secret-looking keys. */

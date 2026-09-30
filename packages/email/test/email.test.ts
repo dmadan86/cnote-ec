@@ -5,7 +5,7 @@ import { defineTemplates, seedDefaultTemplates } from "@cnote/templates";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { PermanentEmailError, createQueuedMailer, handleEmailSend, maskEmail, sendEmail, sendTestEmail, setEmailProvider, worker, type EmailProvider, type OutgoingEmail } from "../src/index";
+import { EmailSendInProgress, PermanentEmailError, createQueuedMailer, handleEmailSend, maskEmail, sendEmail, sendTestEmail, setEmailProvider, worker, type EmailProvider, type OutgoingEmail } from "../src/index";
 
 const tag = randomUUID().slice(0, 8);
 const MKT = `test.promo_${tag}`;
@@ -108,6 +108,22 @@ describe("sendEmail", () => {
   it("rejects unknown templates and bad addresses", async () => {
     await expect(sendEmail({ template: "nope.nope", to: { email: "a@b.com" }, vars: {} })).rejects.toMatchObject({ code: "validation" });
     await expect(sendEmail({ template: "system.test", to: { email: "not-an-email" }, vars: {} })).rejects.toMatchObject({ code: "validation" });
+  });
+});
+
+describe("concurrent delivery of the same message", () => {
+  it("calls the provider once; the duplicate is retried later and then sees `sent`", async () => {
+    const id = (await sendEmail({ template: "system.test", to: { email: "dup@example.com" }, vars: { message: "x" } }))!;
+    const msg = (n: string) => ({ id: n, topic: "email.send", attempt: 1, maxAttempts: 5, enqueuedAt: "", payload: { messageId: id, to: "dup@example.com", template: "system.test", vars: { message: "x" } } });
+    const results = await Promise.allSettled([handleEmailSend(msg("a")), handleEmailSend(msg("b"))]);
+    expect(sent.filter((m) => m.id === id)).toHaveLength(1);
+    const rejected = results.filter((r) => r.status === "rejected");
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(EmailSendInProgress);
+    // The retried duplicate is a no-op now that the message is sent.
+    await handleEmailSend(msg("c"));
+    expect(sent.filter((m) => m.id === id)).toHaveLength(1);
+    expect((await prisma.emailMessage.findUniqueOrThrow({ where: { id } })).status).toBe("sent");
   });
 });
 

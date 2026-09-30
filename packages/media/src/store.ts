@@ -63,14 +63,15 @@ export class LocalMediaStore implements MediaStore {
     this.root = resolve(dir);
   }
   private file(key: string): string {
-    assertMediaKey(key);
+    assertMediaKey(key, this.bucket);
     const p = resolve(this.root, key);
     if (!p.startsWith(this.root + path.sep)) throw new Error("Invalid media key");
     return p;
   }
   async put(key: string, bytes: Uint8Array, contentType: string): Promise<void> {
     const p = this.file(key);
-    if (KEY_MIME[keyExt(key)] !== contentType) throw new Error("Content type does not match key extension");
+    // Compare the base MIME type: parameters such as `; charset=utf-8` don't change what the object is.
+    if (KEY_MIME[keyExt(key)] !== contentType.split(";")[0]!.trim()) throw new Error("Content type does not match key extension");
     await mkdir(dirname(p), { recursive: true });
     const tmp = `${p}.${randomUUID()}.tmp`;
     await writeFile(tmp, bytes);
@@ -100,7 +101,7 @@ export class LocalMediaStore implements MediaStore {
   }
   publicUrl(key: string): string | null {
     if (this.bucket !== "public") return null;
-    assertMediaKey(key);
+    assertMediaKey(key, this.bucket);
     return `/media/v/${key}`;
   }
 }
