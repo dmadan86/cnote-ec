@@ -28,7 +28,11 @@
     "dev:studio": "pnpm --filter @cnote/studio-app dev",
     "db:test:prepare": "bash scripts/db-test-prepare.sh",
     "ops:dr-check": "tsx scripts/ops/dr-check.ts",
-    "test:ops": "vitest run scripts/ops"
+    "test:ops": "vitest run scripts/ops",
+    "test:e2e:prepare": "tsx e2e/setup/prepare-db.ts",
+    "test:e2e:build": "tsx e2e/setup/build.ts",
+    "test:e2e": "playwright test e2e/functional",
+    "test:a11y": "playwright test e2e/a11y"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

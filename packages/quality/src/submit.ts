@@ -3,12 +3,12 @@ import { randomUUID } from "node:crypto";
 import { DomainError, getJobQueue, rateLimit } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { ImageValidationError, VARIANT_WIDTHS, getMediaStore, processImage, sha256Hex, validateImage } from "@cnote/media";
-import { ANALYSE_TOPIC, MAX_CHECKS_PER_ORDER, MAX_PHOTOS_PER_CHECK, SUBMISSIONS_PER_HOUR, SUBMITTABLE_ORDER_STATUSES, qualityChecksEnabled } from "./config";
+import { ANALYSE_TOPIC, MAX_CHECKS_PER_ORDER, MAX_PHOTOS_PER_CHECK, SUBMISSIONS_PER_HOUR, SUBMITTABLE_ORDER_STATUSES, VIDEO_MAX_BYTES, VIDEO_MAX_FRAMES, VIDEO_MAX_SECONDS, VIDEO_MIN_FRAMES, qualityChecksEnabled } from "./config";
 import { isCategoryAllowed } from "./categories";
 import { getOrderContextPort } from "./context";
 import { buildChecklist } from "./spec";
 import { getCheckView } from "./views";
-import type { OrderContext, QualityActor, QualityCheckView, SubmissionContext } from "./types";
+import type { CheckSource, OrderContext, QualityActor, QualityCheckView, SubmissionContext } from "./types";
 
 declare module "@cnote/core" {
   interface JobTopics { "quality.analyse": { checkId: string } }
@@ -22,7 +22,8 @@ const largestWidth = (max: number) => [...VARIANT_WIDTHS].reverse().find((w) => 
 export const qualityMediaKey = (checkId: string, mediaId: string): string => `quality/${checkId.toLowerCase()}/${mediaId.toLowerCase()}.jpg`;
 
 async function evaluate(actor: QualityActor, orderId: string): Promise<{ ctx: SubmissionContext; order: OrderContext | null }> {
-  const base: SubmissionContext = { eligible: false, categorySlug: null, checklist: [], maxPhotos: MAX_PHOTOS_PER_CHECK, checksUsed: 0, maxChecks: MAX_CHECKS_PER_ORDER };
+  const base: SubmissionContext = { eligible: false, categorySlug: null, checklist: [], maxPhotos: MAX_PHOTOS_PER_CHECK,
+    video: { minFrames: VIDEO_MIN_FRAMES, maxFrames: VIDEO_MAX_FRAMES, maxSeconds: VIDEO_MAX_SECONDS, maxBytes: VIDEO_MAX_BYTES }, checksUsed: 0, maxChecks: MAX_CHECKS_PER_ORDER };
   if (!qualityChecksEnabled()) return { ctx: { ...base, reason: "disabled" }, order: null };
   const order = await getOrderContextPort().load(actor, orderId);
   if (!order) return { ctx: { ...base, reason: "not_found" }, order: null };
@@ -46,9 +47,11 @@ export async function getSubmissionContext(actor: QualityActor, orderId: string)
  * analysis. Nothing about dispatch depends on the outcome.
  */
 export async function submitDispatchPhotos(
-  actor: QualityActor, orderId: string, files: { bytes: Uint8Array; filename?: string }[],
+  actor: QualityActor, orderId: string, files: { bytes: Uint8Array; filename?: string }[], opts: { source?: CheckSource } = {},
 ): Promise<QualityCheckView> {
-  if (files.length < 1 || files.length > MAX_PHOTOS_PER_CHECK) throw new DomainError("validation", `Add 1 to ${MAX_PHOTOS_PER_CHECK} photos`);
+  const source: CheckSource = opts.source === "video" ? "video" : "photos";
+  const [min, max] = source === "video" ? [VIDEO_MIN_FRAMES, VIDEO_MAX_FRAMES] : [1, MAX_PHOTOS_PER_CHECK];
+  if (files.length < min || files.length > max) throw new DomainError("validation", source === "video" ? `A video check needs ${min} to ${max} frames` : `Add ${min} to ${max} photos`);
   const { ctx, order } = await evaluate(actor, orderId);
   if (!ctx.eligible || !order) {
     const msg: Record<string, string> = {
@@ -83,7 +86,7 @@ export async function submitDispatchPhotos(
       prisma.qualityCheck.create({
         data: {
           id: checkId, orderId: order.orderId, sellerBusinessId: order.sellerBusinessId, submittedByPersonId: actor.personId,
-          categorySlug: order.categorySlug!, expectedSpec: JSON.parse(JSON.stringify(order.spec)),
+          categorySlug: order.categorySlug!, source, expectedSpec: JSON.parse(JSON.stringify(order.spec)),
         },
       }),
       prisma.qualityCheckMedia.createMany({

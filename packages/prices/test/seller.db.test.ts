@@ -56,7 +56,7 @@ describe("seller competitiveness", () => {
     expect(by.above!.position).toBe("above");
     expect(by.above!.vsMedianBps).toBeGreaterThan(0);
     expect(by.below!.vsMedianBps).toBeLessThan(0);
-    expect(by.within!.band).toMatchObject({ unit: "kg", regionLabel: "Maharashtra", rolledUp: false });
+    expect(by.within!.band).toMatchObject({ unit: "kg", regionLabel: "PIN 400xxx", rolledUp: false });
     expect(by.within!.trend).toBe("unknown");
     expect(by.nodata).toMatchObject({ position: "no_data", band: null, vsMedianBps: null });
     // no seller location falls back to national

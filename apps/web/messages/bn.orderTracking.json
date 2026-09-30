@@ -1,0 +1,30 @@
+{
+  "orderTracking": {
+    "heading": "ডেলিভারির অগ্রগতি",
+    "stepsLabel": "ডেলিভারির ধাপ",
+    "step": {
+      "packed": "প্যাক হয়েছে",
+      "dispatched": "ডিসপ্যাচ হয়েছে",
+      "in_transit": "পথে আছে",
+      "out_for_delivery": "ডেলিভারির জন্য বেরিয়েছে",
+      "delivered": "ডেলিভারি হয়েছে"
+    },
+    "state": {
+      "done": "সম্পন্ন",
+      "current": "বর্তমান ধাপ",
+      "upcoming": "এখনও নয়"
+    },
+    "updates": "আপডেট",
+    "noUpdates": "এখনও কোনও ডেলিভারি আপডেট নেই।",
+    "stage": {
+      "packed": "প্যাক হয়েছে",
+      "in_transit": "পথে আছে",
+      "out_for_delivery": "ডেলিভারির জন্য বেরিয়েছে",
+      "delivery_attempted": "ডেলিভারির চেষ্টা হয়েছে"
+    },
+    "trackingBoth": "কুরিয়ার {courier}, ট্র্যাকিং নম্বর {ref}",
+    "trackingCourier": "কুরিয়ার {courier}",
+    "trackingRef": "ট্র্যাকিং নম্বর {ref}",
+    "intro": "পণ্য এগোলে বিক্রেতা এটি আপডেট করেন। এতে অর্ডারের অবস্থা বা কোনও পেমেন্ট বদলায় না।"
+  }
+}

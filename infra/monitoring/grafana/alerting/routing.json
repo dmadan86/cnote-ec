@@ -1,0 +1,90 @@
+{
+  "apiVersion": 1,
+  "policies": [
+    {
+      "orgId": 1,
+      "receiver": "product-ops",
+      "group_by": [
+        "alertname"
+      ],
+      "routes": [
+        {
+          "receiver": "platform-oncall",
+          "object_matchers": [
+            [
+              "route",
+              "=",
+              "platform-oncall"
+            ]
+          ],
+          "group_wait": "30s",
+          "repeat_interval": "1h"
+        },
+        {
+          "receiver": "finance-ops",
+          "object_matchers": [
+            [
+              "route",
+              "=",
+              "finance-ops"
+            ]
+          ],
+          "group_wait": "1m",
+          "repeat_interval": "4h"
+        },
+        {
+          "receiver": "product-ops",
+          "object_matchers": [
+            [
+              "route",
+              "=",
+              "product-ops"
+            ]
+          ],
+          "repeat_interval": "12h"
+        }
+      ]
+    }
+  ],
+  "contactPoints": [
+    {
+      "orgId": 1,
+      "name": "platform-oncall",
+      "receivers": [
+        {
+          "uid": "cp-platform-oncall",
+          "type": "webhook",
+          "settings": {
+            "url": "${PLATFORM_ONCALL_WEBHOOK_URL}"
+          }
+        }
+      ]
+    },
+    {
+      "orgId": 1,
+      "name": "finance-ops",
+      "receivers": [
+        {
+          "uid": "cp-finance-ops",
+          "type": "webhook",
+          "settings": {
+            "url": "${FINANCE_OPS_WEBHOOK_URL}"
+          }
+        }
+      ]
+    },
+    {
+      "orgId": 1,
+      "name": "product-ops",
+      "receivers": [
+        {
+          "uid": "cp-product-ops",
+          "type": "webhook",
+          "settings": {
+            "url": "${PRODUCT_OPS_WEBHOOK_URL}"
+          }
+        }
+      ]
+    }
+  ]
+}

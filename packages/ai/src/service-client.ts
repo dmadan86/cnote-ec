@@ -38,9 +38,10 @@ export function verifyServiceToken(
   const parts = token.split(".");
   if (parts.length !== 3 || parts[0] !== HEADER) return { ok: false, reason: "malformed" };
   const body = `${parts[0]}.${parts[1]}`;
-  const given = Buffer.from(parts[2]!, "base64url");
+  // canonical base64url string comparison (decoded bytes would accept several spellings of one signature)
+  const given = Buffer.from(parts[2]!);
   const signatureOk = splitSecrets(o.secret).some((k) => {
-    const want = createHmac("sha256", k).update(body).digest();
+    const want = Buffer.from(createHmac("sha256", k).update(body).digest("base64url"));
     return want.length === given.length && timingSafeEqual(want, given);
   });
   if (!signatureOk) return { ok: false, reason: "signature" };

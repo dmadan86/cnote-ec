@@ -2,7 +2,7 @@
 // Code owns template KEYS + their variables (registry); staff own the words, layout and images.
 // PUBLIC CONTRACT — @cnote/email, @cnote/notifications and apps/admin depend on these. Extend, don't break.
 
-export type { LayoutTheme, RenderedEmail, RenderedText, TemplateCategory, TemplateChannel, TemplateDefinition, TemplateVariable } from "./types";
+export type { LayoutTheme, RenderedEmail, RenderedText, TemplateCategory, TemplateChannel, TemplateContentDefault, TemplateDefinition, TemplateVariable } from "./types";
 export { defineTemplates, exampleVars, getTemplateDefinition, listTemplateDefinitions } from "./registry";
 export { isChannelEnabled, previewEmail, previewLayout, previewText, renderEmail, renderEmailContent, renderText, type RenderEmailOptions } from "./render";
 export { seedDefaultTemplates } from "./seed";

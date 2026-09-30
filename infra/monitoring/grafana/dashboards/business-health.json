@@ -1,0 +1,394 @@
+{
+  "uid": "cnote-business",
+  "title": "Business health (gate scorecard)",
+  "description": "ADR success metrics vs Phase-1 gate. Source: metric_daily.",
+  "tags": [
+    "cnote"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "refresh": "5m",
+  "timezone": "Asia/Kolkata",
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Phase-1 gate scorecard",
+      "description": "ADR-v0.1 Phase-1 gate. Latest computed day per gate metric vs target. The admin scorecard uses only matured days; here the latest day may still be maturing (see denominator).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "WITH t(metric,op,target) AS (VALUES ('lead_to_conversation_rate','ge',0.6),('conversation_to_deal_rate','ge',0.15),('auto_refund_rate','lt',0.1),('t1_plus_seller_share','ge',0.8),('false_badge_proxy','lt',0.005),('time_to_first_listing_median_minutes','lt',15),('onboarding_completion_rate','ge',0.6)),\nlatest AS (SELECT DISTINCT ON (metric) metric, day, value, denominator FROM metric_daily WHERE dimension='' AND metric IN (SELECT metric FROM t) ORDER BY metric, day DESC)\nSELECT t.metric, l.day, l.value, t.target, l.denominator AS sample,\n  CASE WHEN l.value IS NULL THEN 'no data' WHEN (t.op='ge' AND l.value>=t.target) OR (t.op='lt' AND l.value<t.target) THEN 'meets' ELSE 'misses' END AS status\nFROM t LEFT JOIN latest l USING (metric) ORDER BY t.metric"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Lead to conversation (>=60%)",
+      "description": "Latest computed day of lead_to_conversation_rate (may be immature).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT value FROM metric_daily WHERE metric='lead_to_conversation_rate' AND dimension='' ORDER BY day DESC LIMIT 1"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Conversation to deal (>=15%)",
+      "description": "Latest computed day of conversation_to_deal_rate (may be immature).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT value FROM metric_daily WHERE metric='conversation_to_deal_rate' AND dimension='' ORDER BY day DESC LIMIT 1"
+        }
+      ],
+      "gridPos": {
+        "x": 6,
+        "y": 9,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Auto-refund (<10%)",
+      "description": "Latest computed day of auto_refund_rate (may be immature).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT value FROM metric_daily WHERE metric='auto_refund_rate' AND dimension='' ORDER BY day DESC LIMIT 1"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Sellers T1+ (>=80%)",
+      "description": "Latest computed day of t1_plus_seller_share (may be immature).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT value FROM metric_daily WHERE metric='t1_plus_seller_share' AND dimension='' ORDER BY day DESC LIMIT 1"
+        }
+      ],
+      "gridPos": {
+        "x": 18,
+        "y": 9,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Lead to conversation",
+      "description": "metric_daily.lead_to_conversation_rate; cohort-anchored, recent days keep changing until the window matures (docs/design/metrics.md).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"lead_to_conversation_rate\" FROM metric_daily WHERE metric='lead_to_conversation_rate' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Seller onboarding completion (>=60%)",
+      "description": "metric_daily.onboarding_completion_rate; cohort-anchored, recent days keep changing until the window matures (docs/design/metrics.md).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"onboarding_completion_rate\" FROM metric_daily WHERE metric='onboarding_completion_rate' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Time to first listing, median minutes (<15)",
+      "description": "metric_daily.time_to_first_listing_median_minutes; cohort-anchored, recent days keep changing until the window matures (docs/design/metrics.md).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"time_to_first_listing_median_minutes\" FROM metric_daily WHERE metric='time_to_first_listing_median_minutes' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "T1+ seller share",
+      "description": "metric_daily.t1_plus_seller_share; cohort-anchored, recent days keep changing until the window matures (docs/design/metrics.md).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"t1_plus_seller_share\" FROM metric_daily WHERE metric='t1_plus_seller_share' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Open metric alerts",
+      "description": "Rows raised by the @cnote/metrics job that nobody has resolved in admin.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT metric, day, value, threshold, direction, message FROM metric_alerts WHERE resolved_at IS NULL ORDER BY created_at DESC"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    }
+  ]
+}

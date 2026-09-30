@@ -107,8 +107,12 @@ model CreditLoan {
   writtenOffPaise     BigInt    @default(0) @map("written_off_paise")
   disbursedAt         DateTime  @map("disbursed_at") @db.Timestamptz
   dueAt               DateTime  @map("due_at") @db.Timestamptz
-  /// active | overdue | repaid | written_off
+  /// active | overdue | repaid | written_off | cancelled (cooling-off exit or partner cancellation)
   status              String
+  /// what the borrower owes the lender on a cooling-off exit (principal + pro-rata interest + kept fees); null unless cancelled
+  exitAmountPaise     BigInt?   @map("exit_amount_paise")
+  /// cooling_off | partner; null unless cancelled
+  cancelReason        String?   @map("cancel_reason")
   dpd                 Int       @default(0)
   lastDpdBucket       Int       @default(0) @map("last_dpd_bucket")
   closedAt            DateTime? @map("closed_at") @db.Timestamptz

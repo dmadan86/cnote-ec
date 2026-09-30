@@ -1,6 +1,7 @@
 "use client";
 import { useActionState, useRef } from "react";
 import { useTranslations } from "next-intl";
+import { DELIVERY_TERMS, PAYMENT_TERMS } from "./terms";
 import { Alert, Field, Input, Select, Textarea } from "@cnote/ui";
 import { UNITS } from "@/lib/constants";
 import { FormAlert, SubmitButton, fieldError } from "@/features/shell/form-bits";
@@ -48,6 +49,43 @@ export function QuoteForm({ conversationId }: { conversationId: string }) {
           <Input id="q-valid" name="validUntil" type="date" className="h-11" />
         </Field>
       </div>
+      <details className="rounded-lg border border-line p-3">
+        <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-brand-700">{t("termsToggle")}</summary>
+        <p className="mb-3 text-sm text-muted">{t("termsHint")}</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t("moq")} htmlFor="q-moq" error={fieldError(state, "moq")}>
+            <Input id="q-moq" name="moq" inputMode="numeric" className="h-11" />
+          </Field>
+          <Field label={t("gst")} htmlFor="q-gst">
+            <Select id="q-gst" name="gstIncluded" defaultValue="" className="h-11">
+              <option value="">{t("notStated")}</option>
+              <option value="included">{t("gstIncluded")}</option>
+              <option value="extra">{t("gstExtra")}</option>
+            </Select>
+          </Field>
+          <Field label={t("deliveryTerms")} htmlFor="q-dterms">
+            <Select id="q-dterms" name="deliveryTerms" defaultValue="" className="h-11">
+              <option value="">{t("notStated")}</option>
+              {DELIVERY_TERMS.map((k) => <option key={k} value={k}>{t(`delivery_${k}`)}</option>)}
+            </Select>
+          </Field>
+          <Field label={t("deliveryCharge")} htmlFor="q-dcharge" error={fieldError(state, "deliveryCharge")}>
+            <Input id="q-dcharge" name="deliveryCharge" inputMode="decimal" className="h-11" />
+          </Field>
+          <Field label={t("deliveryNote")} htmlFor="q-dnote">
+            <Input id="q-dnote" name="deliveryNote" maxLength={300} className="h-11" />
+          </Field>
+          <Field label={t("paymentTerms")} htmlFor="q-pterms">
+            <Select id="q-pterms" name="paymentTerms" defaultValue="" className="h-11">
+              <option value="">{t("notStated")}</option>
+              {PAYMENT_TERMS.map((k) => <option key={k} value={k}>{t(`payment_${k}`)}</option>)}
+            </Select>
+          </Field>
+          <Field label={t("paymentNote")} htmlFor="q-pnote">
+            <Input id="q-pnote" name="paymentNote" maxLength={300} className="h-11" />
+          </Field>
+        </div>
+      </details>
       <Field label={t("notes")} htmlFor="q-notes" hint={t("notesHint")} error={fieldError(state, "notes")}>
         <Textarea id="q-notes" name="notes" maxLength={1000} />
       </Field>

@@ -5,7 +5,7 @@ import type { IndexHealth, ReindexResult, SearchIndex, SearchIndexQuery, SearchI
 export const postgresIndex: SearchIndex = {
   backend: "postgres",
   async search(q: SearchIndexQuery): Promise<SearchIndexResult> {
-    const rows = await retrieveListings({ text: q.text, embedding: q.embedding, categoryId: q.categoryId, limit: q.limit });
+    const rows = await retrieveListings({ text: q.text, embedding: q.embedding, categoryId: q.categoryId, limit: q.limit, ...(q.variants?.length ? { variants: q.variants } : {}) });
     return {
       hits: rows.map((r) => ({ listingId: r.listingId, sellerBusinessId: r.sellerBusinessId, lexicalScore: r.lexicalRank, vectorScore: r.similarity })),
       nextCursor: null,

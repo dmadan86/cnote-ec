@@ -111,8 +111,34 @@
         "enterWholeDays": "পুরো দিন লিখুন।",
         "chooseDate": "সঠিক তারিখ বেছে নিন।",
         "notesMax": "নোট 1,000 অক্ষরের মধ্যে রাখুন।",
-        "dealValue": "টাকায় ডিলের মূল্য লিখুন।"
-      }
+        "dealValue": "টাকায় ডিলের মূল্য লিখুন।",
+        "moqPositive": "ন্যূনতম অর্ডার 0-এর বেশি পূর্ণসংখ্যা হতে হবে।",
+        "chargeInvalid": "ডেলিভারি চার্জ টাকায় লিখুন (0 বা বেশি)।"
+      },
+      "moq": "ন্যূনতম অর্ডার পরিমাণ",
+      "deliveryTerms": "ডেলিভারির শর্ত",
+      "deliveryCharge": "ডেলিভারি চার্জ (₹, মোট)",
+      "deliveryNote": "ডেলিভারি নোট",
+      "paymentTerms": "পেমেন্টের শর্ত",
+      "paymentNote": "পেমেন্ট নোট",
+      "gst": "জিএসটি",
+      "notStated": "উল্লেখ নেই",
+      "gstIncluded": "দামে অন্তর্ভুক্ত",
+      "gstExtra": "উপরে আলাদা",
+      "termsToggle": "ডেলিভারি, পেমেন্ট ও জিএসটির শর্ত যোগ করুন (ঐচ্ছিক)",
+      "termsHint": "স্পষ্ট শর্তে বেশি উত্তর মেলে এবং আপনার কোট তুলনা করা সহজ হয়।",
+      "delivery_ex_works": "এক্স-ওয়ার্কস (ক্রেতা আপনার কাছ থেকে নেবেন)",
+      "delivery_fob": "FOB",
+      "delivery_door_delivery": "দরজায় ডেলিভারি",
+      "delivery_buyer_pickup": "ক্রেতা নিজে নেবেন",
+      "delivery_other": "অন্যান্য",
+      "payment_advance": "অগ্রিম পেমেন্ট",
+      "payment_on_delivery": "ডেলিভারিতে পেমেন্ট",
+      "payment_net_7": "7 দিনে পেমেন্ট",
+      "payment_net_15": "15 দিনে পেমেন্ট",
+      "payment_net_30": "30 দিনে পেমেন্ট",
+      "payment_escrow": "এসক্রো",
+      "payment_other": "অন্যান্য"
     },
     "_meta": {
       "review": "machine-drafted; needs native review"

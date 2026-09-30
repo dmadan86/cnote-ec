@@ -6,6 +6,8 @@ export class DomainError extends Error {
     public readonly code: ErrorCode,
     message: string,
     public readonly details?: unknown,
+    /** Optional stable message key (e.g. "credits.insufficient") apps translate; `message` stays the English fallback. */
+    public readonly key?: string,
   ) {
     super(message);
     this.name = "DomainError";

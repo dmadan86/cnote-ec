@@ -13,6 +13,17 @@ enum OrderStatus {
   @@map("order_status")
 }
 
+/// Fulfilment sub-stages recorded by the seller alongside (never instead of) the main status machine, so escrow
+/// milestones keyed on `OrderStatus` are unaffected. Order is forward-only: packed < in_transit < out_for_delivery < delivery_attempted.
+enum FulfilmentStage {
+  packed
+  in_transit
+  out_for_delivery
+  delivery_attempted
+
+  @@map("fulfilment_stage")
+}
+
 model Order {
   id               String      @id @default(uuid()) @db.Uuid
   /// null for orders that arrive from an external network (ONDC, ADR-017) rather than from a matched lead
@@ -35,11 +46,35 @@ model Order {
   currency         String      @default("INR")
   buyerConfirmedAt  DateTime?  @map("buyer_confirmed_at") @db.Timestamptz
   sellerConfirmedAt DateTime?  @map("seller_confirmed_at") @db.Timestamptz
+  /// latest fulfilment sub-stage (null until the seller records one); history is in OrderFulfilmentEvent
+  fulfilmentStage  FulfilmentStage? @map("fulfilment_stage")
+  fulfilmentUpdatedAt DateTime? @map("fulfilment_updated_at") @db.Timestamptz
+  /// latest tracking reference (courier name + AWB), optional
+  trackingCourier  String?     @map("tracking_courier")
+  trackingRef      String?     @map("tracking_ref")
   createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  fulfilmentEvents OrderFulfilmentEvent[]
 
   @@unique([matchId])
   @@index([buyerBusinessId, createdAt])
   @@index([sellerBusinessId, createdAt])
   @@map("orders")
+}
+
+/// Append-only history of fulfilment sub-stages (one row per recorded move). Never updated or deleted by the app.
+model OrderFulfilmentEvent {
+  id              String          @id @default(uuid()) @db.Uuid
+  orderId         String          @map("order_id") @db.Uuid
+  stage           FulfilmentStage
+  note            String?
+  courier         String?
+  trackingRef     String?         @map("tracking_ref")
+  /// the seller business that recorded it
+  actorBusinessId String          @map("actor_business_id") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  order           Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@map("order_fulfilment_events")
 }

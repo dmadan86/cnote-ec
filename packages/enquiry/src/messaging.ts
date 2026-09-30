@@ -2,7 +2,8 @@
 import { DomainError, emit, rateLimit } from "@cnote/core";
 import { prisma, type Conversation, type Enquiry, type Match } from "@cnote/db";
 import { recordOrderTx } from "./orders";
-import { messageSchema, quoteSchema } from "./schemas";
+import { messageSchema } from "./schemas";
+import { quoteSchema, toQuoteView, type QuoteTermsInput } from "./quotes";
 import { profiles } from "./support";
 import type { Actor, ConversationView } from "./types";
 
@@ -43,16 +44,7 @@ export async function getConversation(actor: Actor, conversationId: string): Pro
     buyer: { businessId: c.match.enquiry.buyerBusinessId, name: profs.get(c.match.enquiry.buyerBusinessId)?.name ?? "Buyer" },
     seller: { businessId: c.match.sellerBusinessId, name: profs.get(c.match.sellerBusinessId)?.name ?? "Seller" },
     messages: messages.reverse().map((m) => ({ id: m.id, senderPersonId: m.senderPersonId, body: m.body, createdAt: m.createdAt.toISOString() })),
-    quotes: quotes.map((q) => ({
-      id: q.id,
-      pricePaise: Number(q.pricePaise),
-      quantity: q.quantity,
-      unit: q.unit,
-      leadTimeDays: q.leadTimeDays,
-      notes: q.notes,
-      validUntil: q.validUntil ? q.validUntil.toISOString().slice(0, 10) : null,
-      createdAt: q.createdAt.toISOString(),
-    })),
+    quotes: quotes.map(toQuoteView),
     dealReported: deal?.outcome ?? null,
     role,
   };
@@ -71,7 +63,7 @@ export async function sendMessage(actor: Actor, conversationId: string, body: st
 export async function sendQuote(
   actor: Actor,
   conversationId: string,
-  quote: { pricePaise: number; quantity: number; unit: string; leadTimeDays?: number | null; notes?: string | null; validUntil?: string | null },
+  quote: { pricePaise: number; quantity: number; unit: string; leadTimeDays?: number | null; notes?: string | null; validUntil?: string | null } & QuoteTermsInput,
 ): Promise<{ quoteId: string }> {
   const q = quoteSchema.parse(quote);
   const { role } = await requireParticipant(actor, conversationId);
@@ -87,6 +79,14 @@ export async function sendQuote(
         leadTimeDays: q.leadTimeDays,
         notes: q.notes,
         validUntil: q.validUntil ? new Date(q.validUntil) : null,
+        moq: q.moq,
+        moqUnit: q.moqUnit,
+        deliveryTerms: q.deliveryTerms,
+        deliveryNote: q.deliveryNote,
+        deliveryChargePaise: q.deliveryChargePaise == null ? null : BigInt(q.deliveryChargePaise),
+        paymentTerms: q.paymentTerms,
+        paymentNote: q.paymentNote,
+        gstIncluded: q.gstIncluded,
       },
     });
     await emit(tx, "QuoteSent", { type: "conversation", id: conversationId }, {

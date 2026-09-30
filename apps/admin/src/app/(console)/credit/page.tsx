@@ -139,7 +139,7 @@ async function Loans({ status }: { status?: string }) {
             <Td><Mono>{shortId(l.id)}</Mono></Td><Td className="whitespace-nowrap">{fmtDate(l.disbursedAt)}</Td><Td>{l.product.replace("_", " ")}</Td>
             <Td><Link href={`/businesses/${l.businessId}`}><Mono>{shortId(l.businessId)}</Mono></Link></Td><Td className="tabular-nums">{inr(l.principalPaise)}</Td>
             <Td className="tabular-nums">{inr(l.repaidPaise)}</Td><Td className="tabular-nums">{inr(l.outstandingPaise)}</Td><Td className="whitespace-nowrap">{fmtDate(l.dueAt)}</Td><Td>{l.dpd}</Td>
-            <Td><Badge tone={TONE[l.status] ?? "neutral"}>{l.status.replace("_", " ")}</Badge></Td>
+            <Td><Badge tone={TONE[l.status] ?? "neutral"}>{l.status.replace("_", " ")}</Badge>{l.status === "cancelled" ? <span className="ml-1 text-xs text-muted">{l.cancelReason === "cooling_off" ? "cooling-off exit" : "by lender"}{l.exitAmountPaise !== null ? `, owed ${inr(l.exitAmountPaise)}` : ""}</span> : null}</Td>
           </tr>
         ))}
       </tbody>

@@ -3,6 +3,7 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { DomainError, rateLimit } from "@cnote/core";
+import { clientIp } from "./client-ip";
 
 // ---------- CSRF: same-origin ----------
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -240,7 +241,7 @@ export async function handleCspReport(req: Request): Promise<Response> {
   const done = new Response(null, { status: 204 });
   if (req.method !== "POST") return new Response(null, { status: 405, headers: { allow: "POST" } });
   try {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("cf-connecting-ip") || "unknown";
+    const ip = clientIp(req.headers) ?? "unknown";
     if (!(await rateLimit(`sec:cspReport:${ip}`, RATE_LIMITS.cspReport.limit, RATE_LIMITS.cspReport.windowSeconds))) return done;
     const text = await req.text();
     if (text.length > 16_384) return done;

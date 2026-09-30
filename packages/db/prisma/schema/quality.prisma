@@ -37,6 +37,8 @@ model QualityCheck {
   /// checklist snapshot derived from order/quote/listing at submission time: { quantity, unit, requirement, attributes }
   expectedSpec      Json           @default("{}") @map("expected_spec")
   failureReason     String?        @map("failure_reason")
+  /// "photos" | "video": video means the seller's browser sampled these frames from a short clip (the video itself is never uploaded or stored)
+  source            String         @default("photos")
   createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   completedAt       DateTime?      @map("completed_at") @db.Timestamptz
@@ -47,7 +49,7 @@ model QualityCheck {
   @@map("quality_checks")
 }
 
-/// Private-bucket photos (EXIF/GPS stripped). Video is not accepted in the pilot (see docs/design/quality.md).
+/// Private-bucket photos (EXIF/GPS stripped). Video is never stored: clips are sampled into frames client-side and uploaded as photos (see docs/design/quality.md).
 model QualityCheckMedia {
   id        String    @id @default(uuid()) @db.Uuid
   checkId   String    @map("check_id") @db.Uuid

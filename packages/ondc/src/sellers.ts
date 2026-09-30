@@ -5,7 +5,7 @@ import type { ListingView } from "@cnote/catalogue";
 import { ineligibleReason, type IneligibleReason } from "./mapping";
 import { getSource } from "./source";
 
-export const TERMS_VERSION = "2026-09-v1";
+export const TERMS_VERSION = "2026-10-v1";
 const UUID = /^[0-9a-f-]{36}$/i;
 const isUuid = (s: string) => UUID.test(s);
 

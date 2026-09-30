@@ -41,6 +41,44 @@
     "invalidAction": "ही कृती योग्य नाही.",
     "_meta": {
       "review": "machine-drafted; needs native review"
+    },
+    "fulfilment": {
+      "heading": "डिलिव्हरीची प्रगती",
+      "stepsLabel": "डिलिव्हरीचे टप्पे",
+      "step": {
+        "packed": "पॅक झाले",
+        "dispatched": "डिस्पॅच झाले",
+        "in_transit": "वाटेत",
+        "out_for_delivery": "डिलिव्हरीसाठी निघाले",
+        "delivered": "डिलिव्हर झाले"
+      },
+      "state": {
+        "done": "पूर्ण",
+        "current": "सध्याचा टप्पा",
+        "upcoming": "अजून नाही"
+      },
+      "updates": "अपडेट",
+      "noUpdates": "अजून कोणतेही डिलिव्हरी अपडेट नाही.",
+      "stage": {
+        "packed": "पॅक झाले",
+        "in_transit": "वाटेत",
+        "out_for_delivery": "डिलिव्हरीसाठी निघाले",
+        "delivery_attempted": "डिलिव्हरीचा प्रयत्न झाला"
+      },
+      "trackingBoth": "कुरिअर {courier}, ट्रॅकिंग क्रमांक {ref}",
+      "trackingCourier": "कुरिअर {courier}",
+      "trackingRef": "ट्रॅकिंग क्रमांक {ref}",
+      "intro": "खरेदीदाराला अपडेट देत राहा. या टप्प्यांमुळे ऑर्डरची स्थिती किंवा कोणतेही पेमेंट बदलत नाही.",
+      "recordHeading": "पुढचा टप्पा नोंदवा",
+      "stageLabel": "टप्पा",
+      "note": "खरेदीदारासाठी नोंद (ऐच्छिक)",
+      "courier": "कुरिअर (ऐच्छिक)",
+      "awb": "ट्रॅकिंग क्रमांक / AWB (ऐच्छिक)",
+      "save": "अपडेट जतन करा",
+      "saving": "जतन करत आहे…",
+      "saved": "अपडेट जतन केले.",
+      "needDispatch": "वाटेतील टप्पे नोंदवण्यासाठी आधी ऑर्डर डिस्पॅच झाल्याचे चिन्हांकित करा.",
+      "invalidStage": "हा टप्पा वैध नाही."
     }
   }
 }

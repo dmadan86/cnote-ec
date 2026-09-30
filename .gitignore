@@ -53,3 +53,8 @@ coverage/
 
 # generated knowledge graph (graphify)
 graphify-out/
+
+# e2e (Playwright)
+/playwright-report
+/e2e/.results
+/.data/media-e2e

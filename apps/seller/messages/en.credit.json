@@ -108,7 +108,7 @@
       "lateFee": "Late payment charge",
       "lateFeeValue": "{percent} per month on the overdue amount",
       "coolingOff": "Cooling-off period",
-      "coolingOffValue": "{days} days after disbursal. You can exit by repaying the amount and interest for the days you used, with no penalty.",
+      "coolingOffValue": "{days} days after disbursal. You can exit by repaying the principal plus interest for the days you used, with no penalty. The exact amount is shown before you confirm.",
       "prepayment": "Charge for repaying early",
       "prepaymentNone": "None",
       "repayment": "How it is repaid",
@@ -137,13 +137,30 @@
         "active": "Active",
         "overdue": "Overdue",
         "repaid": "Repaid",
-        "written_off": "Written off by the lender"
+        "written_off": "Written off by the lender",
+        "cancelled": "Cancelled (cooling-off exit)"
       },
       "statusLabel": "Loan status",
-      "order": "Order {id}"
+      "order": "Order {id}",
+      "exitOwed": "Owed to the lender on exit",
+      "cancelledExit": "You exited this loan within the cooling-off period. Repay the amount owed directly to the lender. No penalty applies.",
+      "cancelledPartner": "The lender cancelled this loan."
     },
     "dev": {
       "simulate": "Simulate disbursal (development only)"
+    },
+    "exit": {
+      "heading": "Exit this loan (cooling-off period)",
+      "intro": "You can cancel this loan without any penalty until {date}. You repay the principal and interest for the days you used. Nothing else is charged.",
+      "principal": "Principal to return",
+      "interest": "Interest for {days} days",
+      "fees": "Fees (not refunded)",
+      "feesWaived": "Fees (waived by the lender)",
+      "total": "You repay the lender to exit",
+      "note_invoice_financing": "After you exit, the escrow payout for this order comes to you in full, and you pay the amount above to the lender directly.",
+      "note_bnpl": "After you exit, you repay the amount above to the lender directly. The escrow payment already made stays with the order.",
+      "confirm": "I want to exit this loan and repay the amount above to {lender}.",
+      "submit": "Exit loan"
     }
   }
 }

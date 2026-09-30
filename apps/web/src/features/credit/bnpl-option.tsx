@@ -2,7 +2,7 @@ import { getBnplOption, TENORS, type Kfs } from "@cnote/credit";
 import { Alert, Card, CardBody, CardTitle, Money } from "@cnote/ui";
 import { getTranslations } from "next-intl/server";
 import { type Locale } from "@/i18n/config";
-import { BnplAcceptForm, BnplApplyForm, BnplSimulateForm } from "./bnpl-forms";
+import { BnplAcceptForm, BnplApplyForm, BnplExitForm, BnplSimulateForm } from "./bnpl-forms";
 
 const pct = (bps: number) => `${(bps / 100).toFixed(2)}%`;
 
@@ -20,6 +20,7 @@ export async function BnplOption({ actor, orderId, escrowId, locale = "en" }: { 
   const labels = {
     consent: t("consentLabel", { lender }), tenor: t("tenorLabel"), tenorOptions: TENORS.bnpl.map((d) => ({ value: d, label: t("days", { days: d }) })),
     apply: t("apply"), noAuto: t("noAuto"), error: t("error"), acknowledge: t("accept.acknowledge", { lender }), accept: t("accept.submit"), decline: t("accept.decline"), simulate: t("dev.simulate"),
+    exitConfirm: t("exit.confirm", { lender }), exitSubmit: t("exit.submit"),
   };
   const app = opt.application;
   const offer = app?.status === "offered" ? app.offers.find((o) => o.status === "open") : undefined;
@@ -31,7 +32,9 @@ export async function BnplOption({ actor, orderId, escrowId, locale = "en" }: { 
           <p className="text-sm text-ink">{t("intro", { lender })}</p>
           {!app || !["submitted", "offered", "accepted", "disbursed"].includes(app.status) ? (
             <>
-              {app ? <Alert tone="info">{t(`status.${app.status}`)}</Alert> : null}
+              {app?.loan?.status === "cancelled" && app.loan.cancelReason === "cooling_off" ? (
+                <Alert tone="info"><span role="status">{t("exit.done")} {app.loan.exitAmountPaise !== null ? <Money paise={app.loan.exitAmountPaise} /> : null}</span></Alert>
+              ) : app ? <Alert tone="info">{t(`status.${app.status}`)}</Alert> : null}
               <BnplApplyForm orderId={orderId} escrowId={escrowId} needsConsent={!opt.consented} labels={labels} />
             </>
           ) : offer ? (
@@ -42,6 +45,20 @@ export async function BnplOption({ actor, orderId, escrowId, locale = "en" }: { 
           ) : (
             <>
               <p className="text-sm text-ink" role="status">{t(`status.${app.status}`)}</p>
+              {opt.exitQuote && app.loan ? (
+                <section aria-labelledby="bnpl-exit-heading" className="rounded-card border border-line p-4">
+                  <h3 id="bnpl-exit-heading" className="text-sm font-semibold text-ink">{t("exit.heading")}</h3>
+                  <p className="mt-1 text-sm text-muted">{t("exit.intro", { date: dt.format(new Date(opt.exitQuote.windowEndsAt)) })}</p>
+                  <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+                    <div><dt className="text-muted">{t("exit.principal")}</dt><dd className="font-medium"><Money paise={opt.exitQuote.principalPaise} /></dd></div>
+                    <div><dt className="text-muted">{t("exit.interest", { days: opt.exitQuote.interestDays })}</dt><dd className="font-medium"><Money paise={opt.exitQuote.interestPaise} /></dd></div>
+                    <div><dt className="text-muted">{opt.exitQuote.feesWaived ? t("exit.feesWaived") : t("exit.fees")}</dt><dd className="font-medium"><Money paise={opt.exitQuote.feesPaise} /></dd></div>
+                    <div><dt className="text-muted">{t("exit.total")}</dt><dd className="font-semibold text-ink"><Money paise={opt.exitQuote.payablePaise} /></dd></div>
+                  </dl>
+                  <p className="mt-3 text-sm text-muted">{t("exit.note_bnpl")}</p>
+                  <div className="mt-3"><BnplExitForm orderId={orderId} loanId={app.loan.id} payablePaise={opt.exitQuote.payablePaise} labels={labels} /></div>
+                </section>
+              ) : null}
               {app.status === "accepted" && app.partner === "mock" && process.env.NODE_ENV !== "production" ? <BnplSimulateForm orderId={orderId} applicationId={app.id} label={labels.simulate} error={labels.error} /> : null}
             </>
           )}

@@ -24,7 +24,7 @@
     },
     "disconnect": "Disconnect from ONDC",
     "disconnecting": "Disconnecting…",
-    "termsText": "I have read and accept the ONDC seller terms: my opted-in listings may be shown to ONDC buyer apps, and orders arrive in my ONDC inbox for me to accept or reject.",
+    "termsText": "I have read and accept the ONDC seller terms: my opted-in listings may be shown to ONDC buyer apps, orders arrive in my ONDC inbox for me to accept or reject, and if a network buyer raises an issue about my order it is handled through the network's grievance process (IGM): a dispute is opened for it, I can respond with evidence, and resolution deadlines apply.",
     "connect": "Connect to ONDC",
     "connecting": "Connecting…",
     "saving": "Saving…",
@@ -50,7 +50,66 @@
         "in_progress": "In progress",
         "completed": "Completed",
         "cancelled": "Cancelled"
-      }
+      },
+      "fulfilment": "Delivery: {state}",
+      "fulfilmentNone": "Delivery not started",
+      "fulfilmentState": {
+        "Packed": "Packed",
+        "Order-picked-up": "Picked up",
+        "Out-for-delivery": "Out for delivery",
+        "Order-delivered": "Delivered",
+        "Cancelled": "Cancelled"
+      },
+      "openOrder": "Open order"
+    },
+    "issuesButton": "Network issues",
+    "issues": {
+      "metaTitle": "ONDC issues",
+      "title": "Network issues",
+      "description": "Problems raised by buyers on the ONDC network about your orders. Each one is handled through a dispute, and the buyer's app is kept informed.",
+      "emptyTitle": "No network issues",
+      "emptyDescription": "Issues raised about your ONDC orders appear here.",
+      "back": "Back to network issues",
+      "detailMetaTitle": "ONDC issue",
+      "notFound": "We could not find this issue, or it belongs to another business.",
+      "raised": "Raised {date} by {bap}",
+      "category": {
+        "ITEM": "Item",
+        "FULFILLMENT": "Delivery",
+        "ORDER": "Order",
+        "PAYMENT": "Payment",
+        "other": "Other"
+      },
+      "status": {
+        "open": "Open",
+        "processing": "In progress",
+        "resolved": "Resolved",
+        "closed": "Closed"
+      },
+      "overdue": "Past resolution deadline",
+      "needsManual": "Being handled by our team",
+      "viewDetails": "View details",
+      "viewDispute": "Open the dispute",
+      "disputeHelp": "Respond and add evidence in the dispute. The outcome is sent back to the buyer's app.",
+      "noDispute": "No dispute is open for this issue. Our team is handling it and will send the outcome to the buyer's app.",
+      "whatBuyerSaid": "What the buyer reported",
+      "reference": "Network reference",
+      "categoryLabel": "Category",
+      "statusLabel": "Status",
+      "deadlines": "Deadlines",
+      "respondBy": "Response due {when}",
+      "resolveBy": "Resolution due {when}",
+      "cascaded": "Escalated to the next level on {when}",
+      "resolution": "Resolution",
+      "noResolution": "Not resolved yet.",
+      "resolutionAction": {
+        "REFUND": "Refund to the buyer",
+        "REPLACEMENT": "Replacement",
+        "NO-ACTION": "No action needed",
+        "RESOLVE-PROCESS": "Resolved through the process"
+      },
+      "refundAmount": "Refund amount: ₹{amount}",
+      "linkedOrder": "Related ONDC order"
     }
   }
 }

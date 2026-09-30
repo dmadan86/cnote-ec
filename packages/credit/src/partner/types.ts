@@ -34,10 +34,12 @@ export interface PartnerSubmitResult {
   reason?: string;
 }
 export interface PartnerAcceptResult { status: "accepted" | "failed"; reason?: string }
+/** Cooling-off exit (RBI): the lender cancels the loan; the borrower repays principal + pro-rata interest, no penalty. Must be idempotent by loanRef. */
+export interface PartnerCancelResult { status: "cancelled" | "failed"; /** what the lender will collect from the borrower, when it states one */ exitAmountPaise?: number; reason?: string }
 export interface PartnerDisbursement { status: "pending" | "disbursed" | "failed"; loanRef?: string; disbursedAt?: Date }
 export interface PartnerRepayment { eventKey: string; amountPaise: number; paidAt: Date; source: "borrower" | "escrow_release" | "partner" }
 
-export type PartnerEventType = "application.offered" | "application.rejected" | "loan.disbursed" | "loan.repayment" | "loan.overdue" | "loan.closed" | "loan.written_off";
+export type PartnerEventType = "application.offered" | "application.rejected" | "loan.disbursed" | "loan.repayment" | "loan.overdue" | "loan.closed" | "loan.written_off" | "loan.cancelled";
 export interface PartnerEvent {
   eventId: string;
   type: PartnerEventType;
@@ -60,6 +62,8 @@ export interface CreditPartner {
   acceptOffer(partnerRef: string, offerRef: string, acceptance: { acceptedAt: Date; personRef: string }): Promise<PartnerAcceptResult>;
   getDisbursementStatus(partnerRef: string): Promise<PartnerDisbursement>;
   listRepayments(loanRef: string): Promise<PartnerRepayment[]>;
+  /** Cancel a disbursed loan inside the cooling-off period; `reason` is "cooling_off" for a borrower exit. Idempotent by loanRef. */
+  cancel(loanRef: string, reason: string): Promise<PartnerCancelResult>;
   /** null when the signature is bad or the body is malformed */
   verifyWebhook(raw: Uint8Array, headers: Headers): PartnerEvent | null;
 }

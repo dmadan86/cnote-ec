@@ -1,0 +1,343 @@
+{
+  "uid": "cnote-money",
+  "title": "Money: escrow, credit, payouts",
+  "description": "ADR-012/013/019 targets and live queues. Confirm table/column names against packages/db/prisma/schema/escrow.prisma when the schema changes.",
+  "tags": [
+    "cnote"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "refresh": "5m",
+  "timezone": "Asia/Kolkata",
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Escrow dispute-refund rate (fraud proxy, <0.5%)",
+      "description": "Escrows funded that were refunded by a dispute decision within 60d.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"escrow_dispute_refund_rate\" FROM metric_daily WHERE metric='escrow_dispute_refund_rate' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Payout latency, median minutes (<1440)",
+      "description": "metric_daily.escrow_payout_minutes; cohort-anchored, recent days keep changing until the window matures (docs/design/metrics.md).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"escrow_payout_minutes\" FROM metric_daily WHERE metric='escrow_payout_minutes' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Dispute resolution, median minutes (<=10080 = 7d)",
+      "description": "metric_daily.dispute_resolution_minutes; cohort-anchored, recent days keep changing until the window matures (docs/design/metrics.md).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"dispute_resolution_minutes\" FROM metric_daily WHERE metric='dispute_resolution_minutes' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Disputes auto-resolved",
+      "description": "metric_daily.dispute_auto_resolution_rate; cohort-anchored, recent days keep changing until the window matures (docs/design/metrics.md).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"dispute_auto_resolution_rate\" FROM metric_daily WHERE metric='dispute_auto_resolution_rate' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "Credit 90+ DPD loan share (GNPA proxy, <2%)",
+      "description": "Count-based proxy; true GNPA is outstanding-weighted, see credit admin page.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"credit_npa_rate_proxy\" FROM metric_daily WHERE metric='credit_npa_rate_proxy' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 24,
+      "type": "timeseries",
+      "title": "Escrowed orders with credit attached (>=15%)",
+      "description": "Order-count proxy of the GMV-weighted ADR target.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"credit_attached_order_share\" FROM metric_daily WHERE metric='credit_attached_order_share' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 25,
+      "type": "timeseries",
+      "title": "Money volumes",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, metric, value FROM metric_daily WHERE metric IN ('escrows_funded','credit_disbursals','credit_overdue_events','subscription_starts','subscription_cancels') AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 26,
+      "type": "table",
+      "title": "Escrow payouts by status (live)",
+      "description": "Pending payouts older than one business day breach the ADR-012 target.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT status, count(*) AS payouts, COALESCE(sum(amount_paise),0)/100.0 AS rupees, min(requested_at) AS oldest FROM escrow_payouts GROUP BY status ORDER BY status"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 27,
+      "type": "table",
+      "title": "Escrow reconciliation issues",
+      "description": "Open rows need finance attention (admin issue queue).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT status, count(*) AS issues, min(created_at) AS oldest FROM escrow_reconciliation_issues GROUP BY status ORDER BY status"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    }
+  ]
+}

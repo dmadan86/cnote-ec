@@ -21,6 +21,11 @@ describe("registry", () => {
     expect(def("auto_refund_rate").alert).toMatchObject({ direction: "above", threshold: 0.1 });
     expect(def("lead_to_conversation_rate").alert).toMatchObject({ direction: "below", threshold: 0.6 });
     expect(def("median_lead_response_minutes").alert).toMatchObject({ direction: "above", threshold: 120 });
+    expect(def("credit_npa_rate_proxy").alert).toMatchObject({ direction: "above", threshold: 0.02, minSample: 50 });
+    expect(def("credit_attached_order_share").alert).toMatchObject({ direction: "below", threshold: 0.15 });
+    expect(def("escrow_dispute_refund_rate").alert).toMatchObject({ direction: "above", threshold: 0.005 });
+    expect(def("escrow_payout_minutes").alert).toMatchObject({ direction: "above", threshold: 1440 });
+    expect(def("dispute_resolution_minutes").alert).toMatchObject({ direction: "above", threshold: 10_080 });
   });
   it("meetsTarget both directions", () => {
     expect(meetsTarget({ value: 0.6, direction: "at_least" }, 0.6)).toBe(true);

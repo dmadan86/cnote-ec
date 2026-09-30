@@ -1,0 +1,32 @@
+{
+  "apiVersion": 1,
+  "datasources": [
+    {
+      "name": "cnote-pg",
+      "uid": "cnote-pg",
+      "type": "grafana-postgresql-datasource",
+      "access": "proxy",
+      "url": "$CNOTE_PG_REPLICA_HOST:5432",
+      "user": "grafana_ro",
+      "jsonData": {
+        "database": "cnote",
+        "sslmode": "require",
+        "postgresVersion": 1700
+      },
+      "secureJsonData": {
+        "password": "$CNOTE_PG_RO_PASSWORD"
+      }
+    },
+    {
+      "name": "cnote-redis",
+      "uid": "cnote-redis",
+      "type": "redis-datasource",
+      "access": "proxy",
+      "url": "$CNOTE_REDIS_URL",
+      "jsonData": {
+        "client": "standalone",
+        "tlsAuth": true
+      }
+    }
+  ]
+}

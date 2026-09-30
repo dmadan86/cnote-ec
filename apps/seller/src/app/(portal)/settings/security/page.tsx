@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { mfaStatus } from "@cnote/identity";
-import { MfaSettings } from "@cnote/next-kit/client";
 import { PageHeader } from "@cnote/ui";
 import { requireSeller } from "@/lib/auth";
+import { LocalizedMfaSettings } from "@/features/shell/localized-mfa-forms";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("settings.security");
@@ -18,7 +18,7 @@ export default async function SecurityPage() {
   return (
     <div className="max-w-2xl space-y-6">
       <PageHeader title={t("title")} description={t("description")} />
-      <MfaSettings enabled={status.enabled} recoveryCodesLeft={status.recoveryCodesLeft} />
+      <LocalizedMfaSettings enabled={status.enabled} recoveryCodesLeft={status.recoveryCodesLeft} />
     </div>
   );
 }

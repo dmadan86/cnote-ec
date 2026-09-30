@@ -160,3 +160,14 @@ Adopted patterns, all web:
 * Partial-release milestones (several payments per order) are out of scope for v1.
 * DB-level append-only enforcement (trigger) for ledger tables would need hand-written SQL that `db:new` strips; today it is enforced by having no mutation path.
 * Order rows still say `settlement = "off_platform"`; enquiry owns that column and should flip it to `escrow` on `EscrowFunded`.
+
+## Per-business reads (ADR-019 underwriting)
+
+`src/reads.ts`, read-only (no change to escrow behaviour):
+
+* `escrowHistoryForBusiness(businessId, { role? })` returns `{ completed, completedPaise, clean, refunded }` from SQL aggregates over every escrow of the business
+  (completed = released; clean = released with no `EscrowFreeze` ever; refunded = ended refunded). No page limit or sampling.
+* `listEscrowsForBusiness(businessId, { role, status, cursor, limit })` is keyset-paged newest first (`createdAt`, `id` tie-break, opaque cursor) and returns
+  `{ items, nextCursor }` (limit 1..200, default 50).
+
+`@cnote/credit`'s default ports use them (the 200-row sampling approximation is gone).

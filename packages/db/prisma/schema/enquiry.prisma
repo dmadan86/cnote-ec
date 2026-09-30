@@ -132,11 +132,23 @@ model Quote {
   leadTimeDays     Int?      @map("lead_time_days")
   notes            String?
   validUntil       DateTime? @map("valid_until") @db.Date
+  /// Structured, optional terms (ADR-014 follow-up). Enum-ish strings validated in code: delivery ex_works|fob|door_delivery|buyer_pickup|other;
+  /// payment advance|on_delivery|net_7|net_15|net_30|escrow|other.
+  moq                 Int?
+  moqUnit             String?  @map("moq_unit")
+  deliveryTerms       String?  @map("delivery_terms")
+  deliveryNote        String?  @map("delivery_note")
+  deliveryChargePaise BigInt?  @map("delivery_charge_paise")
+  paymentTerms        String?  @map("payment_terms")
+  paymentNote         String?  @map("payment_note")
+  gstIncluded         Boolean? @map("gst_included")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   conversation Conversation @relation(fields: [conversationId], references: [id])
   seller       Business     @relation(fields: [sellerBusinessId], references: [id])
 
+  /// Seller quote history, keyset-paged (createdAt desc, id desc).
+  @@index([sellerBusinessId, createdAt(sort: Desc), id(sort: Desc)])
   @@map("quotes")
 }
 

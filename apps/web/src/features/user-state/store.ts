@@ -1,4 +1,5 @@
 "use client";
+import { usePathname } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
 
 /**
@@ -76,11 +77,20 @@ const subscribe = (l: () => void) => {
   return () => void listeners.delete(l);
 };
 
-/** Subscribe to the shared per-user state; the first mounted consumer triggers the fetch. */
+const AUTH_PATH = /^\/(?:[a-z]{2}\/)?(?:signin|signup|reset-password|forgot-password|mfa)(?:\/|$)/;
+let lastPath: string | null = null;
+
+/**
+ * Subscribe to the shared per-user state; the first mounted consumer triggers the fetch. Leaving an auth page (sign-in,
+ * sign-up, reset, MFA) refetches once, so the header reflects the new session after the client-side redirect.
+ */
 export function useUserState(): UserState {
   const s = useSyncExternalStore(subscribe, () => state, () => INITIAL);
+  const pathname = usePathname();
   useEffect(() => {
-    if (state.status === "idle") void refreshUserState();
-  }, []);
+    const leftAuthPage = lastPath !== null && lastPath !== pathname && AUTH_PATH.test(lastPath);
+    lastPath = pathname;
+    if (state.status === "idle" || leftAuthPage) void refreshUserState();
+  }, [pathname]);
   return s;
 }

@@ -110,7 +110,7 @@ describe("account settings actions require a session", () => {
     ["mfaRegenerateAction", () => A.mfaRegenerateAction(null, fd("1"))],
   ])("%s rejects when signed out", async (_n, call) => {
     h.currentSession.mockResolvedValue(null);
-    expect(await call()).toEqual({ ok: false, error: "Please sign in again." });
+    expect(await call()).toEqual({ ok: false, error: "Please sign in again.", errorKey: "auth.pleaseSignIn" });
     for (const k of ["mfaStatus", "beginMfaEnrollment", "confirmMfaEnrollment", "disableMfa", "regenerateRecoveryCodes"]) expect((h as never)[k]).not.toHaveBeenCalled();
   });
   it("delegates with the session's person", async () => {

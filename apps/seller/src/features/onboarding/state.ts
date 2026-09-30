@@ -36,3 +36,9 @@ export async function getOnboardingState(session: Session): Promise<OnboardingSt
   if (consents.ok && consents.data.matching) return { step: "done" };
   return { step: 5 };
 }
+
+/** True for two minutes after the seller's first listing was submitted (so the onboarding page can show the outcome). */
+export async function justSubmittedFirstListing(now: number = Date.now()): Promise<boolean> {
+  const at = Number(await readOnb(ONB.firstListing));
+  return Number.isFinite(at) && at > 0 && now - at < 120_000;
+}

@@ -38,19 +38,19 @@ export function HeaderActions() {
       <div className="hidden lg:block">
         <PincodePicker />
       </div>
-      <Link href="/rfq/new" className={`${linkCls} hidden lg:inline-flex`}>
+      <Link href="/rfq/new" className={`${linkCls} max-lg:hidden`}>
         <FileText className="size-4" aria-hidden /> {t("requestQuote")}
       </Link>
-      <Link href="/buyer/enquiries" className={`${linkCls} hidden lg:inline-flex`}>
+      <Link href="/buyer/enquiries" className={`${linkCls} max-lg:hidden`}>
         <ClipboardList className="size-4" aria-hidden /> {t("orders")}
       </Link>
       {u.signedIn ? (
-        <Link href="/wishlist" className={`${linkCls} hidden lg:inline-flex`}>
+        <Link href="/wishlist" className={`${linkCls} max-lg:hidden`}>
           <Heart className="size-4" aria-hidden /> {t("saved")}
           <CountBadge n={u.savedCount} itemsLabel={t("items")} />
         </Link>
       ) : null}
-      <Link href="/compare" className={`${linkCls} hidden lg:inline-flex`}>
+      <Link href="/compare" className={`${linkCls} max-lg:hidden`}>
         <Scale className="size-4" aria-hidden /> {t("compare")}
         <CountBadge n={u.compareIds.length} itemsLabel={t("items")} />
       </Link>

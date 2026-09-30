@@ -6,6 +6,7 @@ import type { ActionResult } from "@cnote/next-kit";
 import type { PlanView } from "@cnote/billing";
 import type { ConsentPurpose } from "@cnote/identity";
 import { LANGUAGES, STATES } from "@/lib/constants";
+import { stateLabel } from "@/lib/states";
 import { FormAlert, SubmitButton, fieldError } from "@/features/shell/form-bits";
 import { ConsentFields } from "@/features/settings/consent-fields";
 import { Money } from "@cnote/ui";
@@ -13,6 +14,7 @@ import { createBusinessAction, finishOnboardingAction, requestOtpAction, skipSte
 
 export function BusinessStep() {
   const t = useTranslations("onboarding.business");
+  const ts = useTranslations("states");
   const [state, action] = useActionState<ActionResult | null, FormData>(createBusinessAction, null);
   return (
     <form action={action} className="space-y-4">
@@ -26,7 +28,7 @@ export function BusinessStep() {
         <Field label={t("state")} htmlFor="state" error={fieldError(state, "state")}>
           <Select id="state" name="state" required defaultValue="" className="h-12 text-base">
             <option value="" disabled>{t("statePick")}</option>
-            {STATES.map((s) => <option key={s}>{s}</option>)}
+            {STATES.map((s) => <option key={s} value={s}>{stateLabel(s, (c) => (ts.has(c) ? ts(c) : undefined))}</option>)}
           </Select>
         </Field>
         <Field label={t("pincode")} htmlFor="pincode" error={fieldError(state, "pincode")}>

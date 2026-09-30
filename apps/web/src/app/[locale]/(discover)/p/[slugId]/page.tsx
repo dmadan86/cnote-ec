@@ -23,6 +23,7 @@ import { OfferPanel } from "@/features/promotions/offer-panel";
 import { UnlockButton } from "@/features/leadgen/unlock-buttons";
 import { CompareIsland, SaveIsland } from "@/features/user-state/islands";
 import { SponsoredSimilar } from "@/features/ads/similar";
+import { stateLabel } from "@/features/identity/states";
 
 // Product pages are static: the top 100 listings are prerendered at build time, everything else renders on first
 // request and is then cached (ISR). Regenerated at most every 5 min, and immediately (stale-while-revalidate, or
@@ -86,6 +87,7 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
     loadOffer(listing.id),
   ]);
   const others = similar.hits.filter((h) => h.listing.id !== listing.id).slice(0, 4);
+  const sellerState = seller ? await stateLabelFor(locale, seller.state) : "";
   const ratings = await loadRatings(others.map((h) => h.listing.id));
   const otherOffers = await Promise.all(others.map((h) => loadOffer(h.listing.id)));
   const fields = new Map((category?.attributeSchema.fields ?? []).map((f) => [f.key, f]));
@@ -169,7 +171,7 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
                     </Link>
                   </h2>
                   <p className="mt-0.5 inline-flex items-center gap-1 text-sm text-muted">
-                    <MapPin className="size-3.5" aria-hidden /> {[seller.city, seller.state].filter(Boolean).join(", ") || t("india")}
+                    <MapPin className="size-3.5" aria-hidden /> {[seller.city, sellerState].filter(Boolean).join(", ") || t("india")}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <TrustBadge tier={seller.verificationTier} badgeActive={seller.badgeActive} labels={ui.trust} />
@@ -244,4 +246,10 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
       <SponsoredSimilar listingId={listing.id} locale={locale} />
     </Container>
   );
+}
+
+/** Translated state label for a stored English state name (falls back to the stored value). */
+async function stateLabelFor(locale: string, name: string | null | undefined): Promise<string> {
+  const ts = await getTranslations({ locale, namespace: "states" });
+  return stateLabel(name, (code) => (ts.has(code) ? ts(code) : undefined));
 }

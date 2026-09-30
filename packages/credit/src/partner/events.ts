@@ -15,7 +15,7 @@ const offerSchema = z.object({
 });
 const eventSchema = z.object({
   eventId: z.string().min(1).max(200),
-  type: z.enum(["application.offered", "application.rejected", "loan.disbursed", "loan.repayment", "loan.overdue", "loan.closed", "loan.written_off"]),
+  type: z.enum(["application.offered", "application.rejected", "loan.disbursed", "loan.repayment", "loan.overdue", "loan.closed", "loan.written_off", "loan.cancelled"]),
   partnerRef: z.string().min(1).max(300),
   loanRef: z.string().max(300).optional(),
   offers: z.array(offerSchema).max(10).optional(),

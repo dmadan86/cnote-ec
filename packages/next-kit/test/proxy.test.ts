@@ -38,7 +38,7 @@ describe("createAuthProxy", () => {
   it("stale (within skew) token refreshes and sets cookies; forwards ip/UA and realm", async () => {
     refreshSession.mockResolvedValue(rotated);
     const res = await proxy(req("/account", { cnote_web_at: jwt(10), cnote_web_rt: "rt" }, { "x-forwarded-for": "1.2.3.4, 5.6.7.8", "user-agent": "UA" }));
-    expect(refreshSession).toHaveBeenCalledWith("rt", expect.objectContaining({ ip: "1.2.3.4", userAgent: "UA", realm: "web" }));
+    expect(refreshSession).toHaveBeenCalledWith("rt", expect.objectContaining({ ip: "5.6.7.8", userAgent: "UA", realm: "web" })); // spoof-safe: the hop our proxy added
     expect(setCookie(res)).toContain("cnote_web_rt=NEWRT");
     expect(setCookie(res)).toContain("cnote_web_at=");
     expect(res.status).toBe(200);

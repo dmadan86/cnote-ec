@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@cnote/db";
 import { afterAll, describe, expect, it } from "vitest";
-import { purgeOndcOrderPayloads } from "../src";
+import { getOndcOrderSeller, purgeOndcOrderPayloads } from "../src";
 
 const ids: string[] = [];
 afterAll(() => prisma.ondcOrder.deleteMany({ where: { id: { in: ids } } }));
@@ -42,5 +42,15 @@ describe("purgeOndcOrderPayloads", () => {
     const stillOld = await prisma.ondcOrder.findUniqueOrThrow({ where: { id: old } });
     expect((stillOld.payload as { redactedAt?: string }).redactedAt).toBeTruthy();
     expect(again).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("getOndcOrderSeller (system read for notifiers)", () => {
+  it("returns the seller of an ONDC order; null for unknown or malformed ids", async () => {
+    const id = await order("accepted", 1);
+    const row = await prisma.ondcOrder.findUniqueOrThrow({ where: { id } });
+    expect(await getOndcOrderSeller(id)).toBe(row.sellerBusinessId);
+    expect(await getOndcOrderSeller(randomUUID())).toBeNull();
+    expect(await getOndcOrderSeller("nope")).toBeNull();
   });
 });

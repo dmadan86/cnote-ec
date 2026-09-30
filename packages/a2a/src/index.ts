@@ -21,3 +21,4 @@ export {
   type Offer, type OfferInput, type ProtocolMessage, type ProtocolMessageInput, type State, type Status, type Side, type Private, type BuyerPrivate, type SellerPrivate, type StepResult, type StepError,
 } from "./protocol";
 export { worker } from "./worker";
+export { getNegotiationParties, type NegotiationPartiesView } from "./parties";

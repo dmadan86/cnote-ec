@@ -11,12 +11,17 @@ describe("runAction", () => {
   it("maps DomainError to its message", async () => {
     expect(await runAction(async () => { throw new DomainError("forbidden", "nope"); })).toEqual({ ok: false, error: "nope" });
   });
+  it("adds the stable error key for a keyed or well-known DomainError, and none otherwise", async () => {
+    expect(await runAction(async () => { throw new DomainError("conflict", "nope", undefined, "a.b"); })).toEqual({ ok: false, error: "nope", errorKey: "a.b" });
+    expect(await runAction(async () => { throw new DomainError("unauthenticated", "Invalid email or password"); })).toEqual({ ok: false, error: "Invalid email or password", errorKey: "auth.invalidCredentials" });
+    expect(await runAction(async () => { throw new DomainError("forbidden", "bespoke"); })).not.toHaveProperty("errorKey");
+  });
   it("maps ZodError to first message per dotted path", async () => {
     const schema = z.object({ email: z.string().email("bad email"), nested: z.object({ n: z.number("need n") }) });
     const parsed = schema.safeParse({ email: "x", nested: { n: "a" } });
     const err = (parsed as { error: ZodError }).error;
     const r = await runAction(async () => { throw err; });
-    expect(r).toMatchObject({ ok: false, error: "Please fix the highlighted fields.", fieldErrors: { email: "bad email", "nested.n": "need n" } });
+    expect(r).toMatchObject({ ok: false, error: "Please fix the highlighted fields.", errorKey: "common.fixFields", fieldErrors: { email: "bad email", "nested.n": "need n" } });
   });
   it("keeps the first issue when a path has several", async () => {
     const err = new ZodError([
@@ -40,6 +45,9 @@ describe("errorResponse", () => {
         expect(await res.json()).toEqual({ error: msg, code });
       }),
     );
+  });
+  it("includes the key in the body when there is one", async () => {
+    expect(await errorResponse(new DomainError("conflict", "x", undefined, "k.v")).json()).toEqual({ error: "x", code: "conflict", key: "k.v" });
   });
   it("422 with issues for ZodError", async () => {
     const res = errorResponse(new ZodError([{ code: "custom", path: ["x"], message: "m" }]));

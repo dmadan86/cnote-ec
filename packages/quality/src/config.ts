@@ -20,6 +20,17 @@ export const minLabels = (): number => Math.max(1, Math.trunc(num(process.env.QU
 
 export const MAX_PHOTOS_PER_CHECK = 4;
 export const MAX_CHECKS_PER_ORDER = 3;
+/**
+ * Short video (docs/design/quality.md): the seller's BROWSER samples 3-6 evenly spaced frames from a clip of at most
+ * 30 s / 25 MB and uploads them as photos through the normal validated path. The server never receives or stores video;
+ * `source: "video"` only labels the check. The vision capability accepts at most MAX_AI_IMAGES images, so a longer frame
+ * set is stored and shown in full while the model sees an evenly spaced subset.
+ */
+export const VIDEO_MIN_FRAMES = 3;
+export const VIDEO_MAX_FRAMES = 6;
+export const VIDEO_MAX_SECONDS = 30;
+export const VIDEO_MAX_BYTES = 25 * 1024 * 1024;
+export const MAX_AI_IMAGES = 4;
 export const SUBMISSIONS_PER_HOUR = 10;
 /** Photos are personal/commercial data (DPDP): the object is deleted after this many days, the row stays. */
 export const QUALITY_MEDIA_RETENTION_DAYS = 180;

@@ -107,3 +107,15 @@ pnpm --filter @cnote/analytics backfill --reset funnel     # rebuild from event 
 2. `pnpm --filter @cnote/ai-service test` (contract suite) and `pnpm --filter @cnote/search-service test`.
 3. Canary per `docs/design/scale.md` section 5; watch breaker-open and `heuristic-fallback` rates.
 4. Rotate service token secrets with the `new,old` list: deploy services first (accept both), then callers (sign with new), then drop `old`.
+
+## Client IP trust (rate limits, audit)
+
+Per-IP rate limits (sign-in, sign-up, OTP, search voice/photo, webhooks) key on `clientIp()` from `@cnote/security`:
+`cf-connecting-ip` first, then the `X-Forwarded-For` entry added by our own outermost proxy (counted from the right,
+`TRUSTED_PROXY_HOPS`, default 1), then `x-real-ip`. The first `X-Forwarded-For` entry is client-controlled and is never
+used. Two deployment requirements follow:
+
+1. The origin (load balancer / ingress) must accept traffic **only from Cloudflare** (Cloudflare IP allowlist or
+   Authenticated Origin Pulls / Cloudflare Tunnel); otherwise a client could send its own `cf-connecting-ip`.
+2. Set `TRUSTED_PROXY_HOPS` to the number of proxies you run in front of the apps behind Cloudflare (e.g. 2 for an
+   AWS ALB + NGINX ingress) so the right `X-Forwarded-For` entry is used when `cf-connecting-ip` is absent.

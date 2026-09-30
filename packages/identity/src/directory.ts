@@ -32,6 +32,8 @@ export interface PersonContact {
   email: string | null;
   phone: string | null;
   name: string | null;
+  /** the person's preferred language (ADR-004), e.g. "hi"; notifications render in it */
+  locale: string;
 }
 
 /**
@@ -40,10 +42,10 @@ export interface PersonContact {
  * Pass `{ self: true }` for messages sent to the person themselves (notifications, OTP): phone is always included.
  */
 export async function getPersonContact(personId: string, opts?: { self?: boolean }): Promise<PersonContact | null> {
-  const p = await prisma.person.findUnique({ where: { id: personId }, select: { email: true, phone: true, name: true, erasedAt: true } });
+  const p = await prisma.person.findUnique({ where: { id: personId }, select: { email: true, phone: true, name: true, erasedAt: true, preferredLanguage: true } });
   if (!p || p.erasedAt) return null;
   const phone = p.phone && (opts?.self || (await hasConsent(personId, "counterparty_sharing"))) ? p.phone : null;
-  return { email: p.email, phone, name: p.name };
+  return { email: p.email, phone, name: p.name, locale: p.preferredLanguage };
 }
 
 /** Lookup by (case-insensitive) email; never returns erased persons. */

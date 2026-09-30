@@ -69,6 +69,21 @@
     "log_counter_bounds_rejected": "আপনার সীমার বাইরের একটি পরামর্শ বাদ দেওয়া হয়েছে।",
     "error": "কিছু একটা ভুল হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।",
     "scrollHint": "সব কলাম দেখতে টেবিলটি পাশে সরান।",
-    "regionLabel": "তুলনার টেবিল, সরানো যায়"
+    "regionLabel": "তুলনার টেবিল, সরানো যায়",
+    "colMoq": "ন্যূনতম অর্ডার পরিমাণ",
+    "colDeliveryTerms": "ডেলিভারির শর্ত",
+    "colPayment": "পেমেন্টের শর্ত",
+    "delivery_ex_works": "এক্স-ওয়ার্কস (ক্রেতা আপনার কাছ থেকে নেবেন)",
+    "delivery_fob": "FOB",
+    "delivery_door_delivery": "দরজায় ডেলিভারি",
+    "delivery_buyer_pickup": "ক্রেতা নিজে নেবেন",
+    "delivery_other": "অন্যান্য",
+    "payment_advance": "অগ্রিম পেমেন্ট",
+    "payment_on_delivery": "ডেলিভারিতে পেমেন্ট",
+    "payment_net_7": "7 দিনে পেমেন্ট",
+    "payment_net_15": "15 দিনে পেমেন্ট",
+    "payment_net_30": "30 দিনে পেমেন্ট",
+    "payment_escrow": "এসক্রো",
+    "payment_other": "অন্যান্য"
   }
 }

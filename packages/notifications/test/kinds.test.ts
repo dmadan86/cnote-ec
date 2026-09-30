@@ -7,6 +7,7 @@ vi.mock("@cnote/templates", () => ({ defineTemplates: (d: unknown) => { h.define
 vi.mock("@cnote/email", () => ({ sendEmail: async () => "id" }));
 vi.mock("@cnote/identity", () => ({ BADGE_THRESHOLD: 40, getConsents: async () => ({ marketing: false }) }));
 
+import { PHASE23_KINDS } from "../src/kinds-phase23";
 import { KINDS, getKind, kindsFor, observedEvents, registerNotificationTemplates, templateDefinitions } from "../src/kinds";
 import { CATEGORY_META, channelLock, defaultPreference, effectiveChannels } from "../src/preferences";
 import { redact, maskEmail, listQueueTopics, registerQueueTopic } from "../src/ops";
@@ -80,7 +81,8 @@ describe("kinds registry", () => {
   });
   it("every kind is exercised by the mapping table", () => {
     const covered = new Set(TABLE.map((r) => r.key));
-    for (const k of KINDS) expect(covered, k.key).toContain(k.key);
+    const phase23 = new Set(PHASE23_KINDS.map((k) => k.key)); // covered in kinds-phase23.test.ts
+    for (const k of KINDS) if (!phase23.has(k.key)) expect(covered, k.key).toContain(k.key);
   });
   it("observedEvents/kindsFor are consistent; several kinds may share an event", () => {
     const evs = observedEvents();

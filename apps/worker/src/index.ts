@@ -17,6 +17,11 @@ import { worker as prices } from "@cnote/prices";
 import { worker as credit } from "@cnote/credit";
 import { worker as a2a } from "@cnote/a2a";
 import { worker as analytics, setBusinessStateResolver } from "@cnote/analytics";
+import { setPartyResolvers } from "@cnote/notifications";
+import { getOrderParties } from "@cnote/enquiry";
+import { getOndcOrderSeller } from "@cnote/ondc";
+import { getCreditApplicationBusiness } from "@cnote/credit";
+import { getNegotiationParties } from "@cnote/a2a";
 import { getTrustProfiles } from "@cnote/identity";
 import { worker as catalogue } from "@cnote/catalogue";
 import { consumeOnce, getJobQueue, relayOutbox, type JobTopic, type ModuleWorker } from "@cnote/core";
@@ -55,6 +60,8 @@ setListingHsnSource(getSellerListingHsns);
 
 const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, notifications, developer, email, cacheWorker, searchIndexer, leadgen, domains, storefront, bulk, metrics, compliance, whatsapp, promotions, ads, verticals, quality, ondc, escrow, negotiation, disputes, prices, credit, a2a, analytics];
 // Seller-cohort facts group sellers by state (identity owns it; analytics reads it through this resolver).
+// Phase 2/3 notifications: events name an order/application/negotiation, not the parties (see docs/design/notifications-phase23.md).
+setPartyResolvers({ orderParties: getOrderParties, ondcOrderSeller: getOndcOrderSeller, creditApplicationBusiness: getCreditApplicationBusiness, negotiationParties: getNegotiationParties });
 setBusinessStateResolver(async (ids) => new Map([...(await getTrustProfiles(ids))].map(([id, p]) => [id, p.state])));
 wireDisputeAdapters();
 wireOndcOrderSink();

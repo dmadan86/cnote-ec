@@ -1,5 +1,5 @@
 import { getMfaPending } from "@cnote/next-kit";
-import { MfaChallengeForm } from "@cnote/next-kit/client";
+import { LocalizedMfaChallengeForm } from "@/features/shell/localized-mfa-forms";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -13,5 +13,5 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function MfaPage() {
   const pending = await getMfaPending();
   if (!pending || pending.mode !== "verify") redirect("/signin");
-  return <MfaChallengeForm />;
+  return <LocalizedMfaChallengeForm />;
 }

@@ -1,4 +1,5 @@
 // Public view/input types of @cnote/enquiry (re-exported from index.ts).
+import type { QuoteView } from "./quotes";
 
 export interface EnquiryInput {
   title: string;
@@ -109,7 +110,7 @@ export interface ConversationView {
   buyer: { businessId: string; name: string };
   seller: { businessId: string; name: string };
   messages: { id: string; senderPersonId: string; body: string; createdAt: string }[];
-  quotes: { id: string; pricePaise: number; quantity: number; unit: string; leadTimeDays: number | null; notes: string | null; validUntil: string | null; createdAt: string }[];
+  quotes: QuoteView[];
   dealReported: "won" | "lost" | "pending" | null;
   /** Which side the requesting actor is on. */
   role?: "buyer" | "seller";

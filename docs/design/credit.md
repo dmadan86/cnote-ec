@@ -152,6 +152,26 @@ idempotent by `ref`) and the composition root injects it with `setCreditPorts`.
 * **FLDG** (`fldgExposure`): per partner, cap = `CREDIT_FLDG_CAP_BPS` (500, 5%) of the originated principal, defaulted = 90+ DPD
   outstanding plus write-offs, exposure = min(cap, defaulted), headroom and utilisation. Read-only: nothing pays a guarantee claim automatically.
 
+## Cooling-off exit (RBI digital lending)
+
+Within `CREDIT_COOLING_OFF_DAYS` (3) of disbursal the borrower may exit by repaying the principal plus interest accrued pro rata, with no penalty and no
+prepayment charge. `getCoolingOffQuote` / `cancelLoanInCoolingOff` (`src/cooling.ts`), not gated by `CREDIT_ENABLED`:
+
+* **Exact amount** (`coolingOffAmount`, pure): principal + simple act/365 interest for the days used (elapsed days rounded up, at least 1, at most the tenor)
+  + the offer's processing and other fees, which are **kept** (no refund) unless `CREDIT_COOLING_OFF_WAIVES_FEES=1`; less anything already repaid. The KFS
+  carries `coolingOffExit` and `coolingOffFeesWaived`, and the UI copy states the rule.
+* **Explicit confirmation**: the form shows the breakdown, then a separate checkbox; the action carries `expectedPayablePaise` and is refused if the amount
+  changed (interest accrues by the day) so the borrower only confirms what they saw.
+* **Not available** when the window is over, the loan is closed, or an invoice-financing assignment is already `released` (escrow is repaying the lender).
+* **Partner call** `CreditPartner.cancel(loanRef, reason)` (idempotent by loanRef; mock implements, `nbfc_partner` stub throws not-configured). Only after the
+  partner confirms does the mirror move: loan `cancelled` (`exitAmountPaise`, `cancelReason` = `cooling_off`), application `cancelled` (`cooling_off_exit`),
+  assignment `cancelled`, `CreditCancelled { loanId, applicationId, businessId, reason: "cooling_off" | "partner" }` emitted in one transaction, then
+  `syncEscrowAssignment` (also the `CreditCancelled` worker handler) sets escrow's due to 0 so the seller gets the full payout. Retried by the worker if escrow was unreachable.
+* A partner-initiated cancellation arrives as the signed `loan.cancelled` webhook (reason `partner`). Cancelled loans are excluded from GNPA, FLDG origination and
+  credit-attached GMV, owe nothing in the mirror (`outstandingOf` is 0), and are purged by retention like other closed loans.
+* The borrower pays the exit amount to the lender directly. For BNPL the lender's payment to the escrow stays with the order.
+* UI: seller `Loans` list (exit panel per eligible loan), buyer `BnplOption` (panel on a disbursed BNPL loan), admin loans list shows the exit and amount.
+
 ## Retention (DPDP)
 
 `purgeClosedCreditData(before: Date)` deletes repaid and written-off loans closed before the cutoff with their repayments and
@@ -199,7 +219,7 @@ Web patterns adopted:
 ## Environment
 
 `CREDIT_ENABLED`, `CREDIT_PARTNER` (`mock`), `CREDIT_WEBHOOK_SECRET`, `CREDIT_MOCK_CHECKOUT`, `CREDIT_MIN_SCORE` (500), `CREDIT_BNPL_MIN_SCORE` (550),
-`CREDIT_MIN_AMOUNT_PAISE` (500000), `CREDIT_OFFER_TTL_HOURS` (48), `CREDIT_COOLING_OFF_DAYS` (3), `CREDIT_LATE_FEE_BPS_PER_MONTH` (200),
+`CREDIT_MIN_AMOUNT_PAISE` (500000), `CREDIT_OFFER_TTL_HOURS` (48), `CREDIT_COOLING_OFF_DAYS` (3), `CREDIT_COOLING_OFF_WAIVES_FEES` (off), `CREDIT_LATE_FEE_BPS_PER_MONTH` (200),
 `CREDIT_FLDG_CAP_BPS` (500), `CREDIT_GNPA_TARGET_BPS` (200), `CREDIT_ATTACHED_GMV_TARGET_BPS` (1500), and for the real adapter
 `CREDIT_LENDER_NAME`, `CREDIT_GRIEVANCE_NAME`, `CREDIT_GRIEVANCE_EMAIL`, `CREDIT_GRIEVANCE_PHONE`.
 
@@ -207,9 +227,8 @@ Web patterns adopted:
 
 The default ports use the closest public function; these exact reads would replace them:
 
-* `@cnote/escrow`: `escrowHistoryForBusiness(businessId)` returning `{ completed, completedPaise, clean, refunded }` (today `listEscrows`
-  is one global page of at most 200 rows, so history for a busy marketplace is truncated); `listEscrowsForBusiness(businessId, { status })`
-  (same reason, used for the seller's financeable orders); `fundEscrowFromLender(escrowId, amountPaise, ref)` and the payout-first hook above.
+* `@cnote/escrow`: `escrowHistoryForBusiness(businessId)` and `listEscrowsForBusiness(businessId, { role, status, cursor })` now exist and
+  the default ports use them (exact SQL aggregates and keyset paging, no sampling). Still requested by credit's contract: none.
 * `@cnote/disputes`: `disputeRecordForBusiness(businessId)` returning `{ lost, open }` (the public summary has no outcome, so `lost` is 0 here;
   the trust score already carries lost disputes).
 * `@cnote/identity`: nothing required. `getGstEvidence` supplies status and filings.
@@ -219,7 +238,7 @@ The default ports use the closest public function; these exact reads would repla
 ## Open items
 
 * Legal and partner contract: which NBFC, co-lending structure, FLDG terms, who does KYC and e-sign, and the real webhook format.
-* Cooling-off exit is disclosed but not operated here: the partner port has no cancel-within-cooling-off call yet.
+* Cooling-off exit is operated (below); the real partner's `cancel` call, its collection of the exit amount and its confirmation of the amount are contract items.
 * Repayment schedule is a single bullet payment (one repayment by the due date); instalment schedules need the partner's schedule in the offer.
 * Model calibration on real defaults and a golden-set eval gate before any weight change (Appendix C item 7).
 * Partial release settlement: if escrow releases less than the amount due, the remainder stays with the borrower; collections are the lender's.

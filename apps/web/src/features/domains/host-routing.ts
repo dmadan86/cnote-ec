@@ -1,5 +1,6 @@
 import { pickTrafficParams, recordHit, resolveHost, type HostKind } from "@cnote/domains";
 import { NextResponse, type NextRequest } from "next/server";
+import { clientIp } from "@cnote/security/client-ip";
 
 // Custom-domain + platform-subdomain routing for storefronts, called from src/proxy.ts (see docs/design/custom-domains.md).
 // Platform hosts (the marketplace itself) are answered by resolveHost without any I/O and pass through untouched.
@@ -75,7 +76,7 @@ export function recordStorefrontHit(req: NextRequest): void {
         }
       }
       if (!slug) return;
-      const fwd = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? null;
+      const fwd = clientIp(req.headers);
       await recordHit({
         host,
         path,

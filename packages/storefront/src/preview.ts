@@ -25,8 +25,9 @@ export function verifyPreviewToken(token: string, now = Date.now()): string {
   const bad = () => new DomainError("forbidden", "This preview link is invalid or has expired.");
   const [body, sig] = token.split(".");
   if (!body || !sig || token.length > 400) throw bad();
-  const expected = createHmac("sha256", key()).update(body).digest();
-  const given = Buffer.from(sig, "base64url");
+  // canonical base64url string comparison (decoded bytes would accept several spellings of one signature)
+  const expected = Buffer.from(createHmac("sha256", key()).update(body).digest("base64url"));
+  const given = Buffer.from(sig);
   if (given.length !== expected.length || !timingSafeEqual(given, expected)) throw bad();
   try {
     const p = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as { v?: number; s?: string; exp?: number };

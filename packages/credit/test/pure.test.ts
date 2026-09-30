@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { assessEligibility, maxAmount } from "../src/eligibility";
-import { allInAprBps, buildKfs, interestPaise, totalRepayablePaise } from "../src/kfs";
+import { allInAprBps, buildKfs, coolingOffAmount, interestPaise, totalRepayablePaise } from "../src/kfs";
 import { MOCK_LENDER } from "../src/partner";
 import { attachedShare, computeGnpa, fldgFor } from "../src/stats";
 import { bucketOf, dpdOf } from "../src/loans";
@@ -134,5 +134,42 @@ describe("data minimisation", () => {
     expect(req.score.reasonCodes).toEqual(["TRUST_LOW"]);
     const json = JSON.stringify(req);
     expect(json).not.toMatch(/gstin|filings"|email|phone|address/i);
+  });
+});
+
+describe("cooling-off exit amount (RBI)", () => {
+  const at = new Date("2026-01-01T00:00:00Z");
+  const terms = { principalPaise: 10_000_000, aprBps: 2400, tenorDays: 30, feesPaise: 100_000, repaidPaise: 0, disbursedAt: at };
+  it("principal + interest accrued pro rata + fees kept; the first (partial) day counts as one day", () => {
+    const day0 = coolingOffAmount(terms, new Date(at.getTime() + 3_600_000));
+    expect(day0).toMatchObject({ interestDays: 1, principalPaise: 10_000_000, interestPaise: interestPaise(10_000_000, 2400, 1), feesPaise: 100_000 });
+    expect(day0.exitTotalPaise).toBe(10_000_000 + 6_575 + 100_000);
+    const day2 = coolingOffAmount(terms, new Date(at.getTime() + 2 * 86_400_000));
+    expect(day2.interestDays).toBe(2);
+    expect(day2.payablePaise).toBe(day2.exitTotalPaise);
+    expect(coolingOffAmount(terms, new Date(at.getTime() + 2.2 * 86_400_000)).interestDays).toBe(3);
+  });
+  it("fees are waived only when configured; repayments already made reduce what is payable; never below zero", () => {
+    const w = coolingOffAmount(terms, new Date(at.getTime() + 86_400_000), true);
+    expect(w.feesPaise).toBe(0);
+    expect(w.exitTotalPaise).toBe(10_000_000 + interestPaise(10_000_000, 2400, 1));
+    expect(coolingOffAmount({ ...terms, repaidPaise: 4_000_000 }, at).payablePaise).toBe(coolingOffAmount(terms, at).exitTotalPaise - 4_000_000);
+    expect(coolingOffAmount({ ...terms, repaidPaise: 99_000_000 }, at).payablePaise).toBe(0);
+  });
+  it("property: within the tenor the exit total is between principal and the full total repayable, and grows with time", () => {
+    fc.assert(fc.property(fc.integer({ min: 100_000, max: 900_000_000 }), fc.integer({ min: 0, max: 4800 }), fc.integer({ min: 7, max: 120 }), fc.integer({ min: 0, max: 50_000 }), fc.integer({ min: 0, max: 7 * 86_400 }), fc.boolean(), (p, apr, tenor, fee, secs, waive) => {
+      const t = { principalPaise: p, aprBps: apr, tenorDays: tenor, feesPaise: fee, repaidPaise: 0, disbursedAt: at };
+      const now = new Date(at.getTime() + secs * 1000);
+      const a = coolingOffAmount(t, now, waive);
+      expect(a.exitTotalPaise).toBeGreaterThanOrEqual(p);
+      expect(a.exitTotalPaise).toBeLessThanOrEqual(totalRepayablePaise({ principalPaise: p, aprBps: apr, tenorDays: tenor, processingFeePaise: fee, otherFeesPaise: 0 }) + 1);
+      expect(a.interestPaise).toBeGreaterThanOrEqual(0);
+      expect(coolingOffAmount(t, new Date(now.getTime() + 86_400_000), waive).exitTotalPaise).toBeGreaterThanOrEqual(a.exitTotalPaise);
+    }));
+  });
+  it("the KFS promises the exit and how it is priced", () => {
+    const k = buildKfs("bnpl", { principalPaise: 100_000, aprBps: 2400, tenorDays: 30, processingFeePaise: 0, otherFeesPaise: 0 }, MOCK_LENDER, { CREDIT_COOLING_OFF_DAYS: "5", CREDIT_COOLING_OFF_WAIVES_FEES: "1" });
+    expect(k).toMatchObject({ coolingOffDays: 5, coolingOffExit: "principal_plus_pro_rata_interest", coolingOffFeesWaived: true, prepaymentCharge: "none" });
+    expect(buildKfs("bnpl", { principalPaise: 100_000, aprBps: 2400, tenorDays: 30, processingFeePaise: 0, otherFeesPaise: 0 }, MOCK_LENDER, {}).coolingOffFeesWaived).toBe(false);
   });
 });

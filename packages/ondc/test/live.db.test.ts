@@ -257,6 +257,15 @@ describe("IGM", () => {
     await post("issue_status", cs2, { issue_id: m.issue.id }); await run(cs2, "issue_status");
     const last = (await prisma.ondcMessage.findFirstOrThrow({ where: { direction: "outbound", messageId: cs2.message_id } })).body;
     expect(JSON.stringify(last)).toContain("REFUND");
+    // seller-facing views: own issues only, resolution surfaced, complainant payload never exposed
+    const mine = await ondc.listSellerIssues(SELLER);
+    const seen = mine.find((x) => x.id === issue.id)!;
+    expect(seen).toMatchObject({ status: "resolved", disputeId: issue.disputeId, category: "FULFILLMENT", overdue: false, resolution: { action: "REFUND", refundAmount: "250.00" } });
+    expect(JSON.stringify(seen)).not.toContain("payload");
+    expect(await ondc.getSellerIssue(SELLER, issue.id)).toMatchObject({ id: issue.id });
+    expect(await ondc.getSellerIssue(randomUUID(), issue.id)).toBeNull(); // another seller
+    expect(await ondc.getSellerIssue(SELLER, "not-a-uuid")).toBeNull();
+    expect(await ondc.listSellerIssues(randomUUID())).toEqual([]);
     await ondc.worker.handlers.DisputeEscalated!({ payload: { disputeId: randomUUID() } } as never);
     await ondc.worker.handlers.DisputeResolved!({ payload: { disputeId: randomUUID(), outcome: "split", refundPaise: 1 } } as never);
   });
@@ -385,5 +394,54 @@ describe("evaluation and readiness", () => {
     expect(wrongKey.items.find((i) => i.id === "subscribed")?.detail).toMatch(/differs/);
     const ov = await ondc.adminOverview();
     expect(ov.issues.open).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("fulfilment sub-stage push (OrderFulfilmentUpdated)", () => {
+  const push = (id: string, to: string) => ondc.onOrderStatusChanged({ orderId: id, to });
+  const stage = (id: string, s: string) => ondc.onOrderFulfilmentUpdated({ orderId: id, stage: s });
+  const codes = async (txn: string) => (await outbound(txn)).filter((m) => m.action === "on_status").map((r) =>
+    (r.body as { message: { order: { fulfillments: { state: { descriptor: { code: string } } }[] } } }).message.order.fulfillments[0]!.state.descriptor.code);
+
+  it("pushes Packed then Out-for-delivery once each, never backwards, and treats in_transit as the pickup state", async () => {
+    const o = await makeOrder({ status: "accepted" });
+    expect(await stage(o.internalOrderId!, "packed")).toBe(true);
+    expect(await stage(o.internalOrderId!, "packed")).toBe(false); // idempotent
+    expect(await push(o.internalOrderId!, "dispatched")).toBe(true); // status handler: Order-picked-up
+    expect(await stage(o.internalOrderId!, "in_transit")).toBe(false); // same Beckn state as pickup
+    expect(await stage(o.internalOrderId!, "out_for_delivery")).toBe(true);
+    expect(await stage(o.internalOrderId!, "packed")).toBe(false); // never backwards
+    expect(await stage(o.internalOrderId!, "delivery_attempted")).toBe(false); // no Beckn state of its own
+    expect(await codes(o.transactionId)).toEqual(["Packed", "Order-picked-up", "Out-for-delivery"]);
+    const row = await prisma.ondcOrder.findUniqueOrThrow({ where: { id: o.id } });
+    expect([row.fulfilmentState, row.status]).toEqual(["Out-for-delivery", "in_progress"]);
+    expect(await push(o.internalOrderId!, "dispatched")).toBe(false); // status handler cannot regress it
+    expect(await push(o.internalOrderId!, "delivered")).toBe(true);
+  });
+
+  it("skips created/cancelled/completed orders, unknown orders and unmapped stages; honours the flag and kill switch", async () => {
+    const created = await makeOrder({ status: "created" });
+    expect(await stage(created.internalOrderId!, "packed")).toBe(false);
+    const done = await makeOrder({ status: "completed" });
+    expect(await stage(done.internalOrderId!, "out_for_delivery")).toBe(false);
+    const gone = await makeOrder({ status: "cancelled" });
+    expect(await stage(gone.internalOrderId!, "packed")).toBe(false);
+    expect(await stage(randomUUID(), "packed")).toBe(false);
+    const o = await makeOrder({ status: "accepted" });
+    expect(await stage(o.internalOrderId!, "bogus")).toBe(false);
+    await ondc.setKillSwitch(true, "s");
+    expect(await stage(o.internalOrderId!, "packed")).toBe(false);
+    await ondc.setKillSwitch(false, "s");
+    process.env.ONDC_ENABLED = "false";
+    expect(await stage(o.internalOrderId!, "packed")).toBe(false);
+    process.env.ONDC_ENABLED = "true";
+    expect(await outbound(o.transactionId)).toHaveLength(0);
+  });
+
+  it("does not double-push when two handlers race for the same state", async () => {
+    const o = await makeOrder({ status: "accepted" });
+    const r = await Promise.all([stage(o.internalOrderId!, "out_for_delivery"), stage(o.internalOrderId!, "out_for_delivery")]);
+    expect(r.filter(Boolean)).toHaveLength(1);
+    expect(await codes(o.transactionId)).toEqual(["Out-for-delivery"]);
   });
 });

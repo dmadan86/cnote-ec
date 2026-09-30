@@ -18,5 +18,6 @@ export class NbfcPartnerStub implements CreditPartner {
   acceptOffer(): never { return notConfigured(); }
   getDisbursementStatus(): never { return notConfigured(); }
   listRepayments(): never { return notConfigured(); }
+  cancel(): never { return notConfigured(); }
   verifyWebhook(raw: Uint8Array, headers: Headers): PartnerEvent | null { return verifySigned(process.env.CREDIT_WEBHOOK_SECRET, raw, headers); }
 }

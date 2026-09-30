@@ -24,6 +24,7 @@ export function CompanyForm({
   mode, states, defaults = {}, submitLabel,
 }: { mode: "onboarding" | "portal"; states: { code: string; name: string }[]; defaults?: CompanyDefaults; submitLabel?: string }) {
   const t = useTranslations("settings.company.form");
+  const ts = useTranslations("states");
   const [state, action] = useActionState<CompanyFormResult | null, FormData>(saveCompanyAction, null);
   return (
     <form action={action} className="space-y-4">
@@ -64,7 +65,7 @@ export function CompanyForm({
           <Field label={t("state")} htmlFor="stateCode">
             <Select id="stateCode" name="stateCode" required defaultValue={defaults.stateCode ?? ""} className="h-11">
               <option value="" disabled>{t("statePick")}</option>
-              {states.map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}
+              {states.map((s) => <option key={s.code} value={s.code}>{ts.has(s.code) ? ts(s.code) : s.name}</option>)}
             </Select>
           </Field>
           <Field label={t("pincode")} htmlFor="pincode"><Input id="pincode" name="pincode" required inputMode="numeric" maxLength={6} defaultValue={defaults.pincode ?? ""} autoComplete="postal-code" className="h-11" /></Field>

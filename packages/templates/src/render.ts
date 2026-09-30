@@ -80,7 +80,8 @@ async function resolve(key: string, channel: TemplateChannel, locale: string | u
     const p = await pointer(key, channel, loc);
     if (p) return { content: await versionContent(p.versionId), versionId: p.versionId, layoutKey: p.layoutKey, enabled: p.enabled };
   }
-  const d = def?.defaults[channel];
+  const loc0 = locale?.trim().toLowerCase();
+  const d = (loc0 && def?.localized?.[loc0]?.[channel]) || def?.defaults[channel];
   return d ? { content: { subject: d.subject ?? null, preheader: d.preheader ?? null, body: d.body }, versionId: null, layoutKey: "default", enabled: true } : null;
 }
 

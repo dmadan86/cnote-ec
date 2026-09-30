@@ -16,7 +16,7 @@ export interface BookLoan { outstandingPaise: number; dpd: number; status: strin
 export function computeGnpa(loans: BookLoan[]): { gnpaRatio: number; gnpaPaise: number; bookPaise: number } {
   let gnpa = 0, book = 0;
   for (const l of loans) {
-    if (l.status === "repaid") continue;
+    if (l.status === "repaid" || l.status === "cancelled") continue;
     if (l.status === "written_off") { gnpa += l.writtenOffPaise; book += l.writtenOffPaise; continue; }
     book += l.outstandingPaise;
     if (l.dpd >= NPA_DPD) gnpa += l.outstandingPaise;
@@ -28,7 +28,7 @@ export interface PartnerGnpa { partner: string; gnpaRatio: number; gnpaPaise: nu
 
 /** Partner GNPA on the platform-originated book (target < 2%), per partner. */
 export async function partnerGnpa(): Promise<PartnerGnpa[]> {
-  const rows = await prisma.creditLoan.findMany({ where: { status: { not: "repaid" } } });
+  const rows = await prisma.creditLoan.findMany({ where: { status: { notIn: ["repaid", "cancelled"] } } });
   const target = creditConfig().gnpaTargetBps / 10_000;
   const by = new Map<string, typeof rows>();
   for (const r of rows) by.set(r.partner, [...(by.get(r.partner) ?? []), r]);
@@ -40,7 +40,7 @@ export async function partnerGnpa(): Promise<PartnerGnpa[]> {
 
 /** Overall GNPA across partners (0 for an empty book). */
 export async function overallGnpa(): Promise<{ gnpaRatio: number; gnpaPaise: number; bookPaise: number }> {
-  const rows = await prisma.creditLoan.findMany({ where: { status: { not: "repaid" } } });
+  const rows = await prisma.creditLoan.findMany({ where: { status: { notIn: ["repaid", "cancelled"] } } });
   return computeGnpa(rows.map((l) => ({ outstandingPaise: outstandingOf(l), dpd: l.dpd, status: l.status, writtenOffPaise: num(l.writtenOffPaise) })));
 }
 
@@ -51,7 +51,7 @@ export const attachedShare = (attachedGmvPaise: number, escrowedGmvPaise: number
 
 /** Credit-attached orders (distinct escrowed orders with a disbursed loan in range) as a share of escrowed GMV funded in range (target >= 15%). */
 export async function creditAttachedGmvShare(range: { from: Date; to: Date }): Promise<AttachedShare> {
-  const loans = await prisma.creditLoan.findMany({ where: { disbursedAt: { gte: range.from, lt: range.to } }, select: { orderId: true, orderAmountPaise: true } });
+  const loans = await prisma.creditLoan.findMany({ where: { disbursedAt: { gte: range.from, lt: range.to }, status: { not: "cancelled" } }, select: { orderId: true, orderAmountPaise: true } });
   const distinct = new Map(loans.map((l) => [l.orderId, num(l.orderAmountPaise)]));
   const attachedGmvPaise = [...distinct.values()].reduce((a, b) => a + b, 0);
   const escrowedGmvPaise = (await escrowStats(range)).fundedPaise;
@@ -109,7 +109,7 @@ export function fldgFor(partner: string, capBps: number, originatedPaise: number
 }
 
 export async function fldgExposure(): Promise<FldgExposure[]> {
-  const loans = await prisma.creditLoan.findMany();
+  const loans = await prisma.creditLoan.findMany({ where: { status: { not: "cancelled" } } });
   const capBps = creditConfig().fldgCapBps;
   const partners = [...new Set(loans.map((l) => l.partner))];
   return partners.map((p) => {

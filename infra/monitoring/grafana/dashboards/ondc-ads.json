@@ -1,0 +1,197 @@
+{
+  "uid": "cnote-ondc-ads",
+  "title": "ONDC and ads",
+  "description": "ADR-017/021 network and ADR-024 sponsored placements.",
+  "tags": [
+    "cnote"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "refresh": "5m",
+  "timezone": "Asia/Kolkata",
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 36,
+      "type": "timeseries",
+      "title": "ONDC orders and IGM issues per day",
+      "description": "ADR-017/021.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, metric, value FROM metric_daily WHERE metric IN ('ondc_orders_received','ondc_issues_received') AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 37,
+      "type": "table",
+      "title": "ONDC orders by status",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT status, count(*) AS orders, COALESCE(sum(total_paise),0)/100.0 AS rupees FROM ondc_orders WHERE $__timeFilter(created_at) GROUP BY status"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 38,
+      "type": "timeseries",
+      "title": "Ad clicks by validity",
+      "description": "ADR-024. Invalid/self clicks are never charged.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT date_trunc('day', created_at) AS time, validity, count(*) AS clicks, sum(charged_paise) FILTER (WHERE validity='valid')/100.0 AS charged_rupees FROM ad_clicks WHERE $__timeFilter(created_at) GROUP BY 1,2 ORDER BY 1"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 39,
+      "type": "timeseries",
+      "title": "Invalid click share",
+      "description": "Sudden spikes indicate click fraud or a rules regression.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT date_trunc('day', created_at) AS time, count(*) FILTER (WHERE validity IN ('invalid','self_click'))::float / NULLIF(count(*),0) AS invalid_share FROM ad_clicks WHERE $__timeFilter(created_at) GROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 40,
+      "type": "timeseries",
+      "title": "Sponsored impressions served vs lost",
+      "description": "From AdImpressionsRolledUp events.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT date_trunc('day', occurred_at) AS time, sum((payload->>'served')::int) AS served, sum((payload->>'lostBudget')::int) AS lost_budget, sum((payload->>'lostQuality')::int) AS lost_quality FROM domain_events WHERE type='AdImpressionsRolledUp' AND $__timeFilter(occurred_at) GROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    }
+  ]
+}

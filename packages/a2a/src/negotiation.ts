@@ -443,13 +443,30 @@ export async function withdrawNegotiation(actor: Actor, negotiationId: string): 
 }
 
 // ---------------------------------------------------------------- realisation: Quote + Order through enquiry's public functions
-const composeNotes = (id: string, t: OfferRecord) =>
-  [`Agreed through agent negotiation. [a2a:${id}]`, t.deliveryTerms ? `Delivery: ${t.deliveryTerms}` : null, t.paymentTerms ? `Payment: ${t.paymentTerms}` : null].filter(Boolean).join(" ");
+/** The agreed offer as structured quote terms (ADR-020 typed terms -> enquiry.Quote fields). The free-text protocol terms are kept as notes. */
+function quoteTermsFor(t: OfferRecord) {
+  const d = negotiation.mapShippingTerms(t.deliveryTerms);
+  const p = negotiation.mapPaymentTerms(t.paymentTerms);
+  return { deliveryTerms: d.deliveryTerms, deliveryNote: d.deliveryNote, paymentTerms: p.paymentTerms, paymentNote: p.paymentNote };
+}
+
+/**
+ * Resumability without a notes marker: a crash between sendQuote and saving `quoteId` must not double-quote. Looks for the seller's own
+ * quote for this match that already carries the agreed terms (sent since the negotiation began), and for legacy quotes the
+ * `[a2a:<id>]` marker written before structured terms existed.
+ */
+async function findExistingQuote(seller: Actor, n: AgentNegotiation, conversationId: string, t: OfferRecord): Promise<string | null> {
+  const { items } = await enquiry.listSellerQuotes(seller, { limit: 50 });
+  const hit = items.find((q) => q.matchId === n.matchId && q.pricePaise === t.pricePaise && q.quantity === t.quantity && q.unit === t.unit && q.createdAt >= n.createdAt.toISOString());
+  if (hit) return hit.id;
+  const legacy = (await enquiry.getConversation(seller, conversationId))?.quotes.find((q) => q.notes?.includes(`[a2a:${n.id}]`));
+  return legacy?.id ?? null;
+}
 
 /**
  * Both sides confirmed -> accept the lead if still offered (the seller's confirmation is the explicit decision to spend the credit),
  * send the agreed Quote as the seller, record the Order, close the negotiation as accepted. Idempotent and resumable: the quote is
- * recognised by its [a2a:<id>] marker, the order is one-per-match. A failure leaves the negotiation `agreed` with `realiseError`
+ * recognised by matching the seller's quote for this match (older quotes carry an `[a2a:<id>]` notes marker, still honoured), the order is one-per-match. A failure leaves the negotiation `agreed` with `realiseError`
  * so a person can retry; nothing is ever half-recorded as accepted.
  */
 export async function finalise(negotiationId: string): Promise<NegotiationView | null> {
@@ -468,10 +485,15 @@ export async function finalise(negotiationId: string): Promise<NegotiationView |
       if (lead.status === "offered") lead = await enquiry.acceptLead(seller, n.matchId);
       if (lead.status !== "accepted" || !lead.conversationId) throw new DomainError("conflict", "The lead is no longer available, so the deal cannot be recorded.");
       let quoteId = n.quoteId;
+      if (quoteId && !(await enquiry.getQuote(seller, quoteId))) quoteId = null; // stale pointer: recover or resend below
       if (!quoteId) {
-        const convo = await enquiry.getConversation(seller, lead.conversationId);
-        quoteId = convo?.quotes.find((q) => q.notes?.includes(`[a2a:${n.id}]`))?.id ?? null;
-        if (!quoteId) quoteId = (await enquiry.sendQuote(seller, lead.conversationId, { pricePaise: terms.pricePaise, quantity: terms.quantity, unit: terms.unit, leadTimeDays: terms.leadTimeDays, notes: composeNotes(n.id, terms), validUntil: terms.validUntil })).quoteId;
+        quoteId = await findExistingQuote(seller, n, lead.conversationId, terms);
+        if (!quoteId) {
+          quoteId = (await enquiry.sendQuote(seller, lead.conversationId, {
+            pricePaise: terms.pricePaise, quantity: terms.quantity, unit: terms.unit, leadTimeDays: terms.leadTimeDays, validUntil: terms.validUntil,
+            notes: "Agreed through agent negotiation.", ...quoteTermsFor(terms),
+          })).quoteId;
+        }
         await prisma.agentNegotiation.update({ where: { id: n.id }, data: { quoteId } });
       }
       const order = await enquiry.recordOrderFromDeal(buyer, n.matchId, { quoteId, quantity: terms.quantity, unit: terms.unit, pricePaise: terms.pricePaise });

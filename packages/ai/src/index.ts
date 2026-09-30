@@ -208,3 +208,4 @@ export * from "./document";
 export * from "./inspection";
 export * from "./disputes";
 export * from "./quotes";
+export { deriveImageSearch, deriveSearchQuery, PHOTO_CATEGORY_CONFIDENCE, MAX_PHOTO_KEYWORDS, type PhotoSearchQuery, type PhotoSearchResult } from "./search-photo";

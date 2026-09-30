@@ -69,6 +69,21 @@
     "log_counter_bounds_rejected": "A suggestion outside your limits was discarded.",
     "error": "Something went wrong. Please try again.",
     "scrollHint": "Scroll sideways to see all columns.",
-    "regionLabel": "Comparison table, scrollable"
+    "regionLabel": "Comparison table, scrollable",
+    "colMoq": "Minimum order quantity",
+    "colDeliveryTerms": "Delivery terms",
+    "colPayment": "Payment terms",
+    "delivery_ex_works": "Ex-works (buyer collects from you)",
+    "delivery_fob": "FOB",
+    "delivery_door_delivery": "Door delivery",
+    "delivery_buyer_pickup": "Buyer pickup",
+    "delivery_other": "Other",
+    "payment_advance": "Advance payment",
+    "payment_on_delivery": "Pay on delivery",
+    "payment_net_7": "Net 7 days",
+    "payment_net_15": "Net 15 days",
+    "payment_net_30": "Net 30 days",
+    "payment_escrow": "Escrow",
+    "payment_other": "Other"
   }
 }

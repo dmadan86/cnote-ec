@@ -16,7 +16,19 @@ export interface TemplateDefinition {
   channels: TemplateChannel[];
   variables: TemplateVariable[];
   /** Seed content used to create the first published version (and as last-resort fallback). */
-  defaults: Partial<Record<TemplateChannel, { subject?: string; preheader?: string; body: string }>>;
+  defaults: Partial<Record<TemplateChannel, TemplateContentDefault>>;
+  /**
+   * Optional per-locale seed content (locale code -> channel -> content). Seeded as separate locale rows next to "en"
+   * and used as the code fallback for that locale. Locales other than "en"/"hi" are machine-drafted and seeded with a
+   * "NEEDS REVIEW" change note so staff know to have a native speaker check them before relying on them.
+   */
+  localized?: Record<string, Partial<Record<TemplateChannel, TemplateContentDefault>>>;
+}
+
+export interface TemplateContentDefault {
+  subject?: string;
+  preheader?: string;
+  body: string;
 }
 
 export interface RenderedEmail {

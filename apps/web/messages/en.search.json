@@ -1,0 +1,33 @@
+{
+  "search": {
+    "toolsAria": "Search by voice or photo",
+    "voiceAria": "Search by voice",
+    "voiceHint": "Press to start speaking and press again to stop, or hold to talk and release to stop. Recording stops by itself after {seconds} seconds.",
+    "voiceNoticeTitle": "Voice search",
+    "voiceNotice": "Your voice is recorded only while you speak, sent to our speech-to-text service to turn it into words, and deleted straight away. We do not keep the recording.",
+    "voiceAgree": "Agree and start",
+    "cancel": "Cancel",
+    "voiceListening": "Listening. Release or press again to stop.",
+    "voiceTranscribing": "Working out what you said…",
+    "voiceHeard": "Heard: {text}. Change it if needed, then press Search.",
+    "voiceEmpty": "We didn't catch that. Try again, or type your search.",
+    "voiceDenied": "Microphone access is blocked. Allow it in your browser settings, or type your search.",
+    "voiceError": "Voice search isn't working right now. Please type your search.",
+    "voiceLimited": "Too many voice searches. Please wait a minute and try again.",
+    "photoAria": "Search by photo",
+    "photoTitle": "Search by photo",
+    "photoNotice": "Your photo is sent to our image-recognition service to work out what it is, and is not saved.",
+    "photoChoose": "Choose or take a photo",
+    "photoWorking": "Looking at your photo…",
+    "photoRedirecting": "Searching for “{q}”…",
+    "photoError": "We couldn't use that photo. Use a JPEG, PNG or WebP under 5 MB.",
+    "photoFailed": "Photo search isn't working right now. Please type your search.",
+    "photoUnknown": "We couldn't tell what this is. Describe it in the search box instead.",
+    "photoLimited": "Too many photo searches. Please wait a minute and try again.",
+    "photoHuman": "Please complete the security check, then choose your photo again.",
+    "photoResultsFor": "Results for photo: “{q}”",
+    "photoNote": "We matched this from your photo. Change the words if they are not right.",
+    "photoEditLabel": "Search words from your photo",
+    "photoEditSubmit": "Update search"
+  }
+}

@@ -88,6 +88,36 @@ describe("retrieveListings", () => {
   });
 });
 
+describe("retrieveListings cross-script variants", () => {
+  it("matches a listing through a variant when the typed text has no lexical match, at a lower score than a literal match", async () => {
+    // "पेटी" is what the buyer typed; the variant is the English word used in the listing
+    const viaVariant = await cat.retrieveListings({ text: "पेटी", variants: [`cosmetic packaging ${tag}`], categoryId: catId, limit: 10 });
+    expect(viaVariant.map((x) => x.listingId)).toContain(listings.a1);
+    const literal = await cat.retrieveListings({ text: `cosmetic packaging ${tag}`, categoryId: catId, limit: 10 });
+    const lit = literal.find((x) => x.listingId === listings.a1)!;
+    const via = viaVariant.find((x) => x.listingId === listings.a1)!;
+    expect(via.lexicalRank).toBeGreaterThan(0);
+    expect(via.lexicalRank).toBeLessThan(lit.lexicalRank * 3); // sanity: same order of magnitude, never a runaway weight
+  });
+  it("uses exact word forms for variants: 'pack' does not prefix-match 'packaging', plural 'boxes'/'box' both match", async () => {
+    const notPrefix = await cat.retrieveListings({ text: "zzzqqq", variants: ["pack"], categoryId: catId, limit: 10 });
+    expect(notPrefix.map((x) => x.listingId)).not.toContain(listings.a1);
+    const singular = await cat.retrieveListings({ text: "zzzqqq", variants: [`box ${tag}`], categoryId: catId, limit: 10 });
+    expect(singular.map((x) => x.listingId)).toContain(listings.a1);
+  });
+  it("works with variants only (empty text) and ignores blank or duplicate variants", async () => {
+    const r = await cat.retrieveListings({ text: "", variants: ["", "  ", `cosmetic ${tag}`, `cosmetic ${tag}`], categoryId: catId, limit: 10 });
+    expect(r.map((x) => x.listingId)).toContain(listings.a1);
+  });
+  it("Devanagari terms are matched whole (vowel signs are not word breaks)", async () => {
+    const l = await prisma.listing.create({ data: { sellerBusinessId: biz[0]!, categoryId: catId, title: `कपड़ा थोक ${tag}`, description: "", status: "published" as never, moderationStatus: "approved" as never } });
+    listings.hi = l.id;
+    await cat.backfillLiveListings({ listingIds: [l.id] });
+    const r = await cat.retrieveListings({ text: "कपड़ा", categoryId: catId, limit: 10 });
+    expect(r.map((x) => x.listingId)).toContain(l.id);
+  });
+});
+
 const blank = { attributes: { ply: 3 }, pricePaise: null, priceUnit: null, moq: null, moqUnit: null, hsn: null, language: "en", imageUrls: [] };
 
 describe("listing lifecycle (versioned)", () => {

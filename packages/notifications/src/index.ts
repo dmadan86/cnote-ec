@@ -11,7 +11,9 @@ export { listNotifications, unreadCount, markRead, type ListOptions } from "./re
 export { getPreferences, setPreference, channelLock, effectiveChannels, defaultPreference, CATEGORY_META, CHANNEL_LABEL } from "./preferences";
 export { notifyForEvent, notifyRecipient, deliverJob, absoluteUrl, type NotificationDeliverJob } from "./pipeline";
 export { setChannelAdapter, type ChannelAdapter, type ChannelMessage } from "./channels";
-export type { Directory } from "./recipients";
+export type { Directory, PartyResolvers, OrderParties, NegotiationParties } from "./recipients";
+export { setPartyResolvers } from "./recipients";
+export { PHASE23_KINDS } from "./kinds-phase23";
 export { listQueueTopics, registerQueueTopic, listDeadLetters, replayDeadLetter, listEmailLog, EMAIL_STATUSES, type QueueTopicInfo, type EmailLogEntry } from "./ops";
 export { worker, pruneReadNotifications } from "./worker";
 export * from "./retention";

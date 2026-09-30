@@ -7,7 +7,7 @@ import { purgeOldQualityMedia } from "./retention";
 
 export * from "./types";
 export {
-  qualityChecksEnabled, envCategories, minAccuracy, minLabels, MAX_PHOTOS_PER_CHECK, MAX_CHECKS_PER_ORDER, QUALITY_MEDIA_RETENTION_DAYS, SUBMITTABLE_ORDER_STATUSES,
+  qualityChecksEnabled, envCategories, minAccuracy, minLabels, MAX_PHOTOS_PER_CHECK, MAX_CHECKS_PER_ORDER, VIDEO_MIN_FRAMES, VIDEO_MAX_FRAMES, VIDEO_MAX_SECONDS, VIDEO_MAX_BYTES, MAX_AI_IMAGES, QUALITY_MEDIA_RETENTION_DAYS, SUBMITTABLE_ORDER_STATUSES,
 } from "./config";
 export { getSubmissionContext, submitDispatchPhotos, qualityMediaKey } from "./submit";
 export { listSellerChecks, listChecksForOrder, getCheckView, ADVISORY_DISCLAIMER } from "./views";

@@ -14,6 +14,8 @@ export interface SearchHit {
 export { searchListings } from "./search";
 export { suggest, EXAMPLE_QUERIES } from "./suggest";
 export { normaliseQuery, type NormalisedQuery } from "./normalise";
+export { expandQuery, romanVariants, toRoman, fromRoman, colloquial, detectScript, hasIndic, type IndicScript } from "./translit";
+export { ndcgAtK, reciprocalRank, evaluateRun, type Judgement, type EvalSummary } from "./eval/metrics";
 
 export { cacheWorker, cacheHandlers } from "./cache-worker";
 

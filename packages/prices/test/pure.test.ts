@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normaliseFact, normaliseUnit, tierOf } from "../src/units";
-import { REGION_SLUGS, regionLabel, stateFromPincode, stateSlug } from "../src/regions";
+import { REGION_SLUGS, isZone, regionLabel, stateFromPincode, stateSlug, zoneFromPincode } from "../src/regions";
+import { PIN_PREFIX_STATE } from "../src/regions-data";
 import { interpolated, quantilesOf, trimOutliers, weightedPercentile } from "../src/stats";
 import { clampK, escrowWeight, priceIntelEnabled } from "../src/config";
 import { positionOf, trendOf } from "../src/read";
@@ -42,6 +43,43 @@ describe("regions", () => {
     expect(stateFromPincode("834001")).toBe("jharkhand");
     expect(stateFromPincode("800001")).toBe("bihar");
     expect(stateFromPincode("560001")).toBe("karnataka");
+  });
+  it("maps well-known cities across the India Post table, including border exceptions", () => {
+    const known: [string, string][] = [
+      ["122001", "haryana"], ["134109", "haryana"], ["160017", "chandigarh"], ["141001", "punjab"], ["171001", "himachal-pradesh"], ["180001", "jammu-and-kashmir"],
+      ["194101", "ladakh"], ["201301", "uttar-pradesh"], ["244001", "uttar-pradesh"], ["244712", "uttarakhand"], ["246701", "uttar-pradesh"], ["246001", "uttarakhand"],
+      ["247667", "uttarakhand"], ["247001", "uttar-pradesh"], ["262701", "uttar-pradesh"], ["262501", "uttarakhand"], ["263139", "uttarakhand"], ["302001", "rajasthan"],
+      ["380001", "gujarat"], ["396230", "dadra-and-nagar-haveli-and-daman-and-diu"], ["396001", "gujarat"], ["362520", "dadra-and-nagar-haveli-and-daman-and-diu"],
+      ["411001", "maharashtra"], ["403001", "goa"], ["452001", "madhya-pradesh"], ["492001", "chhattisgarh"], ["500001", "telangana"], ["530001", "andhra-pradesh"],
+      ["533464", "puducherry"], ["533101", "andhra-pradesh"], ["600001", "tamil-nadu"], ["605001", "puducherry"], ["605602", "tamil-nadu"], ["609602", "puducherry"],
+      ["673310", "puducherry"], ["673001", "kerala"], ["682555", "lakshadweep"], ["682001", "kerala"], ["700001", "west-bengal"], ["737101", "sikkim"],
+      ["744101", "andaman-and-nicobar-islands"], ["751001", "odisha"], ["781001", "assam"], ["793001", "meghalaya"], ["795001", "manipur"], ["796001", "mizoram"],
+      ["797001", "nagaland"], ["799001", "tripura"], ["800001", "bihar"], ["812001", "bihar"], ["823001", "bihar"], ["834001", "jharkhand"], ["828001", "jharkhand"],
+    ];
+    for (const [pin, state] of known) expect([pin, stateFromPincode(pin)]).toEqual([pin, state]);
+  });
+  it("every table entry is a 2 to 6 digit prefix of a known slug; Army Postal Service (9x) is never a place", () => {
+    for (const [prefix, slug] of Object.entries(PIN_PREFIX_STATE)) {
+      expect(prefix).toMatch(/^[1-8]\d{1,5}$/);
+      expect(REGION_SLUGS.has(slug)).toBe(true);
+    }
+    expect(stateFromPincode("900001")).toBeNull();
+    expect(zoneFromPincode("900001")).toBeNull();
+  });
+  it("pincode zones: first three digits, only for geographic PINs that do not sit in a border exception", () => {
+    expect(zoneFromPincode("560001")).toBe("pin-560");
+    expect(zoneFromPincode(" 560099 ")).toBe("pin-560");
+    expect(zoneFromPincode("244712")).toBeNull(); // Udham Singh Nagar inside the UP-default 244 district
+    expect(zoneFromPincode("533464")).toBeNull(); // Yanam enclave inside AP
+    expect(zoneFromPincode("244001")).toBe("pin-244");
+    for (const p of [null, "", "56001", "0560001", "999999"]) expect(zoneFromPincode(p)).toBeNull();
+    expect(isZone("pin-560")).toBe(true);
+    expect(isZone("pin-960")).toBe(false);
+    expect(isZone("maharashtra")).toBe(false);
+    expect(regionLabel("pin-560")).toBe("PIN 560xxx");
+    expect(stateSlug("Orissa")).toBe("odisha");
+    expect(stateSlug("Pondicherry")).toBe("puducherry");
+    expect(stateSlug("Ladakh")).toBe("ladakh");
   });
   it("rejects malformed or unmapped PINs", () => {
     for (const p of [null, undefined, "", "12345", "0123456", "abcdef", "990000"]) expect(stateFromPincode(p)).toBeNull();

@@ -84,3 +84,23 @@ export function SimulateForm({ applicationId }: { applicationId: string }) {
     </form>
   );
 }
+
+/** Cooling-off exit (RBI): the exact amount is shown above this form; exit needs its own explicit confirmation of that amount. */
+export function ExitLoanForm({ loanId, payablePaise, lender }: { loanId: string; payablePaise: number; lender: string }) {
+  const t = useTranslations("credit");
+  const [state, action, pending] = useCredit();
+  const id = useId();
+  return (
+    <form action={action} className="flex flex-col gap-3" aria-busy={pending}>
+      <input type="hidden" name="intent" value="exit" />
+      <input type="hidden" name="loanId" value={loanId} />
+      <input type="hidden" name="expectedPayablePaise" value={payablePaise} />
+      <Status state={state} />
+      <label htmlFor={`${id}-exit`} className="flex min-h-11 items-start gap-2 text-sm text-ink">
+        <input id={`${id}-exit`} type="checkbox" name="confirmExit" required className="mt-1 size-5" />
+        <span>{t("exit.confirm", { lender })}</span>
+      </label>
+      <div><Button type="submit" variant="outline" disabled={pending} className="min-h-11">{t("exit.submit")}</Button></div>
+    </form>
+  );
+}

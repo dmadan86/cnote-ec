@@ -2,6 +2,7 @@
 // version must be acknowledged. Partner calls happen outside DB transactions; every state change + event is one transaction.
 import { DomainError, emit } from "@cnote/core";
 import { prisma } from "@cnote/db";
+import { coolingOffQuotesFor, type CoolingOffQuote } from "./cooling";
 import { assertCreditEnabled, creditConfig, creditEnabled } from "./config";
 import { actorHasCreditConsent, hasActiveCreditConsent } from "./consent";
 import { DEFAULT_TENOR_DAYS, TENORS, assessEligibility, maxAmount, type Eligibility } from "./eligibility";
@@ -216,6 +217,8 @@ export interface CreditOverview {
   loans: LoanView[];
   lender: { name: string; grievance: { name: string; email: string; phone: string } };
   coolingOffDays: number;
+  /** loans that can still exit inside the cooling-off period, with the exact amount owed today (keyed by loan id) */
+  exitQuotes: Record<string, CoolingOffQuote>;
 }
 
 /** Seller-portal snapshot. Score-derived parts are empty without consent. */
@@ -239,7 +242,7 @@ export async function getCreditOverview(actor: Actor): Promise<CreditOverview> {
     if (funded.length === 0) blockers.clear();
   }
   const lender = getCreditPartner().lender;
-  return { enabled: creditEnabled(), consented, score, history, blockers: [...blockers], eligible, applications, loans, lender, coolingOffDays: cfg.coolingOffDays };
+  return { enabled: creditEnabled(), consented, score, history, blockers: [...blockers], eligible, applications, loans, lender, coolingOffDays: cfg.coolingOffDays, exitQuotes: await coolingOffQuotesFor(actor, loans) };
 }
 
 export interface BnplOption {
@@ -251,12 +254,14 @@ export interface BnplOption {
   application: ApplicationView | null;
   lender: { name: string; grievance: { name: string; email: string; phone: string } };
   tenors: readonly number[];
+  /** exit inside the cooling-off period (RBI) for a disbursed BNPL loan on this escrow, with the exact amount owed today */
+  exitQuote: CoolingOffQuote | null;
 }
 
 /** Buyer-side option for the escrow panel. `available` is false unless the actor is the buyer of an unfunded escrow. */
 export async function getBnplOption(actor: Actor, escrowId: string): Promise<BnplOption> {
   const lender = getCreditPartner().lender;
-  const off: BnplOption = { enabled: creditEnabled(), available: false, consented: false, maxAmountPaise: 0, application: null, lender, tenors: TENORS.bnpl };
+  const off: BnplOption = { enabled: creditEnabled(), available: false, consented: false, maxAmountPaise: 0, application: null, lender, tenors: TENORS.bnpl, exitQuote: null };
   if (!off.enabled || !UUID.test(escrowId)) return off;
   const facts = await ports().escrowFacts(escrowId);
   if (!facts || facts.buyerBusinessId !== actor.businessId) return off;
@@ -267,7 +272,8 @@ export async function getBnplOption(actor: Actor, escrowId: string): Promise<Bnp
   const live = !!application && (ACTIVE_APPLICATION_STATUSES as readonly string[]).includes(application.status);
   const score = consented ? await getLatestScore(actor.businessId) : null;
   const maxAmountPaise = score ? maxAmount("bnpl", score.band, facts, 0) : facts.amountPaise;
-  return { ...off, available: unfunded || live, consented, maxAmountPaise, application };
+  const exitQuote = application?.loan ? (await coolingOffQuotesFor(actor, [application.loan]))[application.loan.id] ?? null : null;
+  return { ...off, available: unfunded || live, consented, maxAmountPaise, application, exitQuote };
 }
 
 export { hasActiveCreditConsent };

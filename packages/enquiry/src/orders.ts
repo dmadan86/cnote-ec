@@ -4,6 +4,7 @@
 import { DomainError, emit } from "@cnote/core";
 import { prisma, type Order, type OrderStatus, type Tx } from "@cnote/db";
 import { profiles } from "./support";
+import { availableFulfilmentStages, type FulfilmentStage } from "./fulfilment";
 import type { Actor } from "./types";
 
 export type OrderRole = "buyer" | "seller";
@@ -90,7 +91,12 @@ export interface OrderView {
   buyerConfirmedAt: string | null;
   sellerConfirmedAt: string | null;
   /** What this actor can do next (drives the UI; the functions re-check on every call). */
-  actions: { confirm: boolean; moves: OrderMove[] };
+  actions: { confirm: boolean; moves: OrderMove[]; /** fulfilment stages the seller may record next */ fulfilment: FulfilmentStage[] };
+  /** latest fulfilment sub-stage (never changes `status`); null until the seller records one */
+  fulfilmentStage: FulfilmentStage | null;
+  fulfilmentUpdatedAt: string | null;
+  trackingCourier: string | null;
+  trackingRef: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -109,10 +115,10 @@ function roleOf(o: Pick<Order, "buyerBusinessId" | "sellerBusinessId">, actor: A
   return null;
 }
 
-export function availableActions(o: OrderState, role: OrderRole): OrderView["actions"] {
+export function availableActions(o: OrderState & { fulfilmentStage?: FulfilmentStage | null }, role: OrderRole): OrderView["actions"] {
   const myConfirm = role === "buyer" ? o.buyerConfirmedAt : o.sellerConfirmedAt;
   const moves = (Object.keys(ORDER_MOVES) as OrderMove[]).filter((m) => rolesFor(o, m).includes(role) && ORDER_MOVES[m].from.includes(o.status));
-  return { confirm: o.status === "recorded" && !myConfirm, moves };
+  return { confirm: o.status === "recorded" && !myConfirm, moves, fulfilment: availableFulfilmentStages({ status: o.status, fulfilmentStage: o.fulfilmentStage ?? null }, role) };
 }
 
 async function toViews(rows: Order[], actor: Actor): Promise<OrderView[]> {
@@ -144,6 +150,10 @@ async function toViews(rows: Order[], actor: Actor): Promise<OrderView[]> {
       buyerConfirmedAt: o.buyerConfirmedAt?.toISOString() ?? null,
       sellerConfirmedAt: o.sellerConfirmedAt?.toISOString() ?? null,
       actions: availableActions(o, role),
+      fulfilmentStage: o.fulfilmentStage,
+      fulfilmentUpdatedAt: o.fulfilmentUpdatedAt?.toISOString() ?? null,
+      trackingCourier: o.trackingCourier,
+      trackingRef: o.trackingRef,
       createdAt: o.createdAt.toISOString(),
       updatedAt: o.updatedAt.toISOString(),
     };
@@ -375,4 +385,10 @@ export async function listOrders(actor: Actor, opts: { role: OrderRole; cursor?:
   });
   const page = rows.slice(0, PAGE);
   return { items: await toViews(page, actor), nextCursor: rows.length > PAGE ? page[page.length - 1]!.id : null };
+}
+
+/** System read for notifiers (no actor): the two businesses on an order. Null for unknown or malformed ids. */
+export async function getOrderParties(orderId: string): Promise<{ buyerBusinessId: string; sellerBusinessId: string } | null> {
+  if (!UUID.test(orderId)) return null;
+  return prisma.order.findUnique({ where: { id: orderId }, select: { buyerBusinessId: true, sellerBusinessId: true } });
 }

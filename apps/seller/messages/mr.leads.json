@@ -111,8 +111,34 @@
         "enterWholeDays": "पूर्ण दिवस लिहा.",
         "chooseDate": "योग्य तारीख निवडा.",
         "notesMax": "टिपा 1,000 अक्षरांच्या आत ठेवा.",
-        "dealValue": "सौद्याची किंमत रुपयांत लिहा."
-      }
+        "dealValue": "सौद्याची किंमत रुपयांत लिहा.",
+        "moqPositive": "किमान ऑर्डर 0 पेक्षा मोठी पूर्ण संख्या असावी.",
+        "chargeInvalid": "डिलिव्हरी शुल्क रुपयांत लिहा (0 किंवा जास्त)."
+      },
+      "moq": "किमान ऑर्डर प्रमाण",
+      "deliveryTerms": "डिलिव्हरीच्या अटी",
+      "deliveryCharge": "डिलिव्हरी शुल्क (₹, एकूण)",
+      "deliveryNote": "डिलिव्हरी टीप",
+      "paymentTerms": "पेमेंटच्या अटी",
+      "paymentNote": "पेमेंट टीप",
+      "gst": "जीएसटी",
+      "notStated": "नमूद नाही",
+      "gstIncluded": "किमतीत समाविष्ट",
+      "gstExtra": "वर वेगळे",
+      "termsToggle": "डिलिव्हरी, पेमेंट आणि जीएसटी अटी जोडा (ऐच्छिक)",
+      "termsHint": "स्पष्ट अटींना जास्त प्रतिसाद मिळतो आणि तुमच्या कोटची तुलना सोपी होते.",
+      "delivery_ex_works": "एक्स-वर्क्स (खरेदीदार तुमच्याकडून घेतो)",
+      "delivery_fob": "FOB",
+      "delivery_door_delivery": "दारापर्यंत डिलिव्हरी",
+      "delivery_buyer_pickup": "खरेदीदार स्वतः घेईल",
+      "delivery_other": "इतर",
+      "payment_advance": "आगाऊ पेमेंट",
+      "payment_on_delivery": "डिलिव्हरीवर पेमेंट",
+      "payment_net_7": "7 दिवसांत पेमेंट",
+      "payment_net_15": "15 दिवसांत पेमेंट",
+      "payment_net_30": "30 दिवसांत पेमेंट",
+      "payment_escrow": "एस्क्रो",
+      "payment_other": "इतर"
     },
     "_meta": {
       "review": "machine-drafted; needs native review"

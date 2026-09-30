@@ -1,5 +1,7 @@
 import type { InspectionCheck, InspectionResult } from "@cnote/ai";
 
+export type CheckSource = "photos" | "video";
+
 export interface QualityActor { personId: string; businessId: string }
 
 export interface ExpectedSpec {
@@ -33,6 +35,8 @@ export interface SubmissionContext {
   categorySlug: string | null;
   checklist: ChecklistItem[];
   maxPhotos: number;
+  /** limits for the client-side video-to-frames path (the server only ever receives the frames as photos) */
+  video: { minFrames: number; maxFrames: number; maxSeconds: number; maxBytes: number };
   checksUsed: number;
   maxChecks: number;
 }
@@ -50,6 +54,8 @@ export interface QualityCheckView {
   needsReview: boolean;
   results: CheckResultView[];
   mediaIds: string[];
+  /** "video": the frames were sampled from a short clip in the seller's browser (the clip itself is never stored) */
+  source: CheckSource;
   createdAt: string;
   completedAt: string | null;
   /** Always true: outputs are advisory evidence, never pass/fail (ADR-015). */
@@ -67,6 +73,7 @@ export interface AdvisoryEvidence {
   needsReview: boolean;
   results: CheckResultView[];
   photoCount: number;
+  source: CheckSource;
   completedAt: string;
   advisory: true;
   disclaimer: string;

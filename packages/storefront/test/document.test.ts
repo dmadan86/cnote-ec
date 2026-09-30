@@ -138,6 +138,9 @@ describe("preview tokens", () => {
   it("round-trips, expires and rejects tampering", () => {
     const { token } = signPreviewToken("sf-1");
     expect(verifyPreviewToken(token)).toBe("sf-1");
+    const [tokBody, tokSig] = token.split(".");
+    expect(Buffer.from(aliasLastChar(tokSig!), "base64url").equals(Buffer.from(tokSig!, "base64url"))).toBe(true);
+    expect(() => verifyPreviewToken(`${tokBody}.${aliasLastChar(tokSig!)}`)).toThrow(); // non-canonical spelling rejected
     expect(() => verifyPreviewToken(token, Date.now() + 31 * 60_000)).toThrow();
     const [b, s] = token.split(".");
     expect(() => verifyPreviewToken(`${b}x.${s}`)).toThrow();
@@ -168,3 +171,9 @@ describe("curated templates", () => {
     expect(mapStrings({ a: ["x"] }, (s) => s + "!")).toEqual({ a: ["x!"] });
   });
 });
+
+/** Same signature bytes, different base64url spelling (flips an unused padding bit of the last character). */
+function aliasLastChar(sig: string): string {
+  const AB = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  return sig.slice(0, -1) + AB[AB.indexOf(sig.at(-1)!) ^ 1]!;
+}

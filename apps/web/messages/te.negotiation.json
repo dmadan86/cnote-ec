@@ -69,6 +69,21 @@
     "log_counter_bounds_rejected": "మీ పరిమితుల వెలుపల ఉన్న ఒక సూచన తొలగించబడింది.",
     "error": "ఏదో తప్పు జరిగింది. దయచేసి మళ్లీ ప్రయత్నించండి.",
     "scrollHint": "అన్ని నిలువు వరుసలను చూడటానికి పట్టికను పక్కకు జరపండి.",
-    "regionLabel": "పోలిక పట్టిక, జరపవచ్చు"
+    "regionLabel": "పోలిక పట్టిక, జరపవచ్చు",
+    "colMoq": "కనీస ఆర్డర్ పరిమాణం",
+    "colDeliveryTerms": "డెలివరీ నిబంధనలు",
+    "colPayment": "చెల్లింపు నిబంధనలు",
+    "delivery_ex_works": "ఎక్స్-వర్క్స్ (కొనుగోలుదారు మీ వద్ద తీసుకుంటారు)",
+    "delivery_fob": "FOB",
+    "delivery_door_delivery": "ఇంటి వద్ద డెలివరీ",
+    "delivery_buyer_pickup": "కొనుగోలుదారే తీసుకుంటారు",
+    "delivery_other": "ఇతర",
+    "payment_advance": "ముందస్తు చెల్లింపు",
+    "payment_on_delivery": "డెలివరీ సమయంలో చెల్లింపు",
+    "payment_net_7": "7 రోజుల్లో చెల్లింపు",
+    "payment_net_15": "15 రోజుల్లో చెల్లింపు",
+    "payment_net_30": "30 రోజుల్లో చెల్లింపు",
+    "payment_escrow": "ఎస్క్రో",
+    "payment_other": "ఇతర"
   }
 }

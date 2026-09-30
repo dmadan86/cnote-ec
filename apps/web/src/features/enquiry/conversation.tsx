@@ -40,6 +40,9 @@ export function MessageThread({ conversation, myPersonId, counterpartyName }: { 
   );
 }
 
+const DELIVERY_LABEL = { ex_works: "Ex-works (you collect)", fob: "FOB", door_delivery: "Door delivery", buyer_pickup: "Buyer pickup", other: "Other" } as const;
+const PAYMENT_LABEL = { advance: "Advance payment", on_delivery: "Pay on delivery", net_7: "Net 7 days", net_15: "Net 15 days", net_30: "Net 30 days", escrow: "Escrow", other: "Other" } as const;
+
 export function QuoteCard({ quote, from, at }: { quote: ConversationView["quotes"][number]; from: string; at: string }) {
   return (
     <div className="rounded-card border border-accent-100 bg-accent-50 p-4 text-sm">
@@ -54,6 +57,11 @@ export function QuoteCard({ quote, from, at }: { quote: ConversationView["quotes
         <dd><Money paise={quote.pricePaise * quote.quantity} /></dd>
         {quote.leadTimeDays !== null ? (<><dt className="text-muted">Lead time</dt><dd>{quote.leadTimeDays} days</dd></>) : null}
         {quote.validUntil ? (<><dt className="text-muted">Valid until</dt><dd>{quote.validUntil}</dd></>) : null}
+        {quote.moq != null ? (<><dt className="text-muted">Minimum order</dt><dd>{quote.moq} {quote.moqUnit ?? quote.unit}</dd></>) : null}
+        {quote.deliveryTerms ? (<><dt className="text-muted">Delivery terms</dt><dd>{[DELIVERY_LABEL[quote.deliveryTerms], quote.deliveryNote].filter(Boolean).join(" · ")}</dd></>) : null}
+        {quote.deliveryChargePaise != null ? (<><dt className="text-muted">Delivery charge</dt><dd>{quote.deliveryChargePaise === 0 ? "None" : <Money paise={quote.deliveryChargePaise} />}</dd></>) : null}
+        {quote.paymentTerms ? (<><dt className="text-muted">Payment terms</dt><dd>{[PAYMENT_LABEL[quote.paymentTerms], quote.paymentNote].filter(Boolean).join(" · ")}</dd></>) : null}
+        {quote.gstIncluded != null ? (<><dt className="text-muted">GST</dt><dd>{quote.gstIncluded ? "Included in price" : "Extra on top"}</dd></>) : null}
       </dl>
       {quote.notes ? <p className="mt-2 whitespace-pre-wrap text-ink">{quote.notes}</p> : null}
       <p className="mt-2 text-[11px] text-muted">{dt.format(new Date(at))}</p>

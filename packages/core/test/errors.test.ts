@@ -15,6 +15,12 @@ describe("DomainError", () => {
   it("details are optional", () => {
     expect(new DomainError("not_found", "nope").details).toBeUndefined();
   });
+  it("carries an optional stable message key (4th argument) without affecting other fields", () => {
+    const e = new DomainError("insufficient_credits", "Not enough lead credits.", undefined, "credits.insufficient");
+    expect(e.key).toBe("credits.insufficient");
+    expect(e.details).toBeUndefined();
+    expect(new DomainError("conflict", "dup", { a: 1 }).key).toBeUndefined();
+  });
   it("maps every code to a distinct 4xx HTTP status", () => {
     const codes = Object.keys(HTTP_STATUS) as ErrorCode[];
     expect(codes).toHaveLength(7);

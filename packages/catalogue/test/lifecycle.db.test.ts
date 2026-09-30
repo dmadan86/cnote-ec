@@ -209,6 +209,17 @@ describe("version state machine", () => {
     expect(await cat.publishVersion(v2.id)).toBe("skipped");
     expect(await vstatus(v1.id)).toBe("published");
   });
+  it("publishVersion reports in_progress while another worker holds the version lock, then publishes", async () => {
+    const t = await mkSeller(2, 90, "lock");
+    const l = await cat.createListing(t, input("SM locked publish"));
+    const v = await cat.submitListingVersion(t, l.id);
+    expect(v.status).toBe("approved");
+    await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM listing_versions WHERE id = ${v.id}::uuid FOR UPDATE`;
+      expect(await cat.publishVersion(v.id)).toBe("in_progress"); // another connection: SKIP LOCKED sees it held
+    });
+    expect(await cat.publishVersion(v.id)).toBe("published");
+  });
   it("publishVersion: only approved versions publish (in_review/rejected/withdrawn/unknown/invalid id skipped)", async () => {
     const s = await seller();
     const { v } = await mkVersion(s, "SM notapproved");
@@ -287,7 +298,7 @@ describe("publisher: idempotency, ordering, concurrency, schedule", () => {
     const v = await cat.submitListingVersion(s, l.id);
     const outs = await Promise.all([1, 2, 3, 4, 5].map(() => cat.publishVersion(v.id)));
     expect(outs.filter((o) => o === "published")).toHaveLength(1);
-    expect(outs.filter((o) => o !== "published").every((o) => o === "skipped")).toBe(true);
+    expect(outs.filter((o) => o !== "published").every((o) => o === "skipped" || o === "in_progress")).toBe(true); // losers: still locked, or already published
     const e = await evs(l.id);
     expect(e.filter((x) => x === "ListingVersionPublished")).toHaveLength(1);
     expect(e.filter((x) => x === "ListingPublished")).toHaveLength(1);
@@ -737,7 +748,20 @@ describe("getters, sku, listings CRUD edges", () => {
   });
   it("public seller/index/featured/count reads", async () => {
     const s = await mkSeller(2, 90, "pub");
-    const mkp = async (t: string, extra = {}) => { const l = await cat.createListing(s, input(t, extra)); await cat.publishVersion((await cat.submitListingVersion(s, l.id)).id); return l.id; };
+    // versions.db.test.ts runs publishDueVersions() (a global sweep) in a parallel worker against the same DB: it can pick up
+    // our approved version and hold the row lock, so our publishVersion() returns "skipped" before the sweeper commits. Wait
+    // until the listing is really published (authoring commit) and re-bust the seller cache so a read that raced the sweeper
+    // can't have cached a partial list.
+    const mkp = async (t: string, extra = {}) => {
+      const l = await cat.createListing(s, input(t, extra));
+      await cat.publishVersion((await cat.submitListingVersion(s, l.id)).id);
+      for (let i = 0; i < 100; i++) {
+        if ((await prisma.listing.findUnique({ where: { id: l.id }, select: { status: true } }))?.status === "published") break;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      await invalidateTags([cacheTags.sellerListings(s), cacheTags.listing(l.id)]);
+      return l.id;
+    };
     const a = await mkp("PUB complete", { pricePaise: 100, moq: 5 });
     await new Promise((r) => setTimeout(r, 20));
     const b = await mkp("PUB bare", { pricePaise: null, moq: null });

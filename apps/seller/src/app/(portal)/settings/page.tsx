@@ -6,6 +6,7 @@ import { signOutAction } from "@cnote/next-kit";
 import { requireSeller } from "@/lib/auth";
 import { load } from "@/lib/safe";
 import { identity } from "@/lib/services";
+import { stateLabel } from "@/lib/states";
 import { ConsentForm, ProfileForm } from "@/features/settings/forms";
 import { signOutEverywhereAction } from "@/features/settings/actions";
 
@@ -17,6 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function SettingsPage() {
   const session = await requireSeller("/settings");
   const t = await getTranslations("settings");
+  const ts = await getTranslations("states");
   const f = await getFormatter();
   const [consents, sessions, profile] = await Promise.all([
     load(() => identity.getConsents(session.personId)),
@@ -35,7 +37,7 @@ export default async function SettingsPage() {
           <div className="border-t border-line pt-4 text-sm">
             <p className="font-medium text-ink">{session.business.name}</p>
             {profile.ok && profile.data ? (
-              <p className="text-muted">{[profile.data.city, profile.data.state, profile.data.pincode].filter(Boolean).join(", ") || t("profile.noAddress")}</p>
+              <p className="text-muted">{[profile.data.city, stateLabel(profile.data.state, (c) => (ts.has(c) ? ts(c) : undefined)), profile.data.pincode].filter(Boolean).join(", ") || t("profile.noAddress")}</p>
             ) : null}
             <p className="mt-1 text-muted">{session.phone ? t(session.phoneVerified ? "profile.phoneVerified" : "profile.phoneUnverified", { phone: session.phone }) : t("profile.phoneNone")}</p>
           </div>

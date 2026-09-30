@@ -1,5 +1,6 @@
 import { MemoryJobQueue, setJobQueue } from "@cnote/core";
 import { prisma } from "@cnote/db";
+import { getQuote } from "@cnote/enquiry";
 import * as negotiation from "@cnote/negotiation";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { addListing, cleanup, events, grant, matchFor, party, validUntil, world, type Party } from "./helpers";
@@ -13,6 +14,7 @@ vi.mock("@cnote/catalogue", async (orig) => {
 import {
   advanceNegotiation, confirmNegotiation, createBuyerMandate, createSellerMandate, expireNegotiations, getNegotiation, listActivity, listNegotiations, retryRealisation, revokeMandate,
   sendNegotiationMessage, setAutoAccept, startNegotiation, withdrawNegotiation, adminGetNegotiation, adminListNegotiations, adminListMandates, a2aMetrics,
+  getNegotiationParties,
 } from "../src";
 
 const FLOOR = 4137;
@@ -173,6 +175,9 @@ describe("human confirmation and real quote/order", () => {
     await advanceNegotiation(n.id);
     const agreed = (await getNegotiation(w.b, n.id))!;
     expect(agreed.status).toBe("agreed");
+    // notifier read: both humans still have to confirm; no mid-negotiation human reply is ever awaited
+    expect(await getNegotiationParties(n.id)).toEqual({ buyerBusinessId: w.b.businessId, sellerBusinessId: w.s.businessId, awaitingConfirmation: [w.b.businessId, w.s.businessId], awaitingReplyBusinessId: null });
+    expect(await getNegotiationParties("not-a-uuid")).toBeNull();
     expect(agreed.agreed!.pricePaise).toBeGreaterThanOrEqual(FLOOR);
     expect(agreed.agreed!.pricePaise).toBeLessThanOrEqual(BUYER_MAX);
     expect(agreed).toMatchObject({ canConfirm: true, yourConfirmation: "pending", counterpartyConfirmed: false, quoteId: null, orderId: null });
@@ -191,7 +196,10 @@ describe("human confirmation and real quote/order", () => {
     expect(done.orderId).toBeTruthy();
     const q = await prisma.quote.findUniqueOrThrow({ where: { id: done.quoteId! } });
     expect(Number(q.pricePaise)).toBe(agreed.agreed!.pricePaise);
-    expect(q.notes).toContain(`[a2a:${n.id}]`);
+    expect(q.notes).not.toContain("[a2a:"); // no notes marker any more
+    expect(q.notes).toBe("Agreed through agent negotiation.");
+    expect(await getQuote(w.s, q.id)).toMatchObject({ pricePaise: agreed.agreed!.pricePaise, role: "seller", matchId: w.matchId });
+
     const o = await prisma.order.findUniqueOrThrow({ where: { id: done.orderId! } });
     expect(o).toMatchObject({ matchId: w.matchId, quoteId: q.id, buyerBusinessId: w.b.businessId, sellerBusinessId: w.s.businessId });
     expect(Number(o.pricePaise)).toBe(agreed.agreed!.pricePaise);
@@ -205,6 +213,43 @@ describe("human confirmation and real quote/order", () => {
     expect(acts.some((a) => a.action === "order_recorded")).toBe(true);
     expect(acts.some((a) => a.action === "confirmed" && !a.byAgent)).toBe(true);
     expect(acts.some((a) => a.byAgent)).toBe(true);
+  });
+
+  it("maps typed offer terms onto structured quote fields, and honours a legacy [a2a:] marker quote without duplicating", async () => {
+    const w = await pair({ sellerOver: { deliveryTerms: "Ex-works Pune", paymentTerms: "Net 30 days" } });
+    const n = await startNegotiation(w.b, { mandateId: w.bMandate.id, matchId: w.matchId });
+    await advanceNegotiation(n.id);
+    await confirmNegotiation(w.b, n.id, "confirm");
+    const done = await confirmNegotiation(w.s, n.id, "confirm");
+    expect(done.status).toBe("accepted");
+    expect(await getQuote(w.b, done.quoteId!)).toMatchObject({ deliveryTerms: "ex_works", deliveryNote: "Ex-works Pune", paymentTerms: "net_30", role: "buyer" });
+
+    // legacy: an old-style quote carrying the marker is found and reused when the pointer was never saved
+    const w2 = await pair();
+    const n2 = await startNegotiation(w2.b, { mandateId: w2.bMandate.id, matchId: w2.matchId });
+    await advanceNegotiation(n2.id);
+    const agreed = (await getNegotiation(w2.b, n2.id))!.agreed!;
+    const legacy = await prisma.quote.create({
+      data: { conversationId: w2.conversationId!, sellerBusinessId: w2.s.businessId, pricePaise: BigInt(agreed.pricePaise), quantity: agreed.quantity, unit: agreed.unit, notes: `Agreed through agent negotiation. [a2a:${n2.id}]`, createdAt: new Date(Date.now() - 3_600_000) },
+    });
+    await confirmNegotiation(w2.b, n2.id, "confirm");
+    const done2 = await confirmNegotiation(w2.s, n2.id, "confirm");
+    expect(done2.quoteId).toBe(legacy.id);
+    expect(await prisma.quote.count({ where: { conversationId: w2.conversationId! } })).toBe(1);
+  });
+
+  it("recovers a quote that was sent but never linked (crash between sendQuote and the pointer update)", async () => {
+    const w = await pair();
+    const n = await startNegotiation(w.b, { mandateId: w.bMandate.id, matchId: w.matchId });
+    await advanceNegotiation(n.id);
+    const agreed = (await getNegotiation(w.b, n.id))!.agreed!;
+    const orphan = await prisma.quote.create({
+      data: { conversationId: w.conversationId!, sellerBusinessId: w.s.businessId, pricePaise: BigInt(agreed.pricePaise), quantity: agreed.quantity, unit: agreed.unit, notes: "Agreed through agent negotiation." },
+    });
+    await confirmNegotiation(w.b, n.id, "confirm");
+    const done = await confirmNegotiation(w.s, n.id, "confirm");
+    expect(done.quoteId).toBe(orphan.id);
+    expect(await prisma.quote.count({ where: { conversationId: w.conversationId! } })).toBe(1);
   });
 
   it("an offered lead is accepted by the seller's confirmation (one credit)", async () => {

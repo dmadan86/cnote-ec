@@ -21,6 +21,8 @@ describe("service tokens", () => {
     const t = sign();
     expect(verifyServiceToken(t, { secret: SECRET, audience: "search-service" })).toEqual({ ok: false, reason: "audience" });
     expect(verifyServiceToken(t, { secret: "other-secret", audience: "ai-service" })).toEqual({ ok: false, reason: "signature" });
+    const [tokHead, tokBody, tokSig] = t.split(".");
+    expect(verifyServiceToken(`${tokHead}.${tokBody}.${aliasLastChar(tokSig!)}`, { secret: SECRET, audience: "ai-service" })).toEqual({ ok: false, reason: "signature" }); // same bytes, other spelling
     const [h, , s] = t.split(".");
     const forged = `${h}.${Buffer.from(JSON.stringify({ iss: "x", aud: "ai-service", iat: 1, exp: 9999999999, jti: "j" })).toString("base64url")}.${s}`;
     expect(verifyServiceToken(forged, { secret: SECRET, audience: "ai-service" })).toEqual({ ok: false, reason: "signature" });
@@ -203,3 +205,9 @@ describe("ServiceClient", () => {
     vi.unstubAllGlobals();
   });
 });
+
+/** Same signature bytes, different base64url spelling (flips an unused padding bit of the last character). */
+function aliasLastChar(sig: string): string {
+  const AB = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  return sig.slice(0, -1) + AB[AB.indexOf(sig.at(-1)!) ^ 1]!;
+}

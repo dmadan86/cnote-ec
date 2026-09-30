@@ -1,0 +1,30 @@
+{
+  "orderTracking": {
+    "heading": "डिलीवरी की प्रगति",
+    "stepsLabel": "डिलीवरी के चरण",
+    "step": {
+      "packed": "पैक हुआ",
+      "dispatched": "डिस्पैच हुआ",
+      "in_transit": "रास्ते में",
+      "out_for_delivery": "डिलीवरी के लिए निकला",
+      "delivered": "डिलीवर हुआ"
+    },
+    "state": {
+      "done": "पूरा",
+      "current": "मौजूदा चरण",
+      "upcoming": "अभी नहीं"
+    },
+    "updates": "अपडेट",
+    "noUpdates": "अभी कोई डिलीवरी अपडेट नहीं है।",
+    "stage": {
+      "packed": "पैक हुआ",
+      "in_transit": "रास्ते में",
+      "out_for_delivery": "डिलीवरी के लिए निकला",
+      "delivery_attempted": "डिलीवरी की कोशिश हुई"
+    },
+    "trackingBoth": "कूरियर {courier}, ट्रैकिंग नंबर {ref}",
+    "trackingCourier": "कूरियर {courier}",
+    "trackingRef": "ट्रैकिंग नंबर {ref}",
+    "intro": "सामान आगे बढ़ने पर विक्रेता इसे अपडेट करता है। इससे ऑर्डर की स्थिति या कोई भुगतान नहीं बदलता।"
+  }
+}

@@ -133,6 +133,8 @@ export interface DomainEventPayloads {
   AgentMandateCreated:      { mandateId: string; businessId: string; side: "buyer" | "seller"; autoAccept: boolean };
   AgentNegotiationStarted:  { negotiationId: string; buyerBusinessId: string; sellerBusinessId: string; enquiryId: string | null; external: boolean };
   AgentOfferMade:           { negotiationId: string; round: number; by: "buyer" | "seller"; pricePaise: number; quantity: number };
+  /** staff suspended a mandate (or all agent activity of a business) for abuse; the reason stays in the admin audit trail */
+  AgentMandateSuspended:    { businessId: string; mandateId: string | null; side: "buyer" | "seller" | null; scope: "mandate" | "business" };
   AgentNegotiationClosed:   { negotiationId: string; outcome: "accepted" | "rejected" | "expired" | "withdrawn"; confirmedBy: "human" | "auto" | null; pricePaise: number | null };
   // price intelligence (ADR-022)
   PriceBenchmarkPublished:  { period: string; categories: number; cells: number; suppressedCells: number };
@@ -251,6 +253,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   AgentNegotiationStarted: 1,
   AgentOfferMade: 1,
   AgentNegotiationClosed: 1,
+  AgentMandateSuspended: 1,
   PriceBenchmarkPublished: 1,
   OndcIssueReceived: 1,
   EscrowCreated: 1,

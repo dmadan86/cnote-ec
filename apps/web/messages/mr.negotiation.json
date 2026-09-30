@@ -69,6 +69,21 @@
     "log_counter_bounds_rejected": "तुमच्या मर्यादांबाहेरची एक सूचना काढून टाकली.",
     "error": "काहीतरी चूक झाली. कृपया पुन्हा प्रयत्न करा.",
     "scrollHint": "सर्व स्तंभ पाहण्यासाठी तक्ता बाजूला सरकवा.",
-    "regionLabel": "तुलना तक्ता, सरकवता येतो"
+    "regionLabel": "तुलना तक्ता, सरकवता येतो",
+    "colMoq": "किमान ऑर्डर प्रमाण",
+    "colDeliveryTerms": "डिलिव्हरीच्या अटी",
+    "colPayment": "पेमेंटच्या अटी",
+    "delivery_ex_works": "एक्स-वर्क्स (खरेदीदार तुमच्याकडून घेतो)",
+    "delivery_fob": "FOB",
+    "delivery_door_delivery": "दारापर्यंत डिलिव्हरी",
+    "delivery_buyer_pickup": "खरेदीदार स्वतः घेईल",
+    "delivery_other": "इतर",
+    "payment_advance": "आगाऊ पेमेंट",
+    "payment_on_delivery": "डिलिव्हरीवर पेमेंट",
+    "payment_net_7": "7 दिवसांत पेमेंट",
+    "payment_net_15": "15 दिवसांत पेमेंट",
+    "payment_net_30": "30 दिवसांत पेमेंट",
+    "payment_escrow": "एस्क्रो",
+    "payment_other": "इतर"
   }
 }

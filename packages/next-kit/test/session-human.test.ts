@@ -73,9 +73,9 @@ describe("requireSession / requireBusiness", () => {
 });
 
 describe("requestContext", () => {
-  it("takes the first x-forwarded-for hop, then x-real-ip, else null", async () => {
+  it("takes the x-forwarded-for hop our proxy added (never the client-controlled first one), then x-real-ip, else null", async () => {
     h.headers = new Headers({ "x-forwarded-for": " 1.1.1.1 , 2.2.2.2", "user-agent": "UA", "x-real-ip": "3.3.3.3" });
-    expect(await requestContext()).toMatchObject({ ip: "1.1.1.1", userAgent: "UA", realm: "web" });
+    expect(await requestContext()).toMatchObject({ ip: "2.2.2.2", userAgent: "UA", realm: "web" });
     h.headers = new Headers({ "x-real-ip": " 3.3.3.3 " });
     expect((await requestContext()).ip).toBe("3.3.3.3");
     h.headers = new Headers();

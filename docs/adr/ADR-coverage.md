@@ -1,7 +1,19 @@
 # ADR coverage: what the code implements against ADR-000 to ADR-025
 
-**As of:** 30 Sep 2026, wave 7 (see the "Wave 7", "Wave 6" and "Wave 5" updates, newest first); wave-4 notes refer to HEAD `425e151` (wave 4: metrics, orders, boundary guard, Hindi UI, photo/voice listings, WhatsApp channel, DPDP compliance). A "Wave 4 update" note under each affected ADR supersedes the older gap text above it.
+**As of:** 30 Sep 2026, wave 8 (see the wave updates below, newest first); wave-4 notes refer to HEAD `425e151` (wave 4: metrics, orders, boundary guard, Hindi UI, photo/voice listings, WhatsApp channel, DPDP compliance). A "Wave 4 update" note under each affected ADR supersedes the older gap text above it.
 **Method:** read `docs/adr/ADR-v0.1.md`, `ADR-024-025-proposed.md`, every `docs/design/*.md`, the package sources, the Prisma schemas and the event catalogue; then judged each ADR by what is actually in code. Evidence lists packages and files; gaps are stated against the ADR text.
+
+## Wave 8 update: gaps closed
+
+- **Notifications (ADR-002/005/012..020):** 33 new kinds for ads, agent deals, escrow, disputes, credit, quality checks, ONDC, draft quotes and delivery tracking; party lookups wired in the worker; content rendered in each person's preferred language (8 locales in-app, en/hi email).
+- **Quote terms (ADR-014/020):** quotes carry MOQ, delivery terms and charge, payment terms and GST inclusion; `getQuote` / `listSellerQuotes`; negotiation and agent-to-agent use them.
+- **Search (ADR-004/009):** transliteration for 7 Indic scripts + a 215-term B2B lexicon, voice search, search by photo, buyer location for sponsored slots, relevance judgement set with nDCG/MRR (seed data: nDCG@10 0.86 vs 0.53 baseline).
+- **Fulfilment (ADR-017/021):** packed / in transit / out for delivery stages with buyer tracking and ONDC status push; seller ONDC complaints page; dispatch checks from a short video (frames extracted in the browser).
+- **Finance (ADR-012/019/022):** credit cooling-off exit via the partner; exact per-business escrow history for underwriting; pincode-zone price benchmarks with a full PIN→state table.
+- **i18n (ADR-004):** two-factor/security screens, ~130 common error messages via stable keys, state names in 8 languages.
+- **Ops:** ADR-040 (stack decision record), alert rules for ADR targets, Grafana dashboards (`docs/ops/monitoring.md`).
+- **UI tests:** Playwright functional + axe WCAG 2.2 AA suites (`pnpm test:a11y`, `pnpm test:e2e`) in CI; the 5 bugs they found are fixed.
+- **Security:** per-IP rate limits no longer trust the client-controlled first X-Forwarded-For entry (`clientIp` in @cnote/security, `TRUSTED_PROXY_HOPS`; the origin must only accept Cloudflare); HMAC tokens (ad clicks, storefront previews, service tokens) compare the canonical signature string (no malleable spellings).
 
 ## Wave 7 update: Phase 3 built behind flags, seller app in 8 languages (supersedes the "Deferred" rows for ADR-018 to 023)
 
@@ -167,3 +179,8 @@ Nothing to build. Drivers 1 to 7 are visible in code: trust weighting (`identity
 | 8 | Metrics layer: SQL views or a job over `DomainEvent` for each ADR target, admin dashboard, SLO alerts | 002 to 005 | Phase 1 gate cannot be evaluated without it | M |
 | 9 | Decide the Phase-1 vertical; load real category schemas and golden sets | 011 | Unblocks evals, language order and seller acquisition | S (decision) |
 | 10 | `Order` stub entity and boundary lint (dependency graph check in CI) | 006, 007 | Cheap now, expensive to retrofit | S |
+
+## Stack decision record
+
+- **ADR-040** (`docs/adr/ADR-040-stack-supersedes-006-009.md`) formally records that the implemented stack supersedes the indicative stack in ADR-006 and ADR-009: transactional outbox plus Redis Streams instead of Kafka, Postgres FTS plus pgvector hybrid search (OpenSearch adapter available, not default), Next.js 16 and Hono, Prisma 7, a separate live read DB for CQRS, per-realm JWT and India data residency, with the volumes at which Kafka and OpenSearch become worth adopting.
+- **Operations:** dashboards, alert rules and on-call routing are in `infra/monitoring/` and `docs/ops/monitoring.md`. The Phase 2/3 alert rules (escrow dispute-refund rate, payout latency, dispute resolution median, credit GNPA proxy, credit-attached order share) are defined in `packages/metrics/src/definitions.ts`; what cannot be derived from the event log is listed in `docs/ops/monitoring.md` section 6.

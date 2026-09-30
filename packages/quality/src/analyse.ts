@@ -4,8 +4,15 @@ import { getDecisionMeta, inspectDispatch, type InspectDispatchInput } from "@cn
 import { emit, getJobQueue } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { getMediaStore } from "@cnote/media";
-import { ANALYSE_TOPIC } from "./config";
+import { ANALYSE_TOPIC, MAX_AI_IMAGES } from "./config";
 import type { ExpectedSpec } from "./types";
+
+/** At most `max` items, evenly spaced and always keeping the first and last (video frames can outnumber the model's image cap). */
+export function pickEvenly<T>(items: T[], max: number): T[] {
+  if (items.length <= max) return items;
+  if (max <= 1) return items.slice(0, 1);
+  return Array.from({ length: max }, (_, i) => items[Math.round((i * (items.length - 1)) / (max - 1))]!);
+}
 
 export type AnalyseOutcome = "completed" | "skipped" | "failed" | "retry";
 
@@ -25,9 +32,10 @@ export async function analyseCheck(checkId: string, opts: { attempt?: number; ma
     const store = getMediaStore("private");
     const objs = await Promise.all(media.map((m) => store.get(m.key)));
     if (objs.some((o) => !o)) return await fail("A photo is no longer available");
+    const chosen = pickEvenly(media.map((m, i) => ({ m, o: objs[i]! })), MAX_AI_IMAGES);
     const spec = check.expectedSpec as unknown as ExpectedSpec;
     const input: InspectDispatchInput = {
-      images: media.map((m, i) => ({ bytes: objs[i]!.bytes, mimeType: m.mimeType, width: m.width, height: m.height })),
+      images: chosen.map(({ m, o }) => ({ bytes: o.bytes, mimeType: m.mimeType, width: m.width, height: m.height })),
       expected: { categorySlug: check.categorySlug, productTitle: spec.productTitle, quantity: spec.quantity, unit: spec.unit, requirement: spec.requirement, attributes: spec.attributes, labelling: spec.labelling },
       language: "en", ref: { orderId: check.orderId, checkId },
     };

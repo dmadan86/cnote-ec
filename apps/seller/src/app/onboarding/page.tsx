@@ -6,7 +6,7 @@ import { Alert, Card, CardBody, cn } from "@cnote/ui";
 import { requireSession } from "@cnote/next-kit";
 import { load } from "@/lib/safe";
 import { billing, catalogue, identity } from "@/lib/services";
-import { getOnboardingState, STEPS } from "@/features/onboarding/state";
+import { getOnboardingState, justSubmittedFirstListing, STEPS } from "@/features/onboarding/state";
 import { BusinessStep, PhoneStep, PlanStep, SkipButton } from "@/features/onboarding/steps";
 import { ImageManager } from "@/features/images/image-manager";
 import { CompanyForm } from "@/features/company/company-form";
@@ -24,7 +24,24 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
   const t = await getTranslations("onboarding");
   const sp = await searchParams;
   const state = await getOnboardingState(session);
-  if (state.step === "done") redirect("/dashboard");
+  // The first listing was just submitted: show the outcome before moving on (the submit completes step 4, so without
+  // this the page would jump straight to the next step or the dashboard and the confirmation would never be seen).
+  const justSubmitted = await justSubmittedFirstListing();
+  const te = await getTranslations("listings.editor");
+  const submittedNote = justSubmitted ? (
+    <Alert tone="success">
+      <span className="font-semibold">{te("submittedTitle")}</span> {te("submittedBody")}
+    </Alert>
+  ) : null;
+  if (state.step === "done") {
+    if (!justSubmitted) redirect("/dashboard");
+    return (
+      <div className="space-y-6">
+        {submittedNote}
+        <Link href="/dashboard" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-700 underline">{t("done.dashboard")}</Link>
+      </div>
+    );
+  }
   const step = state.step;
 
   // A buyer-only business cannot become a seller here (one Business = one set of roles for now).
@@ -80,6 +97,7 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
 
   return (
     <div className="space-y-6">
+      {step === 5 ? submittedNote : null}
       <nav aria-label={t("progressLabel")}>
         <p className="text-sm font-medium text-muted">
           {t("progress", { step, total: STEPS.length })}<span className="text-ink">{t(`steps.s${step}`)}</span>

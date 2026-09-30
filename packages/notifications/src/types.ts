@@ -40,6 +40,8 @@ export interface NotificationKind<E extends DomainEventType = DomainEventType> {
   event: E;
   variables: TemplateVariable[];
   defaults: { in_app: KindContent; email?: KindContent };
+  /** optional per-locale seed content (see TemplateDefinition.localized) */
+  localized?: Record<string, { in_app?: KindContent; email?: KindContent }>;
   resolve(event: DomainEvent<E>, dir: import("./recipients").Directory): Promise<Recipient[]>;
 }
 
