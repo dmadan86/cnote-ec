@@ -1,0 +1,55 @@
+{
+  "notif": {
+    "title": "Notifications",
+    "description": "Updates about your leads, messages and account.",
+    "loadError": "We could not load your notifications right now. Please try again in a moment.",
+    "prefsTitle": "Notification preferences",
+    "prefsDescription": "Choose how we reach you. In-app notifications appear under the bell.",
+    "back": "Back to notifications",
+    "prefsLoadError": "We could not load your preferences right now. Please try again in a moment.",
+    "filterLabel": "Filter notifications",
+    "all": "All",
+    "unread": "Unread",
+    "unreadCount": "Unread ({count})",
+    "preferences": "Preferences",
+    "markAll": "Mark all as read",
+    "caughtUp": "You are all caught up",
+    "none": "No notifications yet",
+    "noneDescription": "We will let you know here when something needs your attention.",
+    "new": "New",
+    "markRead": "Mark as read",
+    "markReadAria": "Mark \"{title}\" as read",
+    "older": "Older notifications →",
+    "save": "Save preferences",
+    "saving": "Saving…",
+    "saved": "Preferences saved.",
+    "alwaysOn": "Always on: security alerts protect your account and cannot be turned off.",
+    "needsConsent": "Needs your consent to marketing communication. <link>Manage consents in your account privacy settings</link>.",
+    "category": {
+      "leads": {
+        "label": "Leads and requirements",
+        "description": "New leads, accepted requirements and review of your enquiries."
+      },
+      "messages": {
+        "label": "Messages and quotes",
+        "description": "Conversation messages, quotes, disputes, agent negotiations and delivery updates."
+      },
+      "reviews": {
+        "label": "Reviews and questions",
+        "description": "Moderation results and new reviews on your products."
+      },
+      "security": {
+        "label": "Security",
+        "description": "Sign-in and account security alerts."
+      },
+      "marketing": {
+        "label": "Offers and product news",
+        "description": "Tips, offers and announcements."
+      }
+    },
+    "channel": {
+      "in_app": "In-app",
+      "email": "Email"
+    }
+  }
+}

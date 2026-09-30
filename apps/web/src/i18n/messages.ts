@@ -22,7 +22,7 @@ function merge(base: Json, over: Json): Json {
  * best-effort directory scan (server only, `messages/` next to the app) decides which names to try. A file whose top
  * level already has a `<namespace>` key is merged as-is; otherwise its content is placed under that namespace.
  */
-const KNOWN_NAMESPACE_FILES = ["a2a", "ads", "credit", "disputes", "escrow", "negotiation", "prices", "promotions", "quality", "reachability", "search", "errors", "states"];
+const KNOWN_NAMESPACE_FILES = ["a2a", "account", "actions", "ads", "buyer", "compare", "credit", "disputes", "escrow", "negotiation", "prices", "promotions", "quality", "rail", "reachability", "search", "errors", "states", "grievance", "notif", "orderTracking", "titles", "wishlist"];
 
 function discoverNamespaces(): string[] {
   const found = new Set(KNOWN_NAMESPACE_FILES);
@@ -82,10 +82,16 @@ export function loadMessages(locale: CatalogueLocale): Promise<Messages> {
 export const loadLocaleCatalogue = loadLocaleFiles;
 
 /** Namespaces client components read (everything else stays server-side and out of the client payload). */
-export const CLIENT_NAMESPACES = ["shell", "search", "rails", "consent", "unlock", "leadgen", "ui", "lang", "errors", "states", "cards", "auth", "rfq"] as const;
+export const CLIENT_NAMESPACES = ["shell", "search", "rails", "consent", "unlock", "leadgen", "ui", "lang", "errors", "states", "cards", "auth", "rfq", "compare", "rail"] as const;
 
-export function pickClientMessages(all: Messages): Partial<Messages> {
+/**
+ * Extra namespaces for client components of the dynamic routes (account, buyer, rfq, ...). Kept out of CLIENT_NAMESPACES
+ * so the static public pages do not ship them; the (app) layout passes both lists.
+ */
+export const APP_CLIENT_NAMESPACES = ["account", "buyer", "wishlist", "notif", "grievance"] as const;
+
+export function pickClientMessages(all: Messages, extra: readonly string[] = []): Partial<Messages> {
   const out: Record<string, unknown> = {};
-  for (const ns of CLIENT_NAMESPACES) if (ns in all) out[ns] = (all as Record<string, unknown>)[ns];
+  for (const ns of [...CLIENT_NAMESPACES, ...extra]) if (ns in all) out[ns] = (all as Record<string, unknown>)[ns];
   return out as Partial<Messages>;
 }

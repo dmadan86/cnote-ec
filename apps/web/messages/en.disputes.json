@@ -80,6 +80,8 @@
     "messagesTitle": "Messages with our team",
     "messageLabel": "Write a message",
     "send": "Send",
-    "errorGeneric": "Something went wrong. Please try again."
+    "errorGeneric": "Something went wrong. Please try again.",
+    "sla": "SLA: {days} days",
+    "fromPlatform": "Cnote"
   }
 }

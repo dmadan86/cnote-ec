@@ -58,3 +58,6 @@ graphify-out/
 /playwright-report
 /e2e/.results
 /.data/media-e2e
+
+# alternate Next distDirs (e.g. a second dev server for e2e)
+.next-*/

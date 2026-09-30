@@ -1,0 +1,27 @@
+{
+  "rail": {
+    "siteNavLabel": "Site navigation",
+    "stripLabel": "Account sections",
+    "expand": "Expand sidebar",
+    "collapse": "Collapse sidebar",
+    "overview": "Overview",
+    "postRequirement": "Post requirement",
+    "myRequirements": "My requirements",
+    "orders": "Orders",
+    "agents": "Agents",
+    "saved": "Saved",
+    "compare": "Compare",
+    "notifications": "Notifications",
+    "grievances": "Grievances",
+    "developers": "Developer / API keys",
+    "exportData": "Export my data",
+    "account": "Your account",
+    "home": "Home",
+    "search": "Search",
+    "categories": "Categories",
+    "manufacturers": "Manufacturers",
+    "pricing": "Pricing",
+    "requestQuote": "Request quote",
+    "signIn": "Sign in"
+  }
+}

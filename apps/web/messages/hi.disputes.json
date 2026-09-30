@@ -80,6 +80,8 @@
     "messagesTitle": "हमारी टीम से संदेश",
     "messageLabel": "संदेश लिखें",
     "send": "भेजें",
-    "errorGeneric": "कुछ गड़बड़ हुई। कृपया फिर कोशिश करें।"
+    "errorGeneric": "कुछ गड़बड़ हुई। कृपया फिर कोशिश करें।",
+    "sla": "SLA: {days} दिन",
+    "fromPlatform": "Cnote"
   }
 }

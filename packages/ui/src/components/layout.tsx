@@ -2,7 +2,7 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "../cn";
 
 export function Container({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8", className)} {...rest} />;
+  return <div className={cn("mx-auto w-full max-w-[100rem] px-4 sm:px-6 lg:px-8", className)} {...rest} />;
 }
 
 export function PageHeader({ title, description, actions }: { title: ReactNode; description?: ReactNode; actions?: ReactNode }) {

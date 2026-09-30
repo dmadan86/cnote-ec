@@ -69,8 +69,12 @@ async function main() {
   }
 }
 
+// Exit explicitly: transitive imports (Redis clients) hold the event loop open.
 main()
-  .then(() => prisma.$disconnect())
+  .then(async () => {
+    await prisma.$disconnect();
+    process.exit(0);
+  })
   .catch(async (err) => {
     console.error(err instanceof Error ? err.message : err);
     await prisma.$disconnect().catch(() => undefined);

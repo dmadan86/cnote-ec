@@ -157,8 +157,10 @@ describe("cooling-off exit", () => {
     setCreditPorts({ ...fk.ports, assignEscrowProceeds: async (i) => void seen.push(i.duePaise) });
     await worker.handlers!.CreditCancelled!({ id: 1, version: 1, type: "CreditCancelled", aggregateType: "credit_loan", aggregateId: loan.id, occurredAt: new Date().toISOString(), payload: { loanId: loan.id, applicationId: l.applicationId, businessId: actor.businessId, reason: "partner" } });
     expect(seen).toEqual([0]);
-    // DPDP retention purges cancelled loans once closed before the cutoff
-    const r = await purgeClosedCreditData(new Date(Date.now() + DAY));
+    // DPDP retention purges cancelled loans once closed before the cutoff. Backdate THIS loan and purge with a cutoff in the
+    // past: a future cutoff would also purge loans that parallel test files just closed and are still asserting on.
+    await prisma.creditLoan.update({ where: { id: loan.id }, data: { closedAt: new Date(Date.now() - 800 * DAY) } });
+    const r = await purgeClosedCreditData(new Date(Date.now() - 365 * DAY));
     expect(r.loans).toBeGreaterThanOrEqual(1);
     expect(await prisma.creditLoan.findUnique({ where: { id: loan.id } })).toBeNull();
   });

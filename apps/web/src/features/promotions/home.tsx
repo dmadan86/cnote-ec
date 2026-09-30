@@ -1,5 +1,5 @@
 import { ArrowRight } from "lucide-react";
-import Image from "next/image";
+import { BlurImage } from "@/features/media/blur-image";
 import { getTranslations } from "next-intl/server";
 import { buttonClasses, Container, Grid } from "@cnote/ui";
 import type { PublicPromotion } from "@cnote/promotions";
@@ -48,7 +48,7 @@ function HeroBanner({ p, label }: { p: PublicPromotion; label: string }) {
         </div>
         {p.image ? (
           <div className="relative aspect-[16/9] w-full md:aspect-auto md:min-h-64 md:self-stretch">
-            <Image src={p.image.src} alt={p.image.alt} fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
+            <BlurImage src={p.image.src} alt={p.image.alt} sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
           </div>
         ) : null}
       </div>

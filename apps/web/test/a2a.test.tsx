@@ -238,7 +238,7 @@ describe("a2a markup accessibility contracts", () => {
 describe("a2a routes", () => {
   it("live under the auth-gated /buyer prefix and never import counterparty-limit data", () => {
     const read = (p: string) => readFileSync(join(__dirname, "..", p), "utf8");
-    for (const p of ["src/app/buyer/agents/page.tsx", "src/app/buyer/agents/mandates/[id]/page.tsx", "src/app/buyer/agents/negotiations/[id]/page.tsx"]) {
+    for (const p of ["src/app/(app)/(dashboard)/buyer/agents/page.tsx", "src/app/(app)/(dashboard)/buyer/agents/mandates/[id]/page.tsx", "src/app/(app)/(dashboard)/buyer/agents/negotiations/[id]/page.tsx"]) {
       const src = read(p);
       expect(src).toContain("requireBusiness(");
       expect(src).not.toMatch(/sellerPrivate|buyerPrivate|adminGetNegotiation/);

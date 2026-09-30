@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "rail": {
+    "siteNavLabel": "సైట్ నావిగేషన్",
+    "stripLabel": "ఖాతా విభాగాలు",
+    "expand": "సైడ్‌బార్ విస్తరించు",
+    "collapse": "సైడ్‌బార్ కుదించు",
+    "overview": "అవలోకనం",
+    "postRequirement": "అవసరాన్ని పోస్ట్ చేయండి",
+    "myRequirements": "నా అవసరాలు",
+    "orders": "ఆర్డర్లు",
+    "agents": "ఏజెంట్లు",
+    "saved": "సేవ్ చేసినవి",
+    "compare": "పోల్చండి",
+    "notifications": "నోటిఫికేషన్లు",
+    "grievances": "ఫిర్యాదులు",
+    "developers": "డెవలపర్ / API కీలు",
+    "exportData": "నా డేటాను ఎగుమతి చేయండి",
+    "account": "మీ ఖాతా",
+    "home": "హోమ్",
+    "search": "వెతుకు",
+    "categories": "వర్గాలు",
+    "manufacturers": "తయారీదారులు",
+    "pricing": "ధరలు",
+    "requestQuote": "కోట్ అడగండి",
+    "signIn": "సైన్ ఇన్"
+  }
+}

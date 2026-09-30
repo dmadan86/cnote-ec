@@ -1,6 +1,7 @@
 "use server";
 import { getConsents } from "@cnote/identity";
-import { type ActionResult, runAction } from "@cnote/next-kit";
+import { type ActionResult } from "@cnote/next-kit";
+import { runLocalized } from "@/i18n/errors";
 import { channelLock, markRead, setPreference, type NotificationCategory } from "@cnote/notifications";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -29,7 +30,7 @@ export async function markAllReadAction(): Promise<void> {
 /** Saves every toggle in the form. Locked toggles (security, marketing without consent) are never written. */
 export async function savePreferencesAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const s = await requireSession("/account/notifications/preferences");
-  const result = await runAction(async () => {
+  const result = await runLocalized(async () => {
     const consents = await getConsents(s.personId);
     for (const category of CATEGORIES) {
       for (const channel of CHANNELS) {

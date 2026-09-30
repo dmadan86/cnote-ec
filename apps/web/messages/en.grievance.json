@@ -1,0 +1,50 @@
+{
+  "grievance": {
+    "title": "Grievance redressal",
+    "metaDescription": "Raise a privacy, data or content grievance with our Grievance Officer.",
+    "subtitle": "Raise a concern about your personal data, your consent, or content on the platform.",
+    "submitTitle": "Submit a grievance",
+    "officer": "Grievance Officer",
+    "officerFallback": "Use the form on this page; it goes straight to our Grievance Officer.",
+    "sla": "We acknowledge every grievance within {hours} hours and aim to resolve it within {days} days. If you are not satisfied, you may complain to the Data Protection Board of India.",
+    "track": "Track your grievances",
+    "signInToTrack": "<link>Sign in</link> to track the status of your grievances.",
+    "category": "What is your grievance about?",
+    "chooseCategory": "Choose a category",
+    "cat": {
+      "access": "Access my personal data",
+      "correction": "Correct my personal data",
+      "erasure": "Erase my personal data",
+      "consent": "Consent or withdrawal of consent",
+      "content": "Content or moderation complaint",
+      "other": "Something else"
+    },
+    "emailLabel": "Email for our reply",
+    "emailHintSignedIn": "Optional: we will use your account email if you leave this blank.",
+    "emailHintAnon": "Required so we can reply to you.",
+    "subject": "Subject",
+    "describe": "Describe your grievance",
+    "describeHint": "Include listing or order references where relevant. Do not include passwords or card details.",
+    "submit": "Submit grievance",
+    "submitting": "Submitting…",
+    "received": "Your grievance has been received.",
+    "receivedBody": "Reference: <code>{id}</code>. We will acknowledge it within {hours} hours and resolve it by {date}.",
+    "followSignedIn": "You can follow its status under Your account, Grievances.",
+    "followAnon": "Keep this reference; we will reply to the email address you gave.",
+    "myTitle": "Your grievances",
+    "myDescription": "Status of the grievances you have raised.",
+    "raise": "Raise a grievance",
+    "loadError": "We could not load your grievances right now. Please try again in a moment.",
+    "emptyTitle": "No grievances yet",
+    "emptyDescription": "If you have a concern about your data or content, raise it and we will respond within the statutory window.",
+    "status": {
+      "open": "Received",
+      "in_progress": "In progress",
+      "resolved": "Resolved",
+      "rejected": "Closed without action"
+    },
+    "filed": "Filed {date} · Reference <code>{id}</code>",
+    "respondBy": "We will respond by {date}",
+    "officerResponse": "Response from our Grievance Officer"
+  }
+}

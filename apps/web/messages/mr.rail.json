@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "rail": {
+    "siteNavLabel": "साइट नेव्हिगेशन",
+    "stripLabel": "खात्याचे विभाग",
+    "expand": "साइडबार उघडा",
+    "collapse": "साइडबार लहान करा",
+    "overview": "आढावा",
+    "postRequirement": "गरज पोस्ट करा",
+    "myRequirements": "माझ्या गरजा",
+    "orders": "ऑर्डर",
+    "agents": "एजंट",
+    "saved": "जतन केलेले",
+    "compare": "तुलना",
+    "notifications": "सूचना",
+    "grievances": "तक्रारी",
+    "developers": "डेव्हलपर / API कीज",
+    "exportData": "माझा डेटा एक्सपोर्ट करा",
+    "account": "तुमचे खाते",
+    "home": "मुख्यपृष्ठ",
+    "search": "शोधा",
+    "categories": "श्रेणी",
+    "manufacturers": "उत्पादक",
+    "pricing": "किंमत",
+    "requestQuote": "कोटेशन मागा",
+    "signIn": "साइन इन करा"
+  }
+}

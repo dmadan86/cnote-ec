@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "rail": {
+    "siteNavLabel": "সাইট নেভিগেশন",
+    "stripLabel": "অ্যাকাউন্টের বিভাগ",
+    "expand": "সাইডবার খুলুন",
+    "collapse": "সাইডবার গুটিয়ে নিন",
+    "overview": "ওভারভিউ",
+    "postRequirement": "প্রয়োজন পোস্ট করুন",
+    "myRequirements": "আমার প্রয়োজন",
+    "orders": "অর্ডার",
+    "agents": "এজেন্ট",
+    "saved": "সংরক্ষিত",
+    "compare": "তুলনা",
+    "notifications": "বিজ্ঞপ্তি",
+    "grievances": "অভিযোগ",
+    "developers": "ডেভেলপার / API কী",
+    "exportData": "আমার ডেটা এক্সপোর্ট করুন",
+    "account": "আপনার অ্যাকাউন্ট",
+    "home": "হোম",
+    "search": "খুঁজুন",
+    "categories": "বিভাগ",
+    "manufacturers": "প্রস্তুতকারক",
+    "pricing": "মূল্য",
+    "requestQuote": "কোটেশন চান",
+    "signIn": "সাইন ইন"
+  }
+}

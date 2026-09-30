@@ -117,13 +117,13 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
       <div className="mt-5 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div>
           <div className="relative aspect-square overflow-hidden rounded-card border border-line bg-surface">
-            <ProductImage src={listing.imageUrls[0]} sizes="(min-width: 1024px) 45vw, 100vw" priority preload alt={listing.title} />
+            <ProductImage src={listing.imageUrls[0]} blur={listing.imageBlurs?.[0]} sizes="(min-width: 1024px) 45vw, 100vw" priority preload alt={listing.title} />
           </div>
           {listing.imageUrls.length > 1 ? (
             <ul className="mt-3 grid grid-cols-4 gap-3">
               {listing.imageUrls.slice(1, 5).map((u, i) => (
                 <li key={u} className="relative aspect-square overflow-hidden rounded-lg border border-line bg-surface">
-                  <ProductImage src={u} sizes="12vw" alt={t("imageAlt", { title: listing.title, n: i + 2 })} />
+                  <ProductImage src={u} blur={listing.imageBlurs?.[i + 1]} sizes="12vw" alt={t("imageAlt", { title: listing.title, n: i + 2 })} />
                 </li>
               ))}
             </ul>

@@ -1,8 +1,9 @@
 import { createAuthProxy } from "@cnote/next-kit/proxy";
 import { createNonce, pathMatches, withNonceRequest, withSecurityHeaders } from "@cnote/next-kit/security";
 import { NextResponse, type NextRequest } from "next/server";
+import { WEB_NONCE_SECURITY } from "@/features/rail/csp";
 import { recordStorefrontHit, routeStorefrontHost } from "@/features/domains/host-routing";
-import { DEFAULT_LOCALE, isLocalizedPath, splitLocale } from "@/i18n/config";
+import { DEFAULT_LOCALE, disabledLocaleRest, isLocalizedPath, splitLocale } from "@/i18n/config";
 
 const PROTECTED = ["/account", "/onboarding", "/buyer", "/rfq", "/conversations", "/wishlist"];
 const authProxy = createAuthProxy({ protectedPrefixes: PROTECTED, signInPath: "/signin" });
@@ -23,11 +24,14 @@ const SESSION_PATHS = [...PROTECTED, "/compare", "/api/me", "/signin", "/signup"
  *   /x            -> rewrite to /en/x (the default locale is unprefixed in the browser, prefixed internally)
  *   /hi/x         -> pass through (static [locale] route)
  *   /en/x         -> 308 to /x (one canonical URL per language, no duplicate content)
+ *   /kn/x         -> 307 to /x (disabled locale, see LOCALES in i18n/config: old links keep working in English)
  *   /hi/<other>   -> 307 to /<other> (only public discovery pages are localised; the rest stays unprefixed English)
  * Returns null when the path is not a localised page (account, buyer, rfq, auth, api, storefront-rewritten, ...).
  */
 function routeLocale(req: NextRequest): NextResponse | null {
   const { pathname, search } = req.nextUrl;
+  const off = disabledLocaleRest(pathname);
+  if (off !== null) return NextResponse.redirect(new URL(`${off}${search}`, req.url), 307);
   const { locale, prefixed, rest } = splitLocale(pathname);
   if (prefixed && locale === DEFAULT_LOCALE) {
     // Generated metadata images (og image) are emitted under the internal /en prefix; leave those alone.
@@ -59,8 +63,8 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
   if (!pathMatches(req.nextUrl.pathname, SESSION_PATHS)) return NextResponse.next();
 
   const nonce = pathMatches(req.nextUrl.pathname, NONCE_PATHS) ? createNonce() : undefined;
-  const res = await authProxy(nonce ? withNonceRequest(req, nonce, { app: "web" }) : req);
-  return withSecurityHeaders(res, { app: "web", nonce });
+  const res = await authProxy(nonce ? withNonceRequest(req, nonce, WEB_NONCE_SECURITY) : req);
+  return withSecurityHeaders(res, nonce ? { ...WEB_NONCE_SECURITY, nonce } : { app: "web" });
 }
 
 // Runs on every page request: storefront custom domains/subdomains can hit ANY path, and host matching can't be

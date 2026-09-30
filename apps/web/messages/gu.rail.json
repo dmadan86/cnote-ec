@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "rail": {
+    "siteNavLabel": "સાઇટ નેવિગેશન",
+    "stripLabel": "ખાતાના વિભાગો",
+    "expand": "સાઇડબાર ખોલો",
+    "collapse": "સાઇડબાર સંકેલો",
+    "overview": "ઝાંખી",
+    "postRequirement": "જરૂરિયાત પોસ્ટ કરો",
+    "myRequirements": "મારી જરૂરિયાતો",
+    "orders": "ઓર્ડર",
+    "agents": "એજન્ટ",
+    "saved": "સાચવેલા",
+    "compare": "સરખામણી",
+    "notifications": "સૂચનાઓ",
+    "grievances": "ફરિયાદો",
+    "developers": "ડેવલપર / API કી",
+    "exportData": "મારો ડેટા એક્સપોર્ટ કરો",
+    "account": "તમારું ખાતું",
+    "home": "હોમ",
+    "search": "શોધો",
+    "categories": "શ્રેણીઓ",
+    "manufacturers": "ઉત્પાદકો",
+    "pricing": "કિંમત",
+    "requestQuote": "ક્વોટ માગો",
+    "signIn": "સાઇન ઇન"
+  }
+}

@@ -2,7 +2,8 @@
 // Buyer BNPL actions (ADR-019). Each re-checks the session. Consent is an explicit checkbox; acceptance is a separate
 // explicit step that carries the KFS acknowledgement.
 import { acceptOffer, actorHasCreditConsent, applyForFinancing, cancelLoanInCoolingOff, declineOffer, grantCreditConsent, simulateMockDisbursal } from "@cnote/credit";
-import { actorOf, requireBusiness, runAction, type ActionResult } from "@cnote/next-kit";
+import { actorOf, requireBusiness, type ActionResult } from "@cnote/next-kit";
+import { runLocalized } from "@/i18n/errors";
 import { revalidatePath } from "next/cache";
 
 const INTENTS = ["apply", "accept", "decline", "simulate", "exit"] as const;
@@ -11,7 +12,7 @@ export async function bnplAction(_prev: ActionResult | null, f: FormData): Promi
   const orderId = String(f.get("orderId") ?? "");
   const intent = String(f.get("intent") ?? "");
   const s = await requireBusiness(`/buyer/orders/${orderId}`);
-  return runAction(async () => {
+  return runLocalized(async () => {
     if (!(INTENTS as readonly string[]).includes(intent)) throw new Error("invalid action");
     const actor = actorOf(s);
     if (intent === "apply") {

@@ -80,6 +80,8 @@
     "messagesTitle": "आमच्या टीमशी संदेश",
     "messageLabel": "संदेश लिहा",
     "send": "पाठवा",
-    "errorGeneric": "काहीतरी चुकले. कृपया पुन्हा प्रयत्न करा."
+    "errorGeneric": "काहीतरी चुकले. कृपया पुन्हा प्रयत्न करा.",
+    "sla": "SLA: {days} दिवस",
+    "fromPlatform": "Cnote"
   }
 }

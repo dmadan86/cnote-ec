@@ -52,15 +52,3 @@ export function stateLabel(name: string | null | undefined, translate: (code: st
   const key = stateKey(name);
   return (key ? translate(key) : undefined) ?? name;
 }
-
-export const LANGUAGES = [
-  { code: "en", label: "English" },
-  { code: "hi", label: "हिन्दी (Hindi)" },
-  { code: "mr", label: "मराठी (Marathi)" },
-  { code: "gu", label: "ગુજરાતી (Gujarati)" },
-  { code: "ta", label: "தமிழ் (Tamil)" },
-  { code: "te", label: "తెలుగు (Telugu)" },
-  { code: "kn", label: "ಕನ್ನಡ (Kannada)" },
-  { code: "bn", label: "বাংলা (Bengali)" },
-  { code: "pa", label: "ਪੰਜਾਬੀ (Punjabi)" },
-] as const;

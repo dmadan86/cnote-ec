@@ -1,7 +1,10 @@
 "use server";
 // Wishlist server actions. Each re-checks the session: server actions are reachable by direct POST.
 import { addItem, createList, deleteList, isSaved, moveItem, removeFromAll, removeItem, renameList, updateNote } from "@cnote/wishlist";
-import { currentSession, requireSession, runAction, type ActionResult } from "@cnote/next-kit";
+import { currentSession, requireSession, type ActionResult } from "@cnote/next-kit";
+import { getTranslations } from "next-intl/server";
+import { runLocalized } from "@/i18n/errors";
+import { getRequestLocale } from "@/lib/request-locale";
 import type { WishlistToggleResult } from "@cnote/ui";
 import { DomainError } from "@cnote/core";
 import { revalidatePath } from "next/cache";
@@ -15,7 +18,7 @@ const refresh = () => revalidatePath("/wishlist");
 /** Heart toggle on cards and the product page: saves to the default list, or removes from every list. */
 export async function toggleSavedAction(listingId: string): Promise<WishlistToggleResult> {
   const s = await currentSession();
-  if (!s) return { ok: false, error: "Please sign in to save products." };
+  if (!s) return { ok: false, error: (await getTranslations({ locale: await getRequestLocale(), namespace: "wishlist" }))("signInPrompt") };
   try {
     const already = (await isSaved(s.personId, [listingId])).has(listingId);
     if (already) await removeFromAll(s.personId, listingId);
@@ -30,7 +33,7 @@ export async function toggleSavedAction(listingId: string): Promise<WishlistTogg
 
 export async function createListAction(_prev: ActionResult | null, f: FormData): Promise<ActionResult> {
   const s = await requireSession("/wishlist");
-  return runAction(async () => {
+  return runLocalized(async () => {
     await createList(s.personId, str(f, "name"));
     refresh();
   });
@@ -38,7 +41,7 @@ export async function createListAction(_prev: ActionResult | null, f: FormData):
 
 export async function renameListAction(_prev: ActionResult | null, f: FormData): Promise<ActionResult> {
   const s = await requireSession("/wishlist");
-  return runAction(async () => {
+  return runLocalized(async () => {
     await renameList(s.personId, str(f, "listId"), str(f, "name"));
     refresh();
   });
@@ -46,7 +49,7 @@ export async function renameListAction(_prev: ActionResult | null, f: FormData):
 
 export async function deleteListAction(_prev: ActionResult | null, f: FormData): Promise<ActionResult> {
   const s = await requireSession("/wishlist");
-  return runAction(async () => {
+  return runLocalized(async () => {
     await deleteList(s.personId, str(f, "listId"));
     refresh();
   });
@@ -54,7 +57,7 @@ export async function deleteListAction(_prev: ActionResult | null, f: FormData):
 
 export async function removeItemAction(_prev: ActionResult | null, f: FormData): Promise<ActionResult> {
   const s = await requireSession("/wishlist");
-  return runAction(async () => {
+  return runLocalized(async () => {
     await removeItem(s.personId, str(f, "listId"), str(f, "listingId"));
     refresh();
   });
@@ -62,7 +65,7 @@ export async function removeItemAction(_prev: ActionResult | null, f: FormData):
 
 export async function moveItemAction(_prev: ActionResult | null, f: FormData): Promise<ActionResult> {
   const s = await requireSession("/wishlist");
-  return runAction(async () => {
+  return runLocalized(async () => {
     await moveItem(s.personId, {
       fromListId: str(f, "listId"),
       toListId: str(f, "toListId"),
@@ -75,7 +78,7 @@ export async function moveItemAction(_prev: ActionResult | null, f: FormData): P
 
 export async function updateNoteAction(_prev: ActionResult | null, f: FormData): Promise<ActionResult> {
   const s = await requireSession("/wishlist");
-  return runAction(async () => {
+  return runLocalized(async () => {
     await updateNote(s.personId, str(f, "listId"), str(f, "listingId"), str(f, "note") || null);
     refresh();
   });

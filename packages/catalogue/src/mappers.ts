@@ -81,6 +81,7 @@ export function liveToListingView(l: LiveListing): ListingView {
     hsn: l.hsn,
     language: l.language,
     imageUrls: images.map((i) => i.src),
+    imageBlurs: images.map((i) => i.blurDataUrl ?? null),
     aiGenerated: l.aiGenerated,
     status: "published",
     moderationStatus: "approved",

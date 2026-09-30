@@ -6,6 +6,7 @@
     "thanksTitle": "Thanks, the supplier will contact you",
     "thanksBody": "We have let the supplier know. You do not need to do anything else.",
     "expiredTitle": "This link has expired",
-    "expiredBody": "This link is no longer valid. If you still need this, reply to the supplier's message or post your requirement again."
+    "expiredBody": "This link is no longer valid. If you still need this, reply to the supplier's message or post your requirement again.",
+    "languages": "Language"
   }
 }

@@ -16,6 +16,7 @@ export interface RfqFormProps {
 
 export function RfqForm({ categories, defaults }: RfqFormProps) {
   const t = useTranslations("rfq");
+  const tb = useTranslations("buyer");
   const [state, action, pending] = useActionState<ActionResult<EnquiryView> | null, FormData>(postRfqAction, null);
   if (state?.ok) return <RfqResult enquiry={state.data} />;
   const err = (k: string) => (state && !state.ok ? state.fieldErrors?.[k] : undefined);
@@ -50,7 +51,7 @@ export function RfqForm({ categories, defaults }: RfqFormProps) {
         <Field label={t("unit")} htmlFor="quantityUnit" error={err("quantityUnit")}>
           <Select id="quantityUnit" name="quantityUnit" defaultValue="pcs">
             {UNITS.map((u) => (
-              <option key={u}>{u}</option>
+              <option key={u} value={u}>{tb(`unit.${u}`)}</option>
             ))}
           </Select>
         </Field>

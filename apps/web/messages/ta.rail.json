@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "rail": {
+    "siteNavLabel": "தள வழிசெலுத்தல்",
+    "stripLabel": "கணக்கு பிரிவுகள்",
+    "expand": "பக்கப்பட்டியை விரிவாக்கு",
+    "collapse": "பக்கப்பட்டியைச் சுருக்கு",
+    "overview": "கண்ணோட்டம்",
+    "postRequirement": "தேவையை இடுகையிடு",
+    "myRequirements": "என் தேவைகள்",
+    "orders": "ஆர்டர்கள்",
+    "agents": "ஏஜென்டுகள்",
+    "saved": "சேமித்தவை",
+    "compare": "ஒப்பிடு",
+    "notifications": "அறிவிப்புகள்",
+    "grievances": "புகார்கள்",
+    "developers": "டெவலப்பர் / API விசைகள்",
+    "exportData": "என் தரவை ஏற்றுமதி செய்",
+    "account": "உங்கள் கணக்கு",
+    "home": "முகப்பு",
+    "search": "தேடு",
+    "categories": "வகைகள்",
+    "manufacturers": "உற்பத்தியாளர்கள்",
+    "pricing": "விலை",
+    "requestQuote": "விலைப்புள்ளி கோரு",
+    "signIn": "உள்நுழை"
+  }
+}

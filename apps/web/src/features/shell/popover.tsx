@@ -63,7 +63,7 @@ export function Popover({
         aria-label={ariaLabel}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "inline-flex min-h-11 items-center gap-1 rounded-lg px-2 py-2 text-sm font-medium text-ink hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600",
+          "inline-flex min-h-11 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-2 text-sm font-medium text-ink hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600",
           buttonClassName,
         )}
       >

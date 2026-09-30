@@ -6,10 +6,14 @@ import { Popover } from "./popover";
 import { NAV } from "./site";
 
 /** Desktop navigation dropdowns (server-rendered panels inside a small client popover). */
-export async function NavMenus({ locale }: { locale: Locale }) {
+/**
+ * `inline` sits in the main header row (2xl+, where everything fits on one line); `row` is the second header row
+ * used between lg and 2xl. Only one is displayed at a time (display:none keeps the hidden one out of the a11y tree).
+ */
+export async function NavMenus({ locale, variant = "inline" }: { locale: Locale; variant?: "inline" | "row" }) {
   const t = await getTranslations({ locale, namespace: "shell" });
   return (
-    <nav aria-label={t("primaryNav")} className="hidden items-center gap-0.5 lg:flex">
+    <nav aria-label={t("primaryNav")} className={variant === "inline" ? "hidden items-center gap-0.5 2xl:flex" : "-ml-2 hidden h-12 items-center gap-0.5 lg:flex 2xl:hidden"}>
       {NAV.map((g) => (
         <Popover key={g.key} label={t(`nav.${g.key}`)} panelClassName="w-72">
           <ul>

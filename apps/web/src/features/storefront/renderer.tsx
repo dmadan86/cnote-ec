@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { BlurImage } from "@/features/media/blur-image";
 import Link from "next/link";
 import { StorefrontView, findPage } from "@cnote/storefront/render";
 import type { ImageProps, LinkProps, RenderData, RenderHrefs, RenderProduct } from "@cnote/storefront/render";
@@ -10,17 +10,7 @@ const StoreLink = ({ href, children, ...rest }: LinkProps) => (
 );
 
 const StoreImage = ({ src, alt, width = 800, height = 600, sizes, priority, className, style }: ImageProps) => (
-  <Image
-    src={src}
-    alt={alt}
-    width={width}
-    height={height}
-    sizes={sizes}
-    className={className}
-    style={style}
-    unoptimized={src.split("?")[0]!.endsWith(".svg")}
-    {...(priority ? { loading: "eager" as const, fetchPriority: "high" as const } : {})}
-  />
+  <BlurImage src={src} alt={alt} width={width} height={height} sizes={sizes} className={className} style={style} priority={priority} />
 );
 
 export const storePagePath = (slug: string, page: string) => (page === "home" ? `/store/${slug}` : `/store/${slug}/${page}`);

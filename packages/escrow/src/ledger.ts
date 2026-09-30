@@ -86,7 +86,10 @@ export async function postJournal(tx: Tx, input: PostJournalInput): Promise<Post
   const accountIds = new Map<string, string>();
   for (const code of new Set(lines.map((l) => l.account))) {
     const spec = accountSpec(code);
-    const a = await tx.ledgerAccount.upsert({ where: { code }, update: {}, create: { code, kind: spec.kind, normal: spec.normal }, select: { id: true } });
+    // Not upsert(): Prisma runs it as select-then-insert, so two journals creating the same account concurrently hit the
+    // unique index. INSERT … ON CONFLICT DO NOTHING (skipDuplicates) is atomic; then read the row either way.
+    await tx.ledgerAccount.createMany({ data: [{ code, kind: spec.kind, normal: spec.normal }], skipDuplicates: true });
+    const a = await tx.ledgerAccount.findUniqueOrThrow({ where: { code }, select: { id: true } });
     accountIds.set(code, a.id);
   }
   const j = await tx.ledgerJournal.create({ data: { key: input.key, kind: input.kind, memo: input.memo, escrowId: input.escrowId ?? null }, select: { id: true } });

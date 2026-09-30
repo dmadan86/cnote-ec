@@ -80,6 +80,8 @@
     "messagesTitle": "எங்கள் குழுவுடன் செய்திகள்",
     "messageLabel": "செய்தி எழுதுங்கள்",
     "send": "அனுப்பு",
-    "errorGeneric": "ஏதோ தவறு நடந்தது. மீண்டும் முயலவும்."
+    "errorGeneric": "ஏதோ தவறு நடந்தது. மீண்டும் முயலவும்.",
+    "sla": "SLA: {days} நாட்கள்",
+    "fromPlatform": "Cnote"
   }
 }

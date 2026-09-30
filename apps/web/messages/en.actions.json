@@ -1,0 +1,11 @@
+{
+  "actions": {
+    "typeDelete": "Type DELETE to confirm.",
+    "onbName": "Enter your business name.",
+    "onbCity": "Enter your city.",
+    "onbState": "Select your state.",
+    "onbPincode": "Enter a valid 6-digit pincode.",
+    "fixFields": "Please fix the highlighted fields.",
+    "chooseCategory": "Choose a category"
+  }
+}

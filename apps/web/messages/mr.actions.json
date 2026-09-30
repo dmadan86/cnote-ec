@@ -1,0 +1,14 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "actions": {
+    "typeDelete": "खात्री करण्यासाठी DELETE टाइप करा.",
+    "onbName": "तुमच्या व्यवसायाचे नाव टाका.",
+    "onbCity": "तुमचे शहर टाका.",
+    "onbState": "तुमचे राज्य निवडा.",
+    "onbPincode": "वैध 6 अंकी पिनकोड टाका.",
+    "fixFields": "कृपया अधोरेखित केलेली माहिती दुरुस्त करा.",
+    "chooseCategory": "श्रेणी निवडा"
+  }
+}

@@ -1,7 +1,8 @@
 "use server";
 // Buyer-side server actions. Each re-checks the session: server actions are reachable by direct POST.
 import { pickSellers, createEnquiry, reportDeal, sendMessage, type EnquiryView } from "@cnote/enquiry";
-import { actorOf, requireBusiness, runAction, type ActionResult } from "@cnote/next-kit";
+import { actorOf, requireBusiness, type ActionResult } from "@cnote/next-kit";
+import { runLocalized } from "@/i18n/errors";
 import { revalidatePath } from "next/cache";
 import { attributeEnquiryFromCookie } from "@/features/ads/slots";
 
@@ -18,7 +19,7 @@ const num = (f: FormData, k: string) => {
 export async function postRfqAction(_prev: ActionResult<EnquiryView> | null, f: FormData): Promise<ActionResult<EnquiryView>> {
   const s = await requireBusiness("/rfq/new");
   const rupees = num(f, "targetPrice");
-  return runAction(async () => {
+  return runLocalized(async () => {
     const enquiry = await createEnquiry(
       actorOf(s),
       {
@@ -47,7 +48,7 @@ export async function postRfqAction(_prev: ActionResult<EnquiryView> | null, f: 
 export async function pickSellersAction(_prev: ActionResult | null, f: FormData): Promise<ActionResult> {
   const s = await requireBusiness("/buyer/enquiries");
   const enquiryId = str(f, "enquiryId") ?? "";
-  return runAction(async () => {
+  return runLocalized(async () => {
     await pickSellers(actorOf(s), enquiryId, f.getAll("sellerId").filter((v): v is string => typeof v === "string"));
     revalidatePath(`/buyer/enquiries/${enquiryId}`);
   });
@@ -56,7 +57,7 @@ export async function pickSellersAction(_prev: ActionResult | null, f: FormData)
 export async function sendMessageAction(_prev: ActionResult | null, f: FormData): Promise<ActionResult> {
   const conversationId = str(f, "conversationId") ?? "";
   const s = await requireBusiness(`/conversations/${conversationId}`);
-  return runAction(async () => {
+  return runLocalized(async () => {
     await sendMessage(actorOf(s), conversationId, String(f.get("body") ?? ""));
     revalidatePath(`/conversations/${conversationId}`);
   });
@@ -66,7 +67,7 @@ export async function reportDealAction(_prev: ActionResult | null, f: FormData):
   const conversationId = str(f, "conversationId") ?? "";
   const s = await requireBusiness(`/conversations/${conversationId}`);
   const outcome = str(f, "outcome");
-  return runAction(async () => {
+  return runLocalized(async () => {
     if (outcome !== "won" && outcome !== "lost" && outcome !== "pending") throw new Error("invalid outcome");
     await reportDeal(actorOf(s), str(f, "matchId") ?? "", outcome);
     revalidatePath(`/conversations/${conversationId}`);

@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "rail": {
+    "siteNavLabel": "साइट नेविगेशन",
+    "stripLabel": "खाते के अनुभाग",
+    "expand": "साइडबार खोलें",
+    "collapse": "साइडबार समेटें",
+    "overview": "ओवरव्यू",
+    "postRequirement": "आवश्यकता पोस्ट करें",
+    "myRequirements": "मेरी आवश्यकताएँ",
+    "orders": "ऑर्डर",
+    "agents": "एजेंट",
+    "saved": "सेव किए गए",
+    "compare": "तुलना",
+    "notifications": "सूचनाएँ",
+    "grievances": "शिकायतें",
+    "developers": "डेवलपर / API कुंजियाँ",
+    "exportData": "मेरा डेटा एक्सपोर्ट करें",
+    "account": "आपका खाता",
+    "home": "होम",
+    "search": "खोजें",
+    "categories": "श्रेणियाँ",
+    "manufacturers": "निर्माता",
+    "pricing": "मूल्य",
+    "requestQuote": "कोटेशन माँगें",
+    "signIn": "साइन इन करें"
+  }
+}

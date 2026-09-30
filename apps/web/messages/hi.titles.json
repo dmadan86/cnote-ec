@@ -1,0 +1,21 @@
+{
+  "titles": {
+    "signIn": "साइन इन",
+    "signUp": "अपना खाता बनाएँ",
+    "forgot": "पासवर्ड रीसेट करें",
+    "reset": "नया पासवर्ड चुनें",
+    "onboarding": "अपना व्यवसाय सेट करें",
+    "developers": "डेवलपर",
+    "notifications": "सूचनाएँ",
+    "notificationPrefs": "सूचना पसंद",
+    "wishlist": "सहेजे गए आइटम",
+    "compare": "उत्पादों की तुलना",
+    "enquiries": "आपकी ज़रूरतें",
+    "enquiry": "ज़रूरत",
+    "orders": "आपके ऑर्डर",
+    "order": "ऑर्डर",
+    "dispute": "विवाद",
+    "conversation": "बातचीत",
+    "rfq": "अपनी ज़रूरत पोस्ट करें"
+  }
+}

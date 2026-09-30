@@ -80,6 +80,8 @@
     "messagesTitle": "અમારી ટીમ સાથે સંદેશા",
     "messageLabel": "સંદેશ લખો",
     "send": "મોકલો",
-    "errorGeneric": "કંઈક ખોટું થયું. કૃપા કરીને ફરી પ્રયાસ કરો."
+    "errorGeneric": "કંઈક ખોટું થયું. કૃપા કરીને ફરી પ્રયાસ કરો.",
+    "sla": "SLA: {days} દિવસ",
+    "fromPlatform": "Cnote"
   }
 }

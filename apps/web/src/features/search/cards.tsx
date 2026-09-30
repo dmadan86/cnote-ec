@@ -27,7 +27,7 @@ export async function ListingCard({ listing, seller, priority, rating, locale, o
       id={listing.id}
       href={productPath(listing)}
       title={listing.title}
-      image={<ProductImage src={listing.imageUrls[0]} sizes={CARD_SIZES} priority={priority} />}
+      image={<ProductImage src={listing.imageUrls[0]} blur={listing.imageBlurs?.[0]} sizes={CARD_SIZES} priority={priority} />}
       pricePaise={shown?.pricePaise ?? listing.pricePaise}
       priceUnit={listing.priceUnit}
       moqText={moqText(listing)}
