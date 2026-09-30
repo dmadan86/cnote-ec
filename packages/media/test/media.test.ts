@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -122,7 +123,8 @@ describe("LocalMediaStore", () => {
 });
 
 describe("misc", () => {
-  it("finds the monorepo root", () => expect(findMonorepoRoot()).toMatch(/cnote$/));
+  // The checkout folder name varies (cnote locally, cnote-ec on CI): assert the marker file instead of the name.
+  it("finds the monorepo root", () => expect(existsSync(path.join(findMonorepoRoot(), "pnpm-workspace.yaml"))).toBe(true));
   it("azure/gcs stubs throw", async () => {
     expect(() => new AzureMediaStore("private").put()).toThrow(/not configured/);
     expect(() => new GcsMediaStore("public").signedGetUrl()).toThrow(/not configured/);

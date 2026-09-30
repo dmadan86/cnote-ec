@@ -8,6 +8,14 @@ import path from "node:path";
 
 config({ path: path.resolve(import.meta.dirname, ".env.local"), quiet: true });
 
+// Deterministic, test-only crypto keys when neither .env.local nor CI provides them (production-mode tests need a
+// keyring). Not secrets: they only ever encrypt throwaway test rows.
+if (!process.env.FIELD_ENCRYPTION_KEYS) {
+  process.env.FIELD_ENCRYPTION_KEYS = `test1:${Buffer.alloc(32, 7).toString("base64")}`;
+  process.env.FIELD_ENCRYPTION_ACTIVE_KID = "test1";
+}
+process.env.BLIND_INDEX_KEY ||= Buffer.alloc(32, 9).toString("base64");
+
 function testUrl(url: string | undefined, fallback: string): string {
   const u = new URL(url ?? fallback);
   if (!u.pathname.endsWith("_test")) u.pathname = `${u.pathname}_test`;

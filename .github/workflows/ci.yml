@@ -205,6 +205,7 @@ jobs:
         run: |
           PGPASSWORD=cnote psql -h localhost -U cnote -d cnote -c 'CREATE DATABASE cnote_live'
           pnpm db:migrate
+          pnpm --filter @cnote/live-db migrate:deploy
       - name: Service contracts (in-process === over HTTP) with coverage
         run: |
           pnpm --filter @cnote/ai exec vitest run --coverage
