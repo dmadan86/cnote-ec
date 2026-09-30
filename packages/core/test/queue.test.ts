@@ -77,7 +77,7 @@ describe("RedisJobQueue", () => {
     // force the retry due now
     const keys = await redis.keys(`${prefix}:test.echo:delayed`);
     for (const k of keys) {
-      const [m] = await redis.zrange(k, 0, 0);
+      const [m] = await redis.zrange(k, "0", "0");
       await redis.zadd(k, 0, m!);
     }
     expect(await q.promoteDelayed("test.echo")).toBe(1);

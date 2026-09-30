@@ -15,7 +15,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
  && corepack enable \
- && corepack prepare pnpm@10.27.0 --activate
+ && corepack prepare pnpm@10.34.6 --activate
 WORKDIR /repo
 
 # 1) Resolve + download every dependency from the lockfile only (cached until the lockfile changes).
@@ -37,7 +37,11 @@ ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT=""
 ARG NEXT_PUBLIC_SENTRY_RELEASE=""
 # Some pages call generateStaticParams against the DB. If the build has no reachable database, pass
 # --build-arg DATABASE_URL=... with --network host (or build inside compose); see docs/architecture/portability.md.
+# The host.docker.internal defaults below are local-dev placeholders (not secrets). Docker Desktop maps that name; on
+# Linux add `--add-host=host.docker.internal:host-gateway` or pass reachable DATABASE_URL / LIVE_DATABASE_URL build args.
 ARG DATABASE_URL=postgres://cnote:cnote@host.docker.internal:5432/cnote
+# Published listings (CQRS read DB) are read by generateStaticParams as well.
+ARG LIVE_DATABASE_URL=postgres://cnote:cnote@host.docker.internal:5432/cnote_live
 ARG REDIS_URL=redis://host.docker.internal:6379
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
     NEXT_PUBLIC_SENTRY_ENVIRONMENT=$NEXT_PUBLIC_SENTRY_ENVIRONMENT \

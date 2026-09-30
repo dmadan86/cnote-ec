@@ -18,8 +18,8 @@
     "@cnote/core": "workspace:*",
     "@cnote/email": "workspace:*",
     "@cnote/identity": "workspace:*",
-    "@cnote/security": "workspace:*",
     "@cnote/leadgen": "workspace:*",
+    "@cnote/security": "workspace:*",
     "@cnote/ui": "workspace:*",
     "server-only": "^0.0.1",
     "zod": "^4.1.0"
@@ -32,7 +32,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "next": "16.3.7",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   }
 }
