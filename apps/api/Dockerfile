@@ -14,7 +14,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
  && corepack enable \
- && corepack prepare pnpm@10.27.0 --activate
+ && corepack prepare pnpm@10.34.6 --activate
 WORKDIR /repo
 
 FROM base AS fetch

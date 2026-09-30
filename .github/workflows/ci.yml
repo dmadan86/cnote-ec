@@ -50,9 +50,9 @@ jobs:
       APP_URL: http://localhost:3000
       OTP_DEV_ECHO: "true"
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -87,9 +87,9 @@ jobs:
     outputs:
       docker: ${{ steps.filter.outputs.docker }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             docker:
@@ -136,9 +136,9 @@ jobs:
         image: redis:8-alpine
         ports: ["6379:6379"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -147,9 +147,9 @@ jobs:
         run: pnpm db:migrate
         env:
           DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
       - name: Build ${{ matrix.name }} (no push)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ matrix.file }}
@@ -194,9 +194,9 @@ jobs:
       AI_PROVIDER: heuristic
       JWT_SECRET: ci-only-jwt-secret-0123456789abcdef0123456789abcdef
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -263,11 +263,11 @@ jobs:
         id: gate
         run: |
           if [ -z "$OPENSEARCH_URL" ]; then echo "run=false" >> "$GITHUB_OUTPUT"; echo "OPENSEARCH_URL secret not set; skipping"; else echo "run=true" >> "$GITHUB_OUTPUT"; fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.gate.outputs.run == 'true'
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: steps.gate.outputs.run == 'true'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.gate.outputs.run == 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}

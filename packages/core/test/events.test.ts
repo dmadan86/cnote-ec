@@ -166,6 +166,16 @@ describe("outbox: emit + relayOutbox (real Postgres)", () => {
     const foreign = log.filter((e) => e.aggregateType !== agg).map((e) => BigInt(e.id));
     if (foreign.length) await prisma.$executeRaw`UPDATE domain_events SET published_at = NULL WHERE id = ANY(${foreign})`;
   }
+  /**
+   * Relays until everything unpublished (including other suites' leftover events in the shared test DB) has passed
+   * through, then restores the foreign rows. A single 10k batch is not enough once the test DB has accumulated events.
+   */
+  async function drain(): Promise<DomainEvent[]> {
+    const t = new MemoryEventTransport();
+    while ((await relayOutbox(10_000, t)) > 0);
+    await restoreForeign(t.log);
+    return t.log;
+  }
   const seed = (n: number) =>
     prisma.$transaction(async (tx) => {
       for (let i = 0; i < n; i++) await emit(tx, "BusinessCreated", { type: agg, id: `${i}` }, { businessId: `${agg}-${i}`, personId: "p", isSeller: i % 2 === 0 });
@@ -191,19 +201,14 @@ describe("outbox: emit + relayOutbox (real Postgres)", () => {
 
   it("relays oldest-first, marks rows published, and never relays a row twice", async () => {
     await seed(5);
-    const t = new MemoryEventTransport();
-    await relayOutbox(10_000, t);
-    await restoreForeign(t.log);
+    const t = { log: await drain() };
     const ids = mine(t.log).map((e) => e.id);
     expect(ids).toHaveLength(5);
     expect(ids).toEqual([...ids].sort((a, b) => a - b));
     expect(mine(t.log)[0]).toMatchObject({ type: "BusinessCreated", version: 1, aggregateType: agg, payload: { businessId: `${agg}-0` } });
     expect(Number.isNaN(Date.parse(mine(t.log)[0]!.occurredAt))).toBe(false);
     expect(await prisma.domainEvent.count({ where: { aggregateType: agg, publishedAt: null } })).toBe(0);
-    const t2 = new MemoryEventTransport();
-    await relayOutbox(10_000, t2);
-    await restoreForeign(t2.log);
-    expect(mine(t2.log)).toHaveLength(0);
+    expect(mine(await drain())).toHaveLength(0);
   });
 
   it("respects batchSize", async () => {
@@ -218,10 +223,7 @@ describe("outbox: emit + relayOutbox (real Postgres)", () => {
     const failing = { driver: "x", publish: async () => Promise.reject(new Error("down")), consume: async () => 0 };
     await expect(relayOutbox(10_000, failing)).rejects.toThrow("down");
     expect(await prisma.domainEvent.count({ where: { aggregateType: agg, publishedAt: null } })).toBe(3);
-    const t = new MemoryEventTransport();
-    await relayOutbox(10_000, t);
-    await restoreForeign(t.log);
-    expect(mine(t.log)).toHaveLength(3);
+    expect(mine(await drain())).toHaveLength(3);
   });
 
   it("parallel relays (FOR UPDATE SKIP LOCKED) deliver each event exactly once", async () => {

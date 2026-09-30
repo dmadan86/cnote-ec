@@ -1,0 +1,106 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit review configuration. The rules below mirror CLAUDE.md, DESIGN.md and docs/adr/ (the source of truth).
+language: en-IN
+tone_instructions: "Direct and specific. Cite the ADR (e.g. ADR-002) when a finding is about a product/architecture rule."
+early_access: false
+
+reviews:
+  profile: assertive
+  request_changes_workflow: true
+  high_level_summary: true
+  review_status: true
+  collapse_walkthrough: true
+  sequence_diagrams: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches: ["main"]
+    ignore_title_keywords: ["WIP", "DO NOT REVIEW"]
+  path_filters:
+    - "!pnpm-lock.yaml"
+    - "!**/src/generated/**"
+    - "!graphify-out/**"
+    - "!**/coverage/**"
+    - "!**/.next/**"
+    - "!docs/api/openapi.json"
+    - "!docs/design/*.openapi.json"
+  path_instructions:
+    - path: "packages/**/src/**/*.ts"
+      instructions: |
+        Modular monolith (ADR-006): a package may query only the Prisma models of its own schema file and reach other
+        modules only through their public src/index.ts exports or domain events; no cycles; domain packages never import
+        next/* or react. Emit domain events with emit(tx, ...) inside the same prisma.$transaction as the state change,
+        and handlers must be idempotent (at-least-once delivery). Money is integer paise (BigInt in the DB, Number() at
+        boundaries), never floats. Status transitions should be compare-and-set (updateMany with the expected status)
+        to avoid lost updates. Flag any external model call that skips @cnote/ai (ADR-008) or sends unredacted PII
+        (ADR-010).
+    - path: "packages/db/prisma/schema/*.prisma"
+      instructions: |
+        Each schema file is owned by one package (header comment). No Prisma relations to another module's models
+        (plain uuid columns). Money columns are BigInt paise. Changing an existing event payload requires a version bump
+        in packages/core/src/events/catalog.ts, never an in-place edit.
+    - path: "packages/db/prisma/migrations/**/migration.sql"
+      instructions: |
+        Migrations are created with `pnpm db:new`. Reject any DROP of the pgvector HNSW indexes or of the generated
+        listings.search_tsv column (see packages/db/scripts/raw-sql-guard.ts). Check that destructive changes are
+        backward compatible with the currently deployed code.
+    - path: "apps/web/**/*.{ts,tsx}"
+      instructions: |
+        The buyer web must meet WCAG 2.2 AA (release blocker): keyboard operable with visible focus, labelled controls,
+        errors announced via aria-describedby/aria-live, contrast >= 4.5:1, 24px targets (44px mobile), no information
+        by colour alone, prefers-reduced-motion respected. Prefer @cnote/ui primitives. Every user-facing string goes
+        into apps/web/messages for all 8 locales with identical keys. Public pages under app/[locale] must stay static.
+        Sponsored results are always labelled; ranking must never depend on paid tier alone (ADR-002, ADR-024).
+    - path: "apps/seller/**/*.{ts,tsx}"
+      instructions: |
+        Every user-facing string comes from next-intl (apps/seller/messages/<locale>[.<ns>].json, 8 locales, identical
+        keys and ICU placeholders). Format numbers/dates with intlTag(locale) (Latin digits, IST). Each server action
+        re-checks the session (requireSeller).
+    - path: "apps/admin/**/*.{ts,tsx}"
+      instructions: |
+        Every mutation must go through audited() and be gated by a privilege from packages/admin/src/rbac.ts
+        (least privilege; ADR-010).
+    - path: "apps/api/**/*.ts"
+      instructions: |
+        Routes under /v1 are API-key authenticated with per-feature scopes; webhooks verify the provider signature over
+        the RAW body, are idempotent, and return 5xx only for infrastructure errors. Keep the OpenAPI document in sync.
+    - path: "**/test/**/*.{ts,tsx}"
+      instructions: |
+        Tests run against isolated test databases shared across files: use unique ids per test, clean up rows, and do
+        not assert on global counts. Async assertions (.resolves/.rejects) must be awaited.
+    - path: ".github/workflows/*.yml"
+      instructions: "Pin actions to a major version tag or SHA; least-privilege permissions; no secrets in logs."
+  tools:
+    eslint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    actionlint:
+      enabled: true
+    shellcheck:
+      enabled: true
+    hadolint:
+      enabled: true
+    yamllint:
+      enabled: true
+    markdownlint:
+      enabled: true
+    github-checks:
+      enabled: true
+      timeout_ms: 900000
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  opt_out: false
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "CLAUDE.md"
+      - "DESIGN.md"
+      - "docs/adr/**/*.md"
+      - "docs/guides/**/*.md"
+  learnings:
+    scope: local

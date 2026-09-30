@@ -1,7 +1,7 @@
 {
   "name": "cnote",
   "private": true,
-  "packageManager": "pnpm@10.27.0",
+  "packageManager": "pnpm@10.34.6",
   "engines": {
     "node": ">=22"
   },
@@ -34,11 +34,11 @@
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.63.0",
     "@types/node": "^22",
-    "@vitest/coverage-v8": "^4.1.11",
-    "dotenv": "^17.4.2",
+    "@vitest/coverage-v8": "^5.0.2",
+    "dotenv": "^18.0.4",
     "fast-check": "^4.10.2",
     "tsx": "^4.20.0",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.0"
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.2"
   }
 }

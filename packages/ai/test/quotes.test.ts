@@ -221,7 +221,7 @@ describe("decision logging", () => {
     expect(r.terms[0]!.deliveryChargePaise).toBe(50000);
     const row = await prisma.aiDecision.findUniqueOrThrow({ where: { id: r.decisionId } });
     expect(JSON.stringify(row.inputRedacted)).not.toContain("9876543210");
-    expect(normaliseQuotes({ quotes: [] }, s)).resolves.toMatchObject({ terms: [] });
+    await expect(normaliseQuotes({ quotes: [] }, s)).resolves.toMatchObject({ terms: [] });
   });
   it("proposeCounter logs the decision", async () => {
     const s = subj("counter_proposal");

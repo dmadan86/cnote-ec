@@ -127,7 +127,7 @@ describe("RedisJobQueue: retry, backoff, dead-letter, replay", () => {
     vi.setSystemTime(1_000_000);
     await q.enqueue(T, { n: 1 });
     await consume(q, boom);
-    const [[member, score]] = [(await redis.zrange(`${prefix}:${T}:delayed`, 0, -1, "WITHSCORES")) as [string, string]];
+    const [[member, score]] = [(await redis.zrange(`${prefix}:${T}:delayed`, "0", "-1", "WITHSCORES")) as [string, string]];
     const delay = Number(score) - 1_000_000;
     expect(delay).toBeGreaterThanOrEqual(4000); // 5s +/- 20% jitter
     expect(delay).toBeLessThanOrEqual(6000);

@@ -17,11 +17,24 @@ updates:
       dev-tooling:
         dependency-type: development
         update-types: ["minor", "patch"]
+    # Hold majors the toolchain can't take yet (review when typescript-eslint / eslint-plugin-jsx-a11y add support);
+    # @types/node tracks the Node runtime major used in CI and engines.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     labels: ["dependencies"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    # one PR for all action bumps (they touch the same workflow files and would otherwise conflict)
+    groups:
+      actions:
+        patterns: ["*"]
     labels: ["dependencies", "ci"]
   - package-ecosystem: docker-compose
     directory: /
