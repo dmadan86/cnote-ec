@@ -22,8 +22,8 @@ export interface CampaignReport {
 /** `sellerBusinessId` enforces ownership for seller callers; pass null from admin. */
 export async function getCampaignReport(sellerBusinessId: string | null, campaignId: string, days = 30, now = new Date()): Promise<CampaignReport> {
   const c = await prisma.adCampaign.findUnique({ where: { id: campaignId }, select: { sellerBusinessId: true } });
-  if (!c) throw new DomainError("not_found", "Campaign not found");
-  if (sellerBusinessId && c.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your campaign");
+  if (!c) throw new DomainError("not_found", "Campaign not found", undefined, "ads.campaignNotFound");
+  if (sellerBusinessId && c.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your campaign", undefined, "ads.notCampaign");
   const from = new Date(now.getTime() - Math.min(Math.max(days, 1), 365) * DAY_MS);
   const [clicks, rollups, attributions] = await Promise.all([
     prisma.adClick.findMany({ where: { campaignId, createdAt: { gte: from } }, select: { validity: true, invalidReason: true, chargedPaise: true, createdAt: true, settlementId: true } }),

@@ -101,7 +101,7 @@ export async function adjudicateDispute(staffPersonId: string, id: string, raw: 
     let { outcome, refundPaise, releasePaise } = { outcome: input.outcome as DisputeOutcome, refundPaise: input.refundPaise, releasePaise: input.releasePaise };
     if (input.acceptRecommendation) {
       const brief = await tx.disputeBrief.findFirst({ where: { disputeId: id }, orderBy: { version: "desc" } });
-      if (!brief) throw new DomainError("conflict", "There is no AI brief to accept yet.");
+      if (!brief) throw new DomainError("conflict", "There is no AI brief to accept yet.", undefined, "disputes.noAiBriefAcceptYet");
       outcome = brief.recommendedOutcome as DisputeOutcome;
       refundPaise = Number(brief.recommendedRefundPaise);
       releasePaise = Number(brief.recommendedReleasePaise);
@@ -110,7 +110,7 @@ export async function adjudicateDispute(staffPersonId: string, id: string, raw: 
       if (outcome === "buyer_favour") { refundPaise ??= atStake; releasePaise ??= 0; }
       else if (outcome === "seller_favour") { refundPaise ??= 0; releasePaise ??= atStake; }
       else if (refundPaise !== undefined) releasePaise ??= atStake - refundPaise;
-      if (refundPaise === undefined || releasePaise === undefined) throw new DomainError("validation", "Enter the refund amount for a split decision.");
+      if (refundPaise === undefined || releasePaise === undefined) throw new DomainError("validation", "Enter the refund amount for a split decision.", undefined, "disputes.enterRefundAmountSplitDecision");
     }
     validateSplit(outcome, refundPaise, releasePaise, atStake);
     const { buyerId, sellerId } = partyIds(d);
@@ -133,20 +133,20 @@ const appealSchema = z.object({
  * (see docs/design/disputes.md, open legal items).
  */
 export async function decideAppeal(staffPersonId: string, appealId: string, raw: z.input<typeof appealSchema>): Promise<void> {
-  if (!UUID.test(appealId)) throw new DomainError("not_found", "Appeal not found");
+  if (!UUID.test(appealId)) throw new DomainError("not_found", "Appeal not found", undefined, "compliance.appealNotFound");
   const p = appealSchema.safeParse(raw);
   if (!p.success) throw new DomainError("validation", p.error.issues[0]?.message ?? "Invalid appeal decision");
   const input = p.data;
   await prisma.$transaction(async (tx) => {
     const a = await tx.disputeAppeal.findUnique({ where: { id: appealId } });
-    if (!a) throw new DomainError("not_found", "Appeal not found");
+    if (!a) throw new DomainError("not_found", "Appeal not found", undefined, "compliance.appealNotFound");
     await lockDispute(tx, a.disputeId);
     const fresh = await tx.disputeAppeal.findUniqueOrThrow({ where: { id: appealId } });
-    if (fresh.status !== "open") throw new DomainError("conflict", "This appeal has already been decided.");
+    if (fresh.status !== "open") throw new DomainError("conflict", "This appeal has already been decided.", undefined, "disputes.appealAlreadyBeenDecided");
     const d = await tx.dispute.findUniqueOrThrow({ where: { id: a.disputeId } });
     let data: Parameters<typeof tx.disputeAppeal.update>[0]["data"] = { status: input.status, resolutionNote: input.note, decidedByStaffPersonId: staffPersonId, decidedAt: new Date() };
     if (input.status === "modified") {
-      if (!input.newOutcome || input.newRefundPaise === undefined || input.newReleasePaise === undefined) throw new DomainError("validation", "A modified decision needs the new outcome, refund and release.");
+      if (!input.newOutcome || input.newRefundPaise === undefined || input.newReleasePaise === undefined) throw new DomainError("validation", "A modified decision needs the new outcome, refund and release.", undefined, "disputes.modifiedDecisionNeedsNewOutcome");
       validateSplit(input.newOutcome, input.newRefundPaise, input.newReleasePaise, Number(d.atStakePaise));
       data = { ...data, newOutcome: input.newOutcome, newRefundPaise: BigInt(input.newRefundPaise), newReleasePaise: BigInt(input.newReleasePaise) };
     }

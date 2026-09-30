@@ -27,31 +27,31 @@ const view = (a: Row): AuditView => ({
 
 async function load(auditId: string) {
   const a = await prisma.verificationAudit.findUnique({ where: { id: auditId } });
-  if (!a) throw new DomainError("not_found", "Audit not found.");
+  if (!a) throw new DomainError("not_found", "Audit not found.", undefined, "account.auditNotFound");
   return a;
 }
 
 /** Requests a partner audit. The business must be KYC verified (T2) and have no open audit. */
 export async function requestAudit(businessId: string, partner: string, staffId: string): Promise<AuditView> {
-  if (!partner.trim()) throw new DomainError("validation", "Choose an audit partner.");
+  if (!partner.trim()) throw new DomainError("validation", "Choose an audit partner.", undefined, "account.chooseAuditPartner");
   const b = await prisma.business.findUnique({ where: { id: businessId }, select: { verificationTier: true } });
-  if (!b) throw new DomainError("not_found", "Business not found.");
-  if (b.verificationTier < 2) throw new DomainError("validation", "The business must complete KYC (Tier 2) before a physical audit.");
-  if (await prisma.verificationAudit.findFirst({ where: { businessId, status: { in: OPEN } }, select: { id: true } })) throw new DomainError("conflict", "This business already has an open audit.");
+  if (!b) throw new DomainError("not_found", "Business not found.", undefined, "account.businessNotFound");
+  if (b.verificationTier < 2) throw new DomainError("validation", "The business must complete KYC (Tier 2) before a physical audit.", undefined, "account.businessMustCompleteKycTier");
+  if (await prisma.verificationAudit.findFirst({ where: { businessId, status: { in: OPEN } }, select: { id: true } })) throw new DomainError("conflict", "This business already has an open audit.", undefined, "account.businessAlreadyOpenAudit");
   return view(await prisma.verificationAudit.create({ data: { businessId, partner: partner.trim(), requestedBy: staffId } }));
 }
 
 export async function scheduleAudit(auditId: string, scheduledFor: Date, staffId: string, now = new Date()): Promise<AuditView> {
-  if (scheduledFor <= now) throw new DomainError("validation", "Schedule the audit in the future.");
+  if (scheduledFor <= now) throw new DomainError("validation", "Schedule the audit in the future.", undefined, "account.scheduleAuditFuture");
   const a = await load(auditId);
-  if (!OPEN.includes(a.status)) throw new DomainError("conflict", "Only requested or scheduled audits can be scheduled.");
+  if (!OPEN.includes(a.status)) throw new DomainError("conflict", "Only requested or scheduled audits can be scheduled.", undefined, "account.onlyRequestedScheduledAuditsScheduled");
   const u = await prisma.verificationAudit.update({ where: { id: auditId }, data: { status: "scheduled", scheduledFor, requestedBy: a.requestedBy ?? staffId } });
   return view(u);
 }
 
 export async function cancelAudit(auditId: string): Promise<AuditView> {
   const a = await load(auditId);
-  if (!OPEN.includes(a.status)) throw new DomainError("conflict", "Only open audits can be cancelled.");
+  if (!OPEN.includes(a.status)) throw new DomainError("conflict", "Only open audits can be cancelled.", undefined, "account.onlyOpenAuditsCancelled");
   return view(await prisma.verificationAudit.update({ where: { id: auditId }, data: { status: "cancelled" } }));
 }
 
@@ -66,12 +66,12 @@ export interface AuditResultInput {
 
 export async function recordAuditResult(auditId: string, input: AuditResultInput, staffId: string, now = new Date()): Promise<AuditView> {
   const a = await load(auditId);
-  if (!OPEN.includes(a.status)) throw new DomainError("conflict", "This audit already has a result.");
-  if (input.result === "pass" && input.validUntil <= now) throw new DomainError("validation", "validUntil must be in the future for a passing audit.");
+  if (!OPEN.includes(a.status)) throw new DomainError("conflict", "This audit already has a result.", undefined, "account.auditAlreadyResult");
+  if (input.result === "pass" && input.validUntil <= now) throw new DomainError("validation", "validUntil must be in the future for a passing audit.", undefined, "account.validuntilMustFuturePassingAudit");
   let reportKey: string | null = null;
   if (input.reportBytes?.length) {
     const ext = REPORT_EXT[input.reportMime ?? ""];
-    if (!ext) throw new DomainError("validation", "Report must be an image or a zip archive.");
+    if (!ext) throw new DomainError("validation", "Report must be an image or a zip archive.", undefined, "account.reportMustImageZipArchive");
     reportKey = auditReportKey(a.businessId, `${a.id}-${randomUUID().slice(0, 8)}`, ext);
     await kycPorts().store.put(reportKey, input.reportBytes, input.reportMime!);
   }
@@ -79,7 +79,7 @@ export async function recordAuditResult(auditId: string, input: AuditResultInput
   const row = await prisma.$transaction(async (tx) => {
     const claimed = await tx.verificationAudit.updateMany({ where: { id: auditId, status: { in: OPEN } }, data: { status: input.result === "fail" ? "failed" : "completed" } });
     /* v8 ignore next */
-    if (claimed.count === 0) throw new DomainError("conflict", "This audit already has a result.");
+    if (claimed.count === 0) throw new DomainError("conflict", "This audit already has a result.", undefined, "account.auditAlreadyResult");
     const u = await tx.verificationAudit.update({ where: { id: auditId }, data: { result: input.result, findings: input.findings as Prisma.InputJsonValue, validUntil: input.validUntil, reportKey } });
     await tx.verificationRecord.create({ data: { businessId: a.businessId, tier: 3, kind: "audit", status: input.result === "pass" ? "passed" : input.result === "fail" ? "failed" : "pending", provider: a.partner, details } });
     if (input.result === "pass") {

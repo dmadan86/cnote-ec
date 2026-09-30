@@ -83,16 +83,16 @@ const CODE_RE = /^[A-Z0-9][A-Z0-9-]{3,31}$/;
 export async function createCoupon(input: CouponInput, actor: { staffId: string; isSuperAdmin?: boolean }): Promise<CouponView> {
   const from = new Date(input.validFrom);
   const to = new Date(input.validTo);
-  if (!(from < to)) throw new DomainError("validation", "Valid-to must be after valid-from");
-  if (!input.name.trim()) throw new DomainError("validation", "Name is required");
+  if (!(from < to)) throw new DomainError("validation", "Valid-to must be after valid-from", undefined, "promotions.validMustAfterValidFrom");
+  if (!input.name.trim()) throw new DomainError("validation", "Name is required", undefined, "promotions.nameRequired");
   if (input.kind === "ad_credit" && !actor.isSuperAdmin) throw new DomainError("forbidden", "Ad-credit coupons can only be created by a super admin");
   const int = (v: number | undefined | null) => v !== undefined && v !== null && Number.isInteger(v) && v > 0;
-  if (input.kind === "percent" && !(int(input.percentBps) && input.percentBps! <= 10_000)) throw new DomainError("validation", "Percent coupons need a percentage between 0.01% and 100%");
-  if (input.kind === "flat" && !int(input.valuePaise)) throw new DomainError("validation", "Flat coupons need an amount");
+  if (input.kind === "percent" && !(int(input.percentBps) && input.percentBps! <= 10_000)) throw new DomainError("validation", "Percent coupons need a percentage between 0.01% and 100%", undefined, "promotions.percentCouponsNeedPercentageBetween");
+  if (input.kind === "flat" && !int(input.valuePaise)) throw new DomainError("validation", "Flat coupons need an amount", undefined, "promotions.flatCouponsNeedAmount");
   if (input.kind === "ad_credit" && !int(input.valuePaise)) throw new DomainError("validation", "Ad-credit coupons need an amount");
-  if (input.kind === "extra_credits" && !int(input.extraCredits)) throw new DomainError("validation", "Credit coupons need a number of credits");
+  if (input.kind === "extra_credits" && !int(input.extraCredits)) throw new DomainError("validation", "Credit coupons need a number of credits", undefined, "promotions.creditCouponsNeedNumberCredits");
   const code = input.code ? normaliseCode(input.code) : randomCode();
-  if (!CODE_RE.test(code)) throw new DomainError("validation", "Codes use 4-32 letters, numbers or dashes");
+  if (!CODE_RE.test(code)) throw new DomainError("validation", "Codes use 4-32 letters, numbers or dashes", undefined, "promotions.codesUseLettersNumbersDashes");
   try {
     const c = await prisma.coupon.create({
       data: {
@@ -107,14 +107,14 @@ export async function createCoupon(input: CouponInput, actor: { staffId: string;
     });
     return toView(c);
   } catch (e) {
-    if ((e as { code?: string }).code === "P2002") throw new DomainError("conflict", "That code already exists");
+    if ((e as { code?: string }).code === "P2002") throw new DomainError("conflict", "That code already exists", undefined, "promotions.codeAlreadyExists");
     throw e;
   }
 }
 
 async function requireCoupon(id: string): Promise<Row> {
   const c = /^[0-9a-f-]{36}$/i.test(id) ? await prisma.coupon.findUnique({ where: { id } }) : null;
-  if (!c) throw new DomainError("not_found", "Coupon not found");
+  if (!c) throw new DomainError("not_found", "Coupon not found", undefined, "promotions.couponNotFound");
   return c;
 }
 
@@ -129,8 +129,8 @@ export async function listCoupons(opts: { limit?: number } = {}): Promise<Coupon
 /** Activation; large values (>50%, >= Rs 5,000, >= 200 credits, ad credit) need an approver different from the creator. */
 export async function activateCoupon(id: string, staffId: string, opts: { isSuperAdmin?: boolean } = {}): Promise<CouponView> {
   const c = await requireCoupon(id);
-  if (c.status !== "draft" && c.status !== "paused") throw new DomainError("conflict", "Only a draft or paused coupon can be activated");
-  if (c.validTo <= new Date()) throw new DomainError("validation", "This coupon's validity has already ended");
+  if (c.status !== "draft" && c.status !== "paused") throw new DomainError("conflict", "Only a draft or paused coupon can be activated", undefined, "promotions.onlyDraftPausedCouponActivated");
+  if (c.validTo <= new Date()) throw new DomainError("validation", "This coupon's validity has already ended", undefined, "promotions.couponsValidityAlreadyEnded");
   const view = toView(c);
   if (c.kind === "ad_credit" && !opts.isSuperAdmin) throw new DomainError("forbidden", "Ad-credit coupons need a super admin");
   let approvedBy = c.approvedBy;
@@ -143,7 +143,7 @@ export async function activateCoupon(id: string, staffId: string, opts: { isSupe
 
 export async function pauseCoupon(id: string): Promise<CouponView> {
   const c = await requireCoupon(id);
-  if (c.status !== "active") throw new DomainError("conflict", "Only an active coupon can be paused");
+  if (c.status !== "active") throw new DomainError("conflict", "Only an active coupon can be paused", undefined, "promotions.onlyActiveCouponPaused");
   return toView(await prisma.coupon.update({ where: { id }, data: { status: "paused" } }));
 }
 
@@ -198,13 +198,13 @@ async function eligible(c: Row, o: { businessId: string; planCode?: string; amou
   if (c.kind === "ad_credit") throw invalid(); // ad wallet credits are not redeemable at plan checkout
   if (c.status !== "active" || now < c.validFrom || now >= c.validTo) throw invalid();
   if (c.maxRedemptions !== null && c.redeemedCount >= c.maxRedemptions) throw invalid();
-  if (!Number.isInteger(o.amountPaise) || o.amountPaise <= 0) throw new DomainError("validation", "A payable amount is required to apply a code");
+  if (!Number.isInteger(o.amountPaise) || o.amountPaise <= 0) throw new DomainError("validation", "A payable amount is required to apply a code", undefined, "promotions.payableAmountRequiredApplyCode");
   const plan = o.planCode?.toLowerCase();
   if (plan === "free") throw invalid();
   if (c.planCodes.length && (!plan || !c.planCodes.includes(plan))) throw invalid();
   if (c.firstPurchaseOnly && (o.isFirstPurchase === false || (o.isFirstPurchase === undefined && (await priorPaidPurchase(o.businessId))))) throw invalid();
   const keys = await riskKeys(o.businessId);
-  if (keys.tier < c.minTier) throw new DomainError("forbidden", "Verify your business (GSTIN) to use this code.");
+  if (keys.tier < c.minTier) throw new DomainError("forbidden", "Verify your business (GSTIN) to use this code.", undefined, "promotions.verifyBusinessGstinUseCode");
   const used = await prisma.couponRedemption.count({ where: { couponId: c.id, businessId: o.businessId, status: { not: "voided" } } });
   if (used >= c.perBusinessLimit) throw invalid();
   if (keys.gstin) {
@@ -218,8 +218,8 @@ async function eligible(c: Row, o: { businessId: string; planCode?: string; amou
  * "validation" with one generic message for any bad/ineligible code, "rate_limited" when attempts are exhausted.
  */
 export async function quoteCoupon(code: string, opts: QuoteOptions): Promise<CouponQuote> {
-  if (!(await rateLimit(`coupon:biz:${opts.businessId}`, COUPON.attemptsPerHour, 3600))) throw new DomainError("rate_limited", "Too many attempts. Please try again in an hour.");
-  if (opts.ip && !(await rateLimit(`coupon:ip:${opts.ip}`, COUPON.attemptsPerHour * 2, 3600))) throw new DomainError("rate_limited", "Too many attempts. Please try again in an hour.");
+  if (!(await rateLimit(`coupon:biz:${opts.businessId}`, COUPON.attemptsPerHour, 3600))) throw new DomainError("rate_limited", "Too many attempts. Please try again in an hour.", undefined, "domains.tooManyAttemptsTryAgain");
+  if (opts.ip && !(await rateLimit(`coupon:ip:${opts.ip}`, COUPON.attemptsPerHour * 2, 3600))) throw new DomainError("rate_limited", "Too many attempts. Please try again in an hour.", undefined, "domains.tooManyAttemptsTryAgain");
   const norm = normaliseCode(code);
   if (!CODE_RE.test(norm)) throw invalid();
   const c = await prisma.coupon.findUnique({ where: { code: norm } });
@@ -252,7 +252,7 @@ export interface RedemptionResult {
  * by one business can only succeed once and a capped coupon can never be over-redeemed. Idempotent on paymentOrderId.
  */
 export async function redeemCoupon(couponId: string, opts: RedeemOptions, now = new Date()): Promise<RedemptionResult> {
-  if (!opts.paymentOrderId?.trim()) throw new DomainError("validation", "A payment reference is required");
+  if (!opts.paymentOrderId?.trim()) throw new DomainError("validation", "A payment reference is required", undefined, "promotions.paymentReferenceRequired");
   const checkoutRef = opts.paymentOrderId.trim().slice(0, 120);
   const pre = await requireCoupon(couponId);
   let plan = opts.planCode;
@@ -266,7 +266,7 @@ export async function redeemCoupon(couponId: string, opts: RedeemOptions, now = 
     }
   }
   const needsAmount = pre.kind === "percent" || pre.kind === "flat";
-  if (amount === undefined && needsAmount) throw new DomainError("validation", "This code's quote has expired. Apply it again at checkout.");
+  if (amount === undefined && needsAmount) throw new DomainError("validation", "This code's quote has expired. Apply it again at checkout.", undefined, "promotions.codesQuoteExpiredApplyAgain");
   const keys = await riskKeys(opts.businessId);
 
   const res = await prisma.$transaction(async (tx) => {
@@ -274,7 +274,7 @@ export async function redeemCoupon(couponId: string, opts: RedeemOptions, now = 
     const c = await tx.coupon.findUniqueOrThrow({ where: { id: pre.id } });
     const same = await tx.couponRedemption.findUnique({ where: { couponId_businessId_checkoutRef: { couponId: c.id, businessId: opts.businessId, checkoutRef } } });
     if (same?.status === "applied") return { r: same, replay: true };
-    if (same?.status === "voided") throw new DomainError("conflict", "This payment was already cancelled. Start a new checkout.");
+    if (same?.status === "voided") throw new DomainError("conflict", "This payment was already cancelled. Start a new checkout.", undefined, "promotions.paymentAlreadyCancelledStartNew");
     if (c.status !== "active" || now < c.validFrom || now >= c.validTo || c.kind === "ad_credit") throw invalid();
     if (c.maxRedemptions !== null && c.redeemedCount >= c.maxRedemptions) {
       if (c.status === "active") await tx.coupon.update({ where: { id: c.id }, data: { status: "exhausted" } });
@@ -308,9 +308,9 @@ export async function redeemCoupon(couponId: string, opts: RedeemOptions, now = 
 /** Voids a redemption whose payment failed or was abandoned (frees the slot). Redemptions that granted credits cannot be voided. */
 export async function voidRedemption(redemptionId: string, reason: string): Promise<void> {
   const r = /^[0-9a-f-]{36}$/i.test(redemptionId) ? await prisma.couponRedemption.findUnique({ where: { id: redemptionId } }) : null;
-  if (!r) throw new DomainError("not_found", "Redemption not found");
+  if (!r) throw new DomainError("not_found", "Redemption not found", undefined, "promotions.redemptionNotFound");
   if (r.status === "voided") return;
-  if (r.creditsGranted > 0) throw new DomainError("conflict", "Credits from this coupon were already granted and cannot be reversed.");
+  if (r.creditsGranted > 0) throw new DomainError("conflict", "Credits from this coupon were already granted and cannot be reversed.", undefined, "promotions.creditsFromCouponAlreadyGranted");
   await prisma.$transaction(async (tx: Tx) => {
     await tx.$queryRaw`SELECT id FROM coupons WHERE id = ${r.couponId}::uuid FOR UPDATE`;
     const n = await tx.couponRedemption.updateMany({ where: { id: r.id, status: { not: "voided" } }, data: { status: "voided" } });

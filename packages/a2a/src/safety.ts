@@ -25,7 +25,7 @@ export async function assertWithinRates(businessId: string, apiKeyId?: string | 
   if (apiKeyId && !(await rateLimit(`a2a:key:${apiKeyId}`, limits.keyMessagesPerMin(), 60))) throw new DomainError("rate_limited", "This API key is sending messages too fast. Slow down and retry shortly.", { retryAfterSeconds: 60 });
 }
 export async function assertCanStart(businessId: string): Promise<void> {
-  if (!(await rateLimit(`a2a:start:${businessId}`, limits.startsPerHour(), 3600))) throw new DomainError("rate_limited", "Too many negotiations started this hour.", { retryAfterSeconds: 3600 });
+  if (!(await rateLimit(`a2a:start:${businessId}`, limits.startsPerHour(), 3600))) throw new DomainError("rate_limited", "Too many negotiations started this hour.", { retryAfterSeconds: 3600 }, "agents.tooManyNegotiationsStartedHour");
 }
 
 export async function recordAnomaly(a: { businessId: string; side: Side; negotiationId?: string | null; apiKeyId?: string | null; kind: string; details?: Record<string, unknown> }): Promise<void> {
@@ -60,7 +60,7 @@ export async function suspend(input: { kind: SuspensionKind; targetId: string; r
   let businessId: string | null = input.kind === "business" ? input.targetId : null;
   if (input.kind === "mandate") {
     const m = await prisma.agentMandate.findUnique({ where: { id: input.targetId } }).catch(() => null);
-    if (!m) throw new DomainError("not_found", "Mandate not found");
+    if (!m) throw new DomainError("not_found", "Mandate not found", undefined, "agents.mandateNotFound");
     businessId = m.businessId;
   }
   const existing = await prisma.agentSuspension.findFirst({ where: { kind: input.kind, targetId: input.targetId, liftedAt: null } });

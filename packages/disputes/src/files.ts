@@ -22,11 +22,11 @@ export function checkUpload(u: EvidenceUpload): CheckedUpload {
   if (u.bytes.length > MAX_EVIDENCE_BYTES) throw new DomainError("validation", "Each file must be 8 MB or smaller.");
   if (u.kind === "photo") {
     const mime = sniffImageMime(u.bytes);
-    if (!mime) throw new DomainError("validation", "Photos must be JPEG, PNG or WebP.");
+    if (!mime) throw new DomainError("validation", "Photos must be JPEG, PNG or WebP.", undefined, "disputes.photosMustJpegPngWebp");
     return { kind: "photo", bytes: u.bytes, mime, ext: IMAGE_EXT[mime] };
   }
   if (u.kind === "document") {
-    if (!PDF.every((b, i) => u.bytes[i] === b)) throw new DomainError("validation", "Documents must be PDF files.");
+    if (!PDF.every((b, i) => u.bytes[i] === b)) throw new DomainError("validation", "Documents must be PDF files.", undefined, "disputes.documentsMustPdfFiles");
     return { kind: "document", bytes: u.bytes, mime: "application/pdf", ext: "pdf" };
   }
   const base = assertAudio({ bytes: u.bytes, mimeType: u.mimeType });

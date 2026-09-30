@@ -257,9 +257,9 @@ async function applyResolution(row: IssueRow, r: ManualResolution, cfg: OndcConf
 /** Staff resolve an issue that has no dispute behind it (needsManual) or override; audited by the admin action. */
 export async function resolveIssueManually(id: string, r: ManualResolution, cfg: OndcConfig = loadConfig()): Promise<void> {
   const row = UUID.test(id) ? await prisma.ondcIssue.findUnique({ where: { id } }) : null;
-  if (!row) throw new DomainError("not_found", "Issue not found.");
-  if (r.shortDesc.trim().length < 5) throw new DomainError("validation", "Add a short resolution note.");
-  if (row.disputeId && !row.needsManual) throw new DomainError("conflict", "This issue is handled through its dispute; resolve the dispute instead.");
+  if (!row) throw new DomainError("not_found", "Issue not found.", undefined, "ondc.issueNotFound");
+  if (r.shortDesc.trim().length < 5) throw new DomainError("validation", "Add a short resolution note.", undefined, "ondc.addShortResolutionNote");
+  if (row.disputeId && !row.needsManual) throw new DomainError("conflict", "This issue is handled through its dispute; resolve the dispute instead.", undefined, "ondc.issueHandledThroughItsDispute");
   if (!(await applyResolution(row, r, cfg))) throw new DomainError("conflict", "This issue is already resolved.");
 }
 

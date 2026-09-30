@@ -13,7 +13,7 @@ export const MAX_TEXT = 4000;
 export const MAX_EVIDENCE_PER_PARTY = 30;
 
 export function requireEnabled(): void {
-  if (!disputesEnabled()) throw new DomainError("forbidden", "Dispute resolution is not available yet.");
+  if (!disputesEnabled()) throw new DomainError("forbidden", "Dispute resolution is not available yet.", undefined, "disputes.disputeResolutionNotAvailableYet");
 }
 
 export const num = (v: bigint | null): number | null => (v === null ? null : Number(v));
@@ -57,13 +57,13 @@ export async function prepareEvidence(
   input: { text?: string; language?: Lang; voiceConsent?: boolean; uploads?: EvidenceUpload[] },
 ): Promise<{ rows: PreparedEvidence[]; transcript: string | null; cleanup: () => Promise<void> }> {
   const uploads = input.uploads ?? [];
-  if (uploads.length > MAX_EVIDENCE_FILES) throw new DomainError("validation", `Attach at most ${MAX_EVIDENCE_FILES} files at a time.`);
+  if (uploads.length > MAX_EVIDENCE_FILES) throw new DomainError("validation", `Attach at most ${MAX_EVIDENCE_FILES} files at a time.`, undefined, "disputes.attachMostFilesTime", { maxEvidenceFiles: MAX_EVIDENCE_FILES });
   const checked = uploads.map(checkUpload); // validate everything before storing anything
   if (checked.some((c) => c.kind === "voice") && !input.voiceConsent) {
     throw new DomainError("validation", "Please consent to us storing and transcribing your voice note (DPDP).");
   }
   const text = input.text?.trim() ?? "";
-  if (text.length > MAX_TEXT) throw new DomainError("validation", `Keep the statement under ${MAX_TEXT} characters.`);
+  if (text.length > MAX_TEXT) throw new DomainError("validation", `Keep the statement under ${MAX_TEXT} characters.`, undefined, "disputes.keepStatementUnderCharacters", { maxText: MAX_TEXT });
 
   const rows: PreparedEvidence[] = [];
   const stored: string[] = [];

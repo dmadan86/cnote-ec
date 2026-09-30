@@ -74,7 +74,7 @@ export async function submitDispatchPhotos(
     const pick = out.variants.find((x) => x.width === w) ?? out.variants[out.variants.length - 1]!;
     if (!prepared.some((p) => p.hash === sha256Hex(pick.data))) prepared.push({ name: f.filename ?? null, hash: sha256Hex(pick.data), bytes: pick.data, width: pick.width, height: pick.height });
   }
-  if (!(await rateLimit(`quality-submit:${actor.personId}`, SUBMISSIONS_PER_HOUR, 3600))) throw new DomainError("rate_limited", "Too many submissions. Please try again later.");
+  if (!(await rateLimit(`quality-submit:${actor.personId}`, SUBMISSIONS_PER_HOUR, 3600))) throw new DomainError("rate_limited", "Too many submissions. Please try again later.", undefined, "quality.tooManySubmissionsTryAgain");
 
   const checkId = randomUUID();
   const store = getMediaStore("private");

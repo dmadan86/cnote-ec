@@ -46,18 +46,18 @@ async function awaitConcurrentUnlock(personId: string, captureId: string): Promi
     }
     if (!(await redis.exists(claimKey(captureId)))) return performUnlockOnce(personId, captureId);
   }
-  throw new DomainError("conflict", "Your request is still being processed. Please refresh in a moment.");
+  throw new DomainError("conflict", "Your request is still being processed. Please refresh in a moment.", undefined, "leadgen.requestStillBeingProcessedRefresh");
 }
 
 async function performUnlockOnce(personId: string, captureId: string): Promise<UnlockResult> {
   const c = await getCapture(captureId);
   if (c?.status === "converted") return completeUnlock(personId, captureId);
-  throw new DomainError("conflict", "Your request is still being processed. Please refresh in a moment.");
+  throw new DomainError("conflict", "Your request is still being processed. Please refresh in a moment.", undefined, "leadgen.requestStillBeingProcessedRefresh");
 }
 
 async function performUnlock(personId: string, captureId: string, detailsInput: UnlockDetails): Promise<UnlockResult> {
   const capture = await getCapture(captureId);
-  if (!capture || capture.personId !== personId) throw new DomainError("forbidden", "This request belongs to another account.");
+  if (!capture || capture.personId !== personId) throw new DomainError("forbidden", "This request belongs to another account.", undefined, "leadgen.requestBelongsAnotherAccount");
   if (capture.status !== "verified" && capture.status !== "converted") throw new DomainError("forbidden", "Verify your mobile number first.");
   if (capture.status === "converted" && capture.enquiryId) {
     return { kind: "enquiry", enquiryId: capture.enquiryId, next: `/buyer/enquiries/${capture.enquiryId}` };

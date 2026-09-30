@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { ERROR_MESSAGE_KEYS } from "../../../packages/next-kit/src/error-catalogue";
 import { DEFAULT_MFA_LABELS } from "../../../packages/next-kit/src/mfa-labels";
+import { scanKeyedSites } from "../../../packages/next-kit/test/domain-error-scan";
 import { LOCALES } from "../src/i18n/config";
 import { loadMessages } from "../src/i18n/messages";
 import { STATE_NAMES, STATE_TABLE, stateKey, stateLabel } from "../src/lib/states";
@@ -29,10 +30,10 @@ describe("error catalogue (seller)", () => {
       }
     }
   });
-  it("catalogue has no orphan keys (every errors.* key is mapped or documented as explicit-key only)", async () => {
+  it("catalogue has no orphan keys (every errors.* key is mapped in the catalogue or passed as an explicit DomainError key)", async () => {
     const en = (await messages("en")).errors as Json;
     const flat = (o: Json, p = ""): string[] => Object.entries(o).flatMap(([k, v]) => (typeof v === "string" ? [p + k] : flat(v, `${p}${k}.`)));
-    const mapped = new Set(Object.values(ERROR_MESSAGE_KEYS));
+    const mapped = new Set([...Object.values(ERROR_MESSAGE_KEYS), ...scanKeyedSites().map((x) => x.key), "common.fixFields"]);
     expect(flat(en).filter((k) => !mapped.has(k))).toEqual([]);
   });
 });

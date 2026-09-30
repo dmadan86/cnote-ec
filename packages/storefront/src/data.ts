@@ -12,7 +12,7 @@ const REVIEW_SOURCES = 6;
 export async function loadRenderData(sellerBusinessId: string): Promise<RenderData> {
   const [profiles, listings] = await Promise.all([getTrustProfiles([sellerBusinessId]), listPublicSellerListings(sellerBusinessId)]);
   const p = profiles.get(sellerBusinessId);
-  if (!p) throw new DomainError("not_found", "Seller not found.");
+  if (!p) throw new DomainError("not_found", "Seller not found.", undefined, "storefront.sellerNotFound");
   const shown = listings.slice(0, MAX_PRODUCTS);
   const ids = shown.map((l) => l.id);
 

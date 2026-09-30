@@ -4,9 +4,10 @@ import { getCategoryBySlug, getPublicListingsByIds } from "@cnote/catalogue";
 import { cachedTagged, cacheTags } from "@cnote/core";
 import { getTrustProfiles } from "@cnote/identity";
 import { z } from "zod";
-import { locationBoost, rrfFuse, toCandidates, trustFactor } from "./fusion";
+import { fusionWeights, INDIC_LEXICAL_WEIGHT, locationBoost, rrfFuse, toCandidates, trustFactor } from "./fusion";
 import { getSearchIndex, type SearchFacets } from "./index-port";
 import { normaliseQuery } from "./normalise";
+import { blendVectors, ORIGINAL_BLEND, planSemantic } from "./semantic";
 import { expandQuery } from "./translit/variants";
 import { remoteSearch, searchFallbackEnabled, searchTransport, sharedSearchServiceClient } from "./remote";
 import type { SearchHit } from "./index";
@@ -42,7 +43,7 @@ export async function searchListingsLocal(opts: SearchOpts): Promise<SearchResul
   const { q, categorySlug, limit, cursor } = optsSchema.parse(opts);
   const nq = normaliseQuery(q);
   const translit = translitEnabled();
-  const key = `search:q:v4:${createHash("sha1").update(JSON.stringify([getSearchIndex().backend, nq, categorySlug ?? null, limit, cursor ?? null, translit])).digest("hex")}`;
+  const key = `search:q:v5:${createHash("sha1").update(JSON.stringify([getSearchIndex().backend, nq, categorySlug ?? null, limit, cursor ?? null, translit, semanticBlend(), latinBlend(), indicLexicalWeight()])).digest("hex")}`;
   // Cached per NORMALISED query (so "boxes for cosmetics in India" and "boxes cosmetics" share one entry): 2 min fresh +
   // 10 min stale-while-revalidate. Entries are tagged with every listing/seller they contain, so a moderation/archive/trust
   // event purges exactly the results that show it (hard); new publications refresh the `search` tag softly.
@@ -73,19 +74,22 @@ async function run(nq: ReturnType<typeof normaliseQuery>, categorySlug: string |
   const text = nq.text || categoryName; // pure category browse falls back to the category's own text
   if (!text) return empty;
 
+  // Cross-script recall (ADR-004): transliteration + lexicon variants join the lexical query; for Indic/mixed-script queries
+  // the best Latin variant also drives the embedding (the hashing embedder only understands Latin), see semantic.ts.
+  const variants = translit ? expandQuery(text) : [];
   let embedding: number[] | undefined;
   try {
-    embedding = (await ai.embed([text])).vectors[0];
+    const plan = planSemantic(text, variants, semanticBlend(), latinBlend());
+    const { vectors } = await ai.embed(plan.texts);
+    embedding = plan.texts.length === 1 ? vectors[0] : blendVectors(vectors, plan.weights);
   } catch {
     embedding = undefined; // embedding outage degrades to lexical-only rather than failing search
   }
-  // Cross-script recall (ADR-004): transliteration + lexicon variants join the LEXICAL query only; embedding stays on `text`.
-  const variants = translit ? expandQuery(text) : [];
   const res = await getSearchIndex().search({ text, location: nq.location, embedding, categoryId, limit: Math.max(30, limit * 3), cursor, ...(variants.length ? { variants } : {}) });
   const cands = toCandidates(res.hits);
   if (!cands.length) return { hits: [], nextCursor: null, facets: res.facets };
 
-  const fused = rrfFuse(cands);
+  const fused = rrfFuse(cands, undefined, ...fusionWeights(text, translit, indicLexicalWeight()));
   const profiles = await getTrustProfiles([...new Set(cands.map((c) => c.sellerBusinessId))]);
   const scored = cands
     .flatMap((c) => {
@@ -102,4 +106,22 @@ async function run(nq: ReturnType<typeof normaliseQuery>, categorySlug: string |
     return listing ? [{ listing, seller: s.seller, score: Number(s.score.toFixed(5)), sponsored: false as const }] : [];
   });
   return { hits, nextCursor: res.nextCursor, facets: res.facets };
+}
+
+/** SEARCH_SEMANTIC_BLEND: weight (0..1) of the ORIGINAL query embedding blended with its Latin variant; default 0, variant only; eval-tuned. */
+export function semanticBlend(): number {
+  const n = Number(process.env.SEARCH_SEMANTIC_BLEND);
+  return process.env.SEARCH_SEMANTIC_BLEND !== undefined && process.env.SEARCH_SEMANTIC_BLEND !== "" && Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : ORIGINAL_BLEND;
+}
+
+/** SEARCH_LATIN_BLEND: weight (0..1) of the lexicon-canonicalised variant blended into Latin (English/Hinglish) query embeddings; default 0. */
+export function latinBlend(): number {
+  const n = Number(process.env.SEARCH_LATIN_BLEND);
+  return Number.isFinite(n) && process.env.SEARCH_LATIN_BLEND ? Math.min(1, Math.max(0, n)) : 0;
+}
+
+/** SEARCH_INDIC_LEX_WEIGHT: RRF weight of the lexical list for Indic/mixed-script queries (vector list stays 1); default 0.4, eval-tuned. */
+export function indicLexicalWeight(): number {
+  const n = Number(process.env.SEARCH_INDIC_LEX_WEIGHT);
+  return process.env.SEARCH_INDIC_LEX_WEIGHT && Number.isFinite(n) && n > 0 ? Math.min(5, n) : INDIC_LEXICAL_WEIGHT;
 }

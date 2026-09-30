@@ -66,13 +66,13 @@ export function toView(row: Row): DomainView {
 
 async function storefrontOf(sellerBusinessId: string) {
   const sf = await prisma.storefront.findUnique({ where: { sellerBusinessId }, select: { id: true, slug: true, sellerBusinessId: true } });
-  if (!sf) throw new DomainError("not_found", "Set up your storefront before connecting a domain.");
+  if (!sf) throw new DomainError("not_found", "Set up your storefront before connecting a domain.", undefined, "domains.setUpStorefrontBeforeConnecting");
   return sf;
 }
 
 async function ownedDomain(sellerBusinessId: string, domainId: string) {
   const row = await prisma.storefrontDomain.findUnique({ where: { id: domainId }, include: { storefront: { select: { sellerBusinessId: true, slug: true } } } });
-  if (!row || row.storefront.sellerBusinessId !== sellerBusinessId) throw new DomainError("not_found", "Domain not found.");
+  if (!row || row.storefront.sellerBusinessId !== sellerBusinessId) throw new DomainError("not_found", "Domain not found.", undefined, "domains.domainNotFound");
   return row;
 }
 
@@ -96,13 +96,13 @@ async function scheduleNext(domainId: string, gen: number | undefined, delayMs: 
 /** Connect a hostname to the seller's storefront and start DNS verification. */
 export async function addDomain(sellerBusinessId: string, hostnameInput: string): Promise<DomainView> {
   const cfg = domainsConfig();
-  if (!(await rateLimit(`domains:add:${sellerBusinessId}`, 10, 3600))) throw new DomainError("rate_limited", "Too many attempts. Please try again in an hour.");
+  if (!(await rateLimit(`domains:add:${sellerBusinessId}`, 10, 3600))) throw new DomainError("rate_limited", "Too many attempts. Please try again in an hour.", undefined, "domains.tooManyAttemptsTryAgain");
   const sf = await storefrontOf(sellerBusinessId);
   const { hostname, kind } = validateHostname(hostnameInput, cfg);
   const count = await prisma.storefrontDomain.count({ where: { storefrontId: sf.id } });
-  if (count >= cfg.maxDomainsPerStorefront) throw new DomainError("conflict", `You can connect up to ${cfg.maxDomainsPerStorefront} domains. Remove one first.`);
+  if (count >= cfg.maxDomainsPerStorefront) throw new DomainError("conflict", `You can connect up to ${cfg.maxDomainsPerStorefront} domains. Remove one first.`, undefined, "domains.connectUpDomainsRemoveOne", { maxDomainsPerStorefront: cfg.maxDomainsPerStorefront });
   if (await prisma.storefrontDomain.findUnique({ where: { hostname }, select: { id: true } })) {
-    throw new DomainError("conflict", "That domain is already connected to a storefront. If it is yours, contact support.");
+    throw new DomainError("conflict", "That domain is already connected to a storefront. If it is yours, contact support.", undefined, "domains.domainAlreadyConnectedStorefrontIf");
   }
   const verifyToken = newVerifyToken();
   const expected = buildExpectedRecords(hostname, kind, verifyToken, cfg);
@@ -132,7 +132,7 @@ export async function domainSetupInfo(sellerBusinessId: string): Promise<{ slug:
 /** Delete a domain (edge hostname best-effort, then the row). Used by sellers and staff. */
 export async function removeDomainById(domainId: string): Promise<void> {
   const row = await prisma.storefrontDomain.findUnique({ where: { id: domainId }, include: { storefront: { select: { sellerBusinessId: true } } } });
-  if (!row) throw new DomainError("not_found", "Domain not found.");
+  if (!row) throw new DomainError("not_found", "Domain not found.", undefined, "domains.domainNotFound");
   if (row.providerRef) {
     try {
       await getEdgeProvider().delete(row.providerRef);
@@ -160,7 +160,7 @@ export async function removeDomain(sellerBusinessId: string, domainId: string): 
 /** Make an ACTIVE domain the canonical host; other hosts 301 to it. */
 export async function setPrimary(sellerBusinessId: string, domainId: string): Promise<void> {
   const row = await ownedDomain(sellerBusinessId, domainId);
-  if (row.status !== "active") throw new DomainError("conflict", "Only a domain that is active can be made primary.");
+  if (row.status !== "active") throw new DomainError("conflict", "Only a domain that is active can be made primary.", undefined, "domains.onlyDomainActiveMadePrimary");
   await prisma.$transaction([
     prisma.storefrontDomain.updateMany({ where: { storefrontId: row.storefrontId, isPrimary: true }, data: { isPrimary: false } }),
     prisma.storefrontDomain.update({ where: { id: row.id }, data: { isPrimary: true } }),
@@ -171,14 +171,14 @@ export async function setPrimary(sellerBusinessId: string, domainId: string): Pr
 /** Seller "Re-check now": rate limited (5 per 10 minutes per domain), restarts the 72h pending window. */
 export async function requestRecheck(sellerBusinessId: string, domainId: string): Promise<void> {
   const row = await ownedDomain(sellerBusinessId, domainId);
-  if (!(await rateLimit(`domains:recheck:${row.id}`, 5, 600))) throw new DomainError("rate_limited", "You have re-checked a lot. Please wait a few minutes.");
+  if (!(await rateLimit(`domains:recheck:${row.id}`, 5, 600))) throw new DomainError("rate_limited", "You have re-checked a lot. Please wait a few minutes.", undefined, "domains.reCheckedLotWaitFew");
   await forceRecheck(row.id);
 }
 
 /** Staff / internal: restart verification for a domain now. */
 export async function forceRecheck(domainId: string): Promise<void> {
   const row = await prisma.storefrontDomain.findUnique({ where: { id: domainId } });
-  if (!row) throw new DomainError("not_found", "Domain not found.");
+  if (!row) throw new DomainError("not_found", "Domain not found.", undefined, "domains.domainNotFound");
   const last = (row.lastCheck as unknown as LastCheck | null) ?? null;
   if (last) {
     await prisma.storefrontDomain.update({ where: { id: row.id }, data: { lastCheck: { ...last, windowStartedAt: new Date().toISOString() } as unknown as Prisma.InputJsonValue } });

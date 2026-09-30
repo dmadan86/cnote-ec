@@ -78,7 +78,7 @@ export async function acceptLead(actor: Actor, matchId: string): Promise<LeadVie
       const m = await tx.match.findUnique({ where: { id: matchId } });
       if (!m || m.sellerBusinessId !== actor.businessId) throw new DomainError("not_found", "Lead not found");
       if (m.status === "accepted") return; // double-click / retry
-      if (m.status !== "offered") throw new DomainError("conflict", "This lead is no longer available.");
+      if (m.status !== "offered") throw new DomainError("conflict", "This lead is no longer available.", undefined, "agents.leadNoLongerAvailable");
       const now = new Date();
       if (now > m.respondBy) throw new DomainError("conflict", "The 2-hour response window for this lead has passed.");
       const enq = await tx.enquiry.findUnique({ where: { id: m.enquiryId } });
@@ -196,7 +196,7 @@ export async function resolveEnquiryReview(enquiryId: string, outcome: "approved
   const held = await prisma.$transaction(async (tx) => {
     await lockRow(tx, "enquiries", enquiryId);
     const e = await tx.enquiry.findUnique({ where: { id: enquiryId } });
-    if (!e) throw new DomainError("not_found", "Enquiry not found");
+    if (!e) throw new DomainError("not_found", "Enquiry not found", undefined, "agents.enquiryNotFound");
     if (e.status !== "review") throw new DomainError("conflict", "This enquiry is not awaiting review.");
     await tx.enquiry.update({
       where: { id: enquiryId },

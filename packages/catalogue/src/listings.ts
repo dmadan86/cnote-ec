@@ -13,14 +13,14 @@ import type { ListingInput, ListingView } from "./index";
 
 async function loadOwned(sellerBusinessId: string, listingId: string): Promise<ListingRow> {
   const row = isUuid(listingId) ? await prisma.listing.findUnique({ where: { id: listingId }, include: listingInclude }) : null;
-  if (!row) throw new DomainError("not_found", "Listing not found");
+  if (!row) throw new DomainError("not_found", "Listing not found", undefined, "ads.listingNotFound");
   if (row.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your listing");
   return row;
 }
 
 async function requireCategory(id: string) {
   const c = await getCategoryById(id);
-  if (!c) throw new DomainError("validation", "Unknown category");
+  if (!c) throw new DomainError("validation", "Unknown category", undefined, "ads.unknownCategory");
   return c;
 }
 
@@ -150,7 +150,7 @@ export async function createListing(sellerBusinessId: string, input: ListingInpu
     });
     return toListingView(row);
   } catch (e) {
-    if (isUniqueViolation(e)) throw new DomainError("conflict", `SKU "${data.sku}" is already used by another of your listings`);
+    if (isUniqueViolation(e)) throw new DomainError("conflict", `SKU "${data.sku}" is already used by another of your listings`, undefined, "catalogue.skuAlreadyUsedByAnother", { sku: data.sku ?? "" });
     throw e;
   }
 }
@@ -162,7 +162,7 @@ export async function draftListingFromText(sellerBusinessId: string, text: strin
   const lang = (LANGS as readonly string[]).includes(language) ? (language as (typeof LANGS)[number]) : "en";
   const all = await listCategories();
   const usable = all.filter((c) => !c.prohibited);
-  if (!usable.length) throw new DomainError("conflict", "No categories available");
+  if (!usable.length) throw new DomainError("conflict", "No categories available", undefined, "catalogue.noCategoriesAvailable");
 
   const id = randomUUID(); // subject id for the AI decision log precedes the row
   const ex = await ai.extractListing(
@@ -229,7 +229,7 @@ export async function updateListing(sellerBusinessId: string, listingId: string,
   try {
     row = await prisma.listing.update({ where: { id: cur.id }, data, include: listingInclude });
   } catch (e) {
-    if (isUniqueViolation(e)) throw new DomainError("conflict", `SKU "${patch.sku}" is already used by another of your listings`);
+    if (isUniqueViolation(e)) throw new DomainError("conflict", `SKU "${patch.sku}" is already used by another of your listings`, undefined, "catalogue.skuAlreadyUsedByAnother", { sku: patch.sku ?? "" });
     throw e;
   }
   await bustListingCaches(cur.id, cur.sellerBusinessId); // seller-facing lists; buyers are unaffected until a version is published
@@ -249,7 +249,7 @@ export async function publishListing(sellerBusinessId: string, listingId: string
 /** Take a live listing down (back to draft). Buyers stop seeing it immediately; history is kept. */
 export async function unpublishListing(sellerBusinessId: string, listingId: string): Promise<void> {
   const cur = await loadOwned(sellerBusinessId, listingId);
-  if (cur.status === "archived") throw new DomainError("conflict", "Archived listings cannot be unpublished");
+  if (cur.status === "archived") throw new DomainError("conflict", "Archived listings cannot be unpublished", undefined, "catalogue.archivedListingsUnpublished");
   await unpublishFromLive(cur.id, cur.sellerBusinessId, "seller_unpublished", { status: "draft" });
 }
 
@@ -265,7 +265,7 @@ export async function archiveListing(sellerBusinessId: string, listingId: string
  */
 export async function resolveListingModeration(listingId: string, outcome: "approved" | "rejected", reason?: string, staffId?: string): Promise<void> {
   const cur = isUuid(listingId) ? await prisma.listing.findUnique({ where: { id: listingId } }) : null;
-  if (!cur) throw new DomainError("not_found", "Listing not found");
+  if (!cur) throw new DomainError("not_found", "Listing not found", undefined, "ads.listingNotFound");
   const pending = await prisma.listingVersion.findFirst({ where: { listingId, status: "in_review" }, orderBy: { version: "desc" }, select: { id: true } });
   if (!pending) throw new DomainError("conflict", "Listing is not awaiting moderation review");
   await reviewListingVersion(pending.id, outcome, reason ?? (outcome === "rejected" ? "Rejected by moderator" : null), staffId ?? "00000000-0000-0000-0000-000000000000");

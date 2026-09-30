@@ -19,7 +19,7 @@ export { DEFAULT_MFA_LABELS, type MfaLabels } from "./mfa-labels";
 /** Props every MFA form takes: translated labels (partial, English fallback) and an error-key translator. */
 export interface MfaLocaleProps {
   labels?: Partial<MfaLabels>;
-  translateError?: (key: string) => string | undefined;
+  translateError?: (key: string, params?: Record<string, string | number>) => string | undefined;
 }
 
 type Codes = { recoveryCodes: string[] };

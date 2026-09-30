@@ -131,12 +131,12 @@ const fileSchema = z.object({
  */
 export async function fileAppeal(actor: AppealActor, input: z.input<typeof fileSchema>): Promise<AppealView> {
   const i = parse(fileSchema, input);
-  if (!isUuid(actor.personId)) throw new DomainError("unauthenticated", "Sign in to appeal");
+  if (!isUuid(actor.personId)) throw new DomainError("unauthenticated", "Sign in to appeal", undefined, "compliance.signAppeal");
   const subject = await describeSubject(i.subjectType, i.subjectId);
-  if (!subject) throw new DomainError("not_found", "That decision could not be found");
+  if (!subject) throw new DomainError("not_found", "That decision could not be found", undefined, "compliance.decisionCouldNotFound");
   const owns = subject.ownerPersonId ? subject.ownerPersonId === actor.personId : !!subject.ownerBusinessId && subject.ownerBusinessId === actor.businessId;
-  if (!owns) throw new DomainError("forbidden", "You can only appeal decisions about your own content");
-  if (!subject.rejected) throw new DomainError("conflict", "Only rejected content can be appealed");
+  if (!owns) throw new DomainError("forbidden", "You can only appeal decisions about your own content", undefined, "compliance.onlyAppealDecisionsAboutOwn");
+  if (!subject.rejected) throw new DomainError("conflict", "Only rejected content can be appealed", undefined, "compliance.onlyRejectedContentAppealed");
   const existing = await prisma.moderationAppeal.findUnique({
     where: { subjectType_subjectId_personId: { subjectType: i.subjectType, subjectId: i.subjectId, personId: actor.personId } },
   });
@@ -151,7 +151,7 @@ export async function fileAppeal(actor: AppealActor, input: z.input<typeof fileS
     });
     return view(row);
   } catch (e) {
-    if ((e as { code?: string }).code === "P2002") throw new DomainError("conflict", "You already have an open appeal for this decision");
+    if ((e as { code?: string }).code === "P2002") throw new DomainError("conflict", "You already have an open appeal for this decision", undefined, "compliance.alreadyOpenAppealDecision");
     throw e;
   }
 }
@@ -198,7 +198,7 @@ export async function decideAppeal(id: string, decision: "resolved" | "rejected"
   const i = parse(decideSchema, { decision, note });
   if (!isUuid(staffId)) throw new DomainError("forbidden", "Staff member required");
   const a = isUuid(id) ? await prisma.moderationAppeal.findUnique({ where: { id } }) : null;
-  if (!a) throw new DomainError("not_found", "Appeal not found");
+  if (!a) throw new DomainError("not_found", "Appeal not found", undefined, "compliance.appealNotFound");
   if (a.status === "resolved" || a.status === "rejected") throw new DomainError("conflict", `Appeal is already ${a.status}`);
   let decisionNote = i.note;
   if (i.decision === "resolved") {

@@ -210,19 +210,19 @@ const facts = async (listingId: string): Promise<ListingFacts | null> => {
  * Eligibility: the seller owns the listing, the listing is live, seller tier >= 1, and offer privileges are not suspended.
  */
 export async function createOffer(sellerBusinessId: string, input: OfferInput, now = new Date()): Promise<OfferView> {
-  if (!promotionsEnabled()) throw new DomainError("forbidden", "Offers are temporarily unavailable.");
+  if (!promotionsEnabled()) throw new DomainError("forbidden", "Offers are temporarily unavailable.", undefined, "promotions.offersTemporarilyUnavailable");
   const d = parseInput(input);
   const listing = await facts(d.listingId);
-  if (!listing) throw new DomainError("not_found", "Listing not found or not live");
-  if (listing.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "You can only create offers on your own listings");
+  if (!listing) throw new DomainError("not_found", "Listing not found or not live", undefined, "promotions.listingNotFoundNotLive");
+  if (listing.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "You can only create offers on your own listings", undefined, "promotions.onlyCreateOffersOwnListings");
   const tier = (await getTrustProfiles([sellerBusinessId])).get(sellerBusinessId)?.verificationTier ?? 0;
-  if (tier < 1) throw new DomainError("forbidden", "Verify your business (GSTIN) to run offers.");
+  if (tier < 1) throw new DomainError("forbidden", "Verify your business (GSTIN) to run offers.", undefined, "promotions.verifyBusinessGstinRunOffers");
   const upheld = await upheldReportCount(sellerBusinessId, now);
-  if (upheld >= OFFER.suspendAfterUpheld) throw new DomainError("forbidden", "Offers are paused on your account after buyer reports that were upheld. Contact support to review.");
+  if (upheld >= OFFER.suspendAfterUpheld) throw new DomainError("forbidden", "Offers are paused on your account after buyer reports that were upheld. Contact support to review.", undefined, "promotions.offersPausedAccountAfterBuyer");
 
   const startsAt = d.startsAt ?? now;
-  if (startsAt.getTime() < now.getTime() - 5 * 60_000) throw new DomainError("validation", "The start time is in the past.");
-  if (startsAt.getTime() > now.getTime() + OFFER.maxLeadDays * DAY_MS) throw new DomainError("validation", `Offers can be scheduled at most ${OFFER.maxLeadDays} days ahead.`);
+  if (startsAt.getTime() < now.getTime() - 5 * 60_000) throw new DomainError("validation", "The start time is in the past.", undefined, "promotions.startTimePast");
+  if (startsAt.getTime() > now.getTime() + OFFER.maxLeadDays * DAY_MS) throw new DomainError("validation", `Offers can be scheduled at most ${OFFER.maxLeadDays} days ahead.`, undefined, "promotions.offersScheduledMostDaysAhead", { maxLeadDays: OFFER.maxLeadDays });
   const endsAt = d.endsAt ?? null;
 
   const ref = await referencePrice(listing.id, now);
@@ -236,7 +236,7 @@ export async function createOffer(sellerBusinessId: string, input: OfferInput, n
     // serialise concurrent creates for the same (listing, kind) so the conflict/cooldown checks below cannot race
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`offer:${listing.id}:${d.kind}`}))`;
     const open = await tx.listingOffer.findFirst({ where: { listingId: listing.id, kind: d.kind, status: { in: ["draft", "needs_review", "active"] } } });
-    if (open) throw new DomainError("conflict", "This listing already has an offer of this kind in progress. Cancel it first.");
+    if (open) throw new DomainError("conflict", "This listing already has an offer of this kind in progress. Cancel it first.", undefined, "promotions.listingAlreadyOfferKindProgress");
     if (d.kind === "timed_price") {
       const prior = await tx.listingOffer.findMany({
         where: { listingId: listing.id, kind: "timed_price", referenceComputedAt: { not: null }, status: { in: ["expired", "cancelled", "suspended", "active"] } },
@@ -263,7 +263,7 @@ export async function createOffer(sellerBusinessId: string, input: OfferInput, n
 
 async function requireOffer(id: string): Promise<OfferRow> {
   const o = /^[0-9a-f-]{36}$/i.test(id) ? await prisma.listingOffer.findUnique({ where: { id } }) : null;
-  if (!o) throw new DomainError("not_found", "Offer not found");
+  if (!o) throw new DomainError("not_found", "Offer not found", undefined, "promotions.offerNotFound");
   return o;
 }
 
@@ -316,7 +316,7 @@ export async function reviewOffer(offerId: string, decision: "approve" | "reject
   const ref = await referencePrice(o.listingId, now);
   const row = await prisma.$transaction(async (tx) => {
     const held = await tx.listingOffer.updateMany({ where: { id: o.id, status: "needs_review" }, data: { status: "draft", reviewedBy: reviewerId, reviewNote: note?.trim().slice(0, 500) ?? null } });
-    if (held.count === 0) throw new DomainError("conflict", "This offer was already decided");
+    if (held.count === 0) throw new DomainError("conflict", "This offer was already decided", undefined, "promotions.offerAlreadyDecided");
     const fresh = await tx.listingOffer.findUniqueOrThrow({ where: { id: o.id } });
     return fresh.startsAt <= now ? activateTx(tx, fresh, ref, now) : fresh;
   });
@@ -343,8 +343,8 @@ async function endOffer(o: OfferRow, status: "expired" | "cancelled" | "suspende
 /** Seller withdraws their own offer at any time (an active one ends immediately). */
 export async function cancelOffer(offerId: string, sellerBusinessId: string): Promise<OfferView> {
   const o = await requireOffer(offerId);
-  if (o.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your offer");
-  if (!["draft", "needs_review", "active"].includes(o.status)) throw new DomainError("conflict", "This offer has already ended");
+  if (o.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your offer", undefined, "promotions.notOffer");
+  if (!["draft", "needs_review", "active"].includes(o.status)) throw new DomainError("conflict", "This offer has already ended", undefined, "promotions.offerAlreadyEnded");
   await endOffer(o, "cancelled", "cancelled");
   return (await getOffer(offerId))!;
 }
@@ -352,7 +352,7 @@ export async function cancelOffer(offerId: string, sellerBusinessId: string): Pr
 /** Staff suspend an offer (`offers.review`), e.g. after honour reports. */
 export async function suspendOffer(offerId: string, staffId: string, note: string): Promise<OfferView> {
   const o = await requireOffer(offerId);
-  if (!["draft", "needs_review", "active"].includes(o.status)) throw new DomainError("conflict", "This offer has already ended");
+  if (!["draft", "needs_review", "active"].includes(o.status)) throw new DomainError("conflict", "This offer has already ended", undefined, "promotions.offerAlreadyEnded");
   if (!note.trim()) throw new DomainError("validation", "A reason is required");
   await endOffer(o, "suspended", "suspended", { reviewedBy: staffId, note });
   return (await getOffer(offerId))!;

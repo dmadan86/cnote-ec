@@ -22,7 +22,7 @@ export function signPreviewToken(storefrontId: string, now = Date.now(), ttlSeco
 
 /** Returns the storefront id or throws a validation DomainError (generic message: expired and forged look the same). */
 export function verifyPreviewToken(token: string, now = Date.now()): string {
-  const bad = () => new DomainError("forbidden", "This preview link is invalid or has expired.");
+  const bad = () => new DomainError("forbidden", "This preview link is invalid or has expired.", undefined, "storefront.previewLinkInvalidExpired");
   const [body, sig] = token.split(".");
   if (!body || !sig || token.length > 400) throw bad();
   // canonical base64url string comparison (decoded bytes would accept several spellings of one signature)

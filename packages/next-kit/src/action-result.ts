@@ -4,7 +4,7 @@ import { ZodError } from "zod";
 import { errorKeyFor, FIELD_ERRORS_KEY } from "./error-catalogue";
 
 /** Server-action return shape. Actions return this instead of throwing for expected failures. */
-export type ActionResult<T = void> = { ok: true; data: T } | { ok: false; error: string; /** stable message key (see error-catalogue.ts); apps translate it, `error` is the English fallback */ errorKey?: string; fieldErrors?: Record<string, string> };
+export type ActionResult<T = void> = { ok: true; data: T } | { ok: false; error: string; /** stable message key (see error-catalogue.ts); apps translate it, `error` is the English fallback */ errorKey?: string; /** ICU placeholder values for `errorKey` */ errorParams?: Record<string, string | number>; fieldErrors?: Record<string, string> };
 
 export async function runAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
   try {
@@ -12,7 +12,8 @@ export async function runAction<T>(fn: () => Promise<T>): Promise<ActionResult<T
   } catch (err) {
     if (err instanceof DomainError) {
       const errorKey = errorKeyFor(err);
-      return errorKey ? { ok: false, error: err.message, errorKey } : { ok: false, error: err.message };
+      if (!errorKey) return { ok: false, error: err.message };
+      return err.params ? { ok: false, error: err.message, errorKey, errorParams: err.params } : { ok: false, error: err.message, errorKey };
     }
     if (err instanceof ZodError) {
       const fieldErrors: Record<string, string> = {};
@@ -27,7 +28,7 @@ export async function runAction<T>(fn: () => Promise<T>): Promise<ActionResult<T
 export function errorResponse(err: unknown) {
   if (err instanceof DomainError) {
     const key = errorKeyFor(err);
-    return NextResponse.json({ error: err.message, code: err.code, ...(key ? { key } : {}) }, { status: HTTP_STATUS[err.code] });
+    return NextResponse.json({ error: err.message, code: err.code, ...(key ? { key } : {}), ...(key && err.params ? { params: err.params } : {}) }, { status: HTTP_STATUS[err.code] });
   }
   if (err instanceof ZodError) return NextResponse.json({ error: "validation", issues: err.issues }, { status: 422 });
   console.error(err);

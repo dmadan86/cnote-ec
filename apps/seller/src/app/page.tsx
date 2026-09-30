@@ -34,6 +34,7 @@ export default async function LandingPage() {
         <Container className="flex h-16 items-center justify-between">
           <Logo />
           <nav aria-label={t("accountNav")} className="flex items-center gap-2">
+            <LanguageSwitcher />
             {signedIn ? null : (
               <Link href="/signin" className={buttonClasses("ghost", "md", "min-h-11")}>
                 {t("signIn")}

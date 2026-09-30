@@ -128,7 +128,7 @@ export async function listSellerOrders(sellerBusinessId: string, opts: { status?
 
 async function ownOrder(sellerBusinessId: string, id: string) {
   const o = UUID.test(id) ? await prisma.ondcOrder.findUnique({ where: { id } }) : null;
-  if (!o || o.sellerBusinessId !== sellerBusinessId) throw new DomainError("not_found", "Order not found.");
+  if (!o || o.sellerBusinessId !== sellerBusinessId) throw new DomainError("not_found", "Order not found.", undefined, "ondc.orderNotFound");
   return o;
 }
 

@@ -63,18 +63,18 @@ export async function listCandidatesForBuyer(actor: Actor, enquiryId: string): P
 /** Buyer selects sellers (in order of preference, up to the lead cap minus active matches). */
 export async function pickSellers(actor: Actor, enquiryId: string, sellerIds: string[]): Promise<EnquiryView> {
   const enq = await ownedEnquiry(actor, enquiryId);
-  if (!enq.buyerPicks) throw new DomainError("conflict", "This requirement is matched automatically.");
+  if (!enq.buyerPicks) throw new DomainError("conflict", "This requirement is matched automatically.", undefined, "enquiries.requirementMatchedAutomatically");
   if (!["scoring", "matched", "unmatched"].includes(enq.status)) throw new DomainError("conflict", "This requirement is not open for picking.");
   const chosen = [...new Set(sellerIds)];
   if (chosen.length === 0) throw new DomainError("validation", "Pick at least one seller.");
   const cap = await leadCapFor(enq);
   const existing = await prisma.match.findMany({ where: { enquiryId } });
   const active = existing.filter((m) => m.status === "offered" || m.status === "accepted");
-  if (active.length + chosen.length > cap) throw new DomainError("validation", `You can pick up to ${cap - active.length} more seller(s).`);
+  if (active.length + chosen.length > cap) throw new DomainError("validation", `You can pick up to ${cap - active.length} more seller(s).`, undefined, "enquiries.pickUpMoreSellerS", { count: cap - active.length });
   const ranked = await rankedCandidates(enq, { exclude: existing.map((m) => m.sellerBusinessId) });
   const byId = new Map(ranked.map((r) => [r.sellerBusinessId, r]));
   const picks = chosen.map((id) => byId.get(id));
-  if (picks.some((p) => !p)) throw new DomainError("validation", "One of the selected sellers is no longer available.");
+  if (picks.some((p) => !p)) throw new DomainError("validation", "One of the selected sellers is no longer available.", undefined, "enquiries.oneSelectedSellersNoLonger");
   const usedRanks = new Set(active.map((m) => m.rank));
   const freeRanks: number[] = [];
   for (let r = 1; freeRanks.length < picks.length && r <= cap; r++) if (!usedRanks.has(r)) freeRanks.push(r);

@@ -58,7 +58,7 @@ export function rolesFor(s: Pick<OrderState, "settlement">, to: OrderMove): Orde
 /** Applies an explicit move, enforcing role and source status. Throws DomainError otherwise. */
 export function applyMove(s: OrderState, role: OrderRole, to: OrderMove): OrderState {
   const rule = ORDER_MOVES[to] as { from: OrderStatus[]; roles: OrderRole[] } | undefined;
-  if (!rule) throw new DomainError("validation", "Unknown order status.");
+  if (!rule) throw new DomainError("validation", "Unknown order status.", undefined, "enquiries.unknownOrderStatus");
   if (!rolesFor(s, to).includes(role)) {
     throw new DomainError("forbidden", `Only the ${rule.roles.join(" or ")} can mark an order ${to}.`);
   }

@@ -74,10 +74,10 @@ export type FileGrievanceInput = z.input<typeof fileSchema>;
 /** File a grievance (signed-in or anonymous with a contact email). Rate limited per raiser; dueAt from policy. */
 export async function fileGrievance(input: FileGrievanceInput, now = new Date()): Promise<GrievanceView> {
   const i = parse(fileSchema, input);
-  if (!i.personId && !i.contactEmail) throw new DomainError("validation", "Provide a contact email so we can reply", { field: "contactEmail" });
+  if (!i.personId && !i.contactEmail) throw new DomainError("validation", "Provide a contact email so we can reply", { field: "contactEmail" }, "compliance.provideContactEmailReply");
   const policy = grievancePolicy();
   const key = `grievance:${i.personId ?? i.contactEmail!.toLowerCase()}`;
-  if (!(await rateLimit(key, policy.perHourLimit, 3600))) throw new DomainError("rate_limited", "Too many grievances submitted. Please try again later.");
+  if (!(await rateLimit(key, policy.perHourLimit, 3600))) throw new DomainError("rate_limited", "Too many grievances submitted. Please try again later.", undefined, "compliance.tooManyGrievancesSubmittedTry");
   const dueAt = new Date(now.getTime() + policy.resolveDays * DAY);
   const row = await prisma.$transaction(async (tx) => {
     const t = await tx.grievanceTicket.create({
@@ -155,7 +155,7 @@ export async function respondToGrievance(id: string, input: z.input<typeof respo
   const closing = i.status !== "in_progress";
   if (closing && (i.resolution?.length ?? 0) < 5) throw new DomainError("validation", "Write a resolution the person will see (at least 5 characters)", { field: "resolution" });
   const t = isUuid(id) ? await prisma.grievanceTicket.findUnique({ where: { id } }) : null;
-  if (!t) throw new DomainError("not_found", "Grievance not found");
+  if (!t) throw new DomainError("not_found", "Grievance not found", undefined, "compliance.grievanceNotFound");
   if (t.status === "resolved" || t.status === "rejected") throw new DomainError("conflict", `Grievance is already ${t.status}`);
   const row = await prisma.$transaction(async (tx) => {
     const res = await tx.grievanceTicket.updateMany({

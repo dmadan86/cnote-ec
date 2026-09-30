@@ -84,7 +84,7 @@ export async function updateCompanyProfile(actor: CompanyActor, input: CompanyPr
   if (!parsedResult.success) throw new DomainError("validation", parsedResult.error.issues[0]?.message ?? "Invalid company details.");
   const d = parsedResult.data;
   const existing = await prisma.business.findUnique({ where: { id: actor.businessId }, select: { gstin: true, pan: true } });
-  if (!existing) throw new DomainError("not_found", "Business not found.");
+  if (!existing) throw new DomainError("not_found", "Business not found.", undefined, "account.businessNotFound");
   // PAN ↔ GSTIN linkage also against an already-verified GSTIN on the business
   const gstin = d.gstin ?? existing.gstin ?? undefined;
   if (d.pan && gstin && isValidGstin(gstin) && panFromGstin(gstin) !== d.pan)

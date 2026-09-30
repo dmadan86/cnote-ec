@@ -90,7 +90,7 @@ async function issueRecoveryCodes(personId: string): Promise<string[]> {
 export async function confirmMfaEnrollment(personId: string, code: string): Promise<{ recoveryCodes: string[] }> {
   await enforceLimit(`mfa:verify:${personId}`, 8, 300, "Too many attempts. Please wait a few minutes.");
   const loaded = await loadSecret(personId, false);
-  if (!loaded) throw new DomainError("validation", "Start enrollment first.");
+  if (!loaded) throw new DomainError("validation", "Start enrollment first.", undefined, "account.startEnrollmentFirst");
   const step = verifyTotp(loaded.secret, code.replace(/\s/g, ""));
   if (step === null) {
     logSecurityEvent("mfa.failed", { personId, phase: "enroll" });

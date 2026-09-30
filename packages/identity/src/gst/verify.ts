@@ -133,7 +133,7 @@ const detailsOf = (o: VerificationOutcome, extra: object = {}): Prisma.InputJson
  */
 export async function verifyCompanyGst(businessId: string, opts: { gstin?: string } = {}): Promise<VerificationOutcome> {
   const b = await prisma.business.findUnique({ where: { id: businessId } });
-  if (!b) throw new DomainError("not_found", "Business not found.");
+  if (!b) throw new DomainError("not_found", "Business not found.", undefined, "account.businessNotFound");
   const gstin = normaliseGstin(opts.gstin ?? b.gstin ?? "");
   const provider = getGstnProvider();
   const base = { gstin, provider: provider.name, record: null as GstnRecord | null };
@@ -240,7 +240,7 @@ export async function listPendingGstReviews(limit = 100): Promise<GstReviewItem[
 /** Staff decision on a pending GST review. Callers wrap this in admin.audited("businesses.verify"). */
 export async function resolveGstReview(id: string, decision: "approved" | "rejected", staffId: string, note?: string): Promise<{ status: "passed" | "failed"; tier?: number }> {
   const rec = await prisma.verificationRecord.findUnique({ where: { id } });
-  if (!rec || rec.kind !== "gstin") throw new DomainError("not_found", "Review not found.");
+  if (!rec || rec.kind !== "gstin") throw new DomainError("not_found", "Review not found.", undefined, "account.reviewNotFound");
   if (rec.status !== "pending") throw new DomainError("conflict", "This review was already resolved.");
   const d = (rec.details ?? {}) as { gstin?: string; snapshot?: GstnRecord | null };
   const details = JSON.parse(JSON.stringify({ ...d, manualReview: { decision, staffId, note: note ?? null, at: new Date().toISOString() } })) as Prisma.InputJsonValue;

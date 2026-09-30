@@ -64,12 +64,12 @@ export function mergeSellerData(doc: StorefrontDocument, seller: { name: string;
  */
 export async function applyTemplate(sellerBusinessId: string, personId: string, key: string): Promise<DraftState> {
   const tpl = await getTemplate(key);
-  if (!tpl || !tpl.active) throw new DomainError("not_found", "That template is not available.");
+  if (!tpl || !tpl.active) throw new DomainError("not_found", "That template is not available.", undefined, "storefront.templateNotAvailable");
   const p = (await getTrustProfiles([sellerBusinessId])).get(sellerBusinessId);
-  if (!p) throw new DomainError("not_found", "Business not found.");
+  if (!p) throw new DomainError("not_found", "Business not found.", undefined, "account.businessNotFound");
   const merged = mergeSellerData(tpl.document, { name: p.name, city: p.city });
   const v = validateDocumentClamped(merged);
-  if (!v.ok) throw new DomainError("validation", "This template could not be applied to your details. Please contact support.", { issues: v.issues });
+  if (!v.ok) throw new DomainError("validation", "This template could not be applied to your details. Please contact support.", { issues: v.issues }, "storefront.templateCouldNotAppliedDetails");
   return replaceDraft(sellerBusinessId, personId, v.document, { templateKey: tpl.key });
 }
 
@@ -103,7 +103,7 @@ const list = (xs?: string[]) => [...new Set((xs ?? []).map((x) => x.trim().toLow
 
 export async function upsertTemplate(input: TemplateInput, staffId: string): Promise<TemplateView> {
   const v = validateTemplateInput(input);
-  if (!v.ok) throw new DomainError("validation", "The template is not valid.", { issues: v.issues });
+  if (!v.ok) throw new DomainError("validation", "The template is not valid.", { issues: v.issues }, "storefront.templateNotValid");
   const data = {
     name: input.name.trim(), description: input.description.trim(), verticals: list(input.verticals), tags: list(input.tags),
     document: v.document as unknown as Prisma.InputJsonValue, previewUrl: input.previewUrl ?? null,
@@ -111,13 +111,13 @@ export async function upsertTemplate(input: TemplateInput, staffId: string): Pro
   };
   const row = await prisma.storefrontTemplate.upsert({ where: { key: input.key }, create: { key: input.key, createdBy: staffId, ...data }, update: data });
   const view = toView(row);
-  if (!view) throw new DomainError("validation", "The template is not valid.");
+  if (!view) throw new DomainError("validation", "The template is not valid.", undefined, "storefront.templateNotValid");
   return view;
 }
 
 export async function setTemplateActive(key: string, active: boolean): Promise<void> {
   const r = await prisma.storefrontTemplate.updateMany({ where: { key }, data: { active } });
-  if (!r.count) throw new DomainError("not_found", "Template not found.");
+  if (!r.count) throw new DomainError("not_found", "Template not found.", undefined, "storefront.templateNotFound");
 }
 
 /** Persist a new gallery order: `keys` first (in order), everything else after. */

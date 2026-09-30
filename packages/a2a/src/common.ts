@@ -15,7 +15,7 @@ export function isA2aEnabled(): boolean {
   return v === "true" || v === "1" || v === "yes";
 }
 export function requireEnabled(): void {
-  if (!isA2aEnabled()) throw new DomainError("conflict", "Agent-to-agent commerce is not enabled yet.");
+  if (!isA2aEnabled()) throw new DomainError("conflict", "Agent-to-agent commerce is not enabled yet.", undefined, "agents.agentAgentCommerceNotEnabled");
 }
 
 const intEnv = (name: string, fallback: number): number => {

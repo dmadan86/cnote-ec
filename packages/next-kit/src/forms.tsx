@@ -72,7 +72,7 @@ export interface AuthFormProps {
   /** Hide sign-up link (admin app). */
   allowSignUp?: boolean;
   /** Looks up the translation of a stable error key (see error-catalogue.ts); unknown keys fall back to the English message. */
-  translateError?: (key: string) => string | undefined;
+  translateError?: (key: string, params?: Record<string, string | number>) => string | undefined;
 }
 
 type State = ActionResult | null;

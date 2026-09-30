@@ -281,7 +281,7 @@ export async function beginVideoKyc(actor: KycActor, sessionId: string, opts: { 
   await assertSignatory(actor);
   const s = await expireIfStale(await loadOwned(actor, sessionId), now);
   if (s.status !== "initiated") throw new DomainError("conflict", s.status === "in_progress" ? "Video KYC has already started." : "This KYC session cannot start video KYC.");
-  if (s.documents.some((d) => d.verdict === "fail")) throw new DomainError("validation", "Replace the documents that failed checks before starting video KYC.");
+  if (s.documents.some((d) => d.verdict === "fail")) throw new DomainError("validation", "Replace the documents that failed checks before starting video KYC.", undefined, "account.replaceDocumentsFailedChecksBefore");
   const v = view(s);
   if (v.missingRequired.length) throw new DomainError("validation", `Upload these documents first: ${v.missingRequired.join(", ")}.`);
   const provider = getKycProvider();
@@ -289,7 +289,7 @@ export async function beginVideoKyc(actor: KycActor, sessionId: string, opts: { 
   await prisma.$transaction(async (tx) => {
     const claimed = await tx.kycSession.updateMany({ where: { id: sessionId, status: "initiated" }, data: { status: "in_progress", provider: provider.name, providerRef: link.providerRef } });
     /* v8 ignore next */
-    if (claimed.count === 0) throw new DomainError("conflict", "Video KYC has already started.");
+    if (claimed.count === 0) throw new DomainError("conflict", "Video KYC has already started.", undefined, "account.videoKycAlreadyStarted");
     await emit(tx, "KycSubmitted", { type: "KycSession", id: sessionId }, { sessionId, businessId: s.businessId, provider: provider.name });
   });
   if (provider.instant) await completeKyc(sessionId, now);
@@ -332,7 +332,7 @@ export async function completeKyc(sessionId: string, now = new Date()): Promise<
   const s = await prisma.kycSession.findUnique({ where: { id: sessionId }, include: SESSION_INCLUDE });
   if (!s) throw new DomainError("not_found", "KYC session not found.");
   if (s.status === "approved" || s.status === "rejected" || s.status === "review") return { status: s.status, reasons: [] };
-  if (s.status !== "in_progress" || !s.providerRef) throw new DomainError("conflict", "Video KYC has not started for this session.");
+  if (s.status !== "in_progress" || !s.providerRef) throw new DomainError("conflict", "Video KYC has not started for this session.", undefined, "account.videoKycNotStartedSession");
   if (s.expiresAt < now) {
     await prisma.kycSession.updateMany({ where: { id: s.id, status: "in_progress" }, data: { status: "expired" } });
     throw new DomainError("conflict", "This KYC session has expired. Start again.");
@@ -412,7 +412,7 @@ export async function readKycDocumentImage(documentId: string): Promise<{ bytes:
 
 /** Staff decision on a session in `review`. Callers wrap this in admin.audited("kyc.review"). */
 export async function decideKyc(sessionId: string, decision: "approved" | "rejected", note: string, staffId: string, now = new Date()): Promise<{ status: "approved" | "rejected" }> {
-  if (!note.trim()) throw new DomainError("validation", "A note is required.");
+  if (!note.trim()) throw new DomainError("validation", "A note is required.", undefined, "account.noteRequired");
   const s = await prisma.kycSession.findUnique({ where: { id: sessionId }, include: SESSION_INCLUDE });
   if (!s) throw new DomainError("not_found", "KYC session not found.");
   if (s.status !== "review") throw new DomainError("conflict", "This session is not awaiting review.");
@@ -420,7 +420,7 @@ export async function decideKyc(sessionId: string, decision: "approved" | "rejec
   await prisma.$transaction(async (tx) => {
     const claimed = await tx.kycSession.updateMany({ where: { id: s.id, status: "review" }, data: { status: decision, reviewNote: note.trim(), reviewedBy: staffId, completedAt: now } });
     /* v8 ignore next */
-    if (claimed.count === 0) throw new DomainError("conflict", "This session was already decided.");
+    if (claimed.count === 0) throw new DomainError("conflict", "This session was already decided.", undefined, "account.sessionAlreadyDecided");
     if (decision === "approved") await applyApproval(tx, s, staffId, details, s.provider);
     else {
       await tx.verificationRecord.create({ data: { businessId: s.businessId, tier: 2, kind: "document", status: "failed", provider: "kyc", details } });

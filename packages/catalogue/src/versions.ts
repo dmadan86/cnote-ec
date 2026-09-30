@@ -187,14 +187,14 @@ export function toVersionView(v: VersionRow, liveVersionId: string | null): Vers
 
 async function loadOwned(sellerBusinessId: string, listingId: string): Promise<ListingRow> {
   const row = isUuid(listingId) ? await prisma.listing.findUnique({ where: { id: listingId }, include: listingInclude }) : null;
-  if (!row) throw new DomainError("not_found", "Listing not found");
+  if (!row) throw new DomainError("not_found", "Listing not found", undefined, "ads.listingNotFound");
   if (row.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your listing");
   return row;
 }
 
 async function loadOwnedVersion(sellerBusinessId: string, versionId: string) {
   const v = isUuid(versionId) ? await prisma.listingVersion.findUnique({ where: { id: versionId }, include: { listing: { select: { sellerBusinessId: true, liveVersionId: true } } } }) : null;
-  if (!v) throw new DomainError("not_found", "Version not found");
+  if (!v) throw new DomainError("not_found", "Version not found", undefined, "catalogue.versionNotFound");
   if (v.listing.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your listing");
   return v;
 }
@@ -213,8 +213,8 @@ export interface SubmitOptions {
 function parsePublishAt(v: SubmitOptions["publishAt"]): Date | null {
   if (v === null || v === undefined || v === "") return null;
   const d = v instanceof Date ? v : new Date(v);
-  if (Number.isNaN(d.getTime())) throw new DomainError("validation", "Invalid schedule time");
-  if (d.getTime() - Date.now() > MAX_SCHEDULE_MS) throw new DomainError("validation", "Schedule at most one year ahead");
+  if (Number.isNaN(d.getTime())) throw new DomainError("validation", "Invalid schedule time", undefined, "catalogue.invalidScheduleTime");
+  if (d.getTime() - Date.now() > MAX_SCHEDULE_MS) throw new DomainError("validation", "Schedule at most one year ahead", undefined, "catalogue.scheduleMostOneYearAhead");
   return d.getTime() <= Date.now() ? null : d;
 }
 
@@ -247,7 +247,7 @@ export async function submitListingVersion(sellerBusinessId: string, listingId: 
   const cur = await loadOwned(sellerBusinessId, listingId);
   if (cur.status === "archived") throw new DomainError("conflict", "Archived listings cannot be submitted");
   const category = await getCategoryById(cur.categoryId);
-  if (!category) throw new DomainError("validation", "Unknown category");
+  if (!category) throw new DomainError("validation", "Unknown category", undefined, "ads.unknownCategory");
   const attributes = coerceAttributes(category.attributeSchema, attrsOf(cur.attributes));
   const problems = [...validatePublishable(cur), ...validateAttributes(category.attributeSchema, attributes)];
   if (problems.length) throw new DomainError("validation", problems.join("; "), problems);
@@ -324,7 +324,7 @@ export async function withdrawVersion(sellerBusinessId: string, versionId: strin
   const v = await loadOwnedVersion(sellerBusinessId, versionId);
   if (!OPEN.includes(v.status)) throw new DomainError("conflict", `A ${v.status.replace("_", " ")} version cannot be withdrawn`);
   const res = await prisma.listingVersion.updateMany({ where: { id: v.id, status: { in: OPEN } }, data: { status: "withdrawn", reviewNote: "Withdrawn by seller" } });
-  if (!res.count) throw new DomainError("conflict", "Version is no longer pending");
+  if (!res.count) throw new DomainError("conflict", "Version is no longer pending", undefined, "catalogue.versionNoLongerPending");
   if (!v.listing.liveVersionId) {
     await prisma.listing.update({ where: { id: v.listingId }, data: { moderationStatus: "pending", moderationReason: null } });
   }
@@ -375,7 +375,7 @@ export interface PreviewView extends ListingView {
 async function buildPreview(v: VersionRow): Promise<PreviewView> {
   const snap = coerceSnapshot(v.snapshot);
   const listing = await prisma.listing.findUnique({ where: { id: v.listingId } });
-  if (!listing) throw new DomainError("not_found", "Listing not found");
+  if (!listing) throw new DomainError("not_found", "Listing not found", undefined, "ads.listingNotFound");
   const category = await getCategoryById(snap.categoryId);
   const seller = (await getTrustProfiles([listing.sellerBusinessId])).get(listing.sellerBusinessId) ?? null;
   return {
@@ -425,7 +425,7 @@ const sign = (payload: string) => createHmac("sha256", previewSecret()).update(`
 
 /** Short-lived (1h) HMAC token that lets anyone holding the link view one version's preview. */
 export function createPreviewToken(versionId: string, now = Date.now()): string {
-  if (!isUuid(versionId)) throw new DomainError("validation", "Invalid version id");
+  if (!isUuid(versionId)) throw new DomainError("validation", "Invalid version id", undefined, "catalogue.invalidVersionId");
   const exp = Math.floor(now / 1000) + PREVIEW_TOKEN_TTL_SECONDS;
   const payload = `${versionId}.${exp}`;
   return `${payload}.${sign(payload)}`;
@@ -540,9 +540,9 @@ export async function getVersionForReview(versionId: string): Promise<VersionFor
  */
 export async function reviewListingVersion(versionId: string, decision: "approved" | "rejected", note: string | null | undefined, staffId: string): Promise<VersionView> {
   const clean = note?.trim() || null;
-  if (decision === "rejected" && !clean) throw new DomainError("validation", "A note is required when rejecting a version");
+  if (decision === "rejected" && !clean) throw new DomainError("validation", "A note is required when rejecting a version", undefined, "catalogue.noteRequiredWhenRejectingVersion");
   const v = isUuid(versionId) ? await prisma.listingVersion.findUnique({ where: { id: versionId }, include: { listing: true } }) : null;
-  if (!v) throw new DomainError("not_found", "Version not found");
+  if (!v) throw new DomainError("not_found", "Version not found", undefined, "catalogue.versionNotFound");
   if (v.status !== "in_review" && v.status !== "submitted") throw new DomainError("conflict", `Version is already ${v.status.replace("_", " ")}`);
   const base = { listingId: v.listingId, sellerBusinessId: v.listing.sellerBusinessId };
   const updated = await prisma.$transaction(async (tx) => {
@@ -550,7 +550,7 @@ export async function reviewListingVersion(versionId: string, decision: "approve
       where: { id: v.id, status: { in: ["in_review", "submitted"] } },
       data: { status: decision === "approved" ? "approved" : "rejected", reviewNote: clean, reviewedBy: staffId, reviewedAt: new Date() },
     });
-    if (!res.count) throw new DomainError("conflict", "Version was already decided");
+    if (!res.count) throw new DomainError("conflict", "Version was already decided", undefined, "catalogue.versionAlreadyDecided");
     if (!v.listing.liveVersionId) {
       await tx.listing.update({
         where: { id: v.listingId },

@@ -38,7 +38,7 @@ async function feesOf(loan: CreditLoan): Promise<number> {
 
 async function ownedLoan(actor: Actor, loanId: string): Promise<CreditLoan> {
   const loan = UUID.test(loanId) ? await prisma.creditLoan.findUnique({ where: { id: loanId } }) : null;
-  if (!loan || loan.businessId !== actor.businessId) throw new DomainError("not_found", "Loan not found.");
+  if (!loan || loan.businessId !== actor.businessId) throw new DomainError("not_found", "Loan not found.", undefined, "credit.loanNotFound");
   return loan;
 }
 
@@ -87,21 +87,21 @@ export interface CancelInput {
 export async function cancelLoanInCoolingOff(actor: Actor, input: CancelInput, now = new Date()): Promise<{ loan: LoanView; payablePaise: number }> {
   const loan = await ownedLoan(actor, input.loanId);
   if (loan.status === "cancelled" && loan.cancelReason === "cooling_off") return { loan: toLoanView(loan), payablePaise: num(loan.exitAmountPaise) };
-  if (input.confirmExit !== true) throw new DomainError("validation", "Please confirm that you want to exit this loan.");
+  if (input.confirmExit !== true) throw new DomainError("validation", "Please confirm that you want to exit this loan.", undefined, "credit.confirmWantExitLoan");
   const q = await quoteFor(loan, now);
   if (!q.eligible) {
     throw new DomainError("conflict", q.blocked === "window_over" ? "The cooling-off period for this loan has ended." : q.blocked === "escrow_settling" ? "This loan is being repaid from the escrow release and cannot be cancelled now." : "This loan is already closed.");
   }
-  if (input.expectedPayablePaise !== q.payablePaise) throw new DomainError("validation", "The exit amount has changed. Please review it and confirm again.", { payablePaise: q.payablePaise });
+  if (input.expectedPayablePaise !== q.payablePaise) throw new DomainError("validation", "The exit amount has changed. Please review it and confirm again.", { payablePaise: q.payablePaise }, "credit.exitAmountChangedReviewConfirm");
   const partner = getCreditPartner(loan.partner);
   let result;
   try {
     result = await partner.cancel(loan.partnerLoanRef, "cooling_off");
   } catch (err) {
     console.error("[credit] partner cancel failed", err);
-    throw new DomainError("conflict", "Our lending partner could not cancel the loan right now. Nothing has changed. Please try again.");
+    throw new DomainError("conflict", "Our lending partner could not cancel the loan right now. Nothing has changed. Please try again.", undefined, "credit.lendingPartnerCouldNotCancel");
   }
-  if (result.status !== "cancelled") throw new DomainError("conflict", "Our lending partner could not cancel the loan. Nothing has changed.");
+  if (result.status !== "cancelled") throw new DomainError("conflict", "Our lending partner could not cancel the loan. Nothing has changed.", undefined, "credit.lendingPartnerCouldNotCancelA");
   const payable = result.exitAmountPaise ?? q.payablePaise;
   await prisma.$transaction((tx) => recordCancellation(tx, loan.id, { reason: "cooling_off", at: now, exitAmountPaise: payable }));
   // escrow's claim goes to zero (the worker retries via CreditCancelled if escrow is unreachable here)

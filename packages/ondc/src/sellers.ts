@@ -30,7 +30,7 @@ export async function getSellerState(businessId: string): Promise<OndcSellerStat
 
 /** Connects (or re-enables) the seller. Requires the caller to pass the terms version being accepted. */
 export async function connectSeller(actor: SellerActor, input: { acceptTermsVersion: string }): Promise<OndcSellerState> {
-  if (input.acceptTermsVersion !== TERMS_VERSION) throw new DomainError("validation", "Please review and accept the current ONDC seller terms.");
+  if (input.acceptTermsVersion !== TERMS_VERSION) throw new DomainError("validation", "Please review and accept the current ONDC seller terms.", undefined, "ondc.reviewAcceptCurrentOndcSeller");
   await prisma.ondcSeller.upsert({
     where: { businessId: actor.businessId },
     create: { businessId: actor.businessId, termsVersion: TERMS_VERSION, acceptedAt: new Date(), acceptedByPersonId: actor.personId },
@@ -47,9 +47,9 @@ export async function disconnectSeller(actor: SellerActor): Promise<OndcSellerSt
 
 /** Opts one of the seller's own listings in/out. The listing must belong to the seller. */
 export async function setListingOptIn(actor: SellerActor, listingId: string, optedIn: boolean, ondcCategoryId?: string | null): Promise<void> {
-  if (!isUuid(listingId)) throw new DomainError("not_found", "Listing not found.");
+  if (!isUuid(listingId)) throw new DomainError("not_found", "Listing not found.", undefined, "ondc.listingNotFound");
   const mine = (await getSource().working(actor.businessId)).some((l) => l.id === listingId);
-  if (!mine) throw new DomainError("not_found", "Listing not found.");
+  if (!mine) throw new DomainError("not_found", "Listing not found.", undefined, "ondc.listingNotFound");
   if (!optedIn) {
     await prisma.ondcListingOptIn.deleteMany({ where: { listingId, sellerBusinessId: actor.businessId } });
     return;

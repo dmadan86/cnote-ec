@@ -158,7 +158,7 @@ export async function settleTx(tx: Tx, e0: EscrowAgreement, i: SettleInput): Pro
   if (!Number.isSafeInteger(i.releasePaise) || !Number.isSafeInteger(i.refundPaise) || i.releasePaise < 0 || i.refundPaise < 0) {
     throw new DomainError("validation", "Amounts must be whole paise.");
   }
-  if (i.releasePaise + i.refundPaise === 0) throw new DomainError("validation", "Nothing to settle.");
+  if (i.releasePaise + i.refundPaise === 0) throw new DomainError("validation", "Nothing to settle.", undefined, "escrow.nothingSettle");
   if (i.releasePaise + i.refundPaise > held) throw new DomainError("validation", "Amount exceeds the funds held in escrow.");
   const now = new Date();
   let feeCharged = 0;
@@ -258,7 +258,7 @@ export async function createEscrowForOrder(actor: Actor, orderId: string): Promi
   const existing = await prisma.escrowAgreement.findUnique({ where: { orderId } });
   if (existing && existing.status !== "cancelled") return viewOf(await ensureCollect(existing, order.counterparty.name), "buyer");
   if (!(ESCROWABLE_ORDER_STATUSES as readonly string[]).includes(order.status)) throw new DomainError("conflict", `An order that is ${order.status} can no longer be paid through escrow.`);
-  if (order.totalPaise === null || order.totalPaise < minAmountPaise()) throw new DomainError("validation", "This order has no recorded total, or it is below the escrow minimum.");
+  if (order.totalPaise === null || order.totalPaise < minAmountPaise()) throw new DomainError("validation", "This order has no recorded total, or it is below the escrow minimum.", undefined, "escrow.orderNoRecordedTotalBelow");
   const amount = order.totalPaise;
   const b = feeBreakdown(amount);
   const partnerName = configuredPartnerName();
@@ -317,7 +317,7 @@ export async function applyFundingTx(tx: Tx, escrowId: string, amountPaise: numb
  */
 export async function fundEscrowFromLender(escrowId: string, amountPaise: number, ref: string): Promise<FundingOutcome> {
   if (!UUID.test(escrowId)) return "ignored";
-  if (!/^[\w:.-]{1,120}$/.test(ref)) throw new DomainError("validation", "Invalid lender reference.");
+  if (!/^[\w:.-]{1,120}$/.test(ref)) throw new DomainError("validation", "Invalid lender reference.", undefined, "escrow.invalidLenderReference");
   return prisma.$transaction((tx) => applyFundingTx(tx, escrowId, amountPaise, `lender:${ref}`));
 }
 

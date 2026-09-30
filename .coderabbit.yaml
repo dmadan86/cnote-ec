@@ -25,6 +25,8 @@ reviews:
     - "!**/.next/**"
     - "!docs/api/openapi.json"
     - "!docs/design/*.openapi.json"
+    # translation catalogues (8 locales x namespaces): parity/placeholders are enforced by tests, native review is separate
+    - "!apps/*/messages/**"
   path_instructions:
     - path: "packages/**/src/**/*.ts"
       instructions: |

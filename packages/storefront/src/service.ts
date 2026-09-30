@@ -117,7 +117,7 @@ function parseStored(json: unknown): StorefrontDocument {
 
 async function storefrontOf(sellerBusinessId: string) {
   const sf = await prisma.storefront.findUnique({ where: { sellerBusinessId } });
-  if (!sf) throw new DomainError("not_found", "Create your storefront first.");
+  if (!sf) throw new DomainError("not_found", "Create your storefront first.", undefined, "storefront.createStorefrontFirst");
   return sf;
 }
 
@@ -144,7 +144,7 @@ export async function getOrCreateStorefront(sellerBusinessId: string, personId?:
   const existing = await prisma.storefront.findUnique({ where: { sellerBusinessId } });
   if (existing) return toStorefront(existing);
   const profile = (await getTrustProfiles([sellerBusinessId])).get(sellerBusinessId);
-  if (!profile) throw new DomainError("not_found", "Business not found.");
+  if (!profile) throw new DomainError("not_found", "Business not found.", undefined, "account.businessNotFound");
   const base = suggestSlug(profile.name);
   const doc = blankDocument({ name: profile.name, city: profile.city });
   for (let attempt = 0; attempt < 12; attempt++) {
@@ -162,7 +162,7 @@ export async function getOrCreateStorefront(sellerBusinessId: string, personId?:
       if (raced) return toStorefront(raced);
     }
   }
-  throw new DomainError("conflict", "Could not find a free storefront address. Please choose one manually.");
+  throw new DomainError("conflict", "Could not find a free storefront address. Please choose one manually.", undefined, "storefront.couldNotFindFreeStorefront");
 }
 
 export async function setSlug(sellerBusinessId: string, slug: string): Promise<StorefrontView> {
@@ -170,13 +170,13 @@ export async function setSlug(sellerBusinessId: string, slug: string): Promise<S
   assertValidSlug(next);
   const sf = await storefrontOf(sellerBusinessId);
   if (sf.slug === next) return toStorefront(sf);
-  if (!(await isSlugAvailable(next, sf.id))) throw new DomainError("conflict", "That address is already taken.", { field: "slug" });
+  if (!(await isSlugAvailable(next, sf.id))) throw new DomainError("conflict", "That address is already taken.", { field: "slug" }, "storefront.addressAlreadyTaken");
   try {
     const row = await prisma.storefront.update({ where: { id: sf.id }, data: { slug: next } });
     await purgeStorefront([sf.slug, next]);
     return toStorefront(row);
   } catch (err) {
-    if (isUniqueViolation(err)) throw new DomainError("conflict", "That address is already taken.", { field: "slug" });
+    if (isUniqueViolation(err)) throw new DomainError("conflict", "That address is already taken.", { field: "slug" }, "storefront.addressAlreadyTaken");
     throw err;
   }
 }
@@ -235,9 +235,9 @@ export async function getDraft(sellerBusinessId: string, personId?: string): Pro
  * builder, a template apply) a `conflict` DomainError carries the current etag so the editor can reload.
  */
 export async function saveDraft(sellerBusinessId: string, personId: string, input: unknown, expectedEtag: string | null): Promise<{ etag: string; versionId: string; savedAt: string }> {
-  if (!(await rateLimit(`storefront:save:${sellerBusinessId}`, 90, 60))) throw new DomainError("rate_limited", "Saving too fast. Please wait a moment.");
+  if (!(await rateLimit(`storefront:save:${sellerBusinessId}`, 90, 60))) throw new DomainError("rate_limited", "Saving too fast. Please wait a moment.", undefined, "storefront.savingTooFastWaitMoment");
   const v = validateDocument(input);
-  if (!v.ok) throw new DomainError("validation", "Some fields need attention before this can be saved.", { issues: v.issues });
+  if (!v.ok) throw new DomainError("validation", "Some fields need attention before this can be saved.", { issues: v.issues }, "storefront.someFieldsNeedAttentionBefore");
   const sf = await storefrontOf(sellerBusinessId);
   const draft = await ensureDraftRow(sf.id, personId);
   return prisma.$transaction(async (tx) => {
@@ -245,7 +245,7 @@ export async function saveDraft(sellerBusinessId: string, personId: string, inpu
     const cur = await tx.storefrontVersion.findUniqueOrThrow({ where: { id: draft.id } });
     const curEtag = documentEtag(cur.document);
     if (cur.status !== "draft" || (expectedEtag !== null && expectedEtag !== curEtag)) {
-      throw new DomainError("conflict", "This storefront was changed elsewhere. Reload to continue.", { etag: curEtag });
+      throw new DomainError("conflict", "This storefront was changed elsewhere. Reload to continue.", { etag: curEtag }, "storefront.storefrontChangedElsewhereReloadContinue");
     }
     await tx.storefrontVersion.update({ where: { id: cur.id }, data: { document: asJson(v.document), schemaVersion: SCHEMA_VERSION, createdBy: personId } });
     return { etag: documentEtag(v.document), versionId: cur.id, savedAt: new Date().toISOString() };
@@ -262,7 +262,7 @@ export async function listVersions(sellerBusinessId: string, limit = 30): Promis
 export async function restoreVersion(sellerBusinessId: string, personId: string, versionId: string): Promise<DraftState> {
   const sf = await storefrontOf(sellerBusinessId);
   const src = await prisma.storefrontVersion.findFirst({ where: { id: versionId, storefrontId: sf.id } });
-  if (!src) throw new DomainError("not_found", "Version not found.");
+  if (!src) throw new DomainError("not_found", "Version not found.", undefined, "storefront.versionNotFound");
   const doc = parseStored(src.document);
   const draft = await ensureDraftRow(sf.id, personId);
   await prisma.storefrontVersion.update({ where: { id: draft.id }, data: { document: asJson(doc), createdBy: personId } });
@@ -299,7 +299,7 @@ export async function previewDraft(sellerBusinessId: string): Promise<{ token: s
 export async function getDraftByPreviewToken(token: string): Promise<{ storefront: StorefrontView; document: StorefrontDocument; data: RenderData }> {
   const storefrontId = verifyPreviewToken(token);
   const sf = await prisma.storefront.findUnique({ where: { id: storefrontId } });
-  if (!sf) throw new DomainError("not_found", "Storefront not found.");
+  if (!sf) throw new DomainError("not_found", "Storefront not found.", undefined, "storefront.storefrontNotFound");
   const draft = await ensureDraftRow(sf.id);
   return { storefront: toStorefront(sf), document: parseStored(draft.document), data: await loadRenderData(sf.sellerBusinessId) };
 }
@@ -372,8 +372,8 @@ async function goLive(tx: Tx, sf: { id: string; publishedVersionId: string | nul
  */
 export async function publish(sellerBusinessId: string, personId: string): Promise<PublishOutcome> {
   const sf = await storefrontOf(sellerBusinessId);
-  if (sf.status === "suspended") throw new DomainError("forbidden", "This storefront is suspended. Contact support.", { reason: sf.suspendedReason });
-  if (!(await rateLimit(`storefront:publish:${sellerBusinessId}`, 10, 3600))) throw new DomainError("rate_limited", "Too many publish attempts. Try again later.");
+  if (sf.status === "suspended") throw new DomainError("forbidden", "This storefront is suspended. Contact support.", { reason: sf.suspendedReason }, "storefront.storefrontSuspendedContactSupport");
+  if (!(await rateLimit(`storefront:publish:${sellerBusinessId}`, 10, 3600))) throw new DomainError("rate_limited", "Too many publish attempts. Try again later.", undefined, "storefront.tooManyPublishAttemptsTry");
   const draftRow = await ensureDraftRow(sf.id, personId);
   const doc = parseStored(draftRow.document);
   await assertImagesApproved(sellerBusinessId, doc);
@@ -384,9 +384,9 @@ export async function publish(sellerBusinessId: string, personId: string): Promi
   await prisma.$transaction(async (tx) => {
     await lockStorefront(tx, sf.id);
     const fresh = await tx.storefront.findUniqueOrThrow({ where: { id: sf.id } });
-    if (fresh.status === "suspended") throw new DomainError("forbidden", "This storefront is suspended.");
+    if (fresh.status === "suspended") throw new DomainError("forbidden", "This storefront is suspended.", undefined, "storefront.storefrontSuspended");
     const v = await tx.storefrontVersion.findUniqueOrThrow({ where: { id: draftRow.id } });
-    if (v.status !== "draft") throw new DomainError("conflict", "This draft was already submitted.");
+    if (v.status !== "draft") throw new DomainError("conflict", "This draft was already submitted.", undefined, "storefront.draftAlreadySubmitted");
     if (clean) {
       await tx.storefrontVersion.update({ where: { id: v.id }, data: { aiVerdict: verdictLabel } });
       await goLive(tx, fresh, v.id);
@@ -459,7 +459,7 @@ export async function getStorefrontVersionForReview(versionId: string): Promise<
 export async function reviewStorefrontVersion(versionId: string, staffId: string, outcome: "approved" | "rejected", note?: string): Promise<VersionView> {
   if (outcome === "rejected" && !note?.trim()) throw new DomainError("validation", "Tell the seller why this was rejected.", { field: "note" });
   const row = await prisma.storefrontVersion.findUnique({ where: { id: versionId }, include: { storefront: true } });
-  if (!row) throw new DomainError("not_found", "Version not found.");
+  if (!row) throw new DomainError("not_found", "Version not found.", undefined, "storefront.versionNotFound");
   const slug = row.storefront.slug;
   const res = await prisma.$transaction(async (tx) => {
     await lockStorefront(tx, row.storefrontId);
@@ -487,7 +487,7 @@ export async function suspendStorefront(storefrontId: string, staffId: string, r
   if (!why) throw new DomainError("validation", "A reason is required.", { field: "reason" });
   const row = await prisma.$transaction(async (tx) => {
     const sf = await tx.storefront.findUnique({ where: { id: storefrontId } });
-    if (!sf) throw new DomainError("not_found", "Storefront not found.");
+    if (!sf) throw new DomainError("not_found", "Storefront not found.", undefined, "storefront.storefrontNotFound");
     const u = await tx.storefront.update({ where: { id: sf.id }, data: { status: "suspended", suspendedReason: why.slice(0, 500) } });
     await emit(tx, "StorefrontSuspended", { type: "Storefront", id: sf.id }, { storefrontId: sf.id, sellerBusinessId: sf.sellerBusinessId, reason: why.slice(0, 500) });
     void staffId;
@@ -499,7 +499,7 @@ export async function suspendStorefront(storefrontId: string, staffId: string, r
 
 export async function reinstateStorefront(storefrontId: string): Promise<StorefrontView> {
   const sf = await prisma.storefront.findUnique({ where: { id: storefrontId } });
-  if (!sf) throw new DomainError("not_found", "Storefront not found.");
+  if (!sf) throw new DomainError("not_found", "Storefront not found.", undefined, "storefront.storefrontNotFound");
   if (sf.status !== "suspended") return toStorefront(sf);
   const row = await prisma.storefront.update({ where: { id: sf.id }, data: { status: sf.publishedVersionId ? "live" : "draft", suspendedReason: null } });
   await purgeStorefront([row.slug]);

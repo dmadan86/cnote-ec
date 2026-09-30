@@ -55,10 +55,10 @@ export async function getPreferences(personId: string): Promise<PreferenceMatrix
 }
 
 export async function setPreference(personId: string, category: NotificationCategory, channel: NotificationChannel, enabled: boolean): Promise<void> {
-  if (!CATEGORIES.includes(category) || !CHANNELS.includes(channel)) throw new DomainError("validation", "Unknown notification category or channel.");
-  if (channelLock(category, channel) === "required" && !enabled) throw new DomainError("validation", "Security notifications cannot be turned off.");
+  if (!CATEGORIES.includes(category) || !CHANNELS.includes(channel)) throw new DomainError("validation", "Unknown notification category or channel.", undefined, "notifications.unknownNotificationCategoryChannel");
+  if (channelLock(category, channel) === "required" && !enabled) throw new DomainError("validation", "Security notifications cannot be turned off.", undefined, "notifications.securityNotificationsTurnedOff");
   if (channelLock(category, channel) === "consent" && enabled && !(await getConsents(personId)).marketing) {
-    throw new DomainError("validation", "Allow marketing communication in your privacy settings first.");
+    throw new DomainError("validation", "Allow marketing communication in your privacy settings first.", undefined, "notifications.allowMarketingCommunicationPrivacySettings");
   }
   const cur = (await getPreferences(personId))[category];
   const next = { ...cur, [channel]: enabled };

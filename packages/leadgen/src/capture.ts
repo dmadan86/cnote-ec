@@ -27,16 +27,16 @@ export async function markOtpSent(captureId: string, phone: string, followUpCons
     where: { id: captureId, status: { in: ["started", "otp_sent", "abandoned"] } },
     data: { status: "otp_sent", phoneHash: hashPhone(phone), ...(followUpConsent === undefined ? {} : { followUpConsent }) },
   });
-  if (r.count === 0) throw new DomainError("not_found", "This request has expired. Please start again.");
+  if (r.count === 0) throw new DomainError("not_found", "This request has expired. Please start again.", undefined, "leadgen.requestExpiredStartAgain");
 }
 
 /** Step 3: phone verified and a session issued. Checks the capture was for this phone. Idempotent. */
 export async function markVerified(captureId: string, personId: string, isNewPerson: boolean, phone?: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
     const c = await tx.leadCapture.findUnique({ where: { id: captureId } });
-    if (!c) throw new DomainError("not_found", "This request has expired. Please start again.");
-    if (phone && c.phoneHash && c.phoneHash !== hashPhone(phone)) throw new DomainError("validation", "Phone number does not match this request.");
-    if (c.personId && c.personId !== personId) throw new DomainError("forbidden", "This request belongs to another account.");
+    if (!c) throw new DomainError("not_found", "This request has expired. Please start again.", undefined, "leadgen.requestExpiredStartAgain");
+    if (phone && c.phoneHash && c.phoneHash !== hashPhone(phone)) throw new DomainError("validation", "Phone number does not match this request.", undefined, "leadgen.phoneNumberDoesNotMatch");
+    if (c.personId && c.personId !== personId) throw new DomainError("forbidden", "This request belongs to another account.", undefined, "leadgen.requestBelongsAnotherAccount");
     if (c.status === "verified" || c.status === "converted") return;
     await tx.leadCapture.update({ where: { id: captureId }, data: { status: "verified", personId } });
     await emit(tx, "LeadCaptureVerified", { type: "LeadCapture", id: captureId }, {

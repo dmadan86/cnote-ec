@@ -43,15 +43,15 @@ function parse<T extends z.ZodType>(schema: T, input: unknown): z.output<T> {
 
 async function ownedCampaign(sellerBusinessId: string, campaignId: string) {
   const c = await prisma.adCampaign.findUnique({ where: { id: campaignId } });
-  if (!c) throw new DomainError("not_found", "Campaign not found");
-  if (c.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your campaign");
+  if (!c) throw new DomainError("not_found", "Campaign not found", undefined, "ads.campaignNotFound");
+  if (c.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your campaign", undefined, "ads.notCampaign");
   return c;
 }
 
 async function ownedGroup(sellerBusinessId: string, adGroupId: string) {
   const g = await prisma.adGroup.findUnique({ where: { id: adGroupId }, include: { campaign: true } });
-  if (!g) throw new DomainError("not_found", "Ad group not found");
-  if (g.campaign.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your campaign");
+  if (!g) throw new DomainError("not_found", "Ad group not found", undefined, "ads.adGroupNotFound");
+  if (g.campaign.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your campaign", undefined, "ads.notCampaign");
   return g;
 }
 
@@ -62,9 +62,9 @@ function assertEditable(status: string) {
 
 async function checkBudget(daily: number, total: number | null | undefined, startsAt: Date, endsAt: Date | null | undefined) {
   const cfg = await getAdsConfig();
-  if (daily < cfg.minDailyBudgetPaise) throw new DomainError("validation", `Daily budget must be at least Rs ${cfg.minDailyBudgetPaise / 100}`);
-  if (total != null && total < daily) throw new DomainError("validation", "Total budget cannot be below the daily budget");
-  if (endsAt && endsAt <= startsAt) throw new DomainError("validation", "End date must be after the start date");
+  if (daily < cfg.minDailyBudgetPaise) throw new DomainError("validation", `Daily budget must be at least Rs ${cfg.minDailyBudgetPaise / 100}`, undefined, "ads.dailyBudgetMustLeastRs", { min: cfg.minDailyBudgetPaise / 100 });
+  if (total != null && total < daily) throw new DomainError("validation", "Total budget cannot be below the daily budget", undefined, "ads.totalBudgetBelowDailyBudget");
+  if (endsAt && endsAt <= startsAt) throw new DomainError("validation", "End date must be after the start date", undefined, "ads.endDateMustAfterStart");
 }
 
 export async function createCampaign(sellerBusinessId: string, input: CampaignInput, opts: { createdByStaffId?: string } = {}) {
@@ -108,7 +108,7 @@ export async function addAdGroup(sellerBusinessId: string, campaignId: string, i
   const c = await ownedCampaign(sellerBusinessId, campaignId);
   assertEditable(c.status);
   const d = parse(adGroupInput, input);
-  for (const id of d.categoryIds) if (!(await getCategoryById(id))) throw new DomainError("validation", "Unknown category");
+  for (const id of d.categoryIds) if (!(await getCategoryById(id))) throw new DomainError("validation", "Unknown category", undefined, "ads.unknownCategory");
   const g = await prisma.adGroup.create({ data: { campaignId, name: d.name, surfaces: d.surfaces, categoryIds: d.categoryIds, states: d.states, pincodePrefixes: d.pincodePrefixes } });
   return { id: g.id };
 }
@@ -118,7 +118,7 @@ export async function updateAdGroup(sellerBusinessId: string, adGroupId: string,
   const g = await ownedGroup(sellerBusinessId, adGroupId);
   assertEditable(g.campaign.status);
   const d = parse(adGroupInput.partial(), patch);
-  if (d.categoryIds) for (const id of d.categoryIds) if (!(await getCategoryById(id))) throw new DomainError("validation", "Unknown category");
+  if (d.categoryIds) for (const id of d.categoryIds) if (!(await getCategoryById(id))) throw new DomainError("validation", "Unknown category", undefined, "ads.unknownCategory");
   const targeting = d.categoryIds !== undefined || d.states !== undefined || d.pincodePrefixes !== undefined;
   await prisma.adGroup.update({ where: { id: adGroupId }, data: { ...d, ...(targeting && g.status === "approved" ? { status: "pending" } : {}) } });
   await invalidateSnapshot();
@@ -128,8 +128,8 @@ export async function addListingToGroup(sellerBusinessId: string, adGroupId: str
   const g = await ownedGroup(sellerBusinessId, adGroupId);
   assertEditable(g.campaign.status);
   const listing = await getListing(listingId);
-  if (!listing) throw new DomainError("not_found", "Listing not found");
-  if (listing.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "You can only advertise your own listings");
+  if (!listing) throw new DomainError("not_found", "Listing not found", undefined, "ads.listingNotFound");
+  if (listing.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "You can only advertise your own listings", undefined, "ads.onlyAdvertiseOwnListings");
   const row = await prisma.adGroupListing.upsert({ where: { adGroupId_listingId: { adGroupId, listingId } }, create: { adGroupId, listingId }, update: {} });
   return { id: row.id };
 }
@@ -145,7 +145,7 @@ export async function addKeyword(sellerBusinessId: string, adGroupId: string, in
   assertEditable(g.campaign.status);
   const d = parse(keywordInput, input);
   const normalised = normaliseKeyword(d.text);
-  if (normalised.length < 2) throw new DomainError("validation", "Keyword is too short");
+  if (normalised.length < 2) throw new DomainError("validation", "Keyword is too short", undefined, "ads.keywordTooShort");
   const row = await prisma.adKeyword.upsert({
     where: { adGroupId_normalised_matchType_negative: { adGroupId, normalised, matchType: d.matchType, negative: d.negative } },
     create: { adGroupId, text: d.text, normalised, matchType: d.matchType, negative: d.negative },
@@ -156,7 +156,7 @@ export async function addKeyword(sellerBusinessId: string, adGroupId: string, in
 
 export async function removeKeyword(sellerBusinessId: string, keywordId: string) {
   const k = await prisma.adKeyword.findUnique({ where: { id: keywordId } });
-  if (!k) throw new DomainError("not_found", "Keyword not found");
+  if (!k) throw new DomainError("not_found", "Keyword not found", undefined, "ads.keywordNotFound");
   await ownedGroup(sellerBusinessId, k.adGroupId);
   await prisma.adKeyword.delete({ where: { id: keywordId } });
   await invalidateSnapshot();
@@ -165,10 +165,10 @@ export async function removeKeyword(sellerBusinessId: string, keywordId: string)
 /** draft/rejected -> pending_review. Needs at least one ad group with a listing and (for search) a keyword or category. */
 export async function submitCampaign(sellerBusinessId: string, campaignId: string) {
   const c = await ownedCampaign(sellerBusinessId, campaignId);
-  if (c.status !== "draft" && c.status !== "rejected") throw new DomainError("conflict", "Only a draft or rejected campaign can be submitted");
+  if (c.status !== "draft" && c.status !== "rejected") throw new DomainError("conflict", "Only a draft or rejected campaign can be submitted", undefined, "ads.onlyDraftRejectedCampaignSubmitted");
   const groups = await prisma.adGroup.findMany({ where: { campaignId }, include: { listings: true, keywords: true } });
-  if (!groups.length || !groups.some((g) => g.listings.length)) throw new DomainError("validation", "Add an ad group with at least one product before submitting");
-  if (groups.some((g) => g.listings.length && !g.keywords.some((k) => !k.negative) && !g.categoryIds.length)) throw new DomainError("validation", "Each ad group needs at least one keyword or category");
+  if (!groups.length || !groups.some((g) => g.listings.length)) throw new DomainError("validation", "Add an ad group with at least one product before submitting", undefined, "ads.addAdGroupLeastOne");
+  if (groups.some((g) => g.listings.length && !g.keywords.some((k) => !k.negative) && !g.categoryIds.length)) throw new DomainError("validation", "Each ad group needs at least one keyword or category", undefined, "ads.eachAdGroupNeedsLeast");
   await prisma.$transaction(async (tx) => {
     await tx.adCampaign.update({ where: { id: campaignId }, data: { status: "pending_review", submittedAt: new Date(), rejectionReason: null } });
     await tx.adGroup.updateMany({ where: { campaignId, status: "rejected" }, data: { status: "pending" } });
@@ -182,7 +182,7 @@ async function transition(sellerBusinessId: string, campaignId: string, from: st
   await prisma.$transaction(async (tx) => {
     // compare-and-set: the sweep (or staff) may have moved the campaign since we read it
     const r = await tx.adCampaign.updateMany({ where: { id: campaignId, status: c.status }, data: { status: to, haltReason: null } });
-    if (r.count === 0) throw new DomainError("conflict", "The campaign changed just now. Refresh and try again.");
+    if (r.count === 0) throw new DomainError("conflict", "The campaign changed just now. Refresh and try again.", undefined, "ads.campaignChangedJustRefreshTry");
     await emit(tx, "AdCampaignStatusChanged", { type: "ad_campaign", id: campaignId }, { campaignId, sellerBusinessId, from: c.status, to, cause: "seller" });
   });
   await invalidateSnapshot();
