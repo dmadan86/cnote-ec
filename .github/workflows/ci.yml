@@ -107,6 +107,10 @@ jobs:
     if: github.event_name == 'pull_request' && needs.changes.outputs.docker == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # postinstall runs prisma generate for both schemas, which resolves these at config-load time
+      DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote
+      LIVE_DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote_live
     strategy:
       fail-fast: false
       matrix:
@@ -143,10 +147,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Migrate (Next builds read the schema)
-        run: pnpm db:migrate
-        env:
-          DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote
+      - name: Migrate (Next builds read both schemas)
+        run: |
+          PGPASSWORD=cnote psql -h localhost -U cnote -d cnote -c 'CREATE DATABASE cnote_live'
+          pnpm db:migrate
+          pnpm --filter @cnote/live-db migrate:deploy
       - uses: docker/setup-buildx-action@v4
       - name: Build ${{ matrix.name }} (no push)
         uses: docker/build-push-action@v7
@@ -158,6 +163,7 @@ jobs:
           network: host
           build-args: |
             DATABASE_URL=postgres://cnote:cnote@localhost:5432/cnote
+            LIVE_DATABASE_URL=postgres://cnote:cnote@localhost:5432/cnote_live
             REDIS_URL=redis://localhost:6379
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}

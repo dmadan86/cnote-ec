@@ -40,6 +40,8 @@ ENV NEXT_PUBLIC_CLARITY_PROJECT_ID=$NEXT_PUBLIC_CLARITY_PROJECT_ID
 # Some pages call generateStaticParams against the DB. If the build has no reachable database, pass
 # --build-arg DATABASE_URL=... with --network host (or build inside compose); see docs/architecture/portability.md.
 ARG DATABASE_URL=postgres://cnote:cnote@host.docker.internal:5432/cnote
+# Published listings (CQRS read DB) are read by generateStaticParams as well.
+ARG LIVE_DATABASE_URL=postgres://cnote:cnote@host.docker.internal:5432/cnote_live
 ARG REDIS_URL=redis://host.docker.internal:6379
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
     NEXT_PUBLIC_SENTRY_ENVIRONMENT=$NEXT_PUBLIC_SENTRY_ENVIRONMENT \

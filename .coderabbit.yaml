@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 # CodeRabbit review configuration. The rules below mirror CLAUDE.md, DESIGN.md and docs/adr/ (the source of truth).
-language: en-IN
+language: en-GB # closest supported to Indian English spelling
 tone_instructions: "Direct and specific. Cite the ADR (e.g. ADR-002) when a finding is about a product/architecture rule."
 early_access: false
 
