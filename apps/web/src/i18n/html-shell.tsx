@@ -75,9 +75,9 @@ export function HtmlShell({
         ) : (
           <NextIntlClientProvider locale="en" messages={messages} timeZone={IST}>
             {skip}
+            {extras}
             {header}
             <SiteFrame footer={footer}>{children}</SiteFrame>
-            {extras}
           </NextIntlClientProvider>
         )}
       </body>

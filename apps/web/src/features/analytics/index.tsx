@@ -1,16 +1,17 @@
+import { ConsentManager } from "@/features/consent";
 import { Clarity } from "./clarity";
-import { ConsentBanner } from "./consent-banner";
 
-export { ManageConsentLink } from "./consent-banner";
-
-/** Mount once in the root layout. Renders nothing unless NEXT_PUBLIC_CLARITY_PROJECT_ID is set. */
+/**
+ * Mount once per page chrome. The consent banner + preferences dialog always render (every first-time visitor is asked,
+ * whether or not analytics is configured); Clarity is added only when NEXT_PUBLIC_CLARITY_PROJECT_ID is set and only
+ * ever loads after an analytics opt-in.
+ */
 export function Analytics() {
   const projectId = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID;
-  if (!projectId) return null;
   return (
     <>
-      <Clarity projectId={projectId} />
-      <ConsentBanner />
+      {projectId ? <Clarity projectId={projectId} /> : null}
+      <ConsentManager />
     </>
   );
 }

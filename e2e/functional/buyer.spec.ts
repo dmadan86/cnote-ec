@@ -43,7 +43,8 @@ test.describe("accounts", () => {
 test.describe("known bugs", () => {
   test("header shows the account menu right after sign-in without a reload", async ({ page }) => {
     const acct = await signUpBuyer(page, "stale");
-    await page.context().clearCookies();
+    // only the session: the pre-seeded cookie-consent choice must survive (see support/fixtures.ts)
+    await page.context().clearCookies({ name: /cnote_web_(at|rt)$/ });
     await signIn(page, acct.email, acct.password, undefined, false);
     await expect(page.getByRole("button", { name: /Account menu for/ })).toBeVisible();
   });

@@ -24,6 +24,7 @@ const localizedPages: { name: string; path: string; known?: string[] }[] = [
   { name: "pricing", path: "/pricing" },
   { name: "dispute policy", path: "/dispute-policy" },
   { name: "ranking and ads", path: "/ranking-and-ads" },
+  { name: "cookie policy", path: "/cookies" },
 ];
 
 for (const locale of ["en", "hi"] as const) {

@@ -37,7 +37,7 @@ const SCRIPT_RE: Record<string, RegExp> = {
   bengali: /[ঀ-৿]/,
 };
 // Values that legitimately stay Latin (product names, acronyms, numerals, brand words).
-const LATIN_OK = new Set(["unlock.sms", "unlock.whatsapp", "errors.notFoundCode"]);
+const LATIN_OK = new Set(["unlock.sms", "unlock.whatsapp", "errors.notFoundCode", "consent.provider.clarity"]);
 // Catalogues on disk are checked for ALL locales, enabled or not, so re-enabling one is a one-line change.
 const TRANSLATED = ALL_LOCALES.filter((l) => l !== "en");
 const NEW_LOCALES = TRANSLATED.filter((l) => l !== "hi");

@@ -30,6 +30,7 @@ e2e/
   a11y/                     pnpm test:a11y
     buyer-pages.spec.ts       axe WCAG 2.2 AA scans, English + Hindi
     keyboard.spec.ts          skip link, focus visible, popovers, no traps (desktop)
+    cookie-consent.spec.ts    consent banner + preferences dialog (opts out of the pre-seeded consent cookie with `consent: false`)
     mobile.mobile.spec.ts     axe at 412px, touch targets, menu dialog (mobile project)
   functional/               pnpm test:e2e
     buyer.spec.ts             sign up / in, search -> product -> save/compare, RFQ, language switch
@@ -39,6 +40,8 @@ e2e/
 ```
 
 Projects: `desktop` (Desktop Chrome, all specs except `*.mobile.spec.ts`) and `mobile` (Pixel 7, only `*.mobile.spec.ts`).
+
+Every context starts with a valid reject-all `cnote_consent` cookie (`e2e/support/fixtures.ts`) so the consent banner does not overlap clicks or axe scans; specs that need the first-visit banner use `test.use({ consent: false })`.
 
 ### First run
 

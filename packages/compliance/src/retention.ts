@@ -18,6 +18,7 @@ import { purgeResolvedDisputeEvidence } from "@cnote/disputes";
 import { purgeOldMessages, purgeOndcOrderPayloads } from "@cnote/ondc";
 import { purgeOldQualityMedia } from "@cnote/quality";
 import { numFromEnv } from "./config";
+import { purgeCookieConsentReceipts } from "./consent";
 
 const DAY = 86_400_000;
 
@@ -137,6 +138,12 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     description: "Lead captures that never verified (started, otp_sent, abandoned).",
     legalBasis: "DPDP s.8(7); data minimisation for unconverted funnel data",
     run: (before, { dryRun }) => purgeAbandonedCaptures(before, { dryRun }),
+  },
+  {
+    name: "compliance.cookie_consent_receipts", module: "compliance", envKey: "COOKIE_CONSENT_RECEIPTS", defaultDays: 1095, supportsDryRun: true,
+    description: "Cookie-consent receipts (random consent id, policy version, per-category choices, GPC flag, action, language, time; no IP or user agent).",
+    legalBasis: "DPDP s.6(10) burden of proof on the Data Fiduciary + s.8(7); 3 years matches the general limitation period (Limitation Act 1963, art. 113) within which a consent dispute could be raised, pending counsel review",
+    run: (before, { dryRun }) => purgeCookieConsentReceipts(before, { dryRun }),
   },
   {
     name: "notifications.read_90d", module: "notifications", envKey: "READ_NOTIFICATIONS", defaultDays: 90, supportsDryRun: true,
