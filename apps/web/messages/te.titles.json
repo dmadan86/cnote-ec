@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "titles": {
+    "signIn": "సైన్ ఇన్",
+    "signUp": "మీ ఖాతాను సృష్టించండి",
+    "forgot": "మీ పాస్‌వర్డ్‌ను రీసెట్ చేయండి",
+    "reset": "కొత్త పాస్‌వర్డ్‌ను ఎంచుకోండి",
+    "onboarding": "మీ వ్యాపారాన్ని సెటప్ చేయండి",
+    "developers": "డెవలపర్లు",
+    "notifications": "నోటిఫికేషన్లు",
+    "notificationPrefs": "నోటిఫికేషన్ ప్రాధాన్యతలు",
+    "wishlist": "సేవ్ చేసిన అంశాలు",
+    "compare": "ఉత్పత్తులను పోల్చండి",
+    "enquiries": "మీ అవసరాలు",
+    "enquiry": "అవసరం",
+    "orders": "మీ ఆర్డర్లు",
+    "order": "ఆర్డర్",
+    "dispute": "వివాదం",
+    "conversation": "సంభాషణ",
+    "rfq": "మీ అవసరాన్ని పోస్ట్ చేయండి"
+  }
+}

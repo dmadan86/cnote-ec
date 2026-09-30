@@ -39,10 +39,10 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
             aria-label={t("homeAria", { site: SITE_NAME })}
           >
             <LogoMark />
-            <span className="text-xl font-extrabold tracking-tight text-ink">{SITE_NAME}</span>
+            <span className="whitespace-nowrap text-xl font-extrabold tracking-tight text-ink">{SITE_NAME}</span>
           </LocaleLink>
           <NavMenus locale={locale} />
-          <div className="ml-auto flex items-center gap-1 lg:gap-2">
+          <div className="ml-auto flex min-w-0 items-center gap-1 lg:gap-2">
             <HeaderActions />
             <LocaleLink
               href="/search"
@@ -54,6 +54,11 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
             <MobileMenu />
           </div>
         </Container>
+        <div className="hidden border-t border-line lg:block 2xl:hidden">
+          <Container>
+            <NavMenus locale={locale} variant="row" />
+          </Container>
+        </div>
       </header>
       <LanguageSuggestion />
       <CompareTray />

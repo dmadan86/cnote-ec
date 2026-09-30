@@ -4,7 +4,8 @@
 import {
   confirmNegotiation, createBuyerMandate, getMandate, pauseMandate, resumeMandate, retryRealisation, revokeMandate, setAutoAccept, updateMandate, withdrawNegotiation,
 } from "@cnote/a2a";
-import { actorOf, requireBusiness, runAction, type ActionResult } from "@cnote/next-kit";
+import { actorOf, requireBusiness, type ActionResult } from "@cnote/next-kit";
+import { runLocalized } from "@/i18n/errors";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { parseAutoOn, parseCreate, parseEdit } from "./form-parse";
@@ -25,7 +26,7 @@ export async function createMandateAction(_prev: A2aActionResult | null, f: Form
   const p = parseCreate(f);
   if (!p.ok) return fail(p.errors);
   const v = p.value;
-  const r = await runAction(async () => {
+  const r = await runLocalized(async () => {
     const m = await createBuyerMandate(actorOf(s), {
       optIn: true, name: v.name, title: v.title, requirement: v.requirement, categorySlug: v.categorySlug, quantity: v.quantity, unit: v.unit,
       targetPricePaise: v.targetPricePaise, maxPricePaise: v.limitPricePaise, maxLeadTimeDays: v.maxLeadTimeDays, approvedSellerIds: v.approvedSellerIds,
@@ -45,7 +46,7 @@ export async function updateMandateAction(_prev: A2aActionResult | null, f: Form
   const p = parseEdit(f);
   if (!p.ok) return fail(p.errors);
   const v = p.value;
-  return runAction(async () => {
+  return runLocalized(async () => {
     await updateMandate(actorOf(s), id, {
       name: v.name, title: v.title, requirement: v.requirement, categorySlug: v.categorySlug, quantity: v.quantity, unit: v.unit,
       targetPricePaise: v.targetPricePaise, limitPricePaise: v.limitPricePaise, maxLeadTimeDays: v.maxLeadTimeDays, approvedSellerIds: v.approvedSellerIds,
@@ -63,7 +64,7 @@ export async function mandateStatusAction(_prev: A2aActionResult | null, f: Form
   const intent = str(f, "intent");
   if (!UUID_RE.test(id) || !["pause", "resume", "revoke"].includes(intent)) return badId();
   const s = await requireBusiness(`${AGENTS}/mandates/${id}`);
-  return runAction(async () => {
+  return runLocalized(async () => {
     const a = actorOf(s);
     if (intent === "pause") await pauseMandate(a, id);
     else if (intent === "resume") await resumeMandate(a, id);
@@ -82,7 +83,7 @@ export async function autoAcceptAction(_prev: A2aActionResult | null, f: FormDat
   const s = await requireBusiness(`${AGENTS}/mandates/${id}`);
   const a = actorOf(s);
   if (intent === "off") {
-    return runAction(async () => {
+    return runLocalized(async () => {
       await setAutoAccept(a, id, { enabled: false });
       revalidatePath(`${AGENTS}/mandates/${id}`);
       revalidatePath(AGENTS);
@@ -93,7 +94,7 @@ export async function autoAcceptAction(_prev: A2aActionResult | null, f: FormDat
   if (!m) return badId();
   const p = parseAutoOn(f, m.limitPricePaise);
   if (!p.ok) return fail(p.errors);
-  return runAction(async () => {
+  return runLocalized(async () => {
     await setAutoAccept(a, id, { enabled: true, limitPricePaise: p.limitPricePaise, consent: true });
     revalidatePath(`${AGENTS}/mandates/${id}`);
     revalidatePath(AGENTS);
@@ -107,7 +108,7 @@ export async function negotiationAction(_prev: A2aActionResult | null, f: FormDa
   const intent = str(f, "intent");
   if (!UUID_RE.test(id) || !["confirm", "decline", "withdraw", "retry"].includes(intent)) return badId();
   const s = await requireBusiness(`${AGENTS}/negotiations/${id}`);
-  return runAction(async () => {
+  return runLocalized(async () => {
     const a = actorOf(s);
     if (intent === "confirm" || intent === "decline") await confirmNegotiation(a, id, intent);
     else if (intent === "withdraw") await withdrawNegotiation(a, id);

@@ -4,7 +4,8 @@ import {
   addDisputeEvidence, appealDecision, escalateDispute, openDispute, postDisputeMessage, respondToDispute, withdrawDispute,
   type EvidenceUpload, type Lang,
 } from "@/lib/disputes";
-import { actorOf, requireBusiness, runAction, type ActionResult } from "@cnote/next-kit";
+import { actorOf, requireBusiness, type ActionResult } from "@cnote/next-kit";
+import { runLocalized } from "@/i18n/errors";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -31,7 +32,7 @@ export async function disputeAction(_prev: ActionResult | null, f: FormData): Pr
   const text = String(f.get("text") ?? "");
   const voiceConsent = f.get("voiceConsent") === "on";
   let created: string | null = null;
-  const r = await runAction(async () => {
+  const r = await runLocalized(async () => {
     if (intent === "open") {
       const rupees = String(f.get("amountRupees") ?? "").trim();
       const d = await openDispute(actor, {

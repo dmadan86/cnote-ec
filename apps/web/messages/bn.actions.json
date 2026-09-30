@@ -1,0 +1,14 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "actions": {
+    "typeDelete": "নিশ্চিত করতে DELETE লিখুন।",
+    "onbName": "আপনার ব্যবসার নাম লিখুন।",
+    "onbCity": "আপনার শহরের নাম লিখুন।",
+    "onbState": "আপনার রাজ্য বেছে নিন।",
+    "onbPincode": "একটি বৈধ 6 সংখ্যার পিনকোড লিখুন।",
+    "fixFields": "অনুগ্রহ করে চিহ্নিত ঘরগুলি ঠিক করুন।",
+    "chooseCategory": "একটি বিভাগ বেছে নিন"
+  }
+}

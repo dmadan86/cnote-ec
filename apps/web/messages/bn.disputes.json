@@ -80,6 +80,8 @@
     "messagesTitle": "আমাদের দলের সঙ্গে বার্তা",
     "messageLabel": "বার্তা লিখুন",
     "send": "পাঠান",
-    "errorGeneric": "কিছু ভুল হয়েছে। আবার চেষ্টা করুন।"
+    "errorGeneric": "কিছু ভুল হয়েছে। আবার চেষ্টা করুন।",
+    "sla": "SLA: {days} দিন",
+    "fromPlatform": "Cnote"
   }
 }

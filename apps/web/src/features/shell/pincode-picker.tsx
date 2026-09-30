@@ -47,7 +47,7 @@ export function PincodePicker() {
       align="right"
       chevron
       ariaLabel={t("pincodeAria", { pin: initial ?? t("india") })}
-      buttonClassName="text-left leading-tight"
+      buttonClassName="whitespace-nowrap text-left leading-tight"
       panelClassName="w-72 p-4"
       label={
         <span className="flex items-center gap-2">

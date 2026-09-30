@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "titles": {
+    "signIn": "সাইন ইন",
+    "signUp": "আপনার অ্যাকাউন্ট তৈরি করুন",
+    "forgot": "পাসওয়ার্ড রিসেট করুন",
+    "reset": "নতুন পাসওয়ার্ড বেছে নিন",
+    "onboarding": "আপনার ব্যবসা সেট আপ করুন",
+    "developers": "ডেভেলপার",
+    "notifications": "বিজ্ঞপ্তি",
+    "notificationPrefs": "বিজ্ঞপ্তির পছন্দ",
+    "wishlist": "সংরক্ষিত আইটেম",
+    "compare": "পণ্য তুলনা",
+    "enquiries": "আপনার চাহিদা",
+    "enquiry": "চাহিদা",
+    "orders": "আপনার অর্ডার",
+    "order": "অর্ডার",
+    "dispute": "বিরোধ",
+    "conversation": "কথোপকথন",
+    "rfq": "আপনার চাহিদা জানান"
+  }
+}

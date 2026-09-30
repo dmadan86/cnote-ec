@@ -1,7 +1,8 @@
 "use server";
 // Buyer escrow actions (ADR-012). Each re-checks the session: server actions are reachable by direct POST.
 import { acceptDelivery, createEscrowForOrder, simulateMockFunding } from "@cnote/escrow";
-import { actorOf, requireBusiness, runAction, type ActionResult } from "@cnote/next-kit";
+import { actorOf, requireBusiness, type ActionResult } from "@cnote/next-kit";
+import { runLocalized } from "@/i18n/errors";
 import { revalidatePath } from "next/cache";
 
 const INTENTS = ["start", "pay_mock", "accept"] as const;
@@ -10,7 +11,7 @@ export async function escrowAction(_prev: ActionResult | null, f: FormData): Pro
   const orderId = String(f.get("orderId") ?? "");
   const intent = String(f.get("intent") ?? "");
   const s = await requireBusiness(`/buyer/orders/${orderId}`);
-  return runAction(async () => {
+  return runLocalized(async () => {
     if (!(INTENTS as readonly string[]).includes(intent)) throw new Error("invalid action");
     const actor = actorOf(s);
     if (intent === "start") await createEscrowForOrder(actor, orderId);

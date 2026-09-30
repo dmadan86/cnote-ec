@@ -1,0 +1,80 @@
+{
+  "account": {
+    "title": "Your account",
+    "subtitle": "Manage your profile, privacy and sign-in.",
+    "profile": "Profile",
+    "phoneTitle": "Phone verification",
+    "verified": "Verified",
+    "notVerified": "Not verified",
+    "privacyTitle": "Privacy and consents",
+    "sessionsTitle": "Active sessions",
+    "unknownDevice": "Unknown device",
+    "ipUnknown": "IP unknown",
+    "sessionMeta": "{ip} · last active {when}",
+    "thisDevice": "This device",
+    "signOut": "Sign out",
+    "signOutEverywhere": "Sign out everywhere",
+    "downloadTitle": "Download my data",
+    "downloadBody": "Get a JSON copy of your profile, businesses, consents and sessions.",
+    "downloadButton": "Download JSON",
+    "deleteTitle": "Delete account",
+    "email": "Email",
+    "name": "Name",
+    "preferredLanguage": "Preferred language",
+    "saveChanges": "Save changes",
+    "saving": "Saving…",
+    "profileSaved": "Profile saved.",
+    "phoneVerifiedAs": "Phone verified: {phone}",
+    "mobile": "Mobile number",
+    "mobileHint": "Include the country code, e.g. +91 98765 43210.",
+    "sendCode": "Send code",
+    "resendCode": "Resend code",
+    "sending": "Sending…",
+    "devCode": "Dev mode: your code is <strong>{code}</strong>",
+    "phoneVerifiedOk": "Phone verified.",
+    "code": "6-digit code",
+    "verify": "Verify",
+    "verifying": "Verifying…",
+    "consent": {
+      "matching": {
+        "title": "Enquiry matching",
+        "body": "Share my enquiries with matching sellers so they can respond."
+      },
+      "marketing": {
+        "title": "Product updates and offers",
+        "body": "Send me news and promotions by email."
+      },
+      "voice_retention": {
+        "title": "Voice note retention",
+        "body": "Keep my voice recordings to improve transcription and support."
+      },
+      "counterparty_sharing": {
+        "title": "Share contact with matched sellers",
+        "body": "Let a seller see my contact details once they accept my lead."
+      },
+      "credit_underwriting": {
+        "title": "Credit offers from our lending partner",
+        "body": "Let our NBFC partner see my GST filings, escrow orders and dispute record to assess credit offers. You can withdraw this any time."
+      }
+    },
+    "savePrefs": "Save preferences",
+    "prefsSaved": "Preferences saved.",
+    "deleteBody": "This erases your personal details, signs you out everywhere and cannot be undone. Business and enquiry records are kept in anonymised form.",
+    "deleteConfirm": "Type DELETE to confirm",
+    "deleteButton": "Delete my account",
+    "deleting": "Deleting…",
+    "onbTitle": "Tell us about your business",
+    "onbSubtitle": "Sellers use this to see who is asking. You can add more later.",
+    "businessName": "Business name",
+    "city": "City",
+    "pincode": "Pincode",
+    "state": "State",
+    "selectState": "Select state",
+    "continue": "Continue",
+    "devTitle": "Developers",
+    "devDescription": "Personal API keys let your own tools use the marketplace REST API and MCP server on your behalf.",
+    "devCreate": "Create an API key",
+    "devKeys": "Your keys",
+    "devEmpty": "You haven't created any API keys yet."
+  }
+}

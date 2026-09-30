@@ -2,7 +2,9 @@
 import { getPublicListingsByIds } from "@cnote/catalogue";
 import type { CompareToggleResult } from "@cnote/ui";
 import { addToCompare, COMPARE_COOKIE, COMPARE_COOKIE_MAX_AGE, COMPARE_MAX, parseCompareIds, serializeCompareIds } from "@cnote/wishlist";
+import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
+import { getRequestLocale } from "@/lib/request-locale";
 import { isPublicListing } from "./state";
 
 async function writeTray(ids: string[]) {
@@ -18,23 +20,24 @@ async function readTray() {
 /** Adds to / removes from the compare tray. `replace` clears the tray first (category switch). */
 export async function toggleCompareAction(listingId: string, opts?: { replace?: boolean }): Promise<CompareToggleResult> {
   const id = parseCompareIds(listingId)[0];
-  if (!id) return { status: "error", message: "This product can't be compared." };
+  const t = await getTranslations({ locale: await getRequestLocale(), namespace: "compare" });
+  if (!id) return { status: "error", message: t("errNotComparable") };
   const tray = await readTray();
   if (tray.includes(id)) {
     await writeTray(tray.filter((x) => x !== id));
     return { status: "removed" };
   }
   const [listing, ...trayListings] = (await getPublicListingsByIds([id, ...tray])).filter(isPublicListing);
-  if (!listing || listing.id !== id) return { status: "error", message: "This product is no longer available." };
+  if (!listing || listing.id !== id) return { status: "error", message: t("errUnavailable") };
   const base = opts?.replace ? [] : tray;
   const res = addToCompare(base, id, listing.category.id, trayListings[0]?.category.id ?? null);
   if (res.status === "category_mismatch") {
     return {
       status: "category_mismatch",
-      message: `Your compare tray has ${trayListings[0]?.category.name ?? "products"} from another category. Specifications differ between categories, so side-by-side comparison only works within one category.`,
+      message: t("errMismatch", { category: trayListings[0]?.category.name ?? t("productsFallback") }),
     };
   }
-  if (res.status === "full") return { status: "full", message: `You can compare up to ${COMPARE_MAX} products. Remove one first.` };
+  if (res.status === "full") return { status: "full", message: t("errFull", { max: COMPARE_MAX }) };
   await writeTray(res.ids);
   return { status: "added" };
 }

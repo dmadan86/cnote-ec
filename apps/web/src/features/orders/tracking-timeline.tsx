@@ -2,19 +2,20 @@ import { Check, Circle, CircleDot } from "lucide-react";
 import { Card, CardBody, CardTitle } from "@cnote/ui";
 import { listFulfilmentEvents, trackingSteps, type OrderView } from "@cnote/enquiry";
 import { getTranslations } from "next-intl/server";
+import { formatDate, type Locale } from "@/i18n/config";
 
 const ICON = { done: Check, current: CircleDot, upcoming: Circle } as const;
-const dt = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" });
 
 /**
  * Buyer-facing delivery tracking (WCAG 2.2 AA): a labelled section, an ordered list whose done / current / not-yet state is
  * written out (icon is decorative, never colour alone) with aria-current on the current step, and the update history as a
  * second ordered list. Hidden for cancelled or not-yet-confirmed orders.
  */
-export async function TrackingTimeline({ actor, order }: { actor: { personId: string; businessId: string }; order: OrderView }) {
+export async function TrackingTimeline({ actor, order, locale = "en" }: { actor: { personId: string; businessId: string }; order: OrderView; locale?: Locale }) {
   if (order.status === "cancelled" || order.status === "recorded") return null;
-  const [t, all] = await Promise.all([getTranslations({ locale: "en", namespace: "orderTracking" }), listFulfilmentEvents(actor, order.id)]);
+  const [t, all] = await Promise.all([getTranslations({ locale, namespace: "orderTracking" }), listFulfilmentEvents(actor, order.id)]);
   const events = all.slice().reverse();
+  const dt = { format: (d: Date) => formatDate(d, locale, { dateStyle: "medium", timeStyle: "short" }) };
   const steps = trackingSteps(order);
   const tracking = order.trackingCourier && order.trackingRef ? t("trackingBoth", { courier: order.trackingCourier, ref: order.trackingRef })
     : order.trackingCourier ? t("trackingCourier", { courier: order.trackingCourier }) : order.trackingRef ? t("trackingRef", { ref: order.trackingRef }) : null;

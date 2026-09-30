@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "rail": {
+    "siteNavLabel": "ಸೈಟ್ ನ್ಯಾವಿಗೇಶನ್",
+    "stripLabel": "ಖಾತೆಯ ವಿಭಾಗಗಳು",
+    "expand": "ಸೈಡ್‌ಬಾರ್ ವಿಸ್ತರಿಸಿ",
+    "collapse": "ಸೈಡ್‌ಬಾರ್ ಮುಚ್ಚಿ",
+    "overview": "ಅವಲೋಕನ",
+    "postRequirement": "ಅಗತ್ಯ ಪೋಸ್ಟ್ ಮಾಡಿ",
+    "myRequirements": "ನನ್ನ ಅಗತ್ಯಗಳು",
+    "orders": "ಆರ್ಡರ್‌ಗಳು",
+    "agents": "ಏಜೆಂಟ್‌ಗಳು",
+    "saved": "ಉಳಿಸಿದವು",
+    "compare": "ಹೋಲಿಕೆ",
+    "notifications": "ಅಧಿಸೂಚನೆಗಳು",
+    "grievances": "ದೂರುಗಳು",
+    "developers": "ಡೆವಲಪರ್ / API ಕೀಗಳು",
+    "exportData": "ನನ್ನ ಡೇಟಾ ಎಕ್ಸ್‌ಪೋರ್ಟ್ ಮಾಡಿ",
+    "account": "ನಿಮ್ಮ ಖಾತೆ",
+    "home": "ಮುಖಪುಟ",
+    "search": "ಹುಡುಕಿ",
+    "categories": "ವರ್ಗಗಳು",
+    "manufacturers": "ತಯಾರಕರು",
+    "pricing": "ಬೆಲೆ",
+    "requestQuote": "ಉಲ್ಲೇಖ ಕೇಳಿ",
+    "signIn": "ಸೈನ್ ಇನ್"
+  }
+}

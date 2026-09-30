@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "titles": {
+    "signIn": "ಸೈನ್ ಇನ್ ಮಾಡಿ",
+    "signUp": "ನಿಮ್ಮ ಖಾತೆ ರಚಿಸಿ",
+    "forgot": "ನಿಮ್ಮ ಪಾಸ್‌ವರ್ಡ್ ರೀಸೆಟ್ ಮಾಡಿ",
+    "reset": "ಹೊಸ ಪಾಸ್‌ವರ್ಡ್ ಆಯ್ಕೆಮಾಡಿ",
+    "onboarding": "ನಿಮ್ಮ ವ್ಯವಹಾರವನ್ನು ಸೆಟ್ ಅಪ್ ಮಾಡಿ",
+    "developers": "ಡೆವಲಪರ್‌ಗಳು",
+    "notifications": "ಅಧಿಸೂಚನೆಗಳು",
+    "notificationPrefs": "ಅಧಿಸೂಚನೆ ಆದ್ಯತೆಗಳು",
+    "wishlist": "ಉಳಿಸಿದ ಐಟಂಗಳು",
+    "compare": "ಉತ್ಪನ್ನಗಳನ್ನು ಹೋಲಿಸಿ",
+    "enquiries": "ನಿಮ್ಮ ಅವಶ್ಯಕತೆಗಳು",
+    "enquiry": "ಅವಶ್ಯಕತೆ",
+    "orders": "ನಿಮ್ಮ ಆರ್ಡರ್‌ಗಳು",
+    "order": "ಆರ್ಡರ್",
+    "dispute": "ವಿವಾದ",
+    "conversation": "ಸಂಭಾಷಣೆ",
+    "rfq": "ನಿಮ್ಮ ಅವಶ್ಯಕತೆಯನ್ನು ಪೋಸ್ಟ್ ಮಾಡಿ"
+  }
+}

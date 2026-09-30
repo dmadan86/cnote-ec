@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "titles": {
+    "signIn": "साइन इन करा",
+    "signUp": "तुमचे खाते तयार करा",
+    "forgot": "तुमचा पासवर्ड रीसेट करा",
+    "reset": "नवीन पासवर्ड निवडा",
+    "onboarding": "तुमचा व्यवसाय सेट करा",
+    "developers": "डेव्हलपर्स",
+    "notifications": "सूचना",
+    "notificationPrefs": "सूचना प्राधान्ये",
+    "wishlist": "जतन केलेल्या वस्तू",
+    "compare": "उत्पादनांची तुलना",
+    "enquiries": "तुमच्या गरजा",
+    "enquiry": "गरज",
+    "orders": "तुमच्या ऑर्डर",
+    "order": "ऑर्डर",
+    "dispute": "वाद",
+    "conversation": "संभाषण",
+    "rfq": "तुमची गरज नोंदवा"
+  }
+}

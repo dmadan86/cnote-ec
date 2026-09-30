@@ -1,0 +1,14 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "actions": {
+    "typeDelete": "ದೃಢೀಕರಿಸಲು DELETE ಎಂದು ಟೈಪ್ ಮಾಡಿ.",
+    "onbName": "ನಿಮ್ಮ ವ್ಯವಹಾರದ ಹೆಸರು ನಮೂದಿಸಿ.",
+    "onbCity": "ನಿಮ್ಮ ನಗರ ನಮೂದಿಸಿ.",
+    "onbState": "ನಿಮ್ಮ ರಾಜ್ಯವನ್ನು ಆಯ್ಕೆಮಾಡಿ.",
+    "onbPincode": "ಸರಿಯಾದ 6 ಅಂಕಿಯ ಪಿನ್‌ಕೋಡ್ ನಮೂದಿಸಿ.",
+    "fixFields": "ಗುರುತಿಸಿದ ಕ್ಷೇತ್ರಗಳನ್ನು ಸರಿಪಡಿಸಿ.",
+    "chooseCategory": "ವರ್ಗ ಆಯ್ಕೆಮಾಡಿ"
+  }
+}

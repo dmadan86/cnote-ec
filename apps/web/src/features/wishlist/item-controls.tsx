@@ -1,6 +1,7 @@
 "use client";
 import type { ActionResult } from "@cnote/next-kit";
 import { Alert, Button, Select, Textarea } from "@cnote/ui";
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { moveItemAction, removeItemAction, updateNoteAction } from "./actions";
 
@@ -18,6 +19,7 @@ export function ItemControls({
   note: string | null;
   otherLists: { id: string; name: string }[];
 }) {
+  const t = useTranslations("wishlist");
   const [noteState, saveNote, noting] = useActionState<ActionResult | null, FormData>(updateNoteAction, null);
   const [moveState, move, moving] = useActionState<ActionResult | null, FormData>(moveItemAction, null);
   const [rmState, remove, removing] = useActionState<ActionResult | null, FormData>(removeItemAction, null);
@@ -29,14 +31,14 @@ export function ItemControls({
         <input type="hidden" name="listId" value={listId} />
         <input type="hidden" name="listingId" value={listingId} />
         <label htmlFor={noteId} className="text-xs font-medium text-muted">
-          Private note
+          {t("privateNote")}
         </label>
-        <Textarea id={noteId} name="note" defaultValue={note ?? ""} rows={2} maxLength={500} placeholder="e.g. ask for 5-ply sample" className="min-h-16" />
+        <Textarea id={noteId} name="note" defaultValue={note ?? ""} rows={2} maxLength={500} placeholder={t("notePlaceholder")} className="min-h-16" />
         <div className="flex items-center gap-2">
           <Button type="submit" variant="outline" size="sm" disabled={noting}>
-            {noting ? "Saving…" : "Save note"}
+            {noting ? t("saving") : t("saveNote")}
           </Button>
-          {noteState?.ok ? <span role="status" className="text-xs text-success">Saved</span> : null}
+          {noteState?.ok ? <span role="status" className="text-xs text-success">{t("saved")}</span> : null}
         </div>
       </form>
       <div className="flex flex-wrap items-end gap-3">
@@ -45,11 +47,11 @@ export function ItemControls({
             <input type="hidden" name="listId" value={listId} />
             <input type="hidden" name="listingId" value={listingId} />
             <label htmlFor={`to-${listingId}`} className="sr-only">
-              Move or copy {title} to list
+              {t("moveLabel", { title })}
             </label>
             <Select id={`to-${listingId}`} name="toListId" required defaultValue="" className="h-9 w-44">
               <option value="" disabled>
-                Move / copy to…
+                {t("moveTo")}
               </option>
               {otherLists.map((l) => (
                 <option key={l.id} value={l.id}>
@@ -58,18 +60,18 @@ export function ItemControls({
               ))}
             </Select>
             <Button type="submit" name="mode" value="move" variant="outline" size="sm" disabled={moving}>
-              Move
+              {t("move")}
             </Button>
             <Button type="submit" name="mode" value="copy" variant="outline" size="sm" disabled={moving}>
-              Copy
+              {t("copy")}
             </Button>
           </form>
         ) : null}
         <form action={remove} className="ml-auto">
           <input type="hidden" name="listId" value={listId} />
           <input type="hidden" name="listingId" value={listingId} />
-          <Button type="submit" variant="ghost" size="sm" aria-label={`Remove ${title} from this list`} disabled={removing}>
-            Remove
+          <Button type="submit" variant="ghost" size="sm" aria-label={t("removeAria", { title })} disabled={removing}>
+            {t("remove")}
           </Button>
         </form>
       </div>

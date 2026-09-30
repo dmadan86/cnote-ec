@@ -1,6 +1,7 @@
 "use client";
 import { X } from "lucide-react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { LocaleLink } from "@/i18n/link";
 import { buttonClasses } from "@cnote/ui";
 import { ProductImage } from "@/features/search/product-image";
 import { refreshUserState, useUserState } from "@/features/user-state/store";
@@ -12,12 +13,14 @@ import { CompareTrayShell } from "./compare-tray-shell";
  * cookie, so the static page can't know it. Content comes from the shared /api/me state.
  */
 export function CompareTray() {
+  const t = useTranslations("compare");
+  const tc = useTranslations("cards");
   const { compareItems: listings } = useUserState();
   if (!listings.length) return null;
   return (
     <CompareTrayShell count={listings.length}>
       <div className="flex items-center gap-3">
-        <ul className="flex flex-1 gap-2 overflow-x-auto" aria-label="Products in your compare tray">
+        <ul className="flex flex-1 gap-2 overflow-x-auto" aria-label={t("productsInTray")}>
           {listings.map((l) => (
             <li key={l.id} className="relative size-14 shrink-0 overflow-hidden rounded-lg border border-line bg-canvas sm:size-16">
               <ProductImage src={l.image ?? undefined} sizes="64px" alt={l.title} />
@@ -29,7 +32,7 @@ export function CompareTray() {
                 className="absolute right-0 top-0"
               >
                 <input type="hidden" name="listingId" value={l.id} />
-                <button type="submit" aria-label={`Remove ${l.title} from compare`} className="inline-flex size-6 items-center justify-center rounded-bl-lg bg-surface/95 text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-brand-600">
+                <button type="submit" aria-label={tc("removeCompare", { title: l.title })} className="inline-flex size-6 items-center justify-center rounded-bl-lg bg-surface/95 text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-brand-600">
                   <X className="size-3.5" aria-hidden />
                 </button>
               </form>
@@ -43,15 +46,15 @@ export function CompareTray() {
           }}
         >
           <button type="submit" className="min-h-11 px-2 text-xs font-medium text-muted underline hover:text-ink focus-visible:outline-2 focus-visible:outline-brand-600">
-            Clear
+            {t("clear")}
           </button>
         </form>
         {listings.length >= 2 ? (
-          <Link href="/compare" className={buttonClasses("primary", "md", "shrink-0")}>
-            Compare ({listings.length})
-          </Link>
+          <LocaleLink href="/compare" className={buttonClasses("primary", "md", "shrink-0")}>
+            {t("compareCount", { count: listings.length })}
+          </LocaleLink>
         ) : (
-          <p className="hidden text-xs text-muted sm:block">Add one more to compare</p>
+          <p className="hidden text-xs text-muted sm:block">{t("addOne")}</p>
         )}
       </div>
     </CompareTrayShell>

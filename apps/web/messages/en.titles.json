@@ -1,0 +1,21 @@
+{
+  "titles": {
+    "signIn": "Sign in",
+    "signUp": "Create your account",
+    "forgot": "Reset your password",
+    "reset": "Choose a new password",
+    "onboarding": "Set up your business",
+    "developers": "Developers",
+    "notifications": "Notifications",
+    "notificationPrefs": "Notification preferences",
+    "wishlist": "Saved items",
+    "compare": "Compare products",
+    "enquiries": "Your requirements",
+    "enquiry": "Requirement",
+    "orders": "Your orders",
+    "order": "Order",
+    "dispute": "Dispute",
+    "conversation": "Conversation",
+    "rfq": "Post your requirement"
+  }
+}

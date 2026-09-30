@@ -41,7 +41,7 @@ export async function SponsoredCard({ slot, locale, priority }: { slot: Sponsore
       title={l.title}
       image={
         <>
-          <ProductImage src={l.imageUrls[0]} sizes={CARD_SIZES} priority={priority} />
+          <ProductImage src={l.imageUrls[0]} blur={l.imageBlurs?.[0]} sizes={CARD_SIZES} priority={priority} />
           <SponsoredLabel label={ad.sponsored} srLabel={ad.sponsoredSr} className="absolute left-2 top-2 z-10" />
         </>
       }

@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "titles": {
+    "signIn": "સાઇન ઇન",
+    "signUp": "તમારું એકાઉન્ટ બનાવો",
+    "forgot": "તમારો પાસવર્ડ રીસેટ કરો",
+    "reset": "નવો પાસવર્ડ પસંદ કરો",
+    "onboarding": "તમારો વ્યવસાય સેટ કરો",
+    "developers": "ડેવલપર્સ",
+    "notifications": "સૂચનાઓ",
+    "notificationPrefs": "સૂચના પસંદગીઓ",
+    "wishlist": "સાચવેલી વસ્તુઓ",
+    "compare": "ઉત્પાદનોની સરખામણી",
+    "enquiries": "તમારી જરૂરિયાતો",
+    "enquiry": "જરૂરિયાત",
+    "orders": "તમારા ઓર્ડર",
+    "order": "ઓર્ડર",
+    "dispute": "વિવાદ",
+    "conversation": "વાતચીત",
+    "rfq": "તમારી જરૂરિયાત જણાવો"
+  }
+}

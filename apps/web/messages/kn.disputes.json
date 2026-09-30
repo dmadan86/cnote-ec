@@ -80,6 +80,8 @@
     "messagesTitle": "ನಮ್ಮ ತಂಡದೊಂದಿಗೆ ಸಂದೇಶಗಳು",
     "messageLabel": "ಸಂದೇಶ ಬರೆಯಿರಿ",
     "send": "ಕಳುಹಿಸಿ",
-    "errorGeneric": "ಏನೋ ತಪ್ಪಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
+    "errorGeneric": "ಏನೋ ತಪ್ಪಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    "sla": "SLA: {days} ದಿನಗಳು",
+    "fromPlatform": "Cnote"
   }
 }

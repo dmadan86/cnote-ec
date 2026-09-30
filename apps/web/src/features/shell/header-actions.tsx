@@ -11,7 +11,7 @@ import { PincodePicker } from "./pincode-picker";
 const noopSubscribe = () => () => undefined;
 
 const linkCls =
-  "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-ink hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600";
+  "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-sm font-medium text-ink hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600";
 
 function CountBadge({ n, itemsLabel }: { n: number; itemsLabel: string }) {
   return n > 0 ? (
@@ -62,7 +62,7 @@ export function HeaderActions() {
             <Link href="/signin" className={linkCls}>
               <User className="size-4" aria-hidden /> {t("signIn")}
             </Link>
-            <Link href="/signup" className={buttonClasses("primary", "md")}>
+            <Link href="/signup" className={`${buttonClasses("primary", "md")} whitespace-nowrap`}>
               {t("joinFree")}
             </Link>
           </>

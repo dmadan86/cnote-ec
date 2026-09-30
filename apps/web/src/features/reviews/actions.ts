@@ -1,7 +1,8 @@
 "use server";
 // Buyer-side UGC actions. Each re-checks the session (server actions are reachable by direct POST).
 // Everything submitted is held for staff moderation; nothing here publishes content.
-import { type ActionResult, currentSession, runAction } from "@cnote/next-kit";
+import { type ActionResult, currentSession } from "@cnote/next-kit";
+import { runLocalized } from "@/i18n/errors";
 import { react, submitComment, submitReview } from "@cnote/reviews";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -23,7 +24,7 @@ export async function submitReviewAction(_prev: ActionResult | null, f: FormData
   const a = await actor();
   if (!a) return SIGN_IN;
   const listingId = str(f, "listingId");
-  const result = await runAction(async () => {
+  const result = await runLocalized(async () => {
     await submitReview(a, uuid.parse(listingId), {
       rating: Number(f.get("rating") || 0),
       title: str(f, "title") || undefined,
@@ -39,7 +40,7 @@ export async function submitCommentAction(_prev: ActionResult | null, f: FormDat
   const a = await actor();
   if (!a) return SIGN_IN;
   const listingId = str(f, "listingId");
-  const result = await runAction(async () => {
+  const result = await runLocalized(async () => {
     await submitComment(a, uuid.parse(listingId), { body: str(f, "body"), language: a.language });
   });
   if (result.ok) revalidatePath(`/products/${listingId}`);
@@ -51,7 +52,7 @@ export async function reactAction(_prev: ActionResult<{ changed: boolean }> | nu
   const a = await actor();
   if (!a) return SIGN_IN;
   const listingId = str(f, "listingId");
-  const result = await runAction(() =>
+  const result = await runLocalized(() =>
     react(a, {
       subjectType: z.enum(["review", "comment"]).parse(str(f, "subjectType")),
       subjectId: uuid.parse(str(f, "subjectId")),

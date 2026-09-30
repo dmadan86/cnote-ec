@@ -1,7 +1,8 @@
 "use server";
 import { createApiKey, EXPIRY_OPTIONS, revokeApiKey, scopesFromAccess, SCOPE_GROUPS, type ExpiryOption } from "@cnote/developer";
 import { revalidatePath } from "next/cache";
-import { requireSession, runAction, type ActionResult } from "@cnote/next-kit";
+import { requireSession, type ActionResult } from "@cnote/next-kit";
+import { runLocalized } from "@/i18n/errors";
 
 const PATH = "/account/developers";
 const str = (fd: FormData, k: string) => {
@@ -18,7 +19,7 @@ export async function createApiKeyAction(
   const access: Record<string, string> = {};
   for (const feature of Object.keys(SCOPE_GROUPS)) access[feature] = str(fd, `access_${feature}`);
   const expiry = str(fd, "expiry") as ExpiryOption;
-  return runAction(async () => {
+  return runLocalized(async () => {
     const { key, secret } = await createApiKey(s.personId, {
       name: str(fd, "name"),
       scopes: scopesFromAccess(access),
@@ -32,7 +33,7 @@ export async function createApiKeyAction(
 
 export async function revokeApiKeyAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const s = await requireSession(PATH);
-  const r = await runAction(() => revokeApiKey(s.personId, str(fd, "id")));
+  const r = await runLocalized(() => revokeApiKey(s.personId, str(fd, "id")));
   if (r.ok) revalidatePath(PATH);
   return r;
 }

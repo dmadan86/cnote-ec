@@ -3,6 +3,7 @@ import { Card, CardBody, CardTitle } from "@cnote/ui";
 import Link from "next/link";
 import { ReportForm } from "./forms";
 import { disputeLabels } from "./labels";
+import type { Locale } from "@/i18n/config";
 
 const DISPUTABLE = ["confirmed", "dispatched", "delivered", "completed"];
 
@@ -10,9 +11,9 @@ const DISPUTABLE = ["confirmed", "dispatched", "delivered", "completed"];
  * Mounted on the buyer order page. Renders nothing while DISPUTES_ENABLED is off. Existing dispute -> link to it;
  * otherwise a native disclosure (keyboard + screen-reader friendly, no JS needed to open) holding the report form.
  */
-export async function ReportProblem({ orderId, status, actor }: { orderId: string; status: string; actor: Actor }) {
+export async function ReportProblem({ orderId, status, actor, locale = "en" }: { orderId: string; status: string; actor: Actor; locale?: Locale }) {
   if (!disputesEnabled()) return null;
-  const [existing, l] = await Promise.all([getDisputeForOrder(actor, orderId), disputeLabels()]);
+  const [existing, l] = await Promise.all([getDisputeForOrder(actor, orderId), disputeLabels(locale)]);
   const open = existing && !["resolved", "withdrawn"].includes(existing.status);
   if (existing && open) {
     return (
