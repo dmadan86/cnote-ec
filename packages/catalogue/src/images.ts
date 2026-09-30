@@ -63,7 +63,7 @@ const toView = (r: ImageRow): ListingImageView => ({
 
 async function loadOwnedListing(sellerBusinessId: string, listingId: string) {
   const l = isUuid(listingId) ? await prisma.listing.findUnique({ where: { id: listingId } }) : null;
-  if (!l) throw new DomainError("not_found", "Listing not found");
+  if (!l) throw new DomainError("not_found", "Listing not found", undefined, "ads.listingNotFound");
   if (l.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your listing");
   return l;
 }
@@ -71,7 +71,7 @@ async function loadOwnedListing(sellerBusinessId: string, listingId: string) {
 async function loadOwnedImage(sellerBusinessId: string, imageId: string) {
   const img = isUuid(imageId) ? await prisma.listingImage.findUnique({ where: { id: imageId } }) : null;
   if (!img || img.deletedAt) throw new DomainError("not_found", "Image not found");
-  if (img.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your image");
+  if (img.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your image", undefined, "catalogue.notImage");
   return img;
 }
 
@@ -111,10 +111,10 @@ export async function uploadListingImage(
   const dupes = await prisma.listingImage.findMany({ where: { listingId: listing.id, sha256: v.sha256, OR: [{ deletedAt: null }, { status: "rejected" }] } });
   const rejected = dupes.find((d) => d.status === "rejected");
   if (rejected) throw new DomainError("validation", `This image was already rejected${rejected.moderationNote ? `: ${rejected.moderationNote}` : ""}`);
-  if (dupes.length) throw new DomainError("conflict", "This image is already uploaded for this listing");
+  if (dupes.length) throw new DomainError("conflict", "This image is already uploaded for this listing", undefined, "catalogue.imageAlreadyUploadedListing");
 
   const live = await prisma.listingImage.count({ where: { listingId: listing.id, deletedAt: null } });
-  if (live >= MAX_IMAGES_PER_LISTING) throw new DomainError("conflict", `A listing can have at most ${MAX_IMAGES_PER_LISTING} images`);
+  if (live >= MAX_IMAGES_PER_LISTING) throw new DomainError("conflict", `A listing can have at most ${MAX_IMAGES_PER_LISTING} images`, undefined, "catalogue.listingMostImages", { maxImagesPerListing: MAX_IMAGES_PER_LISTING });
 
   if (!(await rateLimit(`listing-image-upload${opts.rateLimitPerHour ? "-bulk" : ""}:${sellerBusinessId}`, opts.rateLimitPerHour ?? UPLOADS_PER_HOUR, 3600))) {
     throw new DomainError("rate_limited", "Too many uploads. Please try again in a while.");
@@ -184,7 +184,7 @@ export async function reorderListingImages(sellerBusinessId: string, listingId: 
   const listing = await loadOwnedListing(sellerBusinessId, listingId);
   const rows = await prisma.listingImage.findMany({ where: { listingId: listing.id, deletedAt: null }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] });
   const known = new Set(rows.map((r) => r.id));
-  if (orderedIds.some((id) => !known.has(id)) || new Set(orderedIds).size !== orderedIds.length) throw new DomainError("validation", "Unknown image in order");
+  if (orderedIds.some((id) => !known.has(id)) || new Set(orderedIds).size !== orderedIds.length) throw new DomainError("validation", "Unknown image in order", undefined, "catalogue.unknownImageOrder");
   const order = [...orderedIds, ...rows.map((r) => r.id).filter((id) => !orderedIds.includes(id))];
   await prisma.$transaction(order.map((id, i) => prisma.listingImage.update({ where: { id }, data: { sortOrder: i } })));
   await bustListingCaches(listing.id, sellerBusinessId);
@@ -272,7 +272,7 @@ export async function moderateListingImage(
       where: { id: img.id, status: img.status, deletedAt: null },
       data: { status: decision, moderationNote: after.moderationNote, moderatedBy: staffId, moderatedAt: new Date() },
     });
-    if (res.count === 0) throw new DomainError("conflict", "Image was changed by someone else; refresh and retry");
+    if (res.count === 0) throw new DomainError("conflict", "Image was changed by someone else; refresh and retry", undefined, "catalogue.imageChangedBySomeoneElse");
     await emit(tx, "ListingImageModerated", { type: "listing_image", id: img.id }, { imageId: img.id, listingId: img.listingId, sellerBusinessId: img.sellerBusinessId, status: decision, moderatedBy: staffId });
   });
   if (decision === "approved") await enqueueImageProcessing(img.id);

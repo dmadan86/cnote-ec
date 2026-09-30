@@ -24,7 +24,7 @@ const isUniqueViolation = (e: unknown) => typeof e === "object" && e !== null &&
  */
 export async function react(actor: Actor, input: ReactInput): Promise<{ changed: boolean }> {
   const { subjectType, subjectId, kind } = input;
-  if (kind === "helpful" && subjectType !== "review") throw new DomainError("validation", "Only reviews can be marked helpful.");
+  if (kind === "helpful" && subjectType !== "review") throw new DomainError("validation", "Only reviews can be marked helpful.", undefined, "reviews.onlyReviewsMarkedHelpful");
   const reason = kind === "report" ? reportReason.parse(input.reason) : null;
   if (!(await rateLimit(`reviews:react:${actor.personId}`, REACTIONS_PER_HOUR, 3_600))) throw new DomainError("rate_limited", "Too many actions. Please slow down.");
 
@@ -35,7 +35,7 @@ export async function react(actor: Actor, input: ReactInput): Promise<{ changed:
         subjectType === "review"
           ? await tx.productReview.findUnique({ where: { id: subjectId }, select: { authorPersonId: true, status: true, listingId: true } })
           : await tx.productComment.findUnique({ where: { id: subjectId }, select: { authorPersonId: true, status: true, listingId: true } });
-      if (!subject || subject.status !== "approved") throw new DomainError("not_found", "Nothing to react to here.");
+      if (!subject || subject.status !== "approved") throw new DomainError("not_found", "Nothing to react to here.", undefined, "reviews.nothingReactHere");
       touched = subject.listingId;
       if (subject.authorPersonId === actor.personId) throw new DomainError("forbidden", kind === "helpful" ? "You can't vote on your own review." : "You can't report your own post.");
 

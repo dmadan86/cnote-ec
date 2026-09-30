@@ -152,16 +152,17 @@ export function errorKeyFor(err: Pick<DomainError, "message" | "key">): string |
 export interface KeyedError {
   error: string;
   errorKey?: string;
+  errorParams?: Record<string, string | number>;
 }
 
 /**
  * Localised text for a failed result: `translate(key)` returns the translation or `undefined` when the catalogue has
  * none (then the English `error` is shown). `translate` is typically `(k) => (t.has(k) ? t(k) : undefined)`.
  */
-export function localizeError(result: KeyedError, translate: (key: string) => string | undefined): string {
+export function localizeError(result: KeyedError, translate: (key: string, params?: Record<string, string | number>) => string | undefined): string {
   if (!result.errorKey) return result.error;
   try {
-    return translate(result.errorKey) ?? result.error;
+    return translate(result.errorKey, result.errorParams) ?? result.error;
   } catch {
     return result.error;
   }

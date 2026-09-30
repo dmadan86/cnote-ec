@@ -96,7 +96,7 @@ export async function startNegotiationsForEnquiry(mandate: AgentMandate, enquiry
 /** One scheduled run of a buyer mandate: post the enquiry as the buyer, then negotiate. Idempotent per (mandate, scheduled time). */
 export async function runMandate(mandateId: string, now = new Date()): Promise<RunResult> {
   const m = await prisma.agentMandate.findUnique({ where: { id: mandateId } });
-  if (!m || m.side !== "buyer") throw new DomainError("not_found", "Mandate not found");
+  if (!m || m.side !== "buyer") throw new DomainError("not_found", "Mandate not found", undefined, "agents.mandateNotFound");
   const res: RunResult = { mandateId, enquiryId: null, negotiations: 0, fallbackSellers: 0 };
   if (m.status !== "active" || !m.nextRunAt || m.nextRunAt.getTime() > now.getTime()) return { ...res, skipped: "not due" };
   if (m.expiresAt && m.expiresAt.getTime() <= now.getTime()) return { ...res, skipped: "expired" };

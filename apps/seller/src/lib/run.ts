@@ -8,7 +8,7 @@ export async function localizeResult<T>(result: ActionResult<T>): Promise<Action
   if (result.ok || !result.errorKey) return result;
   try {
     const t = await getTranslations("errors");
-    if (t.has(result.errorKey)) return { ...result, error: t(result.errorKey) };
+    if (t.has(result.errorKey)) return { ...result, error: t(result.errorKey, result.errorParams) };
   } catch {
     // catalogue unavailable: the English message stays
   }

@@ -19,7 +19,7 @@ export async function createBusiness(personId: string, input: CreateBusinessInpu
   const d = createSchema.parse(input);
   return prisma.$transaction(async (tx) => {
     const person = await tx.person.findUnique({ where: { id: personId }, select: { id: true, erasedAt: true } });
-    if (!person || person.erasedAt) throw new DomainError("not_found", "Account not found.");
+    if (!person || person.erasedAt) throw new DomainError("not_found", "Account not found.", undefined, "account.accountNotFound");
     const b = await tx.business.create({
       data: {
         name: d.name,
@@ -146,7 +146,7 @@ export async function listSellerIndex(opts: { offset: number; limit: number }): 
 /** T1: GSTIN checksum + GSTN provider lookup (mock in dev), Udyam optional. Emits BusinessVerified. */
 export async function verifyGstin(businessId: string, gstinInput: string, udyamInput?: string): Promise<{ passed: boolean; tier: number; reason?: string }> {
   const business = await prisma.business.findUnique({ where: { id: businessId }, select: { id: true, verificationTier: true } });
-  if (!business) throw new DomainError("not_found", "Business not found.");
+  if (!business) throw new DomainError("not_found", "Business not found.", undefined, "account.businessNotFound");
   const gstin = normaliseGstin(gstinInput);
   const udyam = udyamInput?.trim() ? udyamInput.trim().toUpperCase() : undefined;
   const provider = getGstnProvider();

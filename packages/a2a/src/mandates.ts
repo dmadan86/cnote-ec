@@ -206,7 +206,7 @@ async function createdEvent(tx: Parameters<Parameters<typeof prisma.$transaction
 
 async function own(actor: Actor, id: string): Promise<AgentMandate> {
   const m = isUuid(id) ? await prisma.agentMandate.findFirst({ where: { id, businessId: actor.businessId } }) : null;
-  if (!m) throw new DomainError("not_found", "Mandate not found");
+  if (!m) throw new DomainError("not_found", "Mandate not found", undefined, "agents.mandateNotFound");
   return m;
 }
 
@@ -324,7 +324,7 @@ async function setStatus(actor: Actor, id: string, to: "paused" | "active" | "re
   if (from === to) return toMandateView(m);
   const allowed: Record<string, string[]> = { paused: ["active"], active: ["paused"], revoked: ["active", "paused", "suspended", "expired", "completed"] };
   if (!allowed[to]!.includes(from)) throw new DomainError("conflict", `A ${from} mandate cannot be ${to === "active" ? "resumed" : to}.`);
-  if (to === "active" && m.expiresAt && m.expiresAt.getTime() <= Date.now()) throw new DomainError("conflict", "This mandate has expired. Create a new one.");
+  if (to === "active" && m.expiresAt && m.expiresAt.getTime() <= Date.now()) throw new DomainError("conflict", "This mandate has expired. Create a new one.", undefined, "agents.mandateExpiredCreateNewOne");
   const now = new Date();
   const row = await prisma.$transaction(async (tx) => {
     const u = await tx.agentMandate.update({ where: { id: m.id }, data: { status: to, version: { increment: 1 }, ...(to === "revoked" ? { revokedAt: now, nextRunAt: null, autoAccept: false } : {}) } });

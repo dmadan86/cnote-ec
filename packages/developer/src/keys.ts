@@ -56,12 +56,12 @@ export async function createApiKey(
   const businessId = data.businessId ?? null;
 
   if (!(await rateLimit(`apikey:create:${personId}`, 10, 3600))) {
-    throw new DomainError("rate_limited", "You're creating keys too quickly. Try again in an hour.");
+    throw new DomainError("rate_limited", "You're creating keys too quickly. Try again in an hour.", undefined, "developer.youreCreatingKeysTooQuickly");
   }
   if (businessId) {
-    if (!(await isBusinessMember(personId, businessId))) throw new DomainError("forbidden", "You're not a member of that business.");
+    if (!(await isBusinessMember(personId, businessId))) throw new DomainError("forbidden", "You're not a member of that business.", undefined, "developer.youreNotMemberBusiness");
   } else if (data.scopes.some(scopeNeedsBusiness)) {
-    throw new DomainError("validation", "Choose a business for the permissions you selected.", { field: "businessId" });
+    throw new DomainError("validation", "Choose a business for the permissions you selected.", { field: "businessId" }, "developer.chooseBusinessPermissionsSelected");
   }
 
   const now = new Date();
@@ -69,7 +69,7 @@ export async function createApiKey(
     where: { personId, revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
   });
   if (active >= MAX_ACTIVE_KEYS) {
-    throw new DomainError("conflict", `You can have up to ${MAX_ACTIVE_KEYS} active keys. Revoke one to create another.`);
+    throw new DomainError("conflict", `You can have up to ${MAX_ACTIVE_KEYS} active keys. Revoke one to create another.`, undefined, "developer.upActiveKeysRevokeOne", { maxActiveKeys: MAX_ACTIVE_KEYS });
   }
 
   // The 4 random chars in the display prefix are unique-indexed; regenerate on the rare collision.
@@ -99,7 +99,7 @@ export async function listApiKeys(personId: string): Promise<ApiKeyView[]> {
 
 async function revoke(where: { id: string; personId?: string }, revokedBy: string | null): Promise<void> {
   const row = await prisma.apiKey.findFirst({ where, select: { id: true, secretHash: true, revokedAt: true } });
-  if (!row) throw new DomainError("not_found", "API key not found.");
+  if (!row) throw new DomainError("not_found", "API key not found.", undefined, "developer.apiKeyNotFound");
   if (!row.revokedAt) {
     await prisma.apiKey.updateMany({ where: { id: row.id, revokedAt: null }, data: { revokedAt: new Date(), revokedBy } });
   }
@@ -107,13 +107,13 @@ async function revoke(where: { id: string; personId?: string }, revokedBy: strin
 }
 
 export async function revokeApiKey(personId: string, keyId: string): Promise<void> {
-  if (!z.uuid().safeParse(keyId).success) throw new DomainError("not_found", "API key not found.");
+  if (!z.uuid().safeParse(keyId).success) throw new DomainError("not_found", "API key not found.", undefined, "developer.apiKeyNotFound");
   await revoke({ id: keyId, personId }, null);
 }
 
 /** Staff revoke (admin app wraps in audited()). */
 export async function revokeApiKeyAsStaff(keyId: string, staffId: string): Promise<void> {
-  if (!z.uuid().safeParse(keyId).success) throw new DomainError("not_found", "API key not found.");
+  if (!z.uuid().safeParse(keyId).success) throw new DomainError("not_found", "API key not found.", undefined, "developer.apiKeyNotFound");
   await revoke({ id: keyId }, staffId);
 }
 

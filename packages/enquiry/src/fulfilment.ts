@@ -40,8 +40,8 @@ const rank = (s: FulfilmentStage | null): number => (s ? FULFILMENT_STAGES.index
  */
 export function applyFulfilment(s: FulfilmentState, role: OrderRole, stage: FulfilmentStage): { changed: boolean; stage: FulfilmentStage } {
   const rule = (FULFILMENT_RULES as Record<string, { from: OrderStatus[] } | undefined>)[stage];
-  if (!rule) throw new DomainError("validation", "Unknown fulfilment stage.");
-  if (role !== "seller") throw new DomainError("forbidden", "Only the seller can record fulfilment progress.");
+  if (!rule) throw new DomainError("validation", "Unknown fulfilment stage.", undefined, "enquiries.unknownFulfilmentStage");
+  if (role !== "seller") throw new DomainError("forbidden", "Only the seller can record fulfilment progress.", undefined, "enquiries.onlySellerRecordFulfilmentProgress");
   if (!rule.from.includes(s.status)) {
     const why = s.status === "delivered" || s.status === "completed" || s.status === "cancelled"
       ? `An order that is ${s.status} can no longer be updated.`
@@ -53,7 +53,7 @@ export function applyFulfilment(s: FulfilmentState, role: OrderRole, stage: Fulf
   const cur = rank(s.fulfilmentStage);
   const next = rank(stage);
   if (next === cur) return { changed: false, stage };
-  if (next < cur) throw new DomainError("conflict", "Fulfilment progress cannot move backwards.");
+  if (next < cur) throw new DomainError("conflict", "Fulfilment progress cannot move backwards.", undefined, "enquiries.fulfilmentProgressMoveBackwards");
   return { changed: true, stage };
 }
 

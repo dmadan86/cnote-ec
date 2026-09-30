@@ -178,7 +178,7 @@ export async function createPromotion(input: PromotionInput, staffId: string): P
 export async function updatePromotion(id: string, input: PromotionInput, staffId: string): Promise<PromotionView> {
   const d = parse(input);
   const cur = await requirePromotion(id);
-  if (cur.status === "approved" || cur.status === "archived") throw new DomainError("conflict", "A live or archived promotion cannot be edited. Archive it and create a new one.");
+  if (cur.status === "approved" || cur.status === "archived") throw new DomainError("conflict", "A live or archived promotion cannot be edited. Archive it and create a new one.", undefined, "promotions.liveArchivedPromotionEditedArchive");
   const row = await prisma.$transaction(async (tx) => {
     await tx.promotionContent.deleteMany({ where: { promotionId: id } });
     await tx.promotionItem.deleteMany({ where: { promotionId: id } });
@@ -199,7 +199,7 @@ export async function updatePromotion(id: string, input: PromotionInput, staffId
 
 async function requirePromotion(id: string): Promise<Row> {
   const row = isUuid(id) ? await loadRow(id) : null;
-  if (!row) throw new DomainError("not_found", "Promotion not found");
+  if (!row) throw new DomainError("not_found", "Promotion not found", undefined, "promotions.promotionNotFound");
   return row;
 }
 
@@ -220,20 +220,20 @@ export async function listPromotions(opts: { status?: PromotionStatusName; limit
 
 export async function submitPromotion(id: string, staffId: string): Promise<PromotionView> {
   const cur = await requirePromotion(id);
-  if (cur.status !== "draft") throw new DomainError("conflict", "Only a draft can be submitted for review");
-  if (cur.kind === "collection" && cur.items.length === 0) throw new DomainError("validation", "A collection needs at least one item");
-  if (cur.endsAt <= new Date()) throw new DomainError("validation", "The end date has already passed");
-  if (cur.createdBy !== staffId) throw new DomainError("forbidden", "Only the author can submit their draft");
+  if (cur.status !== "draft") throw new DomainError("conflict", "Only a draft can be submitted for review", undefined, "promotions.onlyDraftSubmittedReview");
+  if (cur.kind === "collection" && cur.items.length === 0) throw new DomainError("validation", "A collection needs at least one item", undefined, "promotions.collectionNeedsLeastOneItem");
+  if (cur.endsAt <= new Date()) throw new DomainError("validation", "The end date has already passed", undefined, "promotions.endDateAlreadyPassed");
+  if (cur.createdBy !== staffId) throw new DomainError("forbidden", "Only the author can submit their draft", undefined, "promotions.onlyAuthorSubmitTheirDraft");
   const n = await prisma.promotion.updateMany({ where: { id, status: "draft" }, data: { status: "in_review" } });
-  if (n.count === 0) throw new DomainError("conflict", "Promotion changed; reload and try again");
+  if (n.count === 0) throw new DomainError("conflict", "Promotion changed; reload and try again", undefined, "promotions.promotionChangedReloadTryAgain");
   return (await getPromotion(id))!;
 }
 
 /** Sends a submitted promotion back to the author with the reviewer's reason kept in the audit log (the caller wraps this in audited()). */
 export async function returnPromotionToDraft(id: string, reviewerId: string): Promise<PromotionView> {
   const cur = await requirePromotion(id);
-  if (cur.status !== "in_review") throw new DomainError("conflict", "Only a promotion in review can be returned");
-  if (cur.createdBy === reviewerId) throw new DomainError("forbidden", "Use edit to change your own draft");
+  if (cur.status !== "in_review") throw new DomainError("conflict", "Only a promotion in review can be returned", undefined, "promotions.onlyPromotionReviewReturned");
+  if (cur.createdBy === reviewerId) throw new DomainError("forbidden", "Use edit to change your own draft", undefined, "promotions.useEditChangeOwnDraft");
   await prisma.promotion.updateMany({ where: { id, status: "in_review" }, data: { status: "draft" } });
   return (await getPromotion(id))!;
 }
@@ -241,12 +241,12 @@ export async function returnPromotionToDraft(id: string, reviewerId: string): Pr
 /** Two-person rule: approvedBy must differ from createdBy. Enforced here (not only by privilege) so no caller can bypass it. */
 export async function approvePromotion(id: string, approverId: string): Promise<PromotionView> {
   const cur = await requirePromotion(id);
-  if (cur.status !== "in_review") throw new DomainError("conflict", "Only a promotion in review can be approved");
+  if (cur.status !== "in_review") throw new DomainError("conflict", "Only a promotion in review can be approved", undefined, "promotions.onlyPromotionReviewApproved");
   if (cur.createdBy === approverId) throw new DomainError("forbidden", "A different staff member must approve this promotion (two-person rule)");
-  if (cur.endsAt <= new Date()) throw new DomainError("validation", "The end date has already passed");
+  if (cur.endsAt <= new Date()) throw new DomainError("validation", "The end date has already passed", undefined, "promotions.endDateAlreadyPassed");
   await prisma.$transaction(async (tx) => {
     const n = await tx.promotion.updateMany({ where: { id, status: "in_review" }, data: { status: "approved", approvedBy: approverId, approvedAt: new Date() } });
-    if (n.count === 0) throw new DomainError("conflict", "Promotion changed; reload and try again");
+    if (n.count === 0) throw new DomainError("conflict", "Promotion changed; reload and try again", undefined, "promotions.promotionChangedReloadTryAgain");
     await emit(tx, "PromotionPublished", { type: "promotion", id }, {
       promotionId: id, kind: cur.kind, surfaces: cur.surfaces, startsAt: cur.startsAt.toISOString(), endsAt: cur.endsAt.toISOString(), createdBy: cur.createdBy, approvedBy: approverId,
     });

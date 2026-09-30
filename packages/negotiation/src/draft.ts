@@ -257,7 +257,7 @@ export async function approveDraftFromChannel(
 ): Promise<{ status: "approved" | "discarded"; quoteId: string | null }> {
   const d = isUuid(draftId) ? await prisma.quoteDraft.findUnique({ where: { id: draftId } }) : null;
   if (!d) throw new DomainError("not_found", "Draft not found");
-  if (!isUuid(sellerPersonId) || !(await identity.isBusinessMember(sellerPersonId, d.sellerBusinessId))) throw new DomainError("forbidden", "You cannot act on this draft.");
+  if (!isUuid(sellerPersonId) || !(await identity.isBusinessMember(sellerPersonId, d.sellerBusinessId))) throw new DomainError("forbidden", "You cannot act on this draft.", undefined, "negotiation.actDraft");
   const actor = { personId: sellerPersonId, businessId: d.sellerBusinessId };
   const v = decision === "approve" ? await approveDraft(actor, draftId, {}, "whatsapp") : await discardDraft(actor, draftId, "whatsapp");
   return { status: v.status === "approved" ? "approved" : "discarded", quoteId: v.quoteId };

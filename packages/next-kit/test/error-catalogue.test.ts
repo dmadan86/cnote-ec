@@ -30,6 +30,16 @@ describe("DomainError key", () => {
   });
 });
 
+describe("DomainError params", () => {
+  it("are optional and carried as the 5th argument", () => {
+    expect(new DomainError("validation", "x").params).toBeUndefined();
+    expect(new DomainError("validation", "x", undefined, "a.b", { n: 2 }).params).toEqual({ n: 2 });
+  });
+  it("localizeError passes them to the translator", () => {
+    expect(localizeError({ error: "E", errorKey: "a.b", errorParams: { n: 2 } }, (k, p) => `${k}:${p?.n}`)).toBe("a.b:2");
+  });
+});
+
 describe("errorKeyFor", () => {
   it("prefers the explicit key over the message mapping", () => {
     expect(errorKeyFor(new DomainError("forbidden", "Not signed in.", undefined, "custom.key"))).toBe("custom.key");

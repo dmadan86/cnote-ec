@@ -17,7 +17,7 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
   }
 
   const category = data.categorySlug ? await catalogue.getCategoryBySlug(data.categorySlug) : null;
-  if (data.categorySlug && !category) throw new DomainError("validation", "Unknown category");
+  if (data.categorySlug && !category) throw new DomainError("validation", "Unknown category", undefined, "ads.unknownCategory");
   if (category?.prohibited) throw new DomainError("validation", "This category is not allowed on the marketplace.");
 
   const id = randomUUID();

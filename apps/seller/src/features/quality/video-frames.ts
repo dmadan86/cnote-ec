@@ -39,6 +39,7 @@ const once = (el: HTMLVideoElement, ok: string) =>
 export async function extractFrames(file: File, limits: VideoLimits): Promise<File[]> {
   checkVideoFile(file, limits);
   const url = URL.createObjectURL(file);
+  if (!url.startsWith("blob:")) throw new VideoFrameError("unreadable"); // only object URLs of the chosen file
   const video = document.createElement("video");
   video.muted = true; video.playsInline = true; video.preload = "auto";
   try {

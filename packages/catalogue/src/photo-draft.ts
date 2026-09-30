@@ -40,7 +40,7 @@ export async function draftListingFromPhotos(
   input: { files: { bytes: Uint8Array; filename?: string }[]; hintText?: string; language: string },
 ): Promise<PhotoDraftResult> {
   const { files } = input;
-  if (files.length < 1 || files.length > MAX_PHOTOS_PER_DRAFT) throw new DomainError("validation", `Add 1 to ${MAX_PHOTOS_PER_DRAFT} photos`);
+  if (files.length < 1 || files.length > MAX_PHOTOS_PER_DRAFT) throw new DomainError("validation", `Add 1 to ${MAX_PHOTOS_PER_DRAFT} photos`, undefined, "catalogue.addPhotos", { maxPhotosPerDraft: MAX_PHOTOS_PER_DRAFT });
   const hint = input.hintText?.trim().slice(0, HINT_MAX) || undefined;
   const lang = (LANGS as readonly string[]).includes(input.language) ? (input.language as (typeof LANGS)[number]) : "en";
 
@@ -67,7 +67,7 @@ export async function draftListingFromPhotos(
   }
 
   const usable = (await listCategories()).filter((c) => !c.prohibited);
-  if (!usable.length) throw new DomainError("conflict", "No categories available");
+  if (!usable.length) throw new DomainError("conflict", "No categories available", undefined, "catalogue.noCategoriesAvailable");
 
   // 2. Vision extraction (decision logged with hashes/dimensions only; low confidence goes to the review queue).
   const id = randomUUID();

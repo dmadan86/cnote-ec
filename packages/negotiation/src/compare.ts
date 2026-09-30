@@ -204,13 +204,13 @@ export function composeCounterMessage(p: { note: string; quotedPricePaise: numbe
  */
 export async function proposeCounterOffer(actor: Actor, enquiryId: string, quoteId: string): Promise<CounterProposalView> {
   requireEnabled();
-  if (!(await rateLimit(`negotiation:counter:${actor.personId}`, 30, 3600))) throw new DomainError("rate_limited", "Too many counter requests. Try again later.");
+  if (!(await rateLimit(`negotiation:counter:${actor.personId}`, 30, 3600))) throw new DomainError("rate_limited", "Too many counter requests. Try again later.", undefined, "negotiation.tooManyCounterRequestsTry");
   const cmp = await compareQuotes(actor, enquiryId);
   const row = cmp.rows.find((r) => r.quoteId === quoteId);
   if (!row) throw new DomainError("not_found", "Quote not found");
   const b = cmp.bounds;
   if (b.targetPricePaise == null && b.ceilingPricePaise == null && b.maxLeadTimeDays == null) throw new DomainError("validation", "Set a target price, a maximum price or a delivery limit first.");
-  if (b.targetPricePaise != null && row.pricePaise <= b.targetPricePaise) throw new DomainError("conflict", "This quote is already at or below your target price. No counter needed.");
+  if (b.targetPricePaise != null && row.pricePaise <= b.targetPricePaise) throw new DomainError("conflict", "This quote is already at or below your target price. No counter needed.", undefined, "negotiation.quoteAlreadyBelowTargetPrice");
   const others = cmp.rows.filter((r) => r.quoteId !== quoteId);
   const proposalId = crypto.randomUUID();
   const out = await ai.proposeCounter({
@@ -269,7 +269,7 @@ export type CounterEdits = z.input<typeof counterEditsSchema>;
 
 async function loadCounter(actor: Actor, id: string): Promise<CounterProposal> {
   const p = isUuid(id) ? await prisma.counterProposal.findUnique({ where: { id } }) : null;
-  if (!p || p.buyerBusinessId !== actor.businessId) throw new DomainError("not_found", "Counter not found");
+  if (!p || p.buyerBusinessId !== actor.businessId) throw new DomainError("not_found", "Counter not found", undefined, "negotiation.counterNotFound");
   return p;
 }
 
@@ -284,7 +284,7 @@ export async function getCounterProposal(actor: Actor, id: string): Promise<Coun
 export async function sendCounterOffer(actor: Actor, proposalId: string, edits: CounterEdits = {}): Promise<CounterProposalView> {
   const p = await loadCounter(actor, proposalId);
   if (p.status === "sent") return toCounterView(p);
-  if (p.status !== "proposed") throw new DomainError("conflict", "This counter was discarded.");
+  if (p.status !== "proposed") throw new DomainError("conflict", "This counter was discarded.", undefined, "negotiation.counterDiscarded");
   const parsed = counterEditsSchema.safeParse(edits);
   if (!parsed.success) throw new DomainError("validation", parsed.error.issues[0]?.message ?? "Invalid counter");
   const e = parsed.data;
@@ -297,7 +297,7 @@ export async function sendCounterOffer(actor: Actor, proposalId: string, edits: 
   const edited = pricePaise !== Number(p.pricePaise) || leadTimeDays !== p.leadTimeDays || note.trim() !== p.note.trim();
 
   const claim = await prisma.counterProposal.updateMany({ where: { id: p.id, status: "proposed" }, data: { status: "sent", sentByPersonId: actor.personId, sentAt: new Date() } });
-  if (claim.count === 0) throw new DomainError("conflict", "This counter was already handled.");
+  if (claim.count === 0) throw new DomainError("conflict", "This counter was already handled.", undefined, "negotiation.counterAlreadyHandled");
   const unit = (await enquiry.getQuote(actor, p.quoteId))?.unit ?? "unit";
   try {
     await enquiry.sendMessage(actor, p.conversationId, composeCounterMessage({ note, quotedPricePaise: Number(p.quotedPricePaise), pricePaise, unit, leadTimeDays }));
@@ -320,7 +320,7 @@ export async function sendCounterOffer(actor: Actor, proposalId: string, edits: 
 export async function discardCounterOffer(actor: Actor, proposalId: string): Promise<void> {
   const p = await loadCounter(actor, proposalId);
   if (p.status === "discarded") return;
-  if (p.status === "sent") throw new DomainError("conflict", "This counter was already sent.");
+  if (p.status === "sent") throw new DomainError("conflict", "This counter was already sent.", undefined, "negotiation.counterAlreadySent");
   const claim = await prisma.counterProposal.updateMany({ where: { id: p.id, status: "proposed" }, data: { status: "discarded" } });
   if (claim.count === 0) return;
   await logAgentAction({

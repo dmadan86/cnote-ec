@@ -15,6 +15,7 @@ describe("runAction", () => {
     expect(await runAction(async () => { throw new DomainError("conflict", "nope", undefined, "a.b"); })).toEqual({ ok: false, error: "nope", errorKey: "a.b" });
     expect(await runAction(async () => { throw new DomainError("unauthenticated", "Invalid email or password"); })).toEqual({ ok: false, error: "Invalid email or password", errorKey: "auth.invalidCredentials" });
     expect(await runAction(async () => { throw new DomainError("forbidden", "bespoke"); })).not.toHaveProperty("errorKey");
+    expect(await runAction(async () => { throw new DomainError("validation", "Attach at most 5 files", undefined, "disputes.tooManyFiles", { max: 5 }); })).toEqual({ ok: false, error: "Attach at most 5 files", errorKey: "disputes.tooManyFiles", errorParams: { max: 5 } });
   });
   it("maps ZodError to first message per dotted path", async () => {
     const schema = z.object({ email: z.string().email("bad email"), nested: z.object({ n: z.number("need n") }) });

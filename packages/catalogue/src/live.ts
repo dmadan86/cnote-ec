@@ -116,7 +116,7 @@ async function buildProjection(versionId: string, publishedAt: Date): Promise<Pr
   if (!v) return null;
   const snap = parseSnapshot(v.snapshot);
   const category = await getCategoryById(snap.categoryId);
-  if (!category) throw new DomainError("validation", "Category no longer exists");
+  if (!category) throw new DomainError("validation", "Category no longer exists", undefined, "catalogue.categoryNoLongerExists");
   const [images, seller, emb] = await Promise.all([projectImages(v.listingId, snap), sellerSnap(v.listing.sellerBusinessId), embedSnapshot({ ...snap, categoryName: category.name })]);
   return {
     listingId: v.listingId,

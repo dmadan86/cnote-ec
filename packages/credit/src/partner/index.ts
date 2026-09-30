@@ -22,7 +22,7 @@ export function configuredPartnerName(env: NodeJS.ProcessEnv = process.env): Par
 }
 
 export function getCreditPartner(name: string = override?.name ?? configuredPartnerName()): CreditPartner {
-  if (!isPartnerName(name)) throw new DomainError("not_found", "Unknown credit partner.");
+  if (!isPartnerName(name)) throw new DomainError("not_found", "Unknown credit partner.", undefined, "credit.unknownCreditPartner");
   if (override && override.name === name) return override;
   let p = instances.get(name);
   if (!p) {

@@ -122,7 +122,7 @@ async function resolveCategories(categorySlug?: string, injected?: CategoryView[
   const all = injected ?? (await listCategories());
   if (!categorySlug) return { all, chosen: all.filter((c) => !c.prohibited) };
   const one = all.find((c) => c.slug === categorySlug && !c.prohibited);
-  if (!one) throw new DomainError("validation", `Unknown category "${categorySlug}"`);
+  if (!one) throw new DomainError("validation", `Unknown category "${categorySlug}"`, undefined, "bulk.unknownCategory", { categorySlug });
   return { all, chosen: [one] };
 }
 

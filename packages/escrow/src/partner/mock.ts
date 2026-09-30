@@ -31,7 +31,7 @@ export class MockPartner implements EscrowPartner {
   private transfer(req: TransferRequest, kind: "payout" | "refund"): TransferResult {
     const hit = this.transfers.get(req.transferId);
     if (hit) return hit;
-    if (!Number.isSafeInteger(req.amountPaise) || req.amountPaise <= 0) throw new DomainError("validation", "Transfer amount must be positive.");
+    if (!Number.isSafeInteger(req.amountPaise) || req.amountPaise <= 0) throw new DomainError("validation", "Transfer amount must be positive.", undefined, "escrow.transferAmountMustPositive");
     const res: TransferResult = { partnerRef: `mock_${kind === "payout" ? "po" : "rf"}_${req.transferId.replace(/-/g, "").slice(0, 12)}`, status: this.opts.payoutStatus ?? "settled" };
     this.transfers.set(req.transferId, res);
     this.statement.push({ partnerRef: res.partnerRef, escrowRef: req.escrowId, kind, amountPaise: req.amountPaise, at: new Date().toISOString() });

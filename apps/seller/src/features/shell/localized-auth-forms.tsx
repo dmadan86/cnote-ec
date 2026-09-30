@@ -9,9 +9,9 @@ function useAuthLabels(): AuthLabels {
 }
 
 /** Translator for stable error keys from `errors.*` (undefined when the key has no translation). */
-function useErrorTranslator(): (key: string) => string | undefined {
+function useErrorTranslator(): (key: string, params?: Record<string, string | number>) => string | undefined {
   const t = useTranslations("errors");
-  return (key) => (t.has(key) ? t(key) : undefined);
+  return (key, params) => (t.has(key) ? t(key, params) : undefined);
 }
 
 export const LocalizedSignInForm = (p: AuthFormProps) => <SignInForm {...p} labels={useAuthLabels()} translateError={useErrorTranslator()} />;

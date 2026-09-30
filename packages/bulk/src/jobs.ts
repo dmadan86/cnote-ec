@@ -63,8 +63,8 @@ export function toJobView(j: JobRow): BulkJobView {
 async function loadOwned(actor: BulkActor, jobId: string): Promise<JobRow> {
   const ok = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
   const job = ok ? await prisma.bulkJob.findUnique({ where: { id: jobId } }) : null;
-  if (!job) throw new DomainError("not_found", "Job not found");
-  if (job.sellerBusinessId !== actor.businessId) throw new DomainError("forbidden", "Not your job");
+  if (!job) throw new DomainError("not_found", "Job not found", undefined, "bulk.jobNotFound");
+  if (job.sellerBusinessId !== actor.businessId) throw new DomainError("forbidden", "Not your job", undefined, "bulk.notJob");
   return job;
 }
 
@@ -91,7 +91,7 @@ async function finishEvent(tx: Prisma.TransactionClient, j: Pick<JobRow, "id" | 
 // import: upload + validate
 
 function parseOptions(o: Partial<ImportOptions>): ImportOptions {
-  if (o.mode !== "create" && o.mode !== "upsert") throw new DomainError("validation", 'Choose "create new" or "update by SKU"');
+  if (o.mode !== "create" && o.mode !== "upsert") throw new DomainError("validation", 'Choose "create new" or "update by SKU"', undefined, "bulk.chooseCreateNewUpdateBy");
   return { mode: o.mode, submitForReview: !!o.submitForReview };
 }
 
@@ -99,12 +99,12 @@ export async function createImportJob(actor: BulkActor, upload: { bytes: Uint8Ar
   const opts = parseOptions(options);
   const format = detectFormat(upload.bytes, upload.filename);
   const max = format === "zip" ? LIMITS.maxZipCompressedBytes : LIMITS.maxSheetBytes;
-  if (upload.bytes.length > max) throw new DomainError("validation", `File is larger than ${max / 1024 / 1024} MB`);
+  if (upload.bytes.length > max) throw new DomainError("validation", `File is larger than ${max / 1024 / 1024} MB`, undefined, "bulk.fileLargerThanMb", { mb: max / 1024 / 1024 });
 
   const busy = await prisma.bulkJob.findFirst({ where: { sellerBusinessId: actor.businessId, kind: "import", status: { in: BUSY } }, select: { id: true } });
-  if (busy) throw new DomainError("conflict", "Another import is still running. Wait for it to finish or cancel it first");
+  if (busy) throw new DomainError("conflict", "Another import is still running. Wait for it to finish or cancel it first", undefined, "bulk.anotherImportStillRunningWait");
   if (!(await rateLimit(`bulk-import:${actor.businessId}`, LIMITS.importsPerHour, 3600))) {
-    throw new DomainError("rate_limited", `You can start ${LIMITS.importsPerHour} imports per hour. Please try again later`);
+    throw new DomainError("rate_limited", `You can start ${LIMITS.importsPerHour} imports per hour. Please try again later`, undefined, "bulk.startImportsPerHourTry", { importsPerHour: LIMITS.importsPerHour });
   }
 
   // A file-level problem (bad zip, missing columns, too many rows) is reported straight back: no job, nothing stored.
@@ -150,7 +150,7 @@ export async function validateImportJob(jobId: string, parsedIn?: ParsedImport):
     let parsed = parsedIn;
     if (!parsed) {
       const bytes = job.sourceKey ? await store.get(job.sourceKey) : null;
-      if (!bytes) throw new DomainError("not_found", "The uploaded file is no longer available");
+      if (!bytes) throw new DomainError("not_found", "The uploaded file is no longer available", undefined, "bulk.uploadedFileNoLongerAvailable");
       parsed = await parseImportFile({ bytes, filename: job.originalName ?? `source.${job.format}` });
     }
     const res = await validateAgainstCatalogue(job, parsed);
@@ -184,25 +184,25 @@ export async function validateImportJob(jobId: string, parsedIn?: ParsedImport):
 
 export async function confirmImportJob(actor: BulkActor, jobId: string, opts: { skipInvalid?: boolean } = {}): Promise<BulkJobView> {
   const job = await loadOwned(actor, jobId);
-  if (job.kind !== "import") throw new DomainError("conflict", "Not an import job");
+  if (job.kind !== "import") throw new DomainError("conflict", "Not an import job", undefined, "bulk.notImportJob");
   if (job.status !== "validated") throw new DomainError("conflict", job.status === "queued" || job.status === "processing" ? "This import is already running" : "This import cannot be confirmed in its current state");
   const validRows = job.totalRows - job.errorCount;
-  if (validRows <= 0) throw new DomainError("validation", "There are no valid rows to import. Fix the errors and upload again");
-  if (job.errorCount > 0 && !opts.skipInvalid) throw new DomainError("validation", `${job.errorCount} row(s) have errors. Fix them, or confirm to import only the ${validRows} valid row(s)`);
+  if (validRows <= 0) throw new DomainError("validation", "There are no valid rows to import. Fix the errors and upload again", undefined, "bulk.noValidRowsImportFix");
+  if (job.errorCount > 0 && !opts.skipInvalid) throw new DomainError("validation", `${job.errorCount} row(s) have errors. Fix them, or confirm to import only the ${validRows} valid row(s)`, undefined, "bulk.rowSErrorsFixThem", { errorCount: job.errorCount, validRows });
   const busy = await prisma.bulkJob.findFirst({ where: { sellerBusinessId: actor.businessId, kind: "import", status: { in: ["queued", "processing"] } }, select: { id: true } });
-  if (busy) throw new DomainError("conflict", "Another import is still running");
+  if (busy) throw new DomainError("conflict", "Another import is still running", undefined, "bulk.anotherImportStillRunning");
   const claimed = await prisma.bulkJob.updateMany({
     where: { id: jobId, status: "validated" },
     data: { status: "queued", options: { ...(job.options as object), skipInvalid: !!opts.skipInvalid } as Prisma.InputJsonValue, processedRows: 0, createdCount: 0, updatedCount: 0, imageCount: 0 },
   });
-  if (claimed.count !== 1) throw new DomainError("conflict", "This import was already confirmed");
+  if (claimed.count !== 1) throw new DomainError("conflict", "This import was already confirmed", undefined, "bulk.importAlreadyConfirmed");
   await getJobQueue().enqueue("bulk.import", { jobId }, { dedupeKey: `import:${jobId}`, maxAttempts: 3 });
   return getJob(actor, jobId);
 }
 
 export async function cancelJob(actor: BulkActor, jobId: string): Promise<BulkJobView> {
   const job = await loadOwned(actor, jobId);
-  if (!isActive(job.status)) throw new DomainError("conflict", "This job has already finished");
+  if (!isActive(job.status)) throw new DomainError("conflict", "This job has already finished", undefined, "bulk.jobAlreadyFinished");
   await prisma.bulkJob.updateMany({ where: { id: jobId, status: { in: ACTIVE } }, data: { status: "cancelled", finishedAt: new Date(), expiresAt: expiry() } });
   return getJob(actor, jobId);
 }
@@ -245,7 +245,7 @@ async function processRow(job: JobRow, opts: ImportOptions, r: ImportRow, images
   try {
     const ex = await catalogue.findSellerListingBySku(bid, r.sku);
     if (ex) {
-      if (opts.mode === "create") throw new DomainError("conflict", `SKU "${r.sku}" already exists`);
+      if (opts.mode === "create") throw new DomainError("conflict", `SKU "${r.sku}" already exists`, undefined, "bulk.skuAlreadyExists", { sku: r.sku });
       const patch: Partial<catalogue.ListingInput> = { title: r.title, categoryId: r.categoryId, attributes: { ...ex.attributes, ...r.attributes } };
       if (r.description !== undefined) patch.description = r.description;
       if (r.pricePaise !== undefined) patch.pricePaise = r.pricePaise;
@@ -351,7 +351,7 @@ async function importLocked(jobId: string, lockKey: string): Promise<void> {
 
   const store = getBulkStore();
   const bytes = job.sourceKey ? await store.get(job.sourceKey) : null;
-  if (!bytes) throw new DomainError("not_found", "The uploaded file is no longer available");
+  if (!bytes) throw new DomainError("not_found", "The uploaded file is no longer available", undefined, "bulk.uploadedFileNoLongerAvailable");
   const parsed = await parseImportFile({ bytes, filename: job.originalName ?? `source.${job.format}` });
 
   const outcomes = await loadCheckpoint(jobId);
@@ -415,10 +415,10 @@ async function importLocked(jobId: string, lockKey: string): Promise<void> {
 // export
 
 export async function createExportJob(actor: BulkActor, opts: { format: "xlsx" | "csv"; includeImages?: boolean }): Promise<BulkJobView> {
-  if (opts.format !== "xlsx" && opts.format !== "csv") throw new DomainError("validation", "Choose Excel or CSV");
+  if (opts.format !== "xlsx" && opts.format !== "csv") throw new DomainError("validation", "Choose Excel or CSV", undefined, "bulk.chooseExcelCsv");
   const busy = await prisma.bulkJob.findFirst({ where: { sellerBusinessId: actor.businessId, kind: "export", status: { in: ["queued", "processing"] } }, select: { id: true } });
-  if (busy) throw new DomainError("conflict", "An export is already being prepared");
-  if (!(await rateLimit(`bulk-export:${actor.businessId}`, LIMITS.exportsPerHour, 3600))) throw new DomainError("rate_limited", "Too many exports. Please try again later");
+  if (busy) throw new DomainError("conflict", "An export is already being prepared", undefined, "bulk.exportAlreadyBeingPrepared");
+  if (!(await rateLimit(`bulk-export:${actor.businessId}`, LIMITS.exportsPerHour, 3600))) throw new DomainError("rate_limited", "Too many exports. Please try again later", undefined, "bulk.tooManyExportsTryAgain");
   const job = await prisma.bulkJob.create({
     data: {
       sellerBusinessId: actor.businessId, createdBy: actor.personId, kind: "export", status: "queued", format: opts.includeImages ? "zip" : opts.format,
@@ -568,9 +568,9 @@ export interface BulkDownload {
 
 export async function getDownload(actor: BulkActor, jobId: string, which: "result" | "errors" | "source", opts: { preferSignedUrl?: boolean } = {}): Promise<BulkDownload> {
   const job = await loadOwned(actor, jobId);
-  if (job.status === "expired") throw new DomainError("not_found", `Files are deleted after ${LIMITS.retentionDays} days`);
+  if (job.status === "expired") throw new DomainError("not_found", `Files are deleted after ${LIMITS.retentionDays} days`, undefined, "bulk.filesDeletedAfterDays", { retentionDays: LIMITS.retentionDays });
   const key = which === "result" ? job.resultKey : which === "errors" ? job.errorReportKey : job.sourceKey;
-  if (!key) throw new DomainError("not_found", "Nothing to download for this job");
+  if (!key) throw new DomainError("not_found", "Nothing to download for this job", undefined, "bulk.nothingDownloadJob");
   const ext = key.slice(key.lastIndexOf(".") + 1);
   const stamp = (job.finishedAt ?? job.createdAt).toISOString().slice(0, 10);
   const base = (job.originalName ?? "import").replace(/\.[a-z0-9]+$/i, "").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 60);
@@ -582,7 +582,7 @@ export async function getDownload(actor: BulkActor, jobId: string, which: "resul
     if (url) return { filename, contentType, url, bytes: null };
   }
   const bytes = await store.get(key);
-  if (!bytes) throw new DomainError("not_found", "The file is no longer available");
+  if (!bytes) throw new DomainError("not_found", "The file is no longer available", undefined, "bulk.fileNoLongerAvailable");
   return { filename, contentType, url: null, bytes };
 }
 

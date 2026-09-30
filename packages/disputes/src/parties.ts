@@ -109,7 +109,7 @@ async function addRows(actor: Actor, id: string, kind: "respond" | "evidence", i
   const prepared = await prepareEvidence(id, { text: input.text, language: input.language, voiceConsent: input.voiceConsent, uploads });
   try {
     if (prepared.rows.length === 0) throw new DomainError("validation", kind === "respond" ? "Write your response or attach evidence." : "Add a statement or a file.");
-    if (kind === "respond" && !prepared.rows.some((r) => r.text)) throw new DomainError("validation", "Please include a written or voice statement in your response.");
+    if (kind === "respond" && !prepared.rows.some((r) => r.text)) throw new DomainError("validation", "Please include a written or voice statement in your response.", undefined, "disputes.includeWrittenVoiceStatementResponse");
     let firstResponse = false;
     const rows = await prisma.$transaction(async (tx) => {
       await lockDispute(tx, id);
@@ -172,8 +172,8 @@ export async function escalateDispute(actor: Actor, id: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
     await lockDispute(tx, id);
     const d = await tx.dispute.findUniqueOrThrow({ where: { id } });
-    if (status(d) !== "auto_resolved") throw new DomainError("conflict", "Only a case with a proposed automatic resolution can be escalated.");
-    if (!d.escalationDeadline || d.escalationDeadline.getTime() < Date.now()) throw new DomainError("conflict", "The window to escalate this decision has closed.");
+    if (status(d) !== "auto_resolved") throw new DomainError("conflict", "Only a case with a proposed automatic resolution can be escalated.", undefined, "disputes.onlyCaseProposedAutomaticResolution");
+    if (!d.escalationDeadline || d.escalationDeadline.getTime() < Date.now()) throw new DomainError("conflict", "The window to escalate this decision has closed.", undefined, "disputes.windowEscalateDecisionClosed");
     assertTransition("auto_resolved", "awaiting_adjudication");
     await tx.dispute.update({ where: { id }, data: { status: "awaiting_adjudication", escalatedAt: new Date(), escalatedByBusinessId: actor.businessId } });
     await emit(tx, "DisputeEscalated", { type: "dispute", id }, { disputeId: id, orderId: d.orderId, byBusinessId: actor.businessId });
@@ -191,7 +191,7 @@ export async function appealDecision(actor: Actor, id: string, reason: string): 
       await lockDispute(tx, id);
       const d = await tx.dispute.findUniqueOrThrow({ where: { id }, include: { decision: true } });
       if (status(d) !== "resolved" || !d.decision || d.decision.outcome === "withdrawn") throw new DomainError("conflict", "Only a decided dispute can be appealed.");
-      if (!d.resolvedAt || Date.now() - d.resolvedAt.getTime() > APPEAL_WINDOW_DAYS * DAY_MS) throw new DomainError("conflict", `Appeals must be made within ${APPEAL_WINDOW_DAYS} days of the decision.`);
+      if (!d.resolvedAt || Date.now() - d.resolvedAt.getTime() > APPEAL_WINDOW_DAYS * DAY_MS) throw new DomainError("conflict", `Appeals must be made within ${APPEAL_WINDOW_DAYS} days of the decision.`, undefined, "disputes.appealsMustMadeWithinDays", { appealWindowDays: APPEAL_WINDOW_DAYS });
       return tx.disputeAppeal.create({ data: { disputeId: id, byBusinessId: actor.businessId, byPersonId: actor.personId, reason: text } });
     });
     return appealView(a);

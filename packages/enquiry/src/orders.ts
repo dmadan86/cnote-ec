@@ -58,7 +58,7 @@ export function rolesFor(s: Pick<OrderState, "settlement">, to: OrderMove): Orde
 /** Applies an explicit move, enforcing role and source status. Throws DomainError otherwise. */
 export function applyMove(s: OrderState, role: OrderRole, to: OrderMove): OrderState {
   const rule = ORDER_MOVES[to] as { from: OrderStatus[]; roles: OrderRole[] } | undefined;
-  if (!rule) throw new DomainError("validation", "Unknown order status.");
+  if (!rule) throw new DomainError("validation", "Unknown order status.", undefined, "enquiries.unknownOrderStatus");
   if (!rolesFor(s, to).includes(role)) {
     throw new DomainError("forbidden", `Only the ${rule.roles.join(" or ")} can mark an order ${to}.`);
   }
@@ -388,7 +388,7 @@ export async function listOrders(actor: Actor, opts: { role: OrderRole; cursor?:
 }
 
 /** System read for notifiers (no actor): the two businesses on an order. Null for unknown or malformed ids. */
-export async function getOrderParties(orderId: string): Promise<{ buyerBusinessId: string; sellerBusinessId: string } | null> {
+export async function getOrderParties(orderId: string): Promise<{ buyerBusinessId: string; sellerBusinessId: string; matchId: string | null } | null> {
   if (!UUID.test(orderId)) return null;
-  return prisma.order.findUnique({ where: { id: orderId }, select: { buyerBusinessId: true, sellerBusinessId: true } });
+  return prisma.order.findUnique({ where: { id: orderId }, select: { buyerBusinessId: true, sellerBusinessId: true, matchId: true } });
 }

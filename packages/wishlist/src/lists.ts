@@ -51,7 +51,7 @@ const withCount = { _count: { select: { items: true } } } as const;
 async function requireOwnedList(personId: string, listId: string, db: Tx | typeof prisma = prisma) {
   requireUuid(listId, "List");
   const row = await db.wishlist.findUnique({ where: { id: listId }, include: withCount });
-  if (!row || row.personId !== personId) throw new DomainError("not_found", "List not found");
+  if (!row || row.personId !== personId) throw new DomainError("not_found", "List not found", undefined, "wishlist.listNotFound");
   return row;
 }
 
@@ -104,13 +104,13 @@ export async function getList(personId: string, listId: string): Promise<Wishlis
 
 export async function createList(personId: string, name: string): Promise<WishlistSummary> {
   const clean = parse(nameSchema, name);
-  if (clean.toLowerCase() === DEFAULT_LIST_NAME.toLowerCase()) throw new DomainError("conflict", `"${DEFAULT_LIST_NAME}" is reserved for your default list`);
+  if (clean.toLowerCase() === DEFAULT_LIST_NAME.toLowerCase()) throw new DomainError("conflict", `"${DEFAULT_LIST_NAME}" is reserved for your default list`, undefined, "wishlist.reservedDefaultList", { defaultListName: DEFAULT_LIST_NAME });
   await throttle(personId);
   try {
     return await prisma.$transaction(async (tx) => {
       await lock(tx, `wishlist-lists:${personId}`);
       if ((await tx.wishlist.count({ where: { personId } })) >= MAX_LISTS_PER_PERSON) {
-        throw new DomainError("validation", `You can have up to ${MAX_LISTS_PER_PERSON} lists`);
+        throw new DomainError("validation", `You can have up to ${MAX_LISTS_PER_PERSON} lists`, undefined, "wishlist.upLists", { maxListsPerPerson: MAX_LISTS_PER_PERSON });
       }
       return summaryOf(await tx.wishlist.create({ data: { personId, name: clean }, include: withCount }));
     });
@@ -123,8 +123,8 @@ export async function createList(personId: string, name: string): Promise<Wishli
 export async function renameList(personId: string, listId: string, name: string): Promise<WishlistSummary> {
   const clean = parse(nameSchema, name);
   const list = await requireOwnedList(personId, listId);
-  if (list.isDefault) throw new DomainError("validation", "Your default list can't be renamed");
-  if (clean.toLowerCase() === DEFAULT_LIST_NAME.toLowerCase()) throw new DomainError("conflict", `"${DEFAULT_LIST_NAME}" is reserved for your default list`);
+  if (list.isDefault) throw new DomainError("validation", "Your default list can't be renamed", undefined, "wishlist.defaultListCantRenamed");
+  if (clean.toLowerCase() === DEFAULT_LIST_NAME.toLowerCase()) throw new DomainError("conflict", `"${DEFAULT_LIST_NAME}" is reserved for your default list`, undefined, "wishlist.reservedDefaultList", { defaultListName: DEFAULT_LIST_NAME });
   await throttle(personId);
   try {
     return summaryOf(await prisma.wishlist.update({ where: { id: listId }, data: { name: clean }, include: withCount }));
@@ -137,7 +137,7 @@ export async function renameList(personId: string, listId: string, name: string)
 /** Deletes a non-default list and its items. */
 export async function deleteList(personId: string, listId: string): Promise<void> {
   const list = await requireOwnedList(personId, listId);
-  if (list.isDefault) throw new DomainError("validation", "Your default list can't be deleted");
+  if (list.isDefault) throw new DomainError("validation", "Your default list can't be deleted", undefined, "wishlist.defaultListCantDeleted");
   await throttle(personId);
   await prisma.$transaction(async (tx) => {
     const items = await tx.wishlistItem.findMany({ where: { wishlistId: listId }, select: { listingId: true } });
@@ -153,7 +153,7 @@ export async function deleteList(personId: string, listId: string): Promise<void
 export async function addItem(personId: string, listingId: string, listId?: string): Promise<{ added: boolean; listId: string }> {
   requireUuid(listingId, "Listing");
   const [listing] = await getListingsByIds([listingId]);
-  if (!listing || !isVisible(listing)) throw new DomainError("not_found", "This product is no longer available");
+  if (!listing || !isVisible(listing)) throw new DomainError("not_found", "This product is no longer available", undefined, "wishlist.productNoLongerAvailable");
   const target = listId ? await requireOwnedList(personId, listId) : await getOrCreateDefaultList(personId);
   await throttle(personId);
   return prisma.$transaction(async (tx) => {
@@ -161,7 +161,7 @@ export async function addItem(personId: string, listingId: string, listId?: stri
     const existing = await tx.wishlistItem.findUnique({ where: { wishlistId_listingId: { wishlistId: target.id, listingId } } });
     if (existing) return { added: false, listId: target.id };
     if ((await tx.wishlistItem.count({ where: { wishlistId: target.id } })) >= MAX_ITEMS_PER_LIST) {
-      throw new DomainError("validation", `A list can hold up to ${MAX_ITEMS_PER_LIST} items`);
+      throw new DomainError("validation", `A list can hold up to ${MAX_ITEMS_PER_LIST} items`, undefined, "wishlist.listHoldUpItems", { maxItemsPerList: MAX_ITEMS_PER_LIST });
     }
     await tx.wishlistItem.create({
       data: { wishlistId: target.id, listingId, savedPricePaise: listing.pricePaise == null ? null : BigInt(listing.pricePaise) },
@@ -208,11 +208,11 @@ export async function moveItem(personId: string, input: { fromListId: string; to
   await prisma.$transaction(async (tx) => {
     await lock(tx, `wishlist-items:${toListId}`);
     const src = await tx.wishlistItem.findUnique({ where: { wishlistId_listingId: { wishlistId: fromListId, listingId } } });
-    if (!src) throw new DomainError("not_found", "Item not found in that list");
+    if (!src) throw new DomainError("not_found", "Item not found in that list", undefined, "wishlist.itemNotFoundList");
     const dup = await tx.wishlistItem.findUnique({ where: { wishlistId_listingId: { wishlistId: toListId, listingId } } });
     if (!dup) {
       if ((await tx.wishlistItem.count({ where: { wishlistId: toListId } })) >= MAX_ITEMS_PER_LIST) {
-        throw new DomainError("validation", `A list can hold up to ${MAX_ITEMS_PER_LIST} items`);
+        throw new DomainError("validation", `A list can hold up to ${MAX_ITEMS_PER_LIST} items`, undefined, "wishlist.listHoldUpItems", { maxItemsPerList: MAX_ITEMS_PER_LIST });
       }
       await tx.wishlistItem.create({
         data: { wishlistId: toListId, listingId, note: src.note, savedPricePaise: src.savedPricePaise, createdAt: src.createdAt },
@@ -229,7 +229,7 @@ export async function updateNote(personId: string, listId: string, listingId: st
   await requireOwnedList(personId, listId);
   await throttle(personId);
   const { count } = await prisma.wishlistItem.updateMany({ where: { wishlistId: listId, listingId }, data: { note: clean || null } });
-  if (count === 0) throw new DomainError("not_found", "Item not found in that list");
+  if (count === 0) throw new DomainError("not_found", "Item not found in that list", undefined, "wishlist.itemNotFoundList");
 }
 
 /** Which of `listingIds` the person has saved in any list (for product cards). */

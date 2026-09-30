@@ -133,7 +133,7 @@ function sideOf(n: { buyerBusinessId: string; sellerBusinessId: string }, busine
 async function requireOwn(actor: Actor, id: string): Promise<{ n: AgentNegotiation; side: Side }> {
   const n = isUuid(id) ? await prisma.agentNegotiation.findUnique({ where: { id } }) : null;
   const side = n ? sideOf(n, actor.businessId) : null;
-  if (!n || !side) throw new DomainError("not_found", "Negotiation not found");
+  if (!n || !side) throw new DomainError("not_found", "Negotiation not found", undefined, "agents.negotiationNotFound");
   return { n, side };
 }
 
@@ -194,15 +194,15 @@ export async function startNegotiation(actor: Actor, input: StartInput, via: Via
   const now = opts.now ?? new Date();
   if (!isUuid(input.mandateId) || !isUuid(input.matchId)) throw new DomainError("not_found", "Mandate or match not found");
   const mine = await prisma.agentMandate.findFirst({ where: { id: input.mandateId, businessId: actor.businessId } });
-  if (!mine) throw new DomainError("not_found", "Mandate not found");
+  if (!mine) throw new DomainError("not_found", "Mandate not found", undefined, "agents.mandateNotFound");
   await assertNotSuspended({ businessId: actor.businessId, mandateIds: [mine.id], apiKeyId: via.apiKeyId });
   if (!active(mine, now)) throw new DomainError("conflict", `This mandate is ${mine.status === "active" ? "expired" : mine.status}.`);
   const match = await enquiry.getMatchSummary(input.matchId);
-  if (!match) throw new DomainError("not_found", "Match not found");
+  if (!match) throw new DomainError("not_found", "Match not found", undefined, "agents.matchNotFound");
   const role: Side | null = match.buyerBusinessId === actor.businessId ? "buyer" : match.sellerBusinessId === actor.businessId ? "seller" : null;
-  if (!role) throw new DomainError("not_found", "Match not found");
+  if (!role) throw new DomainError("not_found", "Match not found", undefined, "agents.matchNotFound");
   if (role !== mine.side) throw new DomainError("validation", `This is a ${mine.side} mandate but you are the ${role} in this match.`);
-  if (!["offered", "accepted"].includes(match.status)) throw new DomainError("conflict", "This lead is no longer available.");
+  if (!["offered", "accepted"].includes(match.status)) throw new DomainError("conflict", "This lead is no longer available.", undefined, "agents.leadNoLongerAvailable");
 
   const existing = await prisma.agentNegotiation.findUnique({ where: { matchId: match.id } });
   if (existing) return (await getNegotiation(actor, existing.id))!;
@@ -211,15 +211,15 @@ export async function startNegotiation(actor: Actor, input: StartInput, via: Via
   const cpBiz = role === "buyer" ? match.sellerBusinessId : match.buyerBusinessId;
   await assertNotSuspended({ businessId: cpBiz });
   const cp = await findCounterpartyMandate(cpBiz, other(role), mine.categorySlug, now);
-  if (!cp) throw new DomainError("conflict", "The other business has no agent for this. Continue in the normal quote flow.");
+  if (!cp) throw new DomainError("conflict", "The other business has no agent for this. Continue in the normal quote flow.", undefined, "agents.otherBusinessNoAgentContinue");
   const buyerM = role === "buyer" ? mine : cp;
   const sellerM = role === "seller" ? mine : cp;
   await assertNotSuspended({ businessId: cpBiz, mandateIds: [cp.id] });
   const approved = (buyerM.approvedSellerIds ?? []) as string[];
-  if (approved.length && !approved.includes(match.sellerBusinessId)) throw new DomainError("conflict", "That seller is not on the buyer mandate's approved list.");
+  if (approved.length && !approved.includes(match.sellerBusinessId)) throw new DomainError("conflict", "That seller is not on the buyer mandate's approved list.", undefined, "agents.sellerNotBuyerMandatesApproved");
 
   const enq = await enquiry.getEnquiryForOps(match.enquiryId);
-  if (!enq) throw new DomainError("not_found", "Enquiry not found");
+  if (!enq) throw new DomainError("not_found", "Enquiry not found", undefined, "agents.enquiryNotFound");
   const buyerSpec = (buyerM.spec ?? {}) as Record<string, string | null>;
   const sellerSpec = (sellerM.spec ?? {}) as Record<string, string | null>;
   const qty = buyerM.quantity ?? enq.quantity ?? 1;
@@ -227,9 +227,9 @@ export async function startNegotiation(actor: Actor, input: StartInput, via: Via
   const book = sellerM.priceBookId
     ? await negotiation.getPriceBookEntry(sellerM.businessId, sellerM.priceBookId)
     : await negotiation.selectPriceBookForRfq(sellerM.businessId, { title: enq.title, requirement: enq.requirement, categorySlug: sellerM.categorySlug ?? buyerM.categorySlug });
-  if (!book || !book.active) throw new DomainError("conflict", "The seller's agent has no price book entry for this requirement. Continue in the normal quote flow.");
+  if (!book || !book.active) throw new DomainError("conflict", "The seller's agent has no price book entry for this requirement. Continue in the normal quote flow.", undefined, "agents.sellersAgentNoPriceBook");
   const unit = buyerM.unit ?? book.unit;
-  if (unit.trim().toLowerCase() !== book.unit.trim().toLowerCase()) throw new DomainError("conflict", "The buyer and seller price in different units. Continue in the normal quote flow.");
+  if (unit.trim().toLowerCase() !== book.unit.trim().toLowerCase()) throw new DomainError("conflict", "The buyer and seller price in different units. Continue in the normal quote flow.", undefined, "agents.buyerSellerPriceDifferentUnits");
 
   const tier = ai.tierPriceFor(book.basePricePaise, book.tiers, qty);
   const floor = Math.max(book.floorPricePaise, Number(sellerM.limitPricePaise ?? 0), sellerM.maxDiscountPct != null ? Math.ceil((tier * (100 - sellerM.maxDiscountPct)) / 100) : 0, 1);
@@ -426,7 +426,7 @@ export async function confirmNegotiation(actor: Actor, negotiationId: string, de
     await logActivity({ principalBusinessId: actor.businessId, principalSide: side, action: "confirmed", negotiationId: n.id, summary: "You confirmed the agreed terms.", actorPersonId: actor.personId }, tx);
     return "confirmed" as const;
   });
-  if (result === "expired") throw new DomainError("conflict", "The confirmation window has passed. The negotiation expired.");
+  if (result === "expired") throw new DomainError("conflict", "The confirmation window has passed. The negotiation expired.", undefined, "agents.confirmationWindowPassedNegotiationExpired");
   if (result === "confirmed") {
     const fresh = await prisma.agentNegotiation.findUniqueOrThrow({ where: { id: negotiationId } });
     if (isDone(fresh.buyerConfirmation as Confirmation) && isDone(fresh.sellerConfirmation as Confirmation)) await finalise(negotiationId).catch(() => scheduleFinalise(negotiationId));
@@ -481,9 +481,9 @@ export async function finalise(negotiationId: string): Promise<NegotiationView |
     const buyer = { personId: buyerM.createdByPersonId, businessId: n.buyerBusinessId };
     try {
       let lead = await enquiry.getSellerLead(n.sellerBusinessId, n.matchId);
-      if (!lead) throw new DomainError("not_found", "The lead is gone.");
+      if (!lead) throw new DomainError("not_found", "The lead is gone.", undefined, "agents.leadGone");
       if (lead.status === "offered") lead = await enquiry.acceptLead(seller, n.matchId);
-      if (lead.status !== "accepted" || !lead.conversationId) throw new DomainError("conflict", "The lead is no longer available, so the deal cannot be recorded.");
+      if (lead.status !== "accepted" || !lead.conversationId) throw new DomainError("conflict", "The lead is no longer available, so the deal cannot be recorded.", undefined, "agents.leadNoLongerAvailableDeal");
       let quoteId = n.quoteId;
       if (quoteId && !(await enquiry.getQuote(seller, quoteId))) quoteId = null; // stale pointer: recover or resend below
       if (!quoteId) {

@@ -62,9 +62,9 @@ export function assertDocumentInput(input: ExtractDocumentInput): void {
   if (!(DOCUMENT_TYPES as readonly string[]).includes(input.docType)) throw new DomainError("validation", "Unknown document type");
   const { bytes, mimeType } = input.image;
   const check = MAGIC[mimeType];
-  if (!check) throw new DomainError("validation", "Documents must be JPEG, PNG or WebP images");
-  if (!bytes.length || !check(bytes)) throw new DomainError("validation", "The file is empty or not the type it claims to be");
-  if (bytes.length > MAX_DOCUMENT_BYTES) throw new DomainError("validation", "The file is too large");
+  if (!check) throw new DomainError("validation", "Documents must be JPEG, PNG or WebP images", undefined, "uploads.documentsMustJpegPngWebp");
+  if (!bytes.length || !check(bytes)) throw new DomainError("validation", "The file is empty or not the type it claims to be", undefined, "uploads.fileEmptyNotTypeClaims");
+  if (bytes.length > MAX_DOCUMENT_BYTES) throw new DomainError("validation", "The file is too large", undefined, "uploads.fileTooLarge");
 }
 
 /** Offline provider: reads nothing, so it returns empty fields at low confidence (forces staff review). */

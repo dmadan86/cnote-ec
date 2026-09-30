@@ -61,8 +61,8 @@ export async function setRateCard(input: z.input<typeof rateInput>, staffId: str
   const p = rateInput.safeParse(input);
   if (!p.success) throw new DomainError("validation", p.error.issues[0]?.message ?? "Invalid rate", p.error.issues);
   const d = p.data;
-  if (d.maxCpcPaise != null && d.maxCpcPaise < d.cpcPaise) throw new DomainError("validation", "Max CPC cannot be below the CPC");
-  if (d.categoryId && !(await getCategoryById(d.categoryId))) throw new DomainError("validation", "Unknown category");
+  if (d.maxCpcPaise != null && d.maxCpcPaise < d.cpcPaise) throw new DomainError("validation", "Max CPC cannot be below the CPC", undefined, "ads.maxCpcBelowCpc");
+  if (d.categoryId && !(await getCategoryById(d.categoryId))) throw new DomainError("validation", "Unknown category", undefined, "ads.unknownCategory");
   const row = await prisma.adRateCard.create({
     data: {
       categoryId: d.categoryId,

@@ -83,8 +83,8 @@ export async function submitComment(actor: Actor, listingId: string, rawInput: C
     if (!isSeller) throw new DomainError("forbidden", "Only the seller can reply to a question.");
     const parent = await prisma.productComment.findUnique({ where: { id: input.parentId }, select: { listingId: true, parentId: true, status: true } });
     if (!parent || parent.listingId !== listingId) throw new DomainError("not_found", "That question no longer exists.");
-    if (parent.parentId) throw new DomainError("validation", "Replies can't be nested.");
-    if (parent.status !== "approved") throw new DomainError("conflict", "That question isn't public yet.");
+    if (parent.parentId) throw new DomainError("validation", "Replies can't be nested.", undefined, "reviews.repliesCantNested");
+    if (parent.status !== "approved") throw new DomainError("conflict", "That question isn't public yet.", undefined, "reviews.questionIsntPublicYet");
   }
   await limit(`reviews:comment:${actor.personId}`, COMMENTS_PER_HOUR, 3_600, "You're posting too quickly. Please wait a little and try again.");
 
@@ -109,7 +109,7 @@ export async function submitComment(actor: Actor, listingId: string, rawInput: C
 export async function replyToReview(actor: Actor, reviewId: string, rawBody: string): Promise<void> {
   const { body } = replyInput.parse({ body: rawBody });
   const review = await prisma.productReview.findUnique({ where: { id: reviewId } });
-  if (!review || review.status !== "approved") throw new DomainError("not_found", "Review not found.");
+  if (!review || review.status !== "approved") throw new DomainError("not_found", "Review not found.", undefined, "account.reviewNotFound");
   if (!isSellerSide(actor, review.sellerBusinessId)) throw new DomainError("forbidden", "Only the seller can reply to this review.");
   await limit(`reviews:comment:${actor.personId}`, COMMENTS_PER_HOUR, 3_600, "You're posting too quickly. Please wait a little and try again.");
   const screen = await screenText(body, review.id);

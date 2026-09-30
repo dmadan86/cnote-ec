@@ -104,12 +104,12 @@ const toView = (r: Row): ReferralView => ({
  */
 export async function applyReferralCode(input: { refereeBusinessId: string; code: string; extraFlags?: string[] }): Promise<ReferralView> {
   const referrerId = decodeReferralCode(input.code);
-  if (!referrerId) throw new DomainError("validation", "This referral code is not valid.");
+  if (!referrerId) throw new DomainError("validation", "This referral code is not valid.", undefined, "promotions.referralCodeNotValid");
   const refereeId = input.refereeBusinessId;
-  if (referrerId === refereeId) throw new DomainError("validation", "You cannot use your own referral code.");
+  if (referrerId === refereeId) throw new DomainError("validation", "You cannot use your own referral code.", undefined, "promotions.useOwnReferralCode");
   const [ref, me] = await Promise.all([riskKeys(referrerId), riskKeys(refereeId)]);
-  if (!ref.name && ref.personIds.length === 0) throw new DomainError("validation", "This referral code is not valid.");
-  if (me.personIds.some((p) => ref.personIds.includes(p))) throw new DomainError("validation", "You cannot use a referral code from your own account.");
+  if (!ref.name && ref.personIds.length === 0) throw new DomainError("validation", "This referral code is not valid.", undefined, "promotions.referralCodeNotValid");
+  if (me.personIds.some((p) => ref.personIds.includes(p))) throw new DomainError("validation", "You cannot use a referral code from your own account.", undefined, "promotions.useReferralCodeFromOwn");
   const flags = new Set<string>(input.extraFlags ?? []);
   if (me.phones.some((p) => ref.phones.includes(p))) flags.add("shared_phone");
   if (me.gstin && ref.gstin && me.gstin === ref.gstin) flags.add("shared_gstin");
@@ -119,7 +119,7 @@ export async function applyReferralCode(input: { refereeBusinessId: string; code
     const row = await prisma.referral.create({ data: { referrerBusinessId: referrerId, refereeBusinessId: refereeId, code: referralCodeFor(referrerId), riskFlags: [...flags] } });
     return toView(row);
   } catch (e) {
-    if ((e as { code?: string }).code === "P2002") throw new DomainError("conflict", "A referral code has already been applied to this business.");
+    if ((e as { code?: string }).code === "P2002") throw new DomainError("conflict", "A referral code has already been applied to this business.", undefined, "promotions.referralCodeAlreadyBeenApplied");
     throw e;
   }
 }
@@ -165,7 +165,7 @@ export async function qualifyOnVerification(businessId: string, now = new Date()
 
 export async function rejectReferral(referralId: string, reason: string, decidedBy?: string): Promise<ReferralView> {
   const r = /^[0-9a-f-]{36}$/i.test(referralId) ? await prisma.referral.findUnique({ where: { id: referralId } }) : null;
-  if (!r) throw new DomainError("not_found", "Referral not found");
+  if (!r) throw new DomainError("not_found", "Referral not found", undefined, "promotions.referralNotFound");
   if (r.status === "rewarded" || r.status === "rejected") throw new DomainError("conflict", `This referral is already ${r.status}`);
   const why = reason.trim().slice(0, 300);
   if (!why) throw new DomainError("validation", "A reason is required (it is shown to the referrer)");
@@ -193,9 +193,9 @@ async function reward(r: Row, now: Date): Promise<boolean> {
 /** Staff release of a held or flagged referral (`referrals.review`). Still requires the hold to have elapsed unless `force`. */
 export async function releaseReferral(referralId: string, opts: { force?: boolean } = {}, now = new Date()): Promise<ReferralView> {
   const r = /^[0-9a-f-]{36}$/i.test(referralId) ? await prisma.referral.findUnique({ where: { id: referralId } }) : null;
-  if (!r) throw new DomainError("not_found", "Referral not found");
-  if (r.status !== "qualified") throw new DomainError("conflict", "Only a qualified referral can be released");
-  if (!opts.force && r.holdUntil && r.holdUntil > now) throw new DomainError("conflict", "The fraud-review hold has not finished yet.");
+  if (!r) throw new DomainError("not_found", "Referral not found", undefined, "promotions.referralNotFound");
+  if (r.status !== "qualified") throw new DomainError("conflict", "Only a qualified referral can be released", undefined, "promotions.onlyQualifiedReferralReleased");
+  if (!opts.force && r.holdUntil && r.holdUntil > now) throw new DomainError("conflict", "The fraud-review hold has not finished yet.", undefined, "promotions.fraudReviewHoldNotFinished");
   await reward(r, now);
   return toView(await prisma.referral.findUniqueOrThrow({ where: { id: r.id } }));
 }

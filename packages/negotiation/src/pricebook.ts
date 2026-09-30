@@ -89,7 +89,7 @@ export async function upsertPriceBookEntry(actor: Actor, listingId: string, inpu
   const problems = priceBookProblems(v);
   if (problems.length) throw new DomainError("validation", problems[0]!, problems);
   const listing = isUuid(listingId) ? await catalogue.getListing(listingId) : null;
-  if (!listing || listing.sellerBusinessId !== actor.businessId) throw new DomainError("not_found", "Listing not found");
+  if (!listing || listing.sellerBusinessId !== actor.businessId) throw new DomainError("not_found", "Listing not found", undefined, "ads.listingNotFound");
   const tiers = v.tiers;
   const data = {
     title: listing.title, basePricePaise: BigInt(v.basePricePaise), unit: v.unit, tiers: json(tiers), floorPricePaise: BigInt(v.floorPricePaise), moq: v.moq,

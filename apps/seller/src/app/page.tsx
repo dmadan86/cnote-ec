@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { load } from "@/lib/safe";
 import { Logo } from "@/features/shell/logo";
 import { billing, currentSessionSafe } from "@/lib/services";
+import { LanguageSwitcher } from "@/i18n/language-switcher";
 
 const VALUE = [
   { icon: Users, key: "cap" },
@@ -33,6 +34,7 @@ export default async function LandingPage() {
         <Container className="flex h-16 items-center justify-between">
           <Logo />
           <nav aria-label={t("accountNav")} className="flex items-center gap-2">
+            <LanguageSwitcher />
             {signedIn ? null : (
               <Link href="/signin" className={buttonClasses("ghost", "md", "min-h-11")}>
                 {t("signIn")}

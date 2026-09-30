@@ -39,7 +39,7 @@ export interface ApplyInput { product: Product; escrowId: string; amountPaise?: 
 
 async function assess(actor: Actor, input: ApplyInput, score: ScoreView, features: CreditFeatures, requested?: number) {
   const facts = await ports().escrowFacts(input.escrowId);
-  if (!facts) throw new DomainError("not_found", "Escrow not found.");
+  if (!facts) throw new DomainError("not_found", "Escrow not found.", undefined, "credit.escrowNotFound");
   const net = ports().sellerNetPaise(facts.amountPaise);
   const e = assessEligibility({ product: input.product, businessId: actor.businessId, escrow: facts, score, features, sellerNetPaise: net, requestedAmountPaise: requested });
   return { facts, net, e };
@@ -54,7 +54,7 @@ const REASON_TEXT: Record<string, string> = {
 
 export async function applyForFinancing(actor: Actor, input: ApplyInput): Promise<ApplicationView> {
   assertCreditEnabled();
-  if (!UUID.test(input.escrowId)) throw new DomainError("not_found", "Escrow not found.");
+  if (!UUID.test(input.escrowId)) throw new DomainError("not_found", "Escrow not found.", undefined, "credit.escrowNotFound");
   if (!(await actorHasCreditConsent(actor))) throw new DomainError("forbidden", "Consent to credit underwriting is required before you can apply.");
   const tenorDays = input.tenorDays ?? DEFAULT_TENOR_DAYS;
   if (!TENORS[input.product].includes(tenorDays)) throw new DomainError("validation", "Choose one of the offered repayment periods.");
@@ -150,7 +150,7 @@ export async function acceptOffer(actor: Actor, input: AcceptInput): Promise<App
   if (!(await actorHasCreditConsent(actor))) throw new DomainError("forbidden", "Consent to credit underwriting is required.");
   const facts = await ports().escrowFacts(app.escrowId);
   const okEscrow = !!facts && !facts.frozen && (app.product === "invoice_financing" ? facts.status === "funded" : facts.status === "created" || facts.status === "awaiting_funding");
-  if (!okEscrow) throw new DomainError("conflict", "The escrow for this order has changed, so this offer can no longer be accepted.");
+  if (!okEscrow) throw new DomainError("conflict", "The escrow for this order has changed, so this offer can no longer be accepted.", undefined, "credit.escrowOrderChangedOfferNo");
   const partner = getCreditPartner(app.partner);
   const acceptedAt = new Date();
   const claim = await prisma.$transaction(async (tx) => {
@@ -169,7 +169,7 @@ export async function acceptOffer(actor: Actor, input: AcceptInput): Promise<App
       await tx.creditOffer.update({ where: { id: offer.id }, data: { status: "open", acceptedAt: null, acceptedByPersonId: null } });
       await tx.creditApplication.update({ where: { id: app.id }, data: { status: "offered", acceptedOfferId: null } });
     });
-    throw new DomainError("conflict", "Our lending partner could not confirm your acceptance. Nothing was charged. Please try again.");
+    throw new DomainError("conflict", "Our lending partner could not confirm your acceptance. Nothing was charged. Please try again.", undefined, "credit.lendingPartnerCouldNotConfirm");
   }
   return getApplication(actor, app.id);
 }
@@ -189,7 +189,7 @@ export async function declineOffer(actor: Actor, offerId: string): Promise<Appli
 
 export async function getApplication(actor: Actor, id: string): Promise<ApplicationView> {
   const a = UUID.test(id) ? await prisma.creditApplication.findUnique({ where: { id } }) : null;
-  if (!a || a.businessId !== actor.businessId) throw new DomainError("not_found", "Application not found.");
+  if (!a || a.businessId !== actor.businessId) throw new DomainError("not_found", "Application not found.", undefined, "credit.applicationNotFound");
   return (await toApplicationViews([a]))[0]!;
 }
 

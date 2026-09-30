@@ -53,12 +53,12 @@ export function voiceStorage(id: string, mime: string): { key: string; contentTy
 
 async function load(id: string): Promise<Row> {
   const r = isUuid(id) ? await prisma.voiceNote.findUnique({ where: { id } }) : null;
-  if (!r) throw new DomainError("not_found", "Voice note not found");
+  if (!r) throw new DomainError("not_found", "Voice note not found", undefined, "catalogue.voiceNoteNotFound");
   return r;
 }
 async function loadOwned(sellerBusinessId: string, id: string): Promise<Row> {
   const r = await load(id);
-  if (r.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your voice note");
+  if (r.sellerBusinessId !== sellerBusinessId) throw new DomainError("forbidden", "Not your voice note", undefined, "catalogue.notVoiceNote");
   return r;
 }
 
@@ -100,10 +100,10 @@ export async function createVoiceNote(
 export async function transcribeVoiceNote(id: string, opts: { language?: string } = {}): Promise<VoiceNoteView> {
   const note = await load(id);
   if (note.transcript !== null) return view(note);
-  if (!note.storageKey) throw new DomainError("conflict", "The recording has already been deleted");
+  if (!note.storageKey) throw new DomainError("conflict", "The recording has already been deleted", undefined, "catalogue.recordingAlreadyBeenDeleted");
   const store = getMediaStore();
   const audio = await store.get(note.storageKey);
-  if (!audio) throw new DomainError("conflict", "The recording is no longer available");
+  if (!audio) throw new DomainError("conflict", "The recording is no longer available", undefined, "catalogue.recordingNoLongerAvailable");
   const hint = opts.language ?? note.language ?? undefined;
   const t = await ai.transcribe(
     { audio: { bytes: audio.bytes, mimeType: note.mimeType }, languageHint: (LANGS as readonly string[]).includes(hint ?? "") ? (hint as ai.Lang) : undefined },

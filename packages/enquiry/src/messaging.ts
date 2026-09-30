@@ -98,8 +98,8 @@ export async function sendQuote(
 
 /** One-tap "did this close?" (ADR-007). Either party; append-only, latest report wins in the UI. */
 export async function reportDeal(actor: Actor, matchId: string, outcome: "won" | "lost" | "pending", valuePaise?: number | null): Promise<void> {
-  if (!["won", "lost", "pending"].includes(outcome)) throw new DomainError("validation", "Invalid outcome");
-  if (valuePaise != null && (!Number.isInteger(valuePaise) || valuePaise < 0)) throw new DomainError("validation", "Invalid deal value");
+  if (!["won", "lost", "pending"].includes(outcome)) throw new DomainError("validation", "Invalid outcome", undefined, "enquiries.invalidOutcome");
+  if (valuePaise != null && (!Number.isInteger(valuePaise) || valuePaise < 0)) throw new DomainError("validation", "Invalid deal value", undefined, "enquiries.invalidDealValue");
   const m = await prisma.match.findUnique({ where: { id: matchId }, include: { enquiry: { select: { buyerBusinessId: true } } } });
   const participant = m && (m.sellerBusinessId === actor.businessId || m.enquiry.buyerBusinessId === actor.businessId);
   if (!m || !participant) throw new DomainError("not_found", "Conversation not found");

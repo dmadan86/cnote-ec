@@ -29,13 +29,13 @@ const REPORT_GRACE_MS = 7 * DAY_MS;
 
 export async function reportOfferNotHonoured(input: { offerId: string; reporterBusinessId: string; note?: string | null; enquiryId?: string | null }, now = new Date()): Promise<HonourReportView> {
   const note = input.note?.trim().slice(0, 1000) || null;
-  if (!/^[0-9a-f-]{36}$/i.test(input.offerId)) throw new DomainError("not_found", "Offer not found");
-  if (!(await rateLimit(`offer-report:${input.reporterBusinessId}`, 10, 86_400))) throw new DomainError("rate_limited", "Too many reports today. Please try again tomorrow.");
+  if (!/^[0-9a-f-]{36}$/i.test(input.offerId)) throw new DomainError("not_found", "Offer not found", undefined, "promotions.offerNotFound");
+  if (!(await rateLimit(`offer-report:${input.reporterBusinessId}`, 10, 86_400))) throw new DomainError("rate_limited", "Too many reports today. Please try again tomorrow.", undefined, "promotions.tooManyReportsTodayTry");
   const offer = await prisma.listingOffer.findUnique({ where: { id: input.offerId } });
-  if (!offer || !offer.referenceComputedAt) throw new DomainError("not_found", "Offer not found");
-  if (offer.sellerBusinessId === input.reporterBusinessId) throw new DomainError("forbidden", "You cannot report your own offer");
+  if (!offer || !offer.referenceComputedAt) throw new DomainError("not_found", "Offer not found", undefined, "promotions.offerNotFound");
+  if (offer.sellerBusinessId === input.reporterBusinessId) throw new DomainError("forbidden", "You cannot report your own offer", undefined, "promotions.reportOwnOffer");
   const closedAt = offer.status === "active" ? null : offer.endsAt && offer.endsAt < offer.updatedAt ? offer.endsAt : offer.updatedAt;
-  if (offer.startsAt > now || (closedAt && now.getTime() > closedAt.getTime() + REPORT_GRACE_MS)) throw new DomainError("validation", "This offer is no longer open for reports.");
+  if (offer.startsAt > now || (closedAt && now.getTime() > closedAt.getTime() + REPORT_GRACE_MS)) throw new DomainError("validation", "This offer is no longer open for reports.", undefined, "promotions.offerNoLongerOpenReports");
   const dup = await prisma.offerHonourReport.findFirst({ where: { offerId: offer.id, reportedByBusinessId: input.reporterBusinessId, upheld: null } });
   if (dup) return toView(dup);
   const row = await prisma.$transaction(async (tx) => {
@@ -49,11 +49,11 @@ export async function reportOfferNotHonoured(input: { offerId: string; reporterB
 /** Staff decision (`offers.review`). Upheld => OfferHonourDecided(upheld) feeds trust; repeat offenders lose offer privileges. */
 export async function decideHonourReport(reportId: string, decision: { upheld: boolean; decidedBy: string }, now = new Date()): Promise<HonourReportView & { sellerSuspended: boolean }> {
   const r = /^[0-9a-f-]{36}$/i.test(reportId) ? await prisma.offerHonourReport.findUnique({ where: { id: reportId }, include: { offer: true } }) : null;
-  if (!r) throw new DomainError("not_found", "Report not found");
-  if (r.upheld !== null) throw new DomainError("conflict", "This report has already been decided");
+  if (!r) throw new DomainError("not_found", "Report not found", undefined, "promotions.reportNotFound");
+  if (r.upheld !== null) throw new DomainError("conflict", "This report has already been decided", undefined, "promotions.reportAlreadyBeenDecided");
   const updated = await prisma.$transaction(async (tx) => {
     const n = await tx.offerHonourReport.updateMany({ where: { id: r.id, upheld: null }, data: { upheld: decision.upheld, decidedBy: decision.decidedBy, decidedAt: now } });
-    if (n.count === 0) throw new DomainError("conflict", "This report has already been decided");
+    if (n.count === 0) throw new DomainError("conflict", "This report has already been decided", undefined, "promotions.reportAlreadyBeenDecided");
     await emit(tx, "OfferHonourDecided", { type: "offer", id: r.offerId }, { reportId: r.id, offerId: r.offerId, sellerBusinessId: r.offer.sellerBusinessId, upheld: decision.upheld });
     return tx.offerHonourReport.findUniqueOrThrow({ where: { id: r.id } });
   });
