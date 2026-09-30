@@ -1,6 +1,6 @@
 import type { Realm } from "./constants";
-export type ConsentPurpose = "matching" | "marketing" | "voice_retention" | "counterparty_sharing";
-export const CONSENT_PURPOSES: readonly ConsentPurpose[] = ["matching", "marketing", "voice_retention", "counterparty_sharing"];
+export type ConsentPurpose = "matching" | "marketing" | "voice_retention" | "counterparty_sharing" | "credit_underwriting";
+export const CONSENT_PURPOSES: readonly ConsentPurpose[] = ["matching", "marketing", "voice_retention", "counterparty_sharing", "credit_underwriting"];
 
 export interface SessionBusiness {
   id: string;

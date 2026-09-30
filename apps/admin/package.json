@@ -11,6 +11,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@cnote/a2a": "workspace:*",
     "@cnote/admin": "workspace:*",
     "@cnote/ads": "workspace:*",
     "@cnote/ai": "workspace:*",
@@ -18,6 +19,7 @@
     "@cnote/catalogue": "workspace:*",
     "@cnote/compliance": "workspace:*",
     "@cnote/core": "workspace:*",
+    "@cnote/credit": "workspace:*",
     "@cnote/developer": "workspace:*",
     "@cnote/disputes": "workspace:*",
     "@cnote/domains": "workspace:*",
@@ -33,6 +35,7 @@
     "@cnote/notifications": "workspace:*",
     "@cnote/observability": "workspace:*",
     "@cnote/ondc": "workspace:*",
+    "@cnote/prices": "workspace:*",
     "@cnote/promotions": "workspace:*",
     "@cnote/quality": "workspace:*",
     "@cnote/reviews": "workspace:*",

@@ -5,6 +5,8 @@ enum ConsentPurpose {
   marketing
   voice_retention
   counterparty_sharing
+  /// share GST filings, escrow history and dispute record with an NBFC partner for underwriting (ADR-019)
+  credit_underwriting
 
   @@map("consent_purpose")
 }

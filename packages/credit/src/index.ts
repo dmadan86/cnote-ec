@@ -1,0 +1,3 @@
+// @cnote/credit: ADR-019 embedded credit via NBFC partner: platform credit score, invoice financing + BNPL on escrowed orders, partner port. Flag CREDIT_ENABLED.
+// PUBLIC CONTRACT.
+export {};

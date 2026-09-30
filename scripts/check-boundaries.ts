@@ -46,7 +46,12 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   "@cnote/disputes": ["@cnote/ai", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/escrow", "@cnote/identity", "@cnote/media", "@cnote/quality"],
   "@cnote/negotiation": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity"],
   "@cnote/verticals": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity"],
-  "@cnote/ondc": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity", "@cnote/security"],
+  // + disputes (ADR-021): ONDC IGM issues are handled as disputes.
+  "@cnote/ondc": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/disputes", "@cnote/enquiry", "@cnote/identity", "@cnote/security"],
+  // Phase 3 (ADR-019..022), each behind a flag. Credit sits above escrow + disputes (score inputs); a2a above negotiation.
+  "@cnote/credit": ["@cnote/core", "@cnote/db", "@cnote/disputes", "@cnote/enquiry", "@cnote/escrow", "@cnote/identity"],
+  "@cnote/a2a": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity", "@cnote/negotiation"],
+  "@cnote/prices": ["@cnote/billing", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/escrow", "@cnote/identity"],
   "@cnote/admin": ["@cnote/core", "@cnote/db", "@cnote/identity"],
   "@cnote/ai": ["@cnote/core", "@cnote/db"],
   "@cnote/templates": ["@cnote/core", "@cnote/db", "@cnote/media"],

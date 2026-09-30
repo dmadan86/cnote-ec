@@ -119,6 +119,23 @@ export interface DomainEventPayloads {
   // ONDC adapter (ADR-017)
   OndcCatalogPublished: { sellerBusinessId: string; providerId: string; items: number };
   OndcOrderReceived:    { ondcOrderId: string; orderId: string | null; sellerBusinessId: string; bapId: string; transactionId: string };
+  // embedded credit via NBFC partner (ADR-019, Phase 3, flag CREDIT_ENABLED)
+  CreditScoreComputed:        { businessId: string; score: number; band: string; modelVersion: string };
+  CreditApplicationSubmitted: { applicationId: string; businessId: string; product: "invoice_financing" | "bnpl"; amountPaise: number; partner: string; orderId: string | null };
+  CreditOfferReceived:        { applicationId: string; offerId: string; amountPaise: number; aprBps: number; tenorDays: number };
+  CreditDisbursed:            { loanId: string; applicationId: string; businessId: string; amountPaise: number; orderId: string | null };
+  CreditRepaid:               { loanId: string; amountPaise: number; outstandingPaise: number };
+  CreditOverdue:              { loanId: string; businessId: string; dpd: number };
+  CreditClosed:               { loanId: string; businessId: string; status: "repaid" | "written_off" };
+  // agent-to-agent commerce (ADR-020)
+  AgentMandateCreated:      { mandateId: string; businessId: string; side: "buyer" | "seller"; autoAccept: boolean };
+  AgentNegotiationStarted:  { negotiationId: string; buyerBusinessId: string; sellerBusinessId: string; enquiryId: string | null; external: boolean };
+  AgentOfferMade:           { negotiationId: string; round: number; by: "buyer" | "seller"; pricePaise: number; quantity: number };
+  AgentNegotiationClosed:   { negotiationId: string; outcome: "accepted" | "rejected" | "expired" | "withdrawn"; confirmedBy: "human" | "auto" | null; pricePaise: number | null };
+  // price intelligence (ADR-022)
+  PriceBenchmarkPublished:  { period: string; categories: number; cells: number; suppressedCells: number };
+  // ONDC live (ADR-021): IGM issues mapped onto disputes
+  OndcIssueReceived:        { issueId: string; ondcOrderId: string; disputeId: string | null };
   // T2/T3 verification (ADR-003)
   KycSubmitted: { sessionId: string; businessId: string; provider: string };
   KycDecided: { sessionId: string; businessId: string; status: "approved" | "rejected" | "review"; decidedBy: string | null };
@@ -216,6 +233,19 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   KycSubmitted: 1,
   KycDecided: 1,
   AuditCompleted: 1,
+  CreditScoreComputed: 1,
+  CreditApplicationSubmitted: 1,
+  CreditOfferReceived: 1,
+  CreditDisbursed: 1,
+  CreditRepaid: 1,
+  CreditOverdue: 1,
+  CreditClosed: 1,
+  AgentMandateCreated: 1,
+  AgentNegotiationStarted: 1,
+  AgentOfferMade: 1,
+  AgentNegotiationClosed: 1,
+  PriceBenchmarkPublished: 1,
+  OndcIssueReceived: 1,
   EscrowCreated: 1,
   EscrowFunded: 1,
   EscrowMilestoneReached: 1,

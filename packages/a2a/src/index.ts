@@ -1,0 +1,3 @@
+// @cnote/a2a: ADR-020 agent-to-agent commerce: standing buyer/seller agent mandates, typed offer/counter/accept protocol, external agent API. Flag A2A_ENABLED.
+// PUBLIC CONTRACT.
+export {};

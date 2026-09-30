@@ -97,6 +97,7 @@ const CONSENT_COPY: Record<string, { title: string; body: string }> = {
   marketing: { title: "Product updates and offers", body: "Send me news and promotions by email." },
   voice_retention: { title: "Voice note retention", body: "Keep my voice recordings to improve transcription and support." },
   counterparty_sharing: { title: "Share contact with matched sellers", body: "Let a seller see my contact details once they accept my lead." },
+  credit_underwriting: { title: "Credit offers from our lending partner", body: "Let our NBFC partner see my GST filings, escrow orders and dispute record to assess credit offers. You can withdraw this any time." },
 };
 
 export function ConsentForm({ consents }: { consents: Record<string, boolean> }) {

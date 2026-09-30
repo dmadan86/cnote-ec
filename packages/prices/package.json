@@ -1,5 +1,5 @@
 {
-  "name": "@cnote/ondc",
+  "name": "@cnote/prices",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,13 +11,13 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@cnote/billing": "workspace:*",
     "@cnote/catalogue": "workspace:*",
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",
-    "@cnote/disputes": "workspace:*",
     "@cnote/enquiry": "workspace:*",
+    "@cnote/escrow": "workspace:*",
     "@cnote/identity": "workspace:*",
-    "@cnote/security": "workspace:*",
     "zod": "^4.6.5"
   }
 }

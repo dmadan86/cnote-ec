@@ -1,0 +1,3 @@
+// @cnote/prices: ADR-022 price intelligence: k-anonymous regional, volume-tiered category benchmarks from quotes and escrow orders. Flag PRICE_INTEL_ENABLED.
+// PUBLIC CONTRACT.
+export {};
