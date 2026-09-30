@@ -18,7 +18,17 @@ const render = (node: React.ReactNode, locale: "en" | "hi" = "en") =>
     </NextIntlClientProvider>,
   );
 const noop = () => undefined;
-const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1]!, text: m[2]!.replace(/<[^>]+>/g, "").trim(), cls: /class="([^"]*)"/.exec(m[1]!)?.[1] ?? "" }));
+/** Text content of rendered markup (strips tags until none are left, so nested fragments can't reassemble a tag). */
+const textOf = (markup: string) => {
+  let prev: string;
+  let out = markup;
+  do {
+    prev = out;
+    out = out.replace(/<[^>]*>?/g, "");
+  } while (out !== prev);
+  return out.trim();
+};
+const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1]!, text: textOf(m[2]!), cls: /class="([^"]*)"/.exec(m[1]!)?.[1] ?? "" }));
 
 describe("consent banner (first layer)", () => {
   const html = render(<ConsentBannerView onAccept={noop} onReject={noop} onCustomise={noop} />);
