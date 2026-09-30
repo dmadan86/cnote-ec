@@ -2,7 +2,7 @@ import { prisma } from "@cnote/db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   acceptOffer, applyForFinancing, cancelLoanInCoolingOff, coolingOffQuotesFor, getApplication, getBnplOption, getCoolingOffQuote, getCreditOverview, handleCreditWebhook, interestPaise, listLoans,
-  MockPartner, overallGnpa, purgeClosedCreditData, setCreditPartner, setCreditPorts, simulateMockDisbursal, worker, type CreditPartner,
+  MockPartner, computeGnpa, purgeClosedCreditData, setCreditPartner, setCreditPorts, simulateMockDisbursal, worker, type CreditPartner,
 } from "../src/index";
 import { DAY, buyerWithEscrow, consentedActor, installPorts, mock, resetPorts, sellerWithEscrow, uid, type Fakes } from "./helpers";
 
@@ -138,7 +138,6 @@ describe("cooling-off exit", () => {
   it("a partner-initiated cancellation arrives by signed webhook; cancelled loans leave the book, GNPA and retention treat them as closed", async () => {
     const { actor, loan, app, row } = await (async () => { const f = await financedLoan(); return { ...f, row: await prisma.creditApplication.findUniqueOrThrow({ where: { id: f.app.id } }) }; })();
     void app;
-    const before = await overallGnpa();
     const send = (o: Parameters<MockPartner["signedEvent"]>[0]) => { const { raw, headers } = mock().signedEvent(o); return handleCreditWebhook("mock", raw, headers); };
     expect(await send({ eventId: `c-${uid()}`, type: "loan.cancelled", partnerRef: row.partnerRef!, loanRef: loan.partnerLoanRef, amountPaise: 12345 })).toEqual({ status: "processed" });
     const l = await prisma.creditLoan.findUniqueOrThrow({ where: { id: loan.id } });
@@ -149,8 +148,10 @@ describe("cooling-off exit", () => {
     expect((await send({ eventId: `x-${uid()}`, type: "loan.closed", partnerRef: row.partnerRef!, loanRef: loan.partnerLoanRef })).status).toBe("ignored");
     expect((await send({ eventId: `y-${uid()}`, type: "loan.cancelled", partnerRef: row.partnerRef!, loanRef: loan.partnerLoanRef })).status).toBe("ignored");
     expect((await prisma.creditLoan.findUniqueOrThrow({ where: { id: loan.id } })).dpd).toBe(0);
-    const after = await overallGnpa();
-    expect(after.bookPaise).toBeLessThanOrEqual(before.bookPaise);
+    // Scoped to THIS loan (overallGnpa() spans the shared test DB, where parallel files keep adding loans): a cancelled loan
+    // contributes nothing to the book or the NPA figure, whatever its DPD.
+    const mirror = await prisma.creditLoan.findUniqueOrThrow({ where: { id: loan.id } });
+    expect(computeGnpa([{ outstandingPaise: 5_000_000, dpd: 120, status: mirror.status, writtenOffPaise: 0 }])).toEqual({ gnpaRatio: 0, gnpaPaise: 0, bookPaise: 0 });
     // the worker handler keeps escrow in step
     const seen: number[] = [];
     setCreditPorts({ ...fk.ports, assignEscrowProceeds: async (i) => void seen.push(i.duePaise) });

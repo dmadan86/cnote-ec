@@ -105,6 +105,9 @@ jobs:
       # the services above: cnote_e2e, cnote_live_e2e, Redis logical DB 2). Only the build needs a workspace-level hint.
       CI: "true"
       NEXT_TELEMETRY_DISABLED: "1"
+      # postinstall runs prisma generate for both schemas, which resolves these at config-load time (the e2e databases)
+      DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote_e2e
+      LIVE_DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote_live_e2e
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
