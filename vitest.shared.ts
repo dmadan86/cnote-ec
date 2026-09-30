@@ -14,6 +14,8 @@ export function packageConfig(thresholds: Thresholds = { lines: 80, branches: 75
     test: {
       setupFiles: ["../../vitest.setup.ts"],
       testTimeout: 15000,
+      // Packages without unit tests (e.g. presentational UI) must not fail `pnpm test:coverage`.
+      passWithNoTests: true,
       coverage: {
         provider: "v8",
         include: ["src/**/*.{ts,tsx}"],

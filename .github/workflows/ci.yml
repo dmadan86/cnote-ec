@@ -66,11 +66,9 @@ jobs:
           pnpm --filter @cnote/live-db migrate:deploy
       - run: pnpm typecheck
       - run: pnpm lint
-      - run: pnpm test
-      # TODO: enforce coverage thresholds once a baseline is agreed; then remove continue-on-error.
-      - name: Coverage
+      # Unit tests with per-package coverage thresholds enforced (vitest.shared.ts); fails the build on either.
+      - name: Unit tests + coverage thresholds
         run: pnpm test:coverage
-        continue-on-error: true
       - name: Build all workspaces (web, seller, admin, studio)
         run: pnpm build
       # The api and worker have no build step (tsx runtime); typecheck above covers them. Explicit for clarity.
