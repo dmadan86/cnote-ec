@@ -1,0 +1,35 @@
+{
+  "reviews": {
+    "_meta": {
+      "review": "machine-drafted; needs native review"
+    },
+    "title": "रिव्यू और सवाल",
+    "description": "आपके प्रोडक्ट पर बायर्स की राय। आपके जवाब सहित सब कुछ पब्लिक होने से पहले हमारी टीम चेक करती है।",
+    "tabType": "प्रकार",
+    "tabReviews": "रिव्यू",
+    "tabQuestions": "सवाल",
+    "tabFilter": "फ़िल्टर",
+    "all": "सभी",
+    "needsReply": "जवाब देना बाकी",
+    "emptyNoReply": "आपके जवाब के लिए कुछ बाकी नहीं",
+    "emptyReviews": "अभी कोई पब्लिश रिव्यू नहीं",
+    "emptyQuestions": "अभी कोई सवाल नहीं",
+    "emptyDesc": "हमारी टीम के अप्रूव करने के बाद नए रिव्यू और सवाल यहाँ दिखेंगे।",
+    "product": "प्रोडक्ट",
+    "yourReply": "आपका जवाब",
+    "reason": "कारण: {note}",
+    "next": "अगला पेज →",
+    "stars": "5 में से {rating} स्टार",
+    "statusAwaiting": "अप्रूवल का इंतज़ार",
+    "statusPublished": "पब्लिश हो गया",
+    "statusRejected": "अप्रूव नहीं हुआ",
+    "replaceLabel": "अपना जवाब बदलें",
+    "replyLabel": "आपका जवाब",
+    "thanks": "धन्यवाद। हमारी टीम की जल्दी जाँच के बाद आपका जवाब दिखेगा।",
+    "sending": "भेज रहे हैं…",
+    "replaceBtn": "जवाब बदलें",
+    "sendBtn": "जवाब भेजें",
+    "errWrite": "पहले अपना जवाब लिखें।",
+    "errLong": "जवाब 1,000 अक्षरों से कम रखें।"
+  }
+}

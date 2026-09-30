@@ -13,7 +13,8 @@ const PRIVATE_AREAS = ["/account", "/onboarding", "/buyer", "/rfq", "/conversati
 
 const nextConfig: NextConfig = {
   // Auth realm is baked in at build time: this app only ever accepts its own sessions/cookies.
-  env: { CNOTE_AUTH_REALM: "web" },
+  // A2A_ENABLED is baked in for the (static) account menu link; the /buyer/agents pages re-check it on the server.
+  env: { CNOTE_AUTH_REALM: "web", NEXT_PUBLIC_A2A_ENABLED: process.env.A2A_ENABLED ?? "" },
   // Dispute evidence (photos, voice notes; 8 MB per file, ADR-013) is posted through server actions; the default is 1 MB.
   experimental: { serverActions: { bodySizeLimit: "20mb" } },
   // Workspace packages ship TypeScript source.

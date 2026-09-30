@@ -1,0 +1,40 @@
+# PRIMARY region: AWS ap-south-1 (Mumbai) or the equivalent India region of your cloud (Azure Central India, GCP asia-south1).
+# Active for all traffic. Apply:  kubectl apply -k infra/k8s/overlays/region-a-mumbai
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: cnote
+resources:
+  - ../../../../deploy/k8s/base   # web, seller, admin, api, worker, migrate (existing manifests)
+  - ../../base                    # ai-service, search-service, network policies
+labels:
+  - pairs: {cnote.io/region: ap-south-1, cnote.io/role: primary}
+    includeSelectors: false
+    includeTemplates: true
+patches:
+  - target: {kind: ConfigMap, name: cnote-config}
+    patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata: {name: cnote-config}
+      data:
+        CNOTE_REGION: ap-south-1
+        DR_PRIMARY_REGION: ap-south-1
+        DR_SECONDARY_REGION: ap-south-2
+        # ADR-010: refuse to boot against a store outside India, in BOTH regions.
+        DATA_RESIDENCY_ENFORCE: "true"
+        DATA_RESIDENCY_DB_HOST_ALLOW: '\.ap-south-[12]\.(rds|elasticache)\.amazonaws\.com$'
+        # Personal data (KYC, voice notes) lives in an India-region S3-compatible bucket with cross-region replication to ap-south-2.
+        # (Cloudflare R2 cannot be pinned to India, see packages/compliance/src/residency.ts.)
+        MEDIA_DRIVER: s3
+        MEDIA_REGION: ap-south-1
+        MEDIA_ENDPOINT: https://s3.ap-south-1.amazonaws.com
+        # ADR-018: services behind HTTP with breaker + in-process fallback.
+        AI_TRANSPORT: http
+        AI_SERVICE_URL: http://cnote-ai-service
+        SEARCH_TRANSPORT: http
+        SEARCH_SERVICE_URL: http://cnote-search-service
+        AI_REMOTE_FALLBACK: heuristic
+        SEARCH_REMOTE_FALLBACK: inproc
+images:
+  - {name: cnote-ai-service, newName: ghcr.io/OWNER/cnote-ai-service, newTag: REPLACE_WITH_RELEASE}
+  - {name: cnote-search-service, newName: ghcr.io/OWNER/cnote-search-service, newTag: REPLACE_WITH_RELEASE}

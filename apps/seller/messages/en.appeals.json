@@ -1,0 +1,42 @@
+{
+  "appeals": {
+    "meta": "Appeals",
+    "title": "Appeals",
+    "description": "If we rejected your listing, image, review or storefront change and you disagree, appeal from the rejected item. Our team reviews every appeal.",
+    "unavailable": {
+      "title": "Appeals are unavailable right now",
+      "description": "Please try again in a moment."
+    },
+    "empty": {
+      "title": "No appeals yet",
+      "description": "You can appeal a rejection from the item that was rejected, using Appeal this decision."
+    },
+    "status": {
+      "review": "Under review",
+      "upheld": "Upheld",
+      "stands": "Decision stands"
+    },
+    "types": {
+      "listing_version": "Listing update",
+      "listing_image": "Product image",
+      "review": "Review",
+      "comment": "Question or comment",
+      "storefront_version": "Storefront update"
+    },
+    "appealedOn": "{type} · appealed {date}",
+    "response": "Our response",
+    "followUp": "Please resubmit the item for review; we will prioritise it.",
+    "button": {
+      "label": "Appeal this decision",
+      "sent": "Appeal sent. Our team will review it and you will be notified of the outcome. <link>View your appeals</link>",
+      "why": "Why should we reconsider?",
+      "hint": "One appeal per decision. Be specific.",
+      "send": "Send appeal",
+      "sending": "Sending…"
+    },
+    "errors": {
+      "reasonMin": "Explain why the decision should change (at least 10 characters).",
+      "reasonMax": "Keep it under 2,000 characters."
+    }
+  }
+}

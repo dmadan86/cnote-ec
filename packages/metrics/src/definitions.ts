@@ -382,6 +382,11 @@ export const METRICS: readonly MetricDefinition[] = [
   }),
   count("escrows_funded", "Escrows funded", "ADR-012", ["EscrowFunded"], "Orders whose buyer funded escrow through the PA partner."),
   count("ondc_orders_received", "ONDC orders received", "ADR-017", ["OndcOrderReceived"], "Orders received from the ONDC network."),
+  count("ondc_issues_received", "ONDC issues received", "ADR-021", ["OndcIssueReceived"], "Network (IGM) issues received; each opens a dispute."),
+  count("credit_disbursals", "Credit disbursals", "ADR-019", ["CreditDisbursed"], "Loans disbursed by the NBFC partner on escrowed orders (GNPA and attached-GMV share: credit admin page)."),
+  count("credit_overdue_events", "Credit loans entering a new DPD bucket", "ADR-019", ["CreditOverdue"], "Loans crossing into a higher days-past-due bucket (1/30/60/90)."),
+  count("agent_negotiations_closed", "Agent negotiations closed", "ADR-020", ["AgentNegotiationClosed"], "Structured agent negotiations that ended (accepted, rejected, expired or withdrawn)."),
+  count("price_benchmark_runs", "Price benchmark publications", "ADR-022", ["PriceBenchmarkPublished"], "Nightly k-anonymous price benchmark publications."),
 ];
 
 export const METRIC_BY_ID: ReadonlyMap<string, MetricDefinition> = new Map(METRICS.map((m) => [m.id, m]));

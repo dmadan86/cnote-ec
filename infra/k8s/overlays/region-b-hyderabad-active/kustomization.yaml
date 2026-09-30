@@ -1,0 +1,31 @@
+# Applied DURING FAILOVER, after the ap-south-2 Postgres replica has been promoted and Redis is writable:
+#   kubectl apply -k infra/k8s/overlays/region-b-hyderabad-active
+# Same as the standby overlay, but the worker runs and the stateless tiers are back at production size.
+# FAILBACK reverses this: rebuild the old primary as a replica, re-point DNS, then apply region-b-hyderabad-standby.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: cnote
+resources:
+  - ../region-b-hyderabad-standby
+patches:
+  - {target: {kind: Deployment, name: cnote-worker}, patch: '[{"op":"replace","path":"/spec/replicas","value":1}]'}
+  - {target: {kind: Deployment, name: cnote-ai-service}, patch: '[{"op":"replace","path":"/spec/replicas","value":2}]'}
+  - {target: {kind: HorizontalPodAutoscaler, name: cnote-ai-service}, patch: '[{"op":"replace","path":"/spec/minReplicas","value":2}]'}
+  - {target: {kind: Deployment, name: cnote-search-service}, patch: '[{"op":"replace","path":"/spec/replicas","value":2}]'}
+  - {target: {kind: HorizontalPodAutoscaler, name: cnote-search-service}, patch: '[{"op":"replace","path":"/spec/minReplicas","value":2}]'}
+  - {target: {kind: Deployment, name: cnote-web}, patch: '[{"op":"replace","path":"/spec/replicas","value":3}]'}
+  - {target: {kind: HorizontalPodAutoscaler, name: cnote-web}, patch: '[{"op":"replace","path":"/spec/minReplicas","value":3}]'}
+  - {target: {kind: Deployment, name: cnote-api}, patch: '[{"op":"replace","path":"/spec/replicas","value":2}]'}
+  - {target: {kind: Job, name: cnote-migrate}, patch: '[{"op":"replace","path":"/spec/suspend","value":false}]'}
+  - target: {kind: ConfigMap, name: cnote-config}
+    patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata: {name: cnote-config}
+      data:
+        DR_PRIMARY_REGION: ap-south-2
+        DR_SECONDARY_REGION: ap-south-1
+labels:
+  - pairs: {cnote.io/role: active}
+    includeSelectors: false
+    includeTemplates: true

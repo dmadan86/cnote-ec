@@ -116,7 +116,7 @@ describe("phase-2 policies (disputes, quality, ondc)", () => {
   it("call the owning modules; modules without a dry-run report 0 on dry-run", async () => {
     const byName = (n: string) => RETENTION_POLICIES.find((p) => p.name === n)!;
     const ancient = new Date("2000-01-01T00:00:00Z");
-    for (const n of ["disputes.evidence_after_resolution", "quality.dispatch_photos", "ondc.protocol_messages", "ondc.order_buyer_contact"]) {
+    for (const n of ["credit.closed_loan_mirror", "disputes.evidence_after_resolution", "quality.dispatch_photos", "ondc.protocol_messages", "ondc.order_buyer_contact"]) {
       const p = byName(n);
       expect(p, n).toBeDefined();
       expect(await p.run(ancient, { dryRun: true })).toBe(0);

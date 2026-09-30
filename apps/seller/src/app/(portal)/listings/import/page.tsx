@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Alert, PageHeader, buttonClasses } from "@cnote/ui";
@@ -9,9 +10,13 @@ import { load } from "@/lib/safe";
 import { catalogue } from "@/lib/services";
 import { ImportWizard } from "@/features/bulk/import-wizard";
 
-export const metadata: Metadata = { title: "Import listings" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("listings.meta"))("import") };
+}
 
 export default async function ImportPage() {
+  const t = await getTranslations("listings.importPage");
+  const tc = await getTranslations("listings.exportPage");
   const session = await requireSeller("/listings/import");
   const [cats, recent] = await Promise.all([
     load(() => catalogue.listCategories()),
@@ -20,11 +25,11 @@ export default async function ImportPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <PageHeader
-        title="Import listings"
-        description="Add or update many products at once from an Excel or CSV file, or a ZIP that also holds your product photos."
+        title={t("title")}
+        description={t("description")}
         actions={
           <Link href="/listings" className={buttonClasses("outline", "md", "min-h-11")}>
-            <ArrowLeft className="size-4" aria-hidden /> Listings
+            <ArrowLeft className="size-4" aria-hidden /> {tc("back")}
           </Link>
         }
       />

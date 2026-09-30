@@ -1,1 +1,181 @@
 // Owned by @cnote/credit. ADR-019 embedded credit via NBFC partner: platform credit score, invoice financing + BNPL on escrowed orders, partner port. Flag CREDIT_ENABLED.
+// No Prisma relations to other modules' models (ids only). Money is integer paise (BigInt). Snapshots, consent links and the loan mirror are append-only or state-derived.
+
+/// Business <-> person link for the purpose-scoped `credit_underwriting` consent (the consent ledger itself lives in identity, keyed by person).
+model CreditConsentLink {
+  id          String    @id @default(uuid()) @db.Uuid
+  businessId  String    @map("business_id") @db.Uuid
+  personId    String    @map("person_id") @db.Uuid
+  grantedAt   DateTime  @default(now()) @map("granted_at") @db.Timestamptz
+  withdrawnAt DateTime? @map("withdrawn_at") @db.Timestamptz
+
+  @@unique([businessId, personId])
+  @@index([businessId])
+  @@map("credit_consent_links")
+}
+
+/// Explainable score snapshot (append-only). featureHash dedupes identical recomputes.
+model CreditScore {
+  id           String   @id @default(uuid()) @db.Uuid
+  businessId   String   @map("business_id") @db.Uuid
+  score        Int
+  band         String
+  modelVersion String   @map("model_version")
+  /// [{ code, direction: "positive"|"negative", points, maxPoints }]: adverse-action style top reasons
+  reasons      Json
+  /// feature vector used (no raw GST returns): counts, ratios, booleans
+  features     Json
+  featureHash  String   @map("feature_hash")
+  trigger      String
+  computedAt   DateTime @default(now()) @map("computed_at") @db.Timestamptz
+
+  @@index([businessId, computedAt(sort: Desc)])
+  @@map("credit_scores")
+}
+
+model CreditApplication {
+  id                  String    @id @default(uuid()) @db.Uuid
+  businessId          String    @map("business_id") @db.Uuid
+  /// invoice_financing | bnpl
+  product             String
+  escrowId            String    @map("escrow_id") @db.Uuid
+  orderId             String    @map("order_id") @db.Uuid
+  counterpartyBusinessId String? @map("counterparty_business_id") @db.Uuid
+  /// escrowed order value at application time (drives credit-attached GMV)
+  orderAmountPaise    BigInt    @map("order_amount_paise")
+  amountPaise         BigInt    @map("amount_paise")
+  tenorDays           Int       @map("tenor_days")
+  partner             String
+  partnerRef          String?   @map("partner_ref")
+  /// submitted | offered | accepted | disbursed | rejected | declined | expired | failed | cancelled
+  status              String
+  reason              String?
+  scoreId             String?   @map("score_id") @db.Uuid
+  acceptedOfferId     String?   @map("accepted_offer_id") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  closedAt            DateTime? @map("closed_at") @db.Timestamptz
+
+  @@index([businessId, createdAt(sort: Desc)])
+  @@index([escrowId, product])
+  @@index([status])
+  @@unique([partner, partnerRef])
+  @@map("credit_applications")
+}
+
+model CreditOffer {
+  id                String    @id @default(uuid()) @db.Uuid
+  applicationId     String    @map("application_id") @db.Uuid
+  partnerOfferRef   String    @map("partner_offer_ref")
+  amountPaise       BigInt    @map("amount_paise")
+  aprBps            Int       @map("apr_bps")
+  tenorDays         Int       @map("tenor_days")
+  processingFeePaise BigInt   @map("processing_fee_paise")
+  otherFeesPaise    BigInt    @map("other_fees_paise")
+  interestPaise     BigInt    @map("interest_paise")
+  totalRepayablePaise BigInt  @map("total_repayable_paise")
+  /// Key Fact Statement shown before acceptance (RBI digital lending guidelines)
+  kfs               Json
+  /// open | accepted | declined | expired | withdrawn
+  status            String
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz
+  acceptedAt        DateTime? @map("accepted_at") @db.Timestamptz
+  acceptedByPersonId String?  @map("accepted_by_person_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([applicationId, partnerOfferRef])
+  @@index([applicationId])
+  @@map("credit_offers")
+}
+
+/// Mirror of the partner's loan (partner is lender of record).
+model CreditLoan {
+  id                  String    @id @default(uuid()) @db.Uuid
+  applicationId       String    @unique @map("application_id") @db.Uuid
+  businessId          String    @map("business_id") @db.Uuid
+  product             String
+  escrowId            String    @map("escrow_id") @db.Uuid
+  orderId             String    @map("order_id") @db.Uuid
+  orderAmountPaise    BigInt    @map("order_amount_paise")
+  partner             String
+  partnerLoanRef      String    @map("partner_loan_ref")
+  principalPaise      BigInt    @map("principal_paise")
+  aprBps              Int       @map("apr_bps")
+  tenorDays           Int       @map("tenor_days")
+  totalRepayablePaise BigInt    @map("total_repayable_paise")
+  repaidPaise         BigInt    @default(0) @map("repaid_paise")
+  writtenOffPaise     BigInt    @default(0) @map("written_off_paise")
+  disbursedAt         DateTime  @map("disbursed_at") @db.Timestamptz
+  dueAt               DateTime  @map("due_at") @db.Timestamptz
+  /// active | overdue | repaid | written_off
+  status              String
+  dpd                 Int       @default(0)
+  lastDpdBucket       Int       @default(0) @map("last_dpd_bucket")
+  closedAt            DateTime? @map("closed_at") @db.Timestamptz
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([partner, partnerLoanRef])
+  @@index([businessId])
+  @@index([status, dueAt])
+  @@index([escrowId])
+  @@map("credit_loans")
+}
+
+/// Append-only. Unique per (loan, partner event) so replays are no-ops.
+model CreditRepayment {
+  id         String   @id @default(uuid()) @db.Uuid
+  loanId     String   @map("loan_id") @db.Uuid
+  eventKey   String   @map("event_key")
+  amountPaise BigInt  @map("amount_paise")
+  /// borrower | escrow_release | partner
+  source     String
+  paidAt     DateTime @map("paid_at") @db.Timestamptz
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([loanId, eventKey])
+  @@index([loanId])
+  @@map("credit_repayments")
+}
+
+/// Invoice-financing assignment of the escrow release proceeds to the partner (the escrow module pays the partner first).
+model CreditAssignment {
+  id             String    @id @default(uuid()) @db.Uuid
+  loanId         String    @unique @map("loan_id") @db.Uuid
+  escrowId       String    @unique @map("escrow_id") @db.Uuid
+  orderId        String    @map("order_id") @db.Uuid
+  sellerBusinessId String  @map("seller_business_id") @db.Uuid
+  partner        String
+  /// active | released (escrow released, awaiting settlement) | settled | cancelled (escrow refunded)
+  status         String
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("credit_assignments")
+}
+
+/// Idempotent inbox for partner webhooks.
+model CreditWebhookEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  partner    String
+  eventId    String   @map("event_id")
+  type       String
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz
+
+  @@unique([partner, eventId])
+  @@map("credit_webhook_events")
+}
+
+/// DPDP audit: what feature keys were sent to which partner for which application (never the values' source data).
+model CreditPartnerShare {
+  id            String   @id @default(uuid()) @db.Uuid
+  businessId    String   @map("business_id") @db.Uuid
+  applicationId String   @map("application_id") @db.Uuid
+  partner       String
+  fields        Json
+  sentAt        DateTime @default(now()) @map("sent_at") @db.Timestamptz
+
+  @@index([businessId])
+  @@index([applicationId])
+  @@map("credit_partner_shares")
+}

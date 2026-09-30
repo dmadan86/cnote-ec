@@ -3,17 +3,20 @@ import { Alert, Card, CardBody } from "@cnote/ui";
 import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
+import { useTranslations } from "next-intl";
 import { Button } from "@cnote/ui";
 import type { ActionResult } from "@cnote/next-kit";
 import { savePreferencesAction } from "./actions";
 import type { PreferenceRow } from "./preference-rows";
 
 function Save() {
+  const t = useTranslations("notifications.prefs");
   const { pending } = useFormStatus();
-  return <Button type="submit" className="min-h-11" disabled={pending} aria-busy={pending}>{pending ? "Saving…" : "Save preferences"}</Button>;
+  return <Button type="submit" className="min-h-11" disabled={pending} aria-busy={pending}>{pending ? t("saving") : t("save")}</Button>;
 }
 
 export function PreferencesForm({ rows }: { rows: PreferenceRow[] }) {
+  const t = useTranslations("notifications.prefs");
   const [state, action] = useActionState<ActionResult | null, FormData>(savePreferencesAction, null);
   return (
     <form action={action} className="space-y-4">
@@ -21,8 +24,8 @@ export function PreferencesForm({ rows }: { rows: PreferenceRow[] }) {
         <Card key={row.category}>
           <CardBody>
             <fieldset className="space-y-3">
-              <legend className="text-base font-semibold text-ink">{row.label}</legend>
-              <p className="text-sm text-muted">{row.description}</p>
+              <legend className="text-base font-semibold text-ink">{t(`categories.${row.category}.label`)}</legend>
+              <p className="text-sm text-muted">{t(`categories.${row.category}.description`)}</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 {row.channels.map((c) => {
                   const id = `${row.category}-${c.channel}`;
@@ -39,12 +42,12 @@ export function PreferencesForm({ rows }: { rows: PreferenceRow[] }) {
                           aria-describedby={c.locked ? noteId : undefined}
                           className="size-5 accent-brand-600"
                         />
-                        {c.label}
+                        {t(`channels.${c.channel}`)}
                       </label>
-                      {c.locked === "required" ? <p id={noteId} className="text-xs text-muted">Always on: security alerts protect your account and cannot be turned off.</p> : null}
+                      {c.locked === "required" ? <p id={noteId} className="text-xs text-muted">{t("alwaysOn")}</p> : null}
                       {c.locked === "consent" ? (
                         <p id={noteId} className="text-xs text-muted">
-                          Needs your consent to marketing communication. <Link href="/settings" className="font-medium text-brand-700 hover:underline">Manage consents in your settings</Link>.
+                          {t.rich("needsConsent", { link: (chunks) => <Link href="/settings" className="font-medium text-brand-700 hover:underline">{chunks}</Link> })}
                         </p>
                       ) : null}
                     </div>
@@ -58,7 +61,7 @@ export function PreferencesForm({ rows }: { rows: PreferenceRow[] }) {
       <div className="flex flex-wrap items-center gap-3">
         <Save />
         <div role="status" aria-live="polite">
-          {state?.ok ? <Alert tone="success">Preferences saved.</Alert> : null}
+          {state?.ok ? <Alert tone="success">{t("saved")}</Alert> : null}
           {state && !state.ok ? <Alert tone="danger">{state.error}</Alert> : null}
         </div>
       </div>

@@ -1,11 +1,13 @@
 import { hasPrivilege } from "@cnote/admin";
-import { adminOverview, listFailedCallbacks, listMessages } from "@/lib/ondc";
+import { adminOverview, listFailedCallbacks, listIssues, listMessages, ondcEvaluation, readiness } from "@/lib/ondc";
 import { Alert, EmptyState, PageHeader } from "@cnote/ui";
 import Link from "next/link";
 import { Mono, Table, Td, Th } from "@/components/table";
 import { requireStaff } from "@/lib/auth";
 import { fmtDate, json, one, safe } from "@/lib/util";
-import { ReplayButton } from "./buttons";
+import { CertItemForm, KillSwitchForm, ReplayButton, ResolveIssueForm } from "./buttons";
+
+const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
 
 export const metadata = { title: "ONDC" };
 
@@ -14,6 +16,12 @@ export default async function OndcPage({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const direction = one(sp.direction) === "inbound" ? "inbound" : one(sp.direction) === "outbound" ? "outbound" : undefined;
   const canAct = hasPrivilege(staff, "ondc.manage");
+  const since = daysAgo(90);
+  const [ready, issues, evaluation] = await Promise.all([
+    safe("ondc.readiness", () => readiness()),
+    safe("ondc.issues", () => listIssues({ limit: 50 })),
+    safe("ondc.evaluation", () => ondcEvaluation(since, daysAgo(-1))),
+  ]);
   const [overview, failed, log] = await Promise.all([
     safe("ondc.overview", () => adminOverview()),
     safe("ondc.failed", () => listFailedCallbacks(50)),
@@ -40,6 +48,55 @@ export default async function OndcPage({ searchParams }: { searchParams: Promise
             </tbody>
           </Table>
         </>
+      )}
+      <h2 className="mt-6 text-lg font-semibold">Kill switch</h2>
+      {ready === null ? <Alert tone="warning">Unavailable.</Alert> : (
+        <>
+          <Alert tone={ready.killSwitch.killed ? "danger" : "info"}>
+            {ready.killSwitch.killed ? `ONDC is SUSPENDED: inbound requests are NACKed and nothing is published.${ready.killSwitch.note ? ` Reason: ${ready.killSwitch.note}.` : ""}` : "ONDC traffic is flowing. Suspending needs no redeploy and is recorded in the audit log."}
+          </Alert>
+          {canAct ? <div className="mt-2"><KillSwitchForm killed={ready.killSwitch.killed} /></div> : null}
+          <h2 className="mt-6 text-lg font-semibold">Go-live readiness (ADR-021)</h2>
+          <Alert tone={ready.goLive ? "success" : "warning"}>{ready.goLive ? "All automatic checks and certification items are complete." : `Not ready: automatic checks ${ready.autoOk ? "pass" : "have gaps"}, certification items ${ready.manualOk ? "complete" : "incomplete"}.`}</Alert>
+          <Table>
+            <thead><tr><Th>Check</Th><Th>Status</Th><Th>Detail</Th>{canAct ? <Th /> : null}</tr></thead>
+            <tbody>
+              {ready.items.map((i) => (
+                <tr key={i.id}>
+                  <Td>{i.label}{i.kind === "manual" ? " (manual)" : ""}</Td><Td>{i.ok ? "Done" : "Open"}</Td><Td>{i.detail ?? "—"}</Td>
+                  {canAct ? <Td>{i.kind === "manual" ? <CertItemForm item={i.id.replace("cert.", "")} done={i.ok} /> : null}</Td> : null}
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </>
+      )}
+      <h2 className="mt-6 text-lg font-semibold">Network issues (IGM)</h2>
+      {overview ? <p className="text-sm">{overview.issues.open} open, {overview.issues.overdue} past their resolution time, {overview.issues.needsManual} need manual handling.</p> : null}
+      {issues === null ? <Alert tone="warning">Unavailable.</Alert> : issues.length === 0 ? <EmptyState title="No network issues" /> : (
+        <Table>
+          <thead><tr><Th>Issue</Th><Th>Category</Th><Th>Status</Th><Th>Dispute</Th><Th>Due</Th><Th>Note</Th>{canAct ? <Th /> : null}</tr></thead>
+          <tbody>
+            {issues.map((i) => (
+              <tr key={i.id}>
+                <Td><Mono>{i.issueId.slice(0, 8)}</Mono> <span className="text-xs">{i.bapId}</span></Td><Td>{i.category}{i.subCategory ? `/${i.subCategory}` : ""}</Td>
+                <Td>{i.status}{i.overdue ? " (overdue)" : ""}</Td><Td>{i.disputeId ? <Link className="text-brand-700 hover:underline" href={`/disputes/${i.disputeId}`}>Open</Link> : i.needsManual ? "None: manual" : "—"}</Td>
+                <Td className="whitespace-nowrap">{fmtDate(i.expectedResolutionAt)}</Td><Td>{i.description}</Td>
+                {canAct ? <Td>{i.needsManual && (i.status === "open" || i.status === "processing") ? <ResolveIssueForm id={i.id} /> : null}</Td> : null}
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+      <h2 className="mt-6 text-lg font-semibold">Evaluation (last 90 days)</h2>
+      {evaluation === null ? <Alert tone="warning">Unavailable.</Alert> : (
+        <Table>
+          <tbody>
+            <tr><Th>Incremental GMV</Th><Td>Rs {(evaluation.incrementalGmvPaise / 100).toLocaleString("en-IN")} across {evaluation.orders.total - evaluation.orders.cancelled} orders ({evaluation.orders.cancelled} cancelled)</Td></tr>
+            <tr><Th>Dispute load</Th><Td>{evaluation.issues.total} issues, {evaluation.issues.withDispute} disputes: {evaluation.issuesPer100Orders} issues / {evaluation.disputesPer100Orders} disputes per 100 orders</Td></tr>
+            <tr><Th>Resolved within TTL</Th><Td>{evaluation.resolvedWithinTtl === null ? "n/a" : `${Math.round(evaluation.resolvedWithinTtl * 100)}%`} (median {evaluation.medianResolutionHours ?? "n/a"} h)</Td></tr>
+          </tbody>
+        </Table>
       )}
       <h2 className="mt-6 text-lg font-semibold">Failed callbacks</h2>
       {failed === null ? <Alert tone="warning">Unavailable.</Alert> : failed.length === 0 ? <EmptyState title="Nothing failed" description="Every callback was delivered." /> : (

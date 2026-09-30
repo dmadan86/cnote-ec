@@ -1,0 +1,99 @@
+// Owned by @cnote/analytics: ADR-023 CDC-style read models projected from the append-only domain event log.
+// Every table here is DERIVED and disposable: `pnpm --filter @cnote/analytics backfill --reset <projection>` rebuilds it
+// from event id 0. Each projection applies events and advances its checkpoint in ONE transaction (exactly-once effect).
+
+/// One row per projection: how far it has read the event log (resumable, replay-safe).
+model AnalyticsCheckpoint {
+  projection    String   @id
+  /// highest domain_events.id fully applied
+  lastEventId   BigInt   @default(0) @map("last_event_id")
+  /// projection logic version the tables were built with; a bump requires a --reset backfill
+  version       Int      @default(1)
+  eventsApplied BigInt   @default(0) @map("events_applied")
+  updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@map("analytics_checkpoints")
+}
+
+/// Denormalised lookups built from events so later events (which carry only a match/conversation id) can be attributed:
+/// key = "enquiry:<id>" | "match:<id>" | "conv:<id>" | "biz:<id>".
+model AnalyticsRef {
+  key              String  @id
+  categoryId       String? @map("category_id")
+  enquiryId        String? @map("enquiry_id")
+  matchId          String? @map("match_id")
+  buyerBusinessId  String? @map("buyer_business_id")
+  sellerBusinessId String? @map("seller_business_id")
+  /// biz:* rows: Indian state resolved once (through the composition root's resolver) and frozen for replay determinism
+  state            String?
+
+  @@map("analytics_refs")
+}
+
+/// Daily enquiry -> deal funnel by category ("" = unattributed).
+model AnalyticsFunnelDaily {
+  day           DateTime @db.Date
+  categoryId    String   @default("") @map("category_id")
+  enquiries     Int      @default(0)
+  scored        Int      @default(0)
+  matched       Int      @default(0)
+  accepted      Int      @default(0)
+  declined      Int      @default(0)
+  expired       Int      @default(0)
+  refunded      Int      @default(0)
+  conversations Int      @default(0)
+  quotes        Int      @default(0)
+  dealsWon      Int      @default(0) @map("deals_won")
+  dealsLost     Int      @default(0) @map("deals_lost")
+
+  @@id([day, categoryId])
+  @@map("analytics_funnel_daily")
+}
+
+/// Daily gross merchandise value by category and seller state (paise). Reported off-platform wins and on-platform orders
+/// are separate columns: they are different flows and are never summed silently.
+model AnalyticsGmvDaily {
+  day             DateTime @db.Date
+  categoryId      String   @default("") @map("category_id")
+  state           String   @default("")
+  dealsWon        Int      @default(0) @map("deals_won")
+  reportedGmvPaise BigInt  @default(0) @map("reported_gmv_paise")
+  orders          Int      @default(0)
+  orderGmvPaise   BigInt   @default(0) @map("order_gmv_paise")
+
+  @@id([day, categoryId, state])
+  @@map("analytics_gmv_daily")
+}
+
+/// A seller's cohort (month of first appearance).
+model AnalyticsSellerDim {
+  businessId  String   @id @map("business_id")
+  cohortMonth DateTime @map("cohort_month") @db.Date
+
+  @@index([cohortMonth])
+  @@map("analytics_seller_dim")
+}
+
+/// Distinct (seller, activity month) so each seller counts once per month in cohort retention.
+model AnalyticsSellerActivity {
+  businessId    String   @map("business_id")
+  activityMonth DateTime @map("activity_month") @db.Date
+
+  @@id([businessId, activityMonth])
+  @@map("analytics_seller_activity")
+}
+
+/// Cohort retention facts: cohortMonth x monthOffset (0 = the cohort's own month).
+model AnalyticsSellerCohort {
+  cohortMonth       DateTime @map("cohort_month") @db.Date
+  monthOffset       Int      @map("month_offset")
+  /// sellers born in cohortMonth (kept on the offset-0 row)
+  cohortSize        Int      @default(0) @map("cohort_size")
+  activeSellers     Int      @default(0) @map("active_sellers")
+  listingsPublished Int      @default(0) @map("listings_published")
+  leadsAccepted     Int      @default(0) @map("leads_accepted")
+  quotesSent        Int      @default(0) @map("quotes_sent")
+
+  @@id([cohortMonth, monthOffset])
+  @@map("analytics_seller_cohort")
+}

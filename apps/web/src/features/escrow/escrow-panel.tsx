@@ -3,6 +3,7 @@ import type { OrderView } from "@cnote/enquiry";
 import { Alert, Badge, Card, CardBody, CardTitle, type BadgeTone } from "@cnote/ui";
 import { getTranslations } from "next-intl/server";
 import { type Locale } from "@/i18n/config";
+import { BnplOption } from "../credit/bnpl-option";
 import { EscrowActions } from "./escrow-actions";
 
 const TONE: Record<string, BadgeTone> = { created: "neutral", awaiting_funding: "warning", funded: "brand", accepted: "success", released: "success", refunded: "brand", cancelled: "neutral" };
@@ -48,6 +49,7 @@ export async function EscrowPanel({ actor, order, locale = "en" }: { actor: { pe
             payLinkHref={escrow?.actions.fund && escrow.partner !== "mock" && escrow.checkoutUrl ? escrow.checkoutUrl : null}
             canAccept={!!escrow?.actions.accept}
           />
+          {escrow && escrow.role === "buyer" ? <BnplOption actor={actor} orderId={order.id} escrowId={escrow.id} locale={locale} /> : null}
           {escrow?.status === "funded" && !escrow.actions.accept && !escrow.frozen && escrow.role === "buyer" ? <p className="text-sm text-muted">{t("acceptWaiting")}</p> : null}
         </CardBody>
       </Card>

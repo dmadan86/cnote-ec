@@ -1,0 +1,85 @@
+{
+  "negotiation": {
+    "priceBook": {
+      "metaTitle": "Price book",
+      "title": "Price book",
+      "description": "Your prices, price breaks and lowest acceptable price per product. The quote assistant drafts from this, and you approve every quote before it is sent.",
+      "controlNotice": "<b>You stay in control.</b> The assistant only drafts. Nothing reaches a buyer until you approve it, and it can never quote below your lowest price. That price is private and is never shown to buyers.",
+      "notOn": "The assistant is not switched on for your account yet, but you can prepare your price book now.",
+      "emptyTitle": "No priced products yet",
+      "emptyDescription": "Publish a listing with a price and it appears here, ready to edit.",
+      "seeded": "Copied from your listing: review it",
+      "setByYou": "Set by you",
+      "assistantOff": "Assistant off",
+      "logHeading": "What the assistant did"
+    },
+    "form": {
+      "basePrice": "Base price (₹ per {unit})",
+      "floor": "Lowest price you will accept (₹)",
+      "floorHint": "Private. Never shown to buyers. The assistant cannot go below it.",
+      "moq": "Minimum order quantity",
+      "lead": "Delivery time (days)",
+      "valid": "Quote valid for (days)",
+      "gst": "GST (%)",
+      "terms": "Delivery terms",
+      "termsHint": "For example: Freight extra at actuals, or Free delivery above 1,000 pieces.",
+      "tiersLegend": "Volume price breaks (optional)",
+      "tiersHint": "Higher quantities must cost less per unit, and never less than your lowest price.",
+      "breakQty": "Break {n}: from quantity",
+      "breakPrice": "Break {n}: ₹ per {unit}",
+      "gstIncluded": "Prices already include GST",
+      "active": "Let the assistant use this entry",
+      "saved": "Saved.",
+      "save": "Save price book entry",
+      "saving": "Saving…"
+    },
+    "panel": {
+      "unavailable": "The quote assistant is unavailable right now. You can still send a quote yourself below.",
+      "title": "Quote assistant",
+      "draftReady": "Draft ready",
+      "approvedSent": "Approved and sent",
+      "discarded": "Discarded",
+      "approvedNote": "You approved this draft and the quote was sent.",
+      "approvedNoteValid": "You approved this draft and the quote was sent (valid until {date}).",
+      "discardedNote": "You discarded this draft. You can still send a quote yourself below.",
+      "logHeading": "What the assistant did"
+    },
+    "log": {
+      "empty": "The assistant has not done anything for you yet.",
+      "label": "What the assistant did",
+      "assistant": "Assistant",
+      "youConfirmed": "You confirmed"
+    },
+    "draft": {
+      "guard": "Drafted by the assistant. <b>Nothing has been sent to the buyer.</b> Check it, change anything you like, then approve.",
+      "checkCarefully": "Check this carefully",
+      "confidence": "Confidence {percent}%",
+      "belowLimit": "First price was below your limit and was replaced",
+      "why": "Why this price: ",
+      "price": "Price (₹ per unit)",
+      "floorHint": "Your lowest price is ₹{floor}.",
+      "quantity": "Quantity",
+      "unit": "Unit",
+      "lead": "Delivery time (days)",
+      "validUntil": "Quote valid until",
+      "notes": "Notes to the buyer",
+      "approve": "Approve and send quote",
+      "sending": "Sending…",
+      "discard": "Discard draft",
+      "discarding": "Discarding…",
+      "requestHelp": "The assistant can draft a quote from the buyer's requirement and your price book. You approve it before anything is sent.",
+      "requestDone": "Draft ready.",
+      "request": "Draft a quote for me",
+      "drafting": "Drafting…"
+    },
+    "errors": {
+      "enterRupees": "Enter {label} in rupees.",
+      "labelBase": "your base price",
+      "labelFloor": "your lowest price",
+      "labelPrice": "the price",
+      "chooseListing": "Choose a listing.",
+      "tierBoth": "Fill both the quantity and the price for each price break.",
+      "noDraft": "We could not draft a price for this requirement. Add the product to your price book, or quote manually."
+    }
+  }
+}

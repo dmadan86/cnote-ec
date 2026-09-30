@@ -1,0 +1,30 @@
+{
+  "authForms": {
+    "google": "Google से जारी रखें",
+    "or": "या",
+    "email": "ईमेल",
+    "password": "पासवर्ड",
+    "name": "आपका नाम",
+    "forgotLink": "पासवर्ड भूल गए?",
+    "signIn": "साइन इन",
+    "signingIn": "साइन इन हो रहा है…",
+    "newHere": "नए हैं?",
+    "createAccountLink": "खाता बनाएँ",
+    "passwordHint": "कम से कम 10 अक्षर।",
+    "consentMatching": "मैं मैच हुई खरीदार लीड पाने और लीड भेजने वाले खरीदारों के साथ अपनी बिज़नेस प्रोफ़ाइल शेयर करने के लिए सहमत हूँ।",
+    "consentMarketing": "मुझे प्रोडक्ट अपडेट और ऑफ़र भेजें (वैकल्पिक)।",
+    "createAccount": "खाता बनाएँ",
+    "creatingAccount": "खाता बन रहा है…",
+    "haveAccount": "पहले से खाता है?",
+    "forgotSent": "अगर उस ईमेल से कोई खाता है, तो हमने पासवर्ड रीसेट करने का लिंक भेज दिया है। यह 30 मिनट में खत्म हो जाएगा।",
+    "sendReset": "रीसेट लिंक भेजें",
+    "sending": "भेजा जा रहा है…",
+    "backToSignIn": "साइन इन पर वापस जाएँ",
+    "newPassword": "नया पासवर्ड",
+    "saving": "सहेजा जा रहा है…",
+    "setNewPassword": "नया पासवर्ड सेट करें",
+    "_meta": {
+      "review": "copied from the buyer web catalogue"
+    }
+  }
+}

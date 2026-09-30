@@ -1,0 +1,19 @@
+{
+  "_comment": "aws route53 change-resource-record-sets --hosted-zone-id ZONE --change-batch file://infra/dns/route53-failover.json. Health checks probe /ready on each region's load balancer. TTL 60s bounds the DNS part of RTO. Manual failover = flip the PRIMARY record's health check to 'inverted' or update the records (runbook step 6).",
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "api.example.in", "Type": "CNAME", "TTL": 60, "SetIdentifier": "primary-mumbai", "Failover": "PRIMARY",
+        "HealthCheckId": "HEALTHCHECK_ID_APS1", "ResourceRecords": [{ "Value": "lb-aps1.example.in" }]
+      }
+    },
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "api.example.in", "Type": "CNAME", "TTL": 60, "SetIdentifier": "secondary-hyderabad", "Failover": "SECONDARY",
+        "ResourceRecords": [{ "Value": "lb-aps2.example.in" }]
+      }
+    }
+  ]
+}

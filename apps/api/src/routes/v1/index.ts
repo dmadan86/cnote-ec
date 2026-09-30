@@ -1,4 +1,5 @@
 import { router } from "../helpers";
+import { agentRoutes } from "./agents";
 import { buyerRoutes } from "./buyer";
 import { bulkRoutes } from "./bulk";
 import { catalogueRoutes } from "./catalogue";
@@ -11,3 +12,4 @@ v1.route("/", sellerRoutes);
 v1.route("/", bulkRoutes);
 v1.route("/", buyerRoutes);
 v1.route("/", engagementRoutes);
+v1.route("/", agentRoutes);

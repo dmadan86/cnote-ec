@@ -1,0 +1,35 @@
+{
+  "reviews": {
+    "_meta": {
+      "review": "machine-drafted; needs native review"
+    },
+    "title": "રિવ્યૂ અને સવાલ",
+    "description": "તમારા પ્રોડક્ટ્સ વિશે ખરીદદારોનો પ્રતિભાવ. તમારા જવાબો સહિત બધું જાહેર થતાં પહેલાં અમારી ટીમ તપાસે છે.",
+    "tabType": "પ્રકાર",
+    "tabReviews": "રિવ્યૂ",
+    "tabQuestions": "સવાલ",
+    "tabFilter": "ફિલ્ટર",
+    "all": "બધા",
+    "needsReply": "જવાબ આપવાનો બાકી",
+    "emptyNoReply": "તમારા જવાબની રાહ જોતું કંઈ નથી",
+    "emptyReviews": "હજી કોઈ પ્રકાશિત રિવ્યૂ નથી",
+    "emptyQuestions": "હજી કોઈ સવાલ નથી",
+    "emptyDesc": "અમારી ટીમ મંજૂર કરે પછી નવા રિવ્યૂ અને સવાલ અહીં દેખાશે.",
+    "product": "પ્રોડક્ટ",
+    "yourReply": "તમારો જવાબ",
+    "reason": "કારણ: {note}",
+    "next": "આગલું પેજ →",
+    "stars": "5 માંથી {rating} સ્ટાર",
+    "statusAwaiting": "મંજૂરીની રાહ",
+    "statusPublished": "પ્રકાશિત થયું",
+    "statusRejected": "મંજૂર થયું નથી",
+    "replaceLabel": "તમારો જવાબ બદલો",
+    "replyLabel": "તમારો જવાબ",
+    "thanks": "આભાર. અમારી ટીમની ઝડપી તપાસ પછી તમારો જવાબ દેખાશે.",
+    "sending": "મોકલી રહ્યા છીએ…",
+    "replaceBtn": "જવાબ બદલો",
+    "sendBtn": "જવાબ મોકલો",
+    "errWrite": "પહેલાં તમારો જવાબ લખો.",
+    "errLong": "જવાબ 1,000 અક્ષરોથી ઓછો રાખો."
+  }
+}

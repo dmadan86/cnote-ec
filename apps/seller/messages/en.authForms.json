@@ -1,0 +1,27 @@
+{
+  "authForms": {
+    "google": "Continue with Google",
+    "or": "or",
+    "email": "Email",
+    "password": "Password",
+    "name": "Your name",
+    "forgotLink": "Forgot password?",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "newHere": "New here?",
+    "createAccountLink": "Create an account",
+    "passwordHint": "At least 10 characters.",
+    "consentMatching": "I agree to receive matched buyer leads and to share my business profile with buyers who send them.",
+    "consentMarketing": "Send me product updates and offers (optional).",
+    "createAccount": "Create account",
+    "creatingAccount": "Creating account…",
+    "haveAccount": "Already have an account?",
+    "forgotSent": "If an account exists for that email, we've sent a link to reset your password. It expires in 30 minutes.",
+    "sendReset": "Send reset link",
+    "sending": "Sending…",
+    "backToSignIn": "Back to sign in",
+    "newPassword": "New password",
+    "saving": "Saving…",
+    "setNewPassword": "Set new password"
+  }
+}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Alert, PageHeader, buttonClasses } from "@cnote/ui";
 import { requireSeller } from "@/lib/auth";
@@ -8,9 +9,12 @@ import { AiDraftAlternatives } from "@/features/ai-draft/ai-draft-alternatives";
 import { AiDraftBox } from "@/features/listings/ai-draft-box";
 import { ListingEditor } from "@/features/listings/listing-editor";
 
-export const metadata: Metadata = { title: "New listing" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("listings.meta"))("new") };
+}
 
 export default async function NewListingPage({ searchParams }: PageProps<"/listings/new">) {
+  const t = await getTranslations("listings.new");
   const session = await requireSeller("/listings/new");
   const sp = await searchParams;
   const manual = sp.mode === "manual";
@@ -18,11 +22,11 @@ export default async function NewListingPage({ searchParams }: PageProps<"/listi
   return (
     <div className="max-w-2xl space-y-6">
       <PageHeader
-        title="New listing"
-        description={manual ? "Fill in the details yourself." : "Tell us what you sell. AI will draft it and you check it before it goes live."}
+        title={t("title")}
+        description={manual ? t("descManual") : t("descAi")}
         actions={
           <Link href={manual ? "/listings/new" : "/listings/new?mode=manual"} className={buttonClasses("outline", "md", "min-h-11")}>
-            {manual ? "Use AI instead" : "Fill in manually"}
+            {manual ? t("useAi") : t("fillManual")}
           </Link>
         }
       />

@@ -1,0 +1,43 @@
+{
+  "quality": {
+    "check": {
+      "quantity": "Quantity",
+      "labelling": "Labelling",
+      "spec": "Product as ordered"
+    },
+    "result": {
+      "consistent": "Looks consistent",
+      "inconsistent": "Possible mismatch",
+      "inconclusive": "Could not tell from photos"
+    },
+    "sharedLabel": "Shared {when} · {count, plural, one {# photo} other {# photos}}",
+    "analysed": "Analysed",
+    "failed": "Could not analyse",
+    "analysing": "Analysing",
+    "sharedPhotos": "Shared photos",
+    "dispatchPhoto": "Dispatch photo {n}",
+    "title": "Pre-dispatch photos",
+    "intro": "Optional. Share photos of the goods before you dispatch. An automatic check compares them with the order and keeps the result as advisory evidence in case of a dispute. It is not an approval and never blocks dispatch or payment.",
+    "checklist": "Checklist from this order",
+    "limitReached": "You have shared the maximum number of photo sets for this order.",
+    "onlyBeforeDispatch": "Photos can only be shared before or at dispatch.",
+    "pendingRefresh": "Analysing your photos. This page updates automatically.",
+    "takePhoto": "Take a photo",
+    "choosePhotos": "Choose photos",
+    "selectedPhotos": "Selected photos",
+    "photoAlt": "Photo {n}: {name}",
+    "removePhoto": "Remove photo {n}",
+    "share": "Share photos",
+    "sharing": "Sharing…",
+    "privacy": "Location and camera details are removed from photos before they are stored. Photos are private and deleted after 6 months.",
+    "errors": {
+      "format": "Use JPEG, PNG or WebP photos.",
+      "tooLarge": "{name} is larger than 5 MB.",
+      "aPhoto": "A photo",
+      "maxPhotos": "You can add up to {max} photos.",
+      "addOne": "Add at least one photo.",
+      "shareFailed": "We could not share your photos. Please try again.",
+      "generic": "Something went wrong."
+    }
+  }
+}

@@ -96,6 +96,7 @@ jobs:
               - '.dockerignore'
               - 'apps/*/Dockerfile'
               - 'deploy/docker/**'
+              - 'infra/docker/**'
               - 'docker-compose*.yml'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
@@ -116,6 +117,8 @@ jobs:
           - { name: studio, file: apps/studio/Dockerfile }
           - { name: api, file: apps/api/Dockerfile }
           - { name: worker, file: apps/worker/Dockerfile }
+          - { name: ai-service, file: apps/ai-service/Dockerfile }
+          - { name: search-service, file: apps/search-service/Dockerfile }
           - { name: migrate, file: deploy/docker/migrate.Dockerfile }
     services:
       # Next builds call generateStaticParams against the database (apps/web), so the build container reaches this one.
@@ -158,6 +161,74 @@ jobs:
             REDIS_URL=redis://localhost:6379
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  # Scale/DR work (ADR-018, ADR-023): service contract tests, analytics projections, DR tooling, manifests and API-doc drift.
+  # (The `check` job above also runs their unit tests + coverage through the workspace-wide scripts.)
+  scale-services:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: cnote
+          POSTGRES_PASSWORD: cnote
+          POSTGRES_DB: cnote
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cnote"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote
+      LIVE_DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote_live
+      REDIS_URL: redis://localhost:6379
+      TEST_DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote
+      TEST_LIVE_DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote_live
+      TEST_REDIS_URL: redis://localhost:6379
+      AI_PROVIDER: heuristic
+      JWT_SECRET: ci-only-jwt-secret-0123456789abcdef0123456789abcdef
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Migrations
+        run: |
+          PGPASSWORD=cnote psql -h localhost -U cnote -d cnote -c 'CREATE DATABASE cnote_live'
+          pnpm db:migrate
+      - name: Service contracts (in-process === over HTTP) with coverage
+        run: |
+          pnpm --filter @cnote/ai exec vitest run --coverage
+          pnpm --filter @cnote/search exec vitest run test/remote.test.ts
+          pnpm --filter @cnote/ai-service exec vitest run --coverage
+          pnpm --filter @cnote/search-service exec vitest run --coverage
+      - name: Analytics projections (exactly-once, resumable, replay)
+        run: pnpm --filter @cnote/analytics exec vitest run --coverage
+      - name: DR tooling unit tests (dr-check)
+        run: pnpm test:ops
+      - name: OpenAPI documents are up to date
+        run: |
+          pnpm --filter @cnote/ai-service openapi
+          pnpm --filter @cnote/search-service openapi
+          git diff --exit-code docs/design/ai-service.openapi.json docs/design/search-service.openapi.json
+      - name: Postgres DR drill on scratch clusters (WAL archive, PITR, replica, promote, pg_rewind)
+        run: |
+          # the runner image ships PostgreSQL server binaries (initdb, pg_basebackup, pg_rewind, pg_verifybackup)
+          PGBIN="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)" bash infra/postgres/dr-drill.sh
+      - name: Kubernetes overlays render
+        run: |
+          for o in infra/k8s/overlays/*; do kubectl kustomize "$o" > /dev/null; done
+      - name: Compose file validates
+        run: REGISTRY=r TAG=t CNOTE_ENV_FILE=/dev/null docker compose -f infra/compose/docker-compose.prod.yml --profile primary config > /dev/null
 
   # Optional: runs only when the repository has an OPENSEARCH_URL secret (a reachable test cluster).
   # Secrets cannot be used in `if:` directly, so the job exposes it via an env check step.

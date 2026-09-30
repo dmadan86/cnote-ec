@@ -1,18 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Alert, Badge, Card, CardBody, CardHeader, CardTitle, Money, PageHeader, Stat } from "@cnote/ui";
 import { requireSeller } from "@/lib/auth";
+import { isLocale } from "@/i18n/config";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { load } from "@/lib/safe";
 import { billing } from "@/lib/services";
 import { CancelPlan, SubscribeButton } from "@/features/billing/plan-actions";
 
-export const metadata: Metadata = { title: "Billing" };
-
-const REASON = { grant: "Credits added", consume: "Lead accepted", refund: "Refunded", expire: "Expired" } as const;
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("billing"))("metaTitle") };
+}
 
 export default async function BillingPage() {
   const session = await requireSeller("/billing");
+  const t = await getTranslations("billing");
+  const loc = await getLocale();
+  const locale = isLocale(loc) ? loc : "en";
   const id = session.business.id;
   const [balance, sub, plans, ledger, invoices] = await Promise.all([
     load(() => billing.getBalance(id)),
@@ -27,24 +32,24 @@ export default async function BillingPage() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title="Billing" description="Public prices. One credit per accepted lead. Unused credits roll over for 90 days." />
+      <PageHeader title={t("title")} description={t("description")} />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Stat label="Lead credits" value={balance.ok ? balance.data : "-"} hint="Spendable now. Refunded credits come back here." />
+        <Stat label={t("leadCredits")} value={balance.ok ? balance.data : "-"} hint={t("leadCreditsHint")} />
         <Stat
-          label="Current plan"
-          value={activePlan?.name ?? (activeCode ?? "None")}
-          hint={sub.ok && sub.data && sub.data.status === "active" ? `Runs until ${formatDate(sub.data.periodEnd)}. It does not renew unless you choose a plan again.` : undefined}
+          label={t("currentPlan")}
+          value={activePlan?.name ?? (activeCode ?? t("none"))}
+          hint={sub.ok && sub.data && sub.data.status === "active" ? t("planRuns", { date: formatDate(sub.data.periodEnd, locale) }) : undefined}
         />
       </div>
       {!balance.ok ? <Alert tone="danger">{balance.error}</Alert> : null}
 
       {sub.ok && sub.data?.status === "active" && activeCode && activePlan && activePlan.monthlyPricePaise > 0 ? (
-        <CancelPlan endsOn={formatDate(sub.data.periodEnd)} />
+        <CancelPlan endsOn={formatDate(sub.data.periodEnd, locale)} />
       ) : null}
 
       <section aria-labelledby="plans" className="space-y-3">
-        <h2 id="plans" className="text-lg font-bold text-ink">Plans</h2>
+        <h2 id="plans" className="text-lg font-bold text-ink">{t("plans")}</h2>
         {!plans.ok ? <Alert tone="danger">{plans.error}</Alert> : (
           <ul className="grid gap-4 md:grid-cols-3">
             {plans.data.map((p) => (
@@ -53,13 +58,13 @@ export default async function BillingPage() {
                   <CardBody className="flex h-full flex-col gap-3">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-ink">{p.name}</h3>
-                      {p.code === activeCode ? <Badge tone="success">Current</Badge> : null}
+                      {p.code === activeCode ? <Badge tone="success">{t("current")}</Badge> : null}
                     </div>
-                    <p>{p.monthlyPricePaise === 0 ? <span className="text-2xl font-bold text-ink">Free</span> : <Money paise={p.monthlyPricePaise} unit="month" className="text-2xl" />}</p>
-                    <p className="text-sm text-ink">{p.monthlyCredits} lead credits per month</p>
+                    <p>{p.monthlyPricePaise === 0 ? <span className="text-2xl font-bold text-ink">{t("free")}</span> : <Money paise={p.monthlyPricePaise} unit="month" className="text-2xl" />}</p>
+                    <p className="text-sm text-ink">{t("perMonthCredits", { count: p.monthlyCredits })}</p>
                     <ul className="list-disc space-y-1 pl-5 text-sm text-muted">{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
                     <div className="mt-auto pt-2">
-                      <SubscribeButton planCode={p.code} current={p.code === activeCode} label={p.monthlyPricePaise === 0 ? "Switch to Free" : `Buy ${p.name} for one month`} />
+                      <SubscribeButton planCode={p.code} current={p.code === activeCode} label={p.monthlyPricePaise === 0 ? t("switchFree") : t("buyPlan", { name: p.name })} />
                     </div>
                   </CardBody>
                 </Card>
@@ -67,11 +72,11 @@ export default async function BillingPage() {
             ))}
           </ul>
         )}
-        <p className="text-xs text-muted">Prices exclude 18% GST, shown at checkout. You pay on the gateway&apos;s hosted page; we never see your card details. Your badge and ranking never depend on your plan.</p>
+        <p className="text-xs text-muted">{t("priceNote")}</p>
       </section>
 
       <section aria-labelledby="packs" className="space-y-3">
-        <h2 id="packs" className="text-lg font-bold text-ink">Buy lead credits</h2>
+        <h2 id="packs" className="text-lg font-bold text-ink">{t("buyCredits")}</h2>
         <ul className="grid gap-4 md:grid-cols-3">
           {packs.map((p) => (
             <li key={p.id}>
@@ -79,8 +84,8 @@ export default async function BillingPage() {
                 <CardBody className="flex h-full flex-col gap-2">
                   <h3 className="font-semibold text-ink">{p.label}</h3>
                   <Money paise={p.pricePaise} className="text-2xl" />
-                  <p className="text-xs text-muted">+ GST. Valid for 90 days.</p>
-                  <div className="mt-auto pt-2"><Link href={`/billing/checkout?pack=${p.id}`} className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-brand-600 px-4 text-sm font-semibold text-brand-700">{`Buy ${p.credits} credits`}</Link></div>
+                  <p className="text-xs text-muted">{t("packNote")}</p>
+                  <div className="mt-auto pt-2"><Link href={`/billing/checkout?pack=${p.id}`} className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-brand-600 px-4 text-sm font-semibold text-brand-700">{t("buyPack", { count: p.credits })}</Link></div>
                 </CardBody>
               </Card>
             </li>
@@ -89,20 +94,20 @@ export default async function BillingPage() {
       </section>
 
       <Card>
-        <CardHeader><CardTitle>Tax invoices</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("invoices")}</CardTitle></CardHeader>
         <CardBody>
-          {!invoices.ok ? <Alert tone="danger">{invoices.error}</Alert> : invoices.data.length === 0 ? <p className="text-sm text-muted">No invoices yet.</p> : (
+          {!invoices.ok ? <Alert tone="danger">{invoices.error}</Alert> : invoices.data.length === 0 ? <p className="text-sm text-muted">{t("noInvoices")}</p> : (
             <ul className="divide-y divide-line">
               {invoices.data.map((i) => (
                 <li key={i.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                   <div>
-                    <p className="font-medium text-ink">{i.number}{i.kind === "credit_note" ? " (credit note)" : ""}</p>
-                    <p className="text-xs text-muted">{formatDate(i.issuedAt)}</p>
+                    <p className="font-medium text-ink">{i.number}{i.kind === "credit_note" ? ` ${t("creditNote")}` : ""}</p>
+                    <p className="text-xs text-muted">{formatDate(i.issuedAt, locale)}</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Badge tone={i.kind === "credit_note" ? "warning" : "success"}>{i.kind === "credit_note" ? "Refunded" : "Paid"}</Badge>
+                    <Badge tone={i.kind === "credit_note" ? "warning" : "success"}>{i.kind === "credit_note" ? t("refunded") : t("paid")}</Badge>
                     <Money paise={i.kind === "credit_note" ? -i.totalPaise : i.totalPaise} />
-                    <a href={`/api/invoices/${i.id}`} className="inline-flex min-h-9 items-center rounded-lg border border-line px-3 text-xs font-semibold text-ink" download>Invoice PDF</a>
+                    <a href={`/api/invoices/${i.id}`} className="inline-flex min-h-9 items-center rounded-lg border border-line px-3 text-xs font-semibold text-ink" download>{t("invoicePdf")}</a>
                   </div>
                 </li>
               ))}
@@ -112,15 +117,15 @@ export default async function BillingPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Credit history</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("creditHistory")}</CardTitle></CardHeader>
         <CardBody>
-          {!ledger.ok ? <Alert tone="danger">{ledger.error}</Alert> : ledger.data.length === 0 ? <p className="text-sm text-muted">No credit activity yet.</p> : (
+          {!ledger.ok ? <Alert tone="danger">{ledger.error}</Alert> : ledger.data.length === 0 ? <p className="text-sm text-muted">{t("noCreditActivity")}</p> : (
             <ul className="divide-y divide-line">
               {ledger.data.map((e) => (
                 <li key={e.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                   <div>
-                    <p className="font-medium text-ink">{REASON[e.reason]}</p>
-                    <p className="text-xs text-muted">{formatDateTime(e.createdAt)}{e.expiresAt ? ` · expires ${formatDate(e.expiresAt)}` : ""}</p>
+                    <p className="font-medium text-ink">{t(`reason.${e.reason}`)}</p>
+                    <p className="text-xs text-muted">{formatDateTime(e.createdAt, locale)}{e.expiresAt ? ` · ${t("expires", { date: formatDate(e.expiresAt, locale) })}` : ""}</p>
                   </div>
                   <span className={`font-semibold tabular-nums ${e.delta >= 0 ? "text-success" : "text-ink"}`}>{e.delta > 0 ? `+${e.delta}` : e.delta}</span>
                 </li>

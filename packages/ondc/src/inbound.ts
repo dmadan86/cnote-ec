@@ -3,21 +3,42 @@
 import { getJobQueue } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import {
-  ACK, ERROR_CODES, cityAllowed, envelopeSchema, isInboundAction, nack, orderIdMessage, orderMessage, searchMessage, type BecknContext,
+  ACK, ERROR_CODES, cityAllowed, envelopeSchema, isInboundAction, issueMessage, issueStatusMessage, nack, orderIdMessage, orderMessage, searchMessage, type BecknContext,
 } from "./beckn";
 import { loadConfig, type OndcConfig } from "./config";
 import { parseAuthHeader, verifyAuthSignature } from "./crypto";
-import { getRegistry } from "./registry";
+import { isKilled } from "./killswitch";
+import { getRegistry, type RegistryEntry } from "./registry";
 import "./types";
 
 export interface InboundResult { status: number; body: unknown }
 export const MAX_BODY_BYTES = 512_000;
 
+/**
+ * X-Gateway-Authorization (ADR-021): same signing scheme as Authorization; the signer is the gateway's registry entry
+ * (type BG, SUBSCRIBED, in its validity window). Required when cfg.gatewayAuthRequired (default in prod); when present
+ * but the flag is off it is still verified, so a forged gateway header is never silently accepted.
+ */
+export async function verifyGateway(header: string | null | undefined, rawBody: string, cfg: Pick<OndcConfig, "gatewayAuthRequired">): Promise<"ok" | "absent" | "invalid" | "unavailable"> {
+  if (!header) return cfg.gatewayAuthRequired ? "invalid" : "absent";
+  const auth = parseAuthHeader(header);
+  if (!auth) return "invalid";
+  let entry: RegistryEntry | null;
+  try {
+    entry = await getRegistry().lookup({ subscriberId: auth.subscriberId, uniqueKeyId: auth.uniqueKeyId });
+  } catch {
+    return "unavailable";
+  }
+  if (!entry || (entry.type ?? "").toUpperCase() !== "BG" || !verifyAuthSignature(auth, rawBody, entry.signingPublicKey).ok) return "invalid";
+  return "ok";
+}
+
 const isUniqueViolation = (e: unknown) => typeof e === "object" && e !== null && (e as { code?: string }).code === "P2002";
 
-export async function receiveInbound(input: { action: string; rawBody: string; authorization?: string | null }, cfg: OndcConfig = loadConfig()): Promise<InboundResult> {
+export async function receiveInbound(input: { action: string; rawBody: string; authorization?: string | null; gatewayAuthorization?: string | null }, cfg: OndcConfig = loadConfig()): Promise<InboundResult> {
   if (!cfg.enabled || !isInboundAction(input.action)) return { status: 404, body: { error: "not found" } };
   const action = input.action;
+  if (await isKilled()) return { status: 503, body: nack(ERROR_CODES.unavailable, "suspended") }; // ADR-021 kill switch
   if (input.rawBody.length > MAX_BODY_BYTES) return { status: 413, body: nack(ERROR_CODES.badRequest, "payload too large") };
 
   let json: unknown;
@@ -41,12 +62,19 @@ export async function receiveInbound(input: { action: string; rawBody: string; a
   }
   if (!entry || !verifyAuthSignature(auth, input.rawBody, entry.signingPublicKey).ok) return { status: 401, body: nack(ERROR_CODES.invalidSignature) };
 
+  // 1b. /search arrives via the ONDC gateway, which adds its own signature over the same body (X-Gateway-Authorization)
+  if (action === "search") {
+    const gw = await verifyGateway(input.gatewayAuthorization, input.rawBody, cfg);
+    if (gw === "unavailable") return { status: 503, body: nack(ERROR_CODES.unavailable, "registry lookup failed") };
+    if (gw === "invalid") return { status: 401, body: nack(ERROR_CODES.invalidSignature, "gateway signature") };
+  }
+
   // 2. context policy
   if (!cfg.domains.includes(context.domain) || !cityAllowed(cfg, context.city)) return { status: 400, body: nack(ERROR_CODES.wrongDomain) };
   if (action !== "search" && context.bpp_id !== cfg.subscriberId) return { status: 400, body: nack(ERROR_CODES.notForUs) };
 
   // 3. per-action message shape
-  const schema = action === "search" ? searchMessage : action === "select" || action === "init" || action === "confirm" ? orderMessage : orderIdMessage;
+  const schema = action === "search" ? searchMessage : action === "select" || action === "init" || action === "confirm" ? orderMessage : action === "issue" ? issueMessage : action === "issue_status" ? issueStatusMessage : orderIdMessage;
   if (!schema.safeParse(env.data.message).success) return { status: 400, body: nack(ERROR_CODES.badRequest, `${action} message invalid`) };
 
   // 4. store idempotently (transaction_id + message_id + action), then queue

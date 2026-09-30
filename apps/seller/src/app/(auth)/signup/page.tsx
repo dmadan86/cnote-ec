@@ -1,18 +1,23 @@
 import type { Metadata } from "next";
-import { SignUpForm } from "@cnote/next-kit/client";
+import { getTranslations } from "next-intl/server";
+import { LocalizedSignUpForm } from "@/features/shell/localized-auth-forms";
 
-export const metadata: Metadata = { title: "Create your seller account" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("auth.signup");
+  return { title: t("meta") };
+}
 
 export default async function SignUpPage({ searchParams }: PageProps<"/signup">) {
   const sp = await searchParams;
+  const t = await getTranslations("auth.signup");
   const next = typeof sp.next === "string" ? sp.next : "/onboarding";
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-ink">Start selling, free</h1>
-        <p className="mt-1 text-sm text-muted">Create your account, then list your first product in about five minutes. No GST needed to start.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-ink">{t("title")}</h1>
+        <p className="mt-1 text-sm text-muted">{t("body")}</p>
       </div>
-      <SignUpForm next={next} googleEnabled={Boolean(process.env.GOOGLE_CLIENT_ID)} />
+      <LocalizedSignUpForm next={next} googleEnabled={Boolean(process.env.GOOGLE_CLIENT_ID)} />
     </div>
   );
 }

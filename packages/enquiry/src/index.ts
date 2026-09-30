@@ -15,3 +15,4 @@ export * from "./getters";
 export * from "./orders";
 export * from "./retention";
 export * from "./reachability";
+export * from "./benchmarks";

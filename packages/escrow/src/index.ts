@@ -12,7 +12,7 @@ export {
   type EscrowStatus, type Milestone, type RefundCause, type ReleaseCause,
 } from "./state";
 export {
-  acceptDelivery, createEscrowForOrder, getEscrowDetail, getEscrowForOrder, getEscrowSnapshotForOrder, getEscrowOffer, listEscrows, quoteEscrow, shouldNudgeEscrow,
+  acceptDelivery, createEscrowForOrder, getEscrowDetail, getEscrowForOrder, getEscrowSnapshotForOrder, fundEscrowFromLender, setEscrowLenderAssignment, getEscrowOffer, listEscrows, quoteEscrow, shouldNudgeEscrow,
   staffRefundEscrow, staffReleaseEscrow, runAutoRelease, expireUnfunded,
   type EscrowDetail, type EscrowOffer, type EscrowRow, type EscrowView, type FeeQuote,
 } from "./escrow";

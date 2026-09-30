@@ -1,0 +1,38 @@
+{
+  "dashboard": {
+    "meta": "Dashboard",
+    "welcome": "Welcome, {name}",
+    "description": "Your leads, credits and trust at a glance.",
+    "setupIncomplete": "Your setup is not finished. <link>Continue setup</link>",
+    "noListing": "You have no published listing, so you cannot be matched to buyers. <link>Add one in a few minutes</link>",
+    "stats": {
+      "credits": "Lead credits",
+      "billing": "Billing",
+      "openLeads": "Open leads",
+      "answerNow": "Answer now",
+      "response": "Response rate",
+      "responseHint": "Leads you answered before they expired",
+      "noData": "No data yet",
+      "trust": "Trust score",
+      "loadFail": "Some numbers could not be loaded. Refresh in a moment."
+    },
+    "verification": {
+      "title": "Verification",
+      "t0": "T0 Phone verified",
+      "t1": "T1 GST verified",
+      "t2": "T2 KYC verified (coming soon)",
+      "t3": "T3 Audited (coming soon)",
+      "done": "done",
+      "notDone": "not done",
+      "verifyGst": "Verify GST"
+    },
+    "improves": {
+      "title": "What improves your trust score",
+      "i1": "Verify your GST (moves you up a verification tier)",
+      "i2": "Answer or decline every lead inside the 2-hour window",
+      "i3": "Report whether deals closed, so your record stays accurate",
+      "i4": "Keep listings accurate and inside the marketplace policy",
+      "note": "Paying for a plan never changes your score, badge or rank."
+    }
+  }
+}

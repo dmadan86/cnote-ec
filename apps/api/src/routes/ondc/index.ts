@@ -3,7 +3,8 @@
 // @cnote/ondc. Every route answers 404 while ONDC_ENABLED is off. Handlers only ACK/NACK; work is queued.
 //
 // Mount once, at the root:   app.route("/", ondcRoutes);
-//   POST /ondc/{search|select|init|confirm|status|cancel}   Beckn requests from buyer apps / the gateway
+//   POST /ondc/{search|select|init|confirm|status|cancel|issue|issue_status}   Beckn + IGM requests from buyer apps / the gateway
+//        (search also carries X-Gateway-Authorization, verified in @cnote/ondc)
 //   POST /on_subscribe                                      registry challenge (x25519 + AES-256-ECB)
 //   GET  /ondc-site-verification.html                       signed request_id for registry site verification
 import { rateLimit } from "@cnote/core";
@@ -27,7 +28,7 @@ ondcRoutes.post("/ondc/:action", async (c) => {
   if (Number(c.req.header("content-length") ?? 0) > MAX_BODY_BYTES) return c.json(m.nack(m.ERROR_CODES.badRequest, "payload too large"), 413);
   const rawBody = await c.req.text();
   try {
-    const r = await m.receiveInbound({ action, rawBody, authorization: c.req.header("authorization") });
+    const r = await m.receiveInbound({ action, rawBody, authorization: c.req.header("authorization"), gatewayAuthorization: c.req.header("x-gateway-authorization") });
     return c.json(r.body as object, r.status as 200);
   } catch (err) {
     console.error(`[${c.get("requestId")}] ondc ${action} failed`, err);

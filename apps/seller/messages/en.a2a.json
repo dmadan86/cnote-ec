@@ -1,0 +1,187 @@
+{
+  "a2a": {
+    "disabled": "Agent-to-agent deals are not switched on yet. You can prepare your mandates now, but your agent will not act until it is enabled.",
+    "controlNotice": "You stay in control. Your agent only works inside the limits you set, it can never go below your private floor price, and no deal exists until you confirm it. You can pause or revoke a mandate at any time.",
+    "overview": {
+      "metaTitle": "Agents",
+      "title": "Your quoting agent",
+      "description": "Give your agent a mandate and it negotiates with buyers' agents for you, inside your limits. Every step is logged below.",
+      "waitingHeading": "Needs your confirmation",
+      "waitingEmpty": "Nothing is waiting for you.",
+      "mandatesHeading": "Quoting mandates",
+      "mandatesEmptyTitle": "No mandates yet",
+      "mandatesEmptyDescription": "Create a mandate below to let your agent quote from your price book.",
+      "createHeading": "Create a mandate",
+      "needPriceBook": "Your agent quotes from your price book. Add or activate a price book entry first.",
+      "openPriceBook": "Open price book",
+      "negotiationsHeading": "Recent negotiations",
+      "negotiationsEmpty": "No negotiations yet.",
+      "activityHeading": "What your agent did"
+    },
+    "form": {
+      "name": "Mandate name",
+      "priceBook": "Price book entry",
+      "priceBookHint": "Your agent quotes from this entry.",
+      "priceBookAny": "Any active entry",
+      "floor": "Lowest price you will accept (Rs per unit)",
+      "floorHint": "Private. Never shown to buyers or their agents.",
+      "maxDiscount": "Largest discount from your list price (%)",
+      "maxDiscountHint": "Optional, 0 to 90.",
+      "capacity": "Capacity (quantity)",
+      "capacityHint": "Optional. Your agent will not commit to more than this.",
+      "rounds": "Maximum rounds",
+      "roundsHint": "Between 2 and 10.",
+      "expires": "Expires on",
+      "expiresHint": "Optional. The mandate stops on this date.",
+      "delivery": "Delivery terms",
+      "payment": "Payment terms",
+      "optIn": "I want an agent to negotiate for me inside these limits. Nothing is committed until I confirm each deal.",
+      "autoStartsOff": "Auto-accept starts switched off. You can turn it on later, separately.",
+      "create": "Create mandate",
+      "save": "Save changes",
+      "saving": "Saving...",
+      "saved": "Saved."
+    },
+    "mandate": {
+      "metaTitle": "Mandate",
+      "title": "Mandate",
+      "description": "Limits, auto-accept, status and every change made to this mandate.",
+      "back": "Back to agents",
+      "limitsHeading": "Current limits",
+      "none": "Not set",
+      "consented": "You agreed on",
+      "versionLabel": "Version",
+      "version": "version {n}",
+      "floorPrivate": "Your floor price is private and is never shared with the other side.",
+      "editHeading": "Edit mandate",
+      "editNote": "Changes apply to new negotiations. Negotiations already running keep the limits they started with.",
+      "historyHeading": "Change history",
+      "historyRow": "Version {n}: {action}",
+      "closedNote": "This mandate has ended and can no longer be changed."
+    },
+    "auto": {
+      "heading": "Auto-accept",
+      "on": "Auto-accept on",
+      "off": "Auto-accept off",
+      "onNote": "Your agent may accept a deal on its own at Rs {price} or more.",
+      "offNote": "Every deal waits for your confirmation.",
+      "limitLabel": "Lowest price your agent may accept on its own (Rs per unit)",
+      "limitHint": "Must not be below your floor price.",
+      "consent": "I understand that my agent can accept deals on its own at or above this price, without asking me first.",
+      "turnOn": "Turn on auto-accept",
+      "turnOff": "Turn off auto-accept"
+    },
+    "controls": {
+      "heading": "Pause or revoke",
+      "working": "Working...",
+      "pause": "Pause mandate",
+      "resume": "Resume mandate",
+      "revokeSummary": "Revoke this mandate",
+      "revokeWarning": "Revoking ends the mandate and withdraws every negotiation that is still running. It cannot be undone; create a new mandate to start again.",
+      "revoke": "Revoke mandate"
+    },
+    "mandateStatus": {
+      "active": "Active",
+      "paused": "Paused",
+      "revoked": "Revoked",
+      "expired": "Expired",
+      "completed": "Completed",
+      "suspended": "Suspended"
+    },
+    "negotiationStatus": {
+      "open": "In progress",
+      "agreed": "Agreed, needs confirmation",
+      "accepted": "Confirmed",
+      "rejected": "Declined",
+      "withdrawn": "Withdrawn",
+      "expired": "Expired"
+    },
+    "negotiation": {
+      "metaTitle": "Negotiation",
+      "title": "Negotiation",
+      "withBuyer": "Negotiation with {name}",
+      "description": "The full offer history between your agent and the buyer's agent.",
+      "summaryHeading": "Summary",
+      "round": "Round {n} of {max}",
+      "roundLabel": "Round",
+      "turnLabel": "Whose turn",
+      "turnNone": "Finished",
+      "turnYou": "Your agent",
+      "turnThem": "Buyer's agent",
+      "expires": "Expires",
+      "theirConfirmation": "Buyer confirmed",
+      "yourConfirmation": "Your confirmation",
+      "confirmed": "Yes",
+      "notYet": "Not yet",
+      "conf": {
+        "pending": "Waiting for you",
+        "human": "Confirmed by you",
+        "auto": "Accepted by your agent within your limits",
+        "declined": "Declined by you"
+      },
+      "agreedTerms": "Agreed terms",
+      "external": "The buyer used an outside agent connected through the API.",
+      "quoteRef": "Quote reference {id}",
+      "viewOrder": "View order"
+    },
+    "decision": {
+      "heading": "Your decision",
+      "notCommitted": "Nothing is committed until you confirm.",
+      "confirm": "Confirm deal",
+      "decline": "Decline",
+      "withdraw": "Withdraw negotiation",
+      "waitingOther": "Waiting for the other side to confirm.",
+      "realiseFailed": "The deal was agreed but could not be recorded yet.",
+      "retry": "Try again"
+    },
+    "transcript": {
+      "heading": "Transcript",
+      "caption": "Every offer and reply in this negotiation",
+      "empty": "No messages yet.",
+      "none": "none",
+      "you": "You",
+      "days": "{n} days",
+      "col": {
+        "round": "#",
+        "who": "Who",
+        "type": "Type",
+        "price": "Price per unit",
+        "qty": "Quantity",
+        "lead": "Lead time",
+        "terms": "Delivery and payment",
+        "valid": "Valid until"
+      },
+      "actor": {
+        "agent": "Agent",
+        "external_agent": "Outside agent",
+        "person": "Person"
+      },
+      "type": {
+        "offer": "Offer",
+        "counter": "Counter",
+        "accept": "Accept",
+        "reject": "Reject",
+        "withdraw": "Withdraw"
+      }
+    },
+    "activity": {
+      "label": "Agent activity",
+      "empty": "Nothing yet.",
+      "agent": "Agent",
+      "you": "You",
+      "open": "Open negotiation"
+    },
+    "errors": {
+      "enterRupees": "Enter {label} as an amount in rupees, for example 1250 or 1250.50.",
+      "enterWhole": "Enter {label} as a whole number.",
+      "enterDate": "Enter a valid date.",
+      "consentRequired": "Tick the box to confirm you understand.",
+      "optInRequired": "Confirm that you want an agent to act for you.",
+      "labelFloor": "the lowest price",
+      "labelDiscount": "the discount",
+      "labelCapacity": "the capacity",
+      "labelRounds": "the maximum rounds",
+      "labelAutoMin": "the auto-accept price"
+    }
+  }
+}

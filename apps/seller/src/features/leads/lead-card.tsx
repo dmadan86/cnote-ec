@@ -1,22 +1,32 @@
 "use client";
 import Link from "next/link";
 import { useActionState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { MapPin, MessageSquare, Phone } from "lucide-react";
 import { Alert, Badge, Card, CardBody, IntentScore, TrustBadge, buttonClasses } from "@cnote/ui";
 import type { LeadView } from "@cnote/enquiry";
 import { SubmitButton } from "@/features/shell/form-bits";
+import { isLocale } from "@/i18n/config";
 import { formatDate } from "@/lib/format";
 import { acceptLeadAction, declineLeadAction, reportBuyerProblemAction, type LeadResult } from "./actions";
 import { Countdown } from "./countdown";
 
-const DECLINE_REASONS = ["Not what I sell", "Quantity too small", "Outside my delivery area", "Budget does not match", "Too busy right now", "Other"];
+// The English value is what the server validates and stores (ADR-002 decline reasons); only the label is translated.
+const DECLINE_REASONS = [
+  { value: "Not what I sell", key: "notMine" },
+  { value: "Quantity too small", key: "smallQty" },
+  { value: "Outside my delivery area", key: "area" },
+  { value: "Budget does not match", key: "budget" },
+  { value: "Too busy right now", key: "busy" },
+  { value: "Other", key: "other" },
+] as const;
 
-const STATUS: Record<LeadView["status"], { tone: "neutral" | "success" | "warning" | "danger" | "brand"; label: string }> = {
-  offered: { tone: "brand", label: "Waiting for you" },
-  accepted: { tone: "success", label: "Accepted" },
-  declined: { tone: "neutral", label: "Declined" },
-  expired: { tone: "neutral", label: "Expired" },
-  refunded: { tone: "warning", label: "Credit refunded" },
+const STATUS: Record<LeadView["status"], { tone: "neutral" | "success" | "warning" | "danger" | "brand" }> = {
+  offered: { tone: "brand" },
+  accepted: { tone: "success" },
+  declined: { tone: "neutral" },
+  expired: { tone: "neutral" },
+  refunded: { tone: "warning" },
 };
 
 function errorOf(s: LeadResult | null) {
@@ -24,6 +34,7 @@ function errorOf(s: LeadResult | null) {
 }
 
 function OfferedActions({ lead, balance }: { lead: LeadView; balance: number | null }) {
+  const t = useTranslations("leads");
   const [acc, accept] = useActionState<LeadResult | null, FormData>(acceptLeadAction, null);
   const [dec, decline] = useActionState<LeadResult | null, FormData>(declineLeadAction, null);
   const noCredits = balance !== null && balance <= 0;
@@ -32,38 +43,39 @@ function OfferedActions({ lead, balance }: { lead: LeadView; balance: number | n
     <div className="space-y-3">
       {noCredits ? (
         <Alert tone="warning">
-          You have no lead credits left, so you cannot accept this lead. <Link href="/billing" className="font-medium underline">Get credits</Link>
+          {t.rich("noCredits", { link: (c) => <Link href="/billing" className="font-medium underline">{c}</Link> })}
         </Alert>
       ) : null}
       <div className="flex flex-col gap-2 sm:flex-row">
         <form action={accept} className="flex-1 sm:flex-none">
           <input type="hidden" name="matchId" value={lead.matchId} />
-          <SubmitButton size="lg" className="w-full sm:w-auto" disabled={noCredits} pendingText="Accepting…">
-            Accept lead (uses 1 credit)
+          <SubmitButton size="lg" className="w-full sm:w-auto" disabled={noCredits} pendingText={t("accepting")}>
+            {t("accept")}
           </SubmitButton>
         </form>
         <details className="group flex-1 sm:flex-none">
-          <summary className={buttonClasses("outline", "lg", "w-full cursor-pointer list-none sm:w-auto")}>Decline</summary>
+          <summary className={buttonClasses("outline", "lg", "w-full cursor-pointer list-none sm:w-auto")}>{t("decline")}</summary>
           <form action={decline} className="mt-3 space-y-3 rounded-lg border border-line bg-canvas p-3">
             <input type="hidden" name="matchId" value={lead.matchId} />
             <label htmlFor={`reason-${lead.matchId}`} className="text-sm font-medium text-ink">
-              Why are you declining? (helps us match better)
+              {t("declineWhy")}
             </label>
             <select id={`reason-${lead.matchId}`} name="reason" defaultValue="" className="h-11 w-full rounded-lg border border-line bg-surface px-3 text-sm">
-              <option value="">Skip</option>
-              {DECLINE_REASONS.map((r) => <option key={r}>{r}</option>)}
+              <option value="">{t("skip")}</option>
+              {DECLINE_REASONS.map((r) => <option key={r.value} value={r.value}>{t(`declineReasons.${r.key}`)}</option>)}
             </select>
-            <SubmitButton variant="outline" pendingText="Declining…">Confirm decline, no credit used</SubmitButton>
+            <SubmitButton variant="outline" pendingText={t("declining")}>{t("confirmDecline")}</SubmitButton>
           </form>
         </details>
       </div>
-      <p className="text-xs text-muted">Nothing is charged until you accept. If you decline, the lead moves to the next seller.</p>
+      <p className="text-xs text-muted">{t("nothingCharged")}</p>
       {err ? <Alert tone="danger">{err}</Alert> : null}
     </div>
   );
 }
 
 function AcceptedPanel({ lead }: { lead: LeadView }) {
+  const t = useTranslations("leads");
   const [rep, report] = useActionState<LeadResult | null, FormData>(reportBuyerProblemAction, null);
   return (
     <div className="space-y-3 rounded-lg border border-green-100 bg-green-50 p-4">
@@ -82,21 +94,21 @@ function AcceptedPanel({ lead }: { lead: LeadView }) {
       <div className="flex flex-wrap items-center gap-2">
         {lead.conversationId ? (
           <Link href={`/conversations/${lead.conversationId}`} className={buttonClasses("primary", "md", "min-h-11")}>
-            <MessageSquare className="size-4" aria-hidden /> Open conversation
+            <MessageSquare className="size-4" aria-hidden /> {t("openConversation")}
           </Link>
         ) : null}
       </div>
-      {lead.reachabilityCheck ? <Alert tone="info">Checking with the buyer. We will decide on your refund within 24 hours.</Alert> : null}
+      {lead.reachabilityCheck ? <Alert tone="info">{t("checkingBuyer")}</Alert> : null}
       <details>
-        <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-ink underline">Report unreachable or fake</summary>
+        <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-ink underline">{t("reportSummary")}</summary>
         <form action={report} className="mt-2 space-y-3">
           <input type="hidden" name="matchId" value={lead.matchId} />
-          <p className="text-sm text-muted">Tried to reach the buyer and could not, or the enquiry was not real? Tell us within 72 hours of accepting. We verify it and refund your credit automatically. No support ticket needed.</p>
+          <p className="text-sm text-muted">{t("reportHelp")}</p>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <SubmitButton name="kind" value="buyer_unreachable" variant="outline" pendingText="Sending…">Buyer unreachable</SubmitButton>
-            <SubmitButton name="kind" value="buyer_fake" variant="outline" pendingText="Sending…">Enquiry looks fake</SubmitButton>
+            <SubmitButton name="kind" value="buyer_unreachable" variant="outline" pendingText={t("sending")}>{t("buyerUnreachable")}</SubmitButton>
+            <SubmitButton name="kind" value="buyer_fake" variant="outline" pendingText={t("sending")}>{t("enquiryFake")}</SubmitButton>
           </div>
-          {rep?.ok ? <Alert tone="success">Thanks. We are checking this with the buyer and will decide on your refund within 24 hours.</Alert> : null}
+          {rep?.ok ? <Alert tone="success">{t("reportThanks")}</Alert> : null}
           {errorOf(rep) ? <Alert tone="danger">{errorOf(rep)}</Alert> : null}
         </form>
       </details>
@@ -105,6 +117,9 @@ function AcceptedPanel({ lead }: { lead: LeadView }) {
 }
 
 export function LeadCard({ lead, balance }: { lead: LeadView; balance: number | null }) {
+  const t = useTranslations("leads");
+  const loc = useLocale();
+  const locale = isLocale(loc) ? loc : "en";
   const e = lead.enquiry;
   const st = STATUS[lead.status];
   return (
@@ -112,32 +127,32 @@ export function LeadCard({ lead, balance }: { lead: LeadView; balance: number | 
       <CardBody className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <h2 className="min-w-0 text-base font-semibold text-ink">{e.title}</h2>
-          <Badge tone={st.tone}>{st.label}</Badge>
+          <Badge tone={st.tone}>{t(`status.${lead.status}`)}</Badge>
         </div>
 
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
           <div>
-            <dt className="text-xs text-muted">Quantity</dt>
-            <dd className="font-medium text-ink">{e.quantity != null ? `${e.quantity} ${e.quantityUnit ?? ""}` : "Not specified"}</dd>
+            <dt className="text-xs text-muted">{t("quantity")}</dt>
+            <dd className="font-medium text-ink">{e.quantity != null ? `${e.quantity} ${e.quantityUnit ?? ""}` : t("notSpecified")}</dd>
           </div>
           <div>
-            <dt className="text-xs text-muted">Deliver to</dt>
-            <dd className="font-medium text-ink">{e.deliveryCity ?? "Not specified"}</dd>
+            <dt className="text-xs text-muted">{t("deliverTo")}</dt>
+            <dd className="font-medium text-ink">{e.deliveryCity ?? t("notSpecified")}</dd>
           </div>
           <div>
-            <dt className="text-xs text-muted">Needed by</dt>
-            <dd className="font-medium text-ink">{e.neededBy ? formatDate(e.neededBy) : "Flexible"}</dd>
+            <dt className="text-xs text-muted">{t("neededBy")}</dt>
+            <dd className="font-medium text-ink">{e.neededBy ? formatDate(e.neededBy, locale) : t("flexible")}</dd>
           </div>
           <div>
-            <dt className="text-xs text-muted">Category</dt>
-            <dd className="font-medium text-ink">{e.category?.name ?? "Any"}</dd>
+            <dt className="text-xs text-muted">{t("category")}</dt>
+            <dd className="font-medium text-ink">{e.category?.name ?? t("any")}</dd>
           </div>
         </dl>
         <p className="line-clamp-3 text-sm text-muted">{e.requirement}</p>
 
         <div className="flex flex-wrap items-center gap-2">
-          {e.intentScore != null ? <IntentScore score={e.intentScore} /> : <Badge>Intent score pending</Badge>}
-          <Badge tone="brand" title="Only this many sellers receive this lead">Rank {lead.rank} of {lead.of}</Badge>
+          {e.intentScore != null ? <IntentScore score={e.intentScore} /> : <Badge>{t("intentPending")}</Badge>}
+          <Badge tone="brand" title={t("rankTitle")}>{t("rank", { rank: lead.rank, total: lead.of })}</Badge>
         </div>
         {e.intentReasons.length ? (
           <ul className="list-disc space-y-0.5 pl-5 text-sm text-ink">
@@ -152,7 +167,7 @@ export function LeadCard({ lead, balance }: { lead: LeadView; balance: number | 
           </>
         ) : null}
         {lead.status === "accepted" ? <AcceptedPanel lead={lead} /> : null}
-        {lead.status === "refunded" ? <p className="text-sm text-muted">This lead was reported and your credit was refunded.</p> : null}
+        {lead.status === "refunded" ? <p className="text-sm text-muted">{t("refundedNote")}</p> : null}
       </CardBody>
     </Card>
   );

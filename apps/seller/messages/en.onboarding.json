@@ -1,0 +1,117 @@
+{
+  "onboarding": {
+    "meta": "Set up your seller account",
+    "signOut": "Sign out",
+    "buyerOnly": "This account already has a buyer business ({name}). To sell, please sign up for the seller app with a different email address. We will add a way to enable selling on an existing business soon.",
+    "progressLabel": "Setup progress",
+    "progress": "Step {step} of {total}: ",
+    "stepDone": "(done)",
+    "stepCurrent": "(current)",
+    "saveHint": "Each step saves as you go. You can close this page and continue later.",
+    "steps": {
+      "s1": "Your business",
+      "s2": "Verify phone",
+      "s3": "GST",
+      "s4": "First listing",
+      "s5": "Plan and consents"
+    },
+    "copy": {
+      "s1": {
+        "title": "Tell us about your business",
+        "body": "Just the basics. Takes under a minute."
+      },
+      "s2": {
+        "title": "Verify your phone",
+        "body": "This is your first verification level. It tells buyers you are a real person."
+      },
+      "s3": {
+        "title": "Verify your GST",
+        "body": "Optional now, and it gives you the GST verified badge."
+      },
+      "s4": {
+        "title": "Add your first listing",
+        "body": "Describe it the way you would on WhatsApp. AI drafts it, you check it."
+      },
+      "s5": {
+        "title": "Plan and permissions",
+        "body": "Start free. Choose what we may do with your data."
+      }
+    },
+    "gst": {
+      "submit": "Save and verify GST",
+      "noGstTitle": "No GST yet?",
+      "noGstBody": "You can skip and start listing. You will show as Unverified (phone only), which buyers trust less, and you may rank lower than GST-verified sellers with similar listings. Verify any time from the Verification page.",
+      "skip": "I don't have GST yet, skip for now"
+    },
+    "listing": {
+      "manual": "I prefer to fill in a form",
+      "later": "Add a listing later"
+    },
+    "business": {
+      "name": "Business name",
+      "namePlaceholder": "Shree Packaging Co.",
+      "city": "City",
+      "state": "State",
+      "statePick": "Select state",
+      "pincode": "Pincode",
+      "languages": "Languages you talk to buyers in",
+      "save": "Save and continue",
+      "saving": "Saving…"
+    },
+    "phone": {
+      "mobile": "Mobile number",
+      "mobileHint": "We send a one-time code by SMS. Buyers see your number only after you accept their lead.",
+      "send": "Send code",
+      "resend": "Send code again",
+      "sending": "Sending…",
+      "codeLabel": "Enter the code sent to {phone}",
+      "devMode": "Development mode: your code is <code>{code}</code>",
+      "verify": "Verify and continue",
+      "checking": "Checking…"
+    },
+    "skipping": "One moment…",
+    "plan": {
+      "choose": "Choose a plan",
+      "loadFail": "Plans could not be loaded. You will start on the Free plan and can change it in Billing.",
+      "free": "Free",
+      "credits": "{count, plural, one {# lead credit per month} other {# lead credits per month}}",
+      "note": "Free is the default. Paid plans start only if you pick them here, last one month, and never renew on their own. Your badge and rank do not depend on your plan.",
+      "dataTitle": "Your data choices",
+      "dataHint": "Tick only what you agree to. You can change these later in Settings.",
+      "finish": "Finish setup",
+      "finishing": "Finishing…"
+    },
+    "errors": {
+      "name": "Enter your business name.",
+      "city": "Enter your city.",
+      "state": "Choose your state.",
+      "pincode": "Pincode is 6 digits.",
+      "languages": "Pick at least one language.",
+      "phone": "Enter a 10-digit Indian mobile number.",
+      "code": "Enter the code from the SMS.",
+      "codeMismatch": "That code did not match. Check it and try again.",
+      "plan": "Choose one of the plans shown."
+    },
+    "done": {
+      "meta": "You are all set",
+      "title": "You are all set, {name}",
+      "subtitle": "Your seller account is ready. Here is what to do next.",
+      "leads": {
+        "title": "Watch for your first lead",
+        "body": "Leads that match your listings show up under Leads. You have 2 hours to accept or decline each one, and nothing is charged until you accept.",
+        "cta": "Open leads"
+      },
+      "gst": {
+        "title": "Verify your GST",
+        "body": "Get the GST verified badge and rank higher with buyers.",
+        "cta": "Verify GST"
+      },
+      "listings": {
+        "title": "Add more listings",
+        "body": "Every extra product you list gives us more to match you with.",
+        "cta": "New listing"
+      },
+      "dashboard": "Go to dashboard"
+    }
+  }
+}

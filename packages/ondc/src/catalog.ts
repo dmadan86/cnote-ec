@@ -3,6 +3,7 @@ import { emit } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { loadConfig, type OndcConfig } from "./config";
 import { applyIntent, buildCatalog, buildProvider, providerHash, type BecknProvider, type SearchIntent } from "./mapping";
+import { isKilled } from "./killswitch";
 import { getSource } from "./source";
 
 /** The provider node for one connected seller (null when disabled/not connected/nothing publishable). */
@@ -20,7 +21,7 @@ export async function providerFor(sellerBusinessId: string, cfg: OndcConfig = lo
 const MAX_PROVIDERS = 200;
 
 export async function allProviders(cfg: OndcConfig = loadConfig()): Promise<BecknProvider[]> {
-  if (!cfg.enabled) return [];
+  if (!cfg.enabled || (await isKilled())) return [];
   const sellers = await prisma.ondcSeller.findMany({ where: { enabled: true }, orderBy: { createdAt: "asc" }, take: MAX_PROVIDERS, select: { businessId: true } });
   const out: BecknProvider[] = [];
   for (const s of sellers) {
@@ -43,7 +44,7 @@ export interface PublishResult { published: boolean; items: number; skipped?: "d
  * OndcCatalogPublished in the same transaction. Idempotent (an unchanged catalogue emits nothing).
  */
 export async function publishCatalog(sellerBusinessId: string, cfg: OndcConfig = loadConfig()): Promise<PublishResult> {
-  if (!cfg.enabled) return { published: false, items: 0, skipped: "disabled" };
+  if (!cfg.enabled || (await isKilled())) return { published: false, items: 0, skipped: "disabled" };
   const seller = await prisma.ondcSeller.findUnique({ where: { businessId: sellerBusinessId } });
   if (!seller) return { published: false, items: 0, skipped: "not_connected" };
   const provider = await providerFor(sellerBusinessId, cfg);
@@ -62,7 +63,7 @@ export async function publishCatalog(sellerBusinessId: string, cfg: OndcConfig =
 }
 
 export async function publishAllCatalogs(cfg: OndcConfig = loadConfig()): Promise<number> {
-  if (!cfg.enabled) return 0;
+  if (!cfg.enabled || (await isKilled())) return 0;
   let n = 0;
   const sellers = await prisma.ondcSeller.findMany({ select: { businessId: true } });
   for (const s of sellers) if ((await publishCatalog(s.businessId, cfg)).published) n++;

@@ -31,7 +31,10 @@
       "billing": "बिलिंग",
       "verification": "पडताळणी",
       "appeals": "अपील",
-      "settings": "सेटिंग्ज"
+      "settings": "सेटिंग्ज",
+      "prices": "दर माहिती",
+      "credit": "क्रेडिट",
+      "agents": "कोटेशन एजंट"
     }
   }
 }

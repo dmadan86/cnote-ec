@@ -1,21 +1,27 @@
 import type { VersionOverview, VersionView } from "@cnote/catalogue";
 
-export const VERSION_STATUS: Record<VersionView["status"], { label: string; tone: "neutral" | "success" | "warning" | "danger" | "brand" }> = {
-  submitted: { label: "Submitted", tone: "warning" },
-  in_review: { label: "In review", tone: "warning" },
-  approved: { label: "Approved, going live", tone: "brand" },
-  published: { label: "Live", tone: "success" },
-  superseded: { label: "Replaced", tone: "neutral" },
-  rejected: { label: "Rejected", tone: "danger" },
-  withdrawn: { label: "Withdrawn", tone: "neutral" },
+/** Minimal translator shape (next-intl's `t` for the `listings` namespace fits it). */
+export type Translate = (key: string, values?: Record<string, string | number>) => string;
+
+/** Tone per version status; the label is `listings.versionStatus.<status>`. */
+export const VERSION_STATUS: Record<VersionView["status"], { tone: "neutral" | "success" | "warning" | "danger" | "brand" }> = {
+  submitted: { tone: "warning" },
+  in_review: { tone: "warning" },
+  approved: { tone: "brand" },
+  published: { tone: "success" },
+  superseded: { tone: "neutral" },
+  rejected: { tone: "danger" },
+  withdrawn: { tone: "neutral" },
 };
 
 /** "Live: v3 · Pending: v4 in review" */
-export function versionSummary(o: Pick<VersionOverview, "live" | "pending">): string {
-  const pending = o.pending ? `Pending: v${o.pending.version} ${o.pending.status === "approved" ? (o.pending.publishAt ? "approved, scheduled" : "approved, going live") : "in review"}` : null;
-  const live = o.live ? `Live: v${o.live.version}` : null;
-  if (live && pending) return `${live} · ${pending}`;
+export function versionSummary(o: Pick<VersionOverview, "live" | "pending">, t: Translate): string {
+  const pending = o.pending
+    ? t(o.pending.status === "approved" ? (o.pending.publishAt ? "summary.pendingScheduled" : "summary.pendingApproved") : "summary.pendingReview", { version: o.pending.version })
+    : null;
+  const live = o.live ? t("summary.live", { version: o.live.version }) : null;
+  if (live && pending) return t("summary.both", { live, pending });
   if (live) return live;
-  if (pending) return `Not live yet · ${pending}`;
-  return "Not live";
+  if (pending) return t("summary.notLiveYet", { pending });
+  return t("summary.notLive");
 }

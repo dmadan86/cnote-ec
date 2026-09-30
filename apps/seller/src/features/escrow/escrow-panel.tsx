@@ -1,20 +1,21 @@
+import { getLocale, getTranslations } from "next-intl/server";
 import { getEscrowForOrder, type EscrowView } from "@cnote/escrow";
 import { Alert, Badge, Card, CardBody, CardHeader, CardTitle, Money, type BadgeTone } from "@cnote/ui";
+import { isLocale } from "@/i18n/config";
 import { formatDateTime } from "@/lib/format";
 import { load } from "@/lib/safe";
+import { el } from "@/features/billing/rich-value";
 
 const TONE: Record<string, BadgeTone> = { created: "neutral", awaiting_funding: "warning", funded: "brand", accepted: "success", released: "success", refunded: "neutral", cancelled: "neutral" };
-const LABEL: Record<string, string> = {
-  created: "Buyer has not started", awaiting_funding: "Waiting for the buyer's payment", funded: "Payment held safely in escrow", accepted: "Accepted by the buyer",
-  released: "Released to you", refunded: "Refunded to the buyer", cancelled: "Closed without payment",
-};
-const STEP: Record<string, string> = { funded: "Buyer paid into escrow", confirmed: "Order confirmed", dispatched: "You dispatched", delivered: "Delivered", accepted: "Buyer accepted delivery", released: "Released to you", refunded: "Refunded to the buyer" };
 const STEPS = ["funded", "confirmed", "dispatched", "delivered", "accepted"];
 
 /** Seller view of an order's escrow (ADR-012): milestone status, fee disclosure and payout state. Read-only. */
 export async function EscrowPanel({ actor, orderId }: { actor: { personId: string; businessId: string }; orderId: string }) {
   const res = await load(() => getEscrowForOrder(actor, orderId));
   if (!res.ok || !res.data) return null;
+  const t = await getTranslations("escrow");
+  const loc = await getLocale();
+  const locale = isLocale(loc) ? loc : "en";
   const e: EscrowView = res.data;
   const final = e.milestones.find((m) => m.milestone === "released" || m.milestone === "refunded")?.milestone;
   const steps = final ? [...STEPS, final] : STEPS;
@@ -24,26 +25,26 @@ export async function EscrowPanel({ actor, orderId }: { actor: { personId: strin
     <section aria-labelledby="escrow-heading">
       <Card>
         <CardHeader className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle id="escrow-heading">Escrow payment</CardTitle>
-          <Badge tone={TONE[e.status] ?? "neutral"}><span className="sr-only">Escrow status: </span>{LABEL[e.status] ?? e.status}</Badge>
+          <CardTitle id="escrow-heading">{t("title")}</CardTitle>
+          <Badge tone={TONE[e.status] ?? "neutral"}><span className="sr-only">{t("statusSr")}</span>{t.has(`status.${e.status}`) ? t(`status.${e.status}`) : e.status}</Badge>
         </CardHeader>
         <CardBody className="space-y-4 text-sm">
-          {e.frozen ? <Alert tone="warning">A dispute is open. The money is frozen and will not be released until it is resolved.</Alert> : null}
-          {held ? <p>Do not dispatch on credit: the buyer has paid and the money is safe. It is released to you when the buyer accepts delivery{e.autoReleaseAt && !e.frozen ? `, or automatically on ${formatDateTime(e.autoReleaseAt)}` : ", or automatically 7 days after delivery if there is no dispute"}.</p> : null}
-          {e.status === "awaiting_funding" ? <p>Wait for the buyer&apos;s payment before you dispatch. You will see it here as soon as it arrives.</p> : null}
+          {e.frozen ? <Alert tone="warning">{t("frozen")}</Alert> : null}
+          {held ? <p>{e.autoReleaseAt && !e.frozen ? t("heldAuto", { date: formatDateTime(e.autoReleaseAt, locale) }) : t("heldDefault")}</p> : null}
+          {e.status === "awaiting_funding" ? <p>{t("awaitingFunding")}</p> : null}
           <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-            <Row k="Order value" v={<Money paise={e.amountPaise} />} />
-            <Row k="Escrow fee (charged to you, plus GST)" v={<><Money paise={e.feePaise} /> + <Money paise={e.feeGstPaise} /></>} />
-            <Row k="You receive" v={<Money paise={e.sellerNetPaise} />} />
-            <Row k="Payout" v={e.payout ? `${e.payout.status === "settled" ? "Paid" : e.payout.status === "failed" ? "Failed, our team is on it" : "On its way"}${e.payout.settledAt ? `, ${formatDateTime(e.payout.settledAt)}` : ""}` : "Not released yet"} />
+            <Row k={t("orderValue")} v={<Money paise={e.amountPaise} />} />
+            <Row k={t("fee")} v={t.rich("feeValue", { fee: el(<Money paise={e.feePaise} />), gst: el(<Money paise={e.feeGstPaise} />) })} />
+            <Row k={t("youReceive")} v={<Money paise={e.sellerNetPaise} />} />
+            <Row k={t("payout")} v={e.payout ? (() => { const s = t(e.payout.status === "settled" ? "payoutSettled" : e.payout.status === "failed" ? "payoutFailed" : "payoutPending"); return e.payout.settledAt ? t("payoutWithDate", { status: s, date: formatDateTime(e.payout.settledAt, locale) }) : s; })() : t("payoutNone")} />
           </dl>
           <div>
-            <h3 className="font-semibold text-ink">Progress</h3>
+            <h3 className="font-semibold text-ink">{t("progress")}</h3>
             <ol className="mt-2 space-y-2">
               {steps.map((m) => (
                 <li key={m} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line pb-2 last:border-0">
-                  <span className={at(m) ? "font-medium text-ink" : "text-muted"}>{STEP[m]}</span>
-                  <span className="text-muted">{at(m) ? `Done, ${formatDateTime(at(m)!)}` : "Pending"}</span>
+                  <span className={at(m) ? "font-medium text-ink" : "text-muted"}>{t(`step.${m}`)}</span>
+                  <span className="text-muted">{at(m) ? t("done", { date: formatDateTime(at(m)!, locale) }) : t("pending")}</span>
                 </li>
               ))}
             </ol>

@@ -1,6 +1,7 @@
 // Speech-to-text (ADR-004): provider port with a Sarvam AI adapter (Indian languages, code-mixed) and a
 // deterministic mock for dev/CI. Selected by ASR_PROVIDER=sarvam|mock (default mock).
 import { DomainError } from "@cnote/core";
+import { aiTransport, remoteSpeechToText, sharedAiServiceClient } from "./remote";
 import type { Lang, TranscribeInput, TranscribeOutput } from "./index";
 import type { ProviderResult, SpeechToText } from "./types";
 
@@ -129,6 +130,7 @@ let override: SpeechToText | null = null;
 /** ASR_PROVIDER=sarvam|mock (default mock), read per call. */
 export function getSpeechToText(): SpeechToText {
   if (override) return override;
+  if (aiTransport() === "http") return remoteSpeechToText(sharedAiServiceClient()); // ADR-018
   const name = process.env.ASR_PROVIDER === "sarvam" ? "sarvam" : "mock";
   if (cached?.name !== name) {
     cached = { name, impl: name === "sarvam" ? new SarvamSpeechToText({ apiKey: process.env.SARVAM_API_KEY ?? "", model: process.env.SARVAM_STT_MODEL || undefined }) : new MockSpeechToText() };

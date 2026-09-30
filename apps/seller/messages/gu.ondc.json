@@ -1,0 +1,59 @@
+{
+  "ondc": {
+    "metaTitle": "ONDC",
+    "title": "ONDC",
+    "description": "ઓપન નેટવર્ક ફોર ડિજિટલ કોમર્સ પર તમારા ઉત્પાદનો મૂકો. કઈ લિસ્ટિંગ ઉમેરવી તે તમે નક્કી કરો છો, અને દરેક ઓર્ડર સ્વીકારવા કે નકારવા માટે તમારી પાસે આવે છે.",
+    "ordersButton": "ONDC ઓર્ડર",
+    "notLive": "ONDC હજી લાઇવ નથી. તમે હમણાં કનેક્ટ કરીને લિસ્ટિંગ પસંદ કરી શકો છો; અમે લાઇવ થઈએ ત્યાં સુધી નેટવર્ક પરના ખરીદદારોને કંઈ દેખાશે નહીં.",
+    "channel": "ચેનલ",
+    "statusLabel": "સ્થિતિ:",
+    "connected": "કનેક્ટેડ",
+    "notConnected": "કનેક્ટ નથી",
+    "termsAccepted": "શરતો {version} સ્વીકારી {when}.",
+    "listingsReady": "{count, plural, one {# લિસ્ટિંગ નેટવર્ક માટે તૈયાર.} other {# લિસ્ટિંગ નેટવર્ક માટે તૈયાર.}}",
+    "yourListings": "તમારી લિસ્ટિંગ",
+    "noListingsTitle": "હજી કોઈ લિસ્ટિંગ નથી",
+    "noListingsDescription": "પહેલા લિસ્ટિંગ બનાવીને પ્રકાશિત કરો, પછી તેને અહીં ONDC માં ઉમેરો.",
+    "shown": "ONDC પર દેખાય છે",
+    "reason": {
+      "not_opted_in": "ઉમેરી નથી",
+      "not_published": "હજી લાઇવ નથી: પહેલા લિસ્ટિંગ પ્રકાશિત કરો",
+      "not_approved": "સમીક્ષાની રાહ",
+      "seller_unverified": "ONDC પર વેચવા માટે ચકાસણી પૂર્ણ કરો",
+      "no_price": "ONDC પર વેચવા માટે ભાવ ઉમેરો"
+    },
+    "disconnect": "ONDC થી ડિસ્કનેક્ટ કરો",
+    "disconnecting": "ડિસ્કનેક્ટ કરી રહ્યા છીએ…",
+    "termsText": "મેં ONDC વેચાણકાર શરતો વાંચી છે અને સ્વીકારું છું: મેં પસંદ કરેલી લિસ્ટિંગ ONDC ખરીદદાર એપને બતાવી શકાય, અને ઓર્ડર મારા ONDC ઇનબોક્સમાં આવે છે, જે હું સ્વીકારું કે નકારું.",
+    "connect": "ONDC સાથે કનેક્ટ કરો",
+    "connecting": "કનેક્ટ કરી રહ્યા છીએ…",
+    "saving": "સેવ થઈ રહ્યું છે…",
+    "remove": "ONDC માંથી કાઢો",
+    "add": "ONDC માં ઉમેરો",
+    "accept": "સ્વીકારો",
+    "accepting": "સ્વીકારી રહ્યા છીએ…",
+    "reject": "નકારો",
+    "rejecting": "નકારી રહ્યા છીએ…",
+    "acceptTerms": "કનેક્ટ કરવા માટે કૃપા કરીને ONDC વેચાણકાર શરતો સ્વીકારો.",
+    "orders": {
+      "metaTitle": "ONDC ઓર્ડર",
+      "title": "ONDC ઓર્ડર",
+      "description": "ONDC નેટવર્ક પર ખરીદદારોએ આપેલા ઓર્ડર. દરેક સ્વીકારો અથવા નકારો; ખરીદદારની એપને તરત જણાવવામાં આવે છે.",
+      "settings": "ONDC સેટિંગ્સ",
+      "emptyTitle": "હજી કોઈ ONDC ઓર્ડર નથી",
+      "emptyDescription": "નેટવર્કના ઓર્ડર અહીં દેખાશે.",
+      "order": "ઓર્ડર",
+      "from": "{bap} તરફથી · {date}",
+      "status": {
+        "created": "તમારા નિર્ણયની જરૂર",
+        "accepted": "સ્વીકાર્યો",
+        "in_progress": "ચાલુ",
+        "completed": "પૂર્ણ",
+        "cancelled": "રદ"
+      }
+    },
+    "_meta": {
+      "review": "machine-drafted; needs native review"
+    }
+  }
+}

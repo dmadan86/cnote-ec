@@ -5,13 +5,8 @@ import { ONB, readOnb } from "@/lib/cookies";
 import { load } from "@/lib/safe";
 import { catalogue, identity } from "@/lib/services";
 
-export const STEPS = [
-  { n: 1, title: "Your business" },
-  { n: 2, title: "Verify phone" },
-  { n: 3, title: "GST" },
-  { n: 4, title: "First listing" },
-  { n: 5, title: "Plan and consents" },
-] as const;
+/** Step numbers only; titles come from the `onboarding.steps.s<n>` catalogue keys. */
+export const STEPS = [{ n: 1 }, { n: 2 }, { n: 3 }, { n: 4 }, { n: 5 }] as const;
 
 export type OnboardingState =
   | { step: 1 | 2 | 3 | 5 }

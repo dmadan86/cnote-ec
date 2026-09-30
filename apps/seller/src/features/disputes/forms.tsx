@@ -1,17 +1,21 @@
 "use client";
 import { useActionState, useId } from "react";
+import { useTranslations } from "next-intl";
 import { Alert, Button, Field, Textarea } from "@cnote/ui";
 import { disputeAction, type DisputeResult } from "./actions";
 
 const useDispute = () => useActionState<DisputeResult | null, FormData>(disputeAction, null);
-const Head = ({ intent, disputeId, state }: { intent: string; disputeId: string; state: DisputeResult | null }) => (
+function Head({ intent, disputeId, state }: { intent: string; disputeId: string; state: DisputeResult | null }) {
+  const t = useTranslations("disputes");
+  return (
   <>
     <input type="hidden" name="intent" value={intent} />
     <input type="hidden" name="disputeId" value={disputeId} />
     {state && !state.ok ? <Alert tone="danger"><span role="alert">{state.error}</span></Alert> : null}
-    {state?.ok ? <Alert tone="success"><span role="status">Saved.</span></Alert> : null}
+    {state?.ok ? <Alert tone="success"><span role="status">{t("saved")}</span></Alert> : null}
   </>
-);
+  );
+}
 function File({ name, label, accept }: { name: string; label: string; accept: string }) {
   const id = useId();
   return (
@@ -28,16 +32,17 @@ function Text({ label, name = "text", required }: { label: string; name?: string
 
 /** Respond (first statement from the counterparty) or add evidence (any later statement/file). */
 export function EvidenceForm({ disputeId, respond }: { disputeId: string; respond: boolean }) {
+  const t = useTranslations("disputes");
   const [state, action, pending] = useDispute();
   return (
     <form action={action} className="flex flex-col gap-3" aria-busy={pending}>
       <Head intent={respond ? "respond" : "evidence"} disputeId={disputeId} state={state} />
-      <Text label={respond ? "Your response" : "Statement"} />
-      <File name="photos" label="Photo (JPEG, PNG or WebP)" accept="image/jpeg,image/png,image/webp" />
-      <File name="documents" label="Document (PDF), for example proof of delivery or an invoice" accept="application/pdf" />
-      <File name="voice" label="Voice note (any Indian language)" accept="audio/*" />
-      <label className="flex min-h-11 items-start gap-2 text-sm text-ink"><input type="checkbox" name="voiceConsent" className="mt-1 size-5" />I agree that my voice note may be stored and transcribed to help resolve this dispute.</label>
-      <div><Button type="submit" disabled={pending}>{respond ? "Send response" : "Add evidence"}</Button></div>
+      <Text label={respond ? t("yourResponse") : t("statement")} />
+      <File name="photos" label={t("photoLabel")} accept="image/jpeg,image/png,image/webp" />
+      <File name="documents" label={t("documentLabel")} accept="application/pdf" />
+      <File name="voice" label={t("voiceLabel")} accept="audio/*" />
+      <label className="flex min-h-11 items-start gap-2 text-sm text-ink"><input type="checkbox" name="voiceConsent" className="mt-1 size-5" />{t("voiceConsent")}</label>
+      <div><Button type="submit" disabled={pending}>{respond ? t("sendResponse") : t("addEvidence")}</Button></div>
     </form>
   );
 }

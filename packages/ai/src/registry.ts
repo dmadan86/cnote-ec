@@ -4,6 +4,7 @@ import { extractListingHeuristic } from "./heuristic/extract";
 import { HEURISTIC_MODEL, scoreIntentHeuristic } from "./heuristic/intent";
 import { moderateHeuristic } from "./heuristic/moderate";
 import { extractFromImagesHeuristic } from "./vision";
+import { aiTransport, remoteFallbackEnabled, remoteProviders, sharedAiServiceClient } from "./remote";
 import type { ImageListingExtractor, ListingExtractor, IntentScorer, Moderator, ProviderResult, Providers } from "./types";
 
 export const heuristicProviders: Providers = {
@@ -48,15 +49,18 @@ export function anthropicProviders(client: MessagesClient = createAnthropicClien
 }
 
 let cached: { name: string; providers: Providers } | null = null;
+let cachedRemote: Providers | null = null;
 let override: Providers | null = null;
 
 /** Picks by AI_PROVIDER ("heuristic" default | "anthropic"), read per call so tests/ops can flip it. */
 export function getProviders(): Providers {
   if (override) return override;
+  // ADR-018: AI_TRANSPORT=http routes provider calls to apps/ai-service (breaker + heuristic fallback); default in-process.
+  if (aiTransport() === "http") return (cachedRemote ??= remoteProviders(sharedAiServiceClient(), heuristicProviders, remoteFallbackEnabled()));
   const name = process.env.AI_PROVIDER === "anthropic" ? "anthropic" : "heuristic";
   if (cached?.name !== name) cached = { name, providers: name === "anthropic" ? anthropicProviders() : heuristicProviders };
   return cached.providers;
 }
 
 /** Test hook: inject providers (null restores env-based selection). */
-export function setProvidersForTests(p: Providers | null) { override = p; cached = null; }
+export function setProvidersForTests(p: Providers | null) { override = p; cached = null; cachedRemote = null; }

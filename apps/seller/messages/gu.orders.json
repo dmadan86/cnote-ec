@@ -1,0 +1,46 @@
+{
+  "orders": {
+    "metaTitle": "ઓર્ડર",
+    "title": "ઓર્ડર",
+    "description": "જીતેલા તરીકે નોંધાયેલા સોદા. ખરીદદાર સાથે શરતો પાકી કરો, પછી દરેક ઓર્ડર મોકલ્યો તરીકે નોંધો.",
+    "emptyTitle": "હજી કોઈ ઓર્ડર નથી",
+    "emptyDescription": "તમે અથવા ખરીદદાર સોદો જીત્યો તરીકે નોંધો ત્યારે તે અહીં દેખાય છે.",
+    "emptyAction": "લીડ પર જાઓ",
+    "paginationLabel": "ઓર્ડર પેજિંગ",
+    "older": "જૂના ઓર્ડર",
+    "detailMetaTitle": "ઓર્ડર",
+    "back": "ઓર્ડર પર પાછા",
+    "notFound": "આ ઓર્ડર મળ્યો નથી, અથવા તે બીજા વ્યવસાયનો છે.",
+    "orderFor": "{name} માટે ઓર્ડર",
+    "youConfirmedWaiting": "તમે આ વિગતો પાકી કરી છે. ખરીદદારની પુષ્ટિની રાહ છે.",
+    "checkAndConfirm": "ખરીદદાર સાથે વિગતો તપાસો, પછી પાકી કરો.",
+    "paymentNote": "પેમેન્ટ સીધું ખરીદદાર સાથે થાય છે; હાલમાં પ્લેટફોર્મ દ્વારા કંઈ જતું નથી.",
+    "detailsTitle": "ઓર્ડરની વિગતો",
+    "buyer": "ખરીદદાર",
+    "quantity": "જથ્થો",
+    "pricePerUnit": "પ્રતિ યુનિટ ભાવ",
+    "total": "કુલ",
+    "youConfirmed": "તમે પાકું કર્યું",
+    "buyerConfirmed": "ખરીદદારે પાકું કર્યું",
+    "notRecorded": "નોંધ નથી",
+    "notYet": "હજી નહીં",
+    "status": {
+      "recorded": "પુષ્ટિની રાહ",
+      "confirmed": "પાકું",
+      "dispatched": "મોકલ્યો",
+      "delivered": "પહોંચ્યો",
+      "completed": "પૂર્ણ",
+      "cancelled": "રદ"
+    },
+    "confirm": "ઓર્ડરની વિગતો પાકી કરો",
+    "confirming": "પાકું કરી રહ્યા છીએ…",
+    "dispatch": "મોકલ્યો તરીકે નોંધો",
+    "saving": "સેવ થઈ રહ્યું છે…",
+    "cancel": "ઓર્ડર રદ કરો",
+    "cancelling": "રદ કરી રહ્યા છીએ…",
+    "invalidAction": "આ ક્રિયા યોગ્ય નથી.",
+    "_meta": {
+      "review": "machine-drafted; needs native review"
+    }
+  }
+}

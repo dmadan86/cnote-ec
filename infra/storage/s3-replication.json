@@ -1,0 +1,21 @@
+{
+  "_comment": "aws s3api put-bucket-replication --bucket cnote-private-aps1 --replication-configuration file://infra/storage/s3-replication.json  (versioning must be ON for both buckets; both buckets are in India regions, ADR-010)",
+  "Role": "arn:aws:iam::ACCOUNT_ID:role/cnote-s3-replication",
+  "Rules": [
+    {
+      "ID": "private-to-hyderabad",
+      "Status": "Enabled",
+      "Priority": 1,
+      "Filter": {},
+      "DeleteMarkerReplication": { "Status": "Disabled" },
+      "SourceSelectionCriteria": { "SseKmsEncryptedObjects": { "Status": "Enabled" } },
+      "Destination": {
+        "Bucket": "arn:aws:s3:::cnote-private-aps2",
+        "StorageClass": "STANDARD_IA",
+        "ReplicationTime": { "Status": "Enabled", "Time": { "Minutes": 15 } },
+        "Metrics": { "Status": "Enabled", "EventThreshold": { "Minutes": 15 } },
+        "EncryptionConfiguration": { "ReplicaKmsKeyID": "arn:aws:kms:ap-south-2:ACCOUNT_ID:key/KEY_ID" }
+      }
+    }
+  ]
+}

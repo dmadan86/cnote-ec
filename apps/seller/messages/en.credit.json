@@ -1,0 +1,149 @@
+{
+  "credit": {
+    "title": "Credit",
+    "description": "Get cash against your escrowed orders. Loans are provided by our NBFC partner.",
+    "notAvailable": "Credit is not available yet.",
+    "lenderNote": "The lender of record is {lender}. cnote does not lend its own money: we share your credit score with the lender only after you agree, and the lender makes every credit decision.",
+    "error": "Something went wrong. Please try again.",
+    "consent": {
+      "heading": "Your consent",
+      "off": "To check your credit score and offer financing, we need your permission to use your GST verification, escrow order history, dispute record and trust score. Nothing is shared with the lender until you apply, and only a score with a few summary figures is shared, never your GST returns.",
+      "on": "You have allowed cnote to use your GST verification, escrow history, dispute record and trust score to compute your credit score and to share a summary with the lender when you apply.",
+      "grant": "I agree, check my score",
+      "withdraw": "Withdraw consent",
+      "withdrawNote": "Withdrawing stops new scores and any further sharing with the lender. Applications that are not yet accepted are cancelled. Existing loans continue as agreed with the lender.",
+      "saved": "Your choice was saved."
+    },
+    "score": {
+      "heading": "Your platform credit score",
+      "value": "Score {score} out of 900",
+      "band": "Band",
+      "bands": {
+        "poor": "Poor",
+        "fair": "Fair",
+        "good": "Good",
+        "very_good": "Very good",
+        "excellent": "Excellent"
+      },
+      "model": "Model {version}",
+      "updated": "Updated {date}",
+      "reasonsHeading": "What affects your score",
+      "positive": "Helping your score",
+      "negative": "Holding your score back",
+      "points": "{points} of {max} points",
+      "none": "Your score will appear here once it has been computed.",
+      "explain": "The score is between 300 and 900 and is computed by fixed rules from your verified GST status and filings, escrow orders, disputes and trust score. It is refreshed when any of these change and every night."
+    },
+    "reasons": {
+      "GST_NOT_VERIFIED": "GST registration not verified",
+      "GST_STATUS_INACTIVE": "GST registration is not active",
+      "GST_VERIFICATION_STALE": "GST verification is old; it is re-checked regularly",
+      "GST_FILINGS_MISSED": "Some recent GST returns were not filed",
+      "ESCROW_FEW_ORDERS": "Few completed escrow orders",
+      "ESCROW_LOW_VOLUME": "Low total value of completed escrow orders",
+      "ESCROW_DISPUTED_ORDERS": "Some completed orders had disputes",
+      "ESCROW_REFUNDS": "Escrow orders that ended in refunds",
+      "DISPUTES_LOST": "Disputes decided against you",
+      "DISPUTES_OPEN": "Disputes currently open",
+      "TRUST_LOW": "Trust score and response behaviour"
+    },
+    "eligible": {
+      "heading": "Orders you can finance",
+      "intro": "Invoice financing gives you an advance on an order the buyer has already paid into escrow. When escrow releases the money, the lender is repaid first and you receive the rest.",
+      "none": "No funded escrow orders are available for financing right now.",
+      "blocked": "You cannot use invoice financing yet: {reasons}",
+      "order": "Order {id}",
+      "orderValue": "Order value",
+      "maxAdvance": "You can borrow up to",
+      "tenor": "Repayment period",
+      "days": "{days} days",
+      "apply": "See offers",
+      "applied": "Application in progress",
+      "amount": "Amount to borrow (rupees)"
+    },
+    "blockers": {
+      "no_consent": "consent is needed",
+      "gst_not_verified": "verify your GST registration",
+      "gst_inactive": "your GST registration is not active",
+      "score_too_low": "your score is below the lender's minimum",
+      "escrow_frozen": "a dispute is open on the order",
+      "escrow_not_funded": "the buyer has not funded escrow",
+      "amount_too_small": "the possible advance is below the minimum"
+    },
+    "applications": {
+      "heading": "Applications",
+      "empty": "You have not applied for financing yet.",
+      "product": {
+        "invoice_financing": "Invoice financing",
+        "bnpl": "Buy now, pay later"
+      },
+      "status": {
+        "submitted": "Waiting for the lender",
+        "offered": "Offer ready",
+        "accepted": "Accepted, waiting for disbursal",
+        "disbursed": "Disbursed",
+        "rejected": "Not approved by the lender",
+        "declined": "You declined the offer",
+        "expired": "Offer expired",
+        "failed": "Could not be submitted",
+        "cancelled": "Cancelled"
+      },
+      "statusLabel": "Status",
+      "amount": "Amount",
+      "created": "Applied {date}",
+      "reasonCancelled": "Cancelled because consent was withdrawn."
+    },
+    "kfs": {
+      "heading": "Key Fact Statement",
+      "intro": "Read this before you accept. It is provided by the lender, {lender}.",
+      "lender": "Lender of record",
+      "principal": "Loan amount",
+      "tenor": "Repayment period",
+      "interestRate": "Interest rate (per year)",
+      "allInApr": "Total cost of credit including fees (per year)",
+      "interest": "Interest for the period",
+      "processingFee": "Processing fee",
+      "otherFees": "Other fees",
+      "total": "Total you repay",
+      "lateFee": "Late payment charge",
+      "lateFeeValue": "{percent} per month on the overdue amount",
+      "coolingOff": "Cooling-off period",
+      "coolingOffValue": "{days} days after disbursal. You can exit by repaying the amount and interest for the days you used, with no penalty.",
+      "prepayment": "Charge for repaying early",
+      "prepaymentNone": "None",
+      "repayment": "How it is repaid",
+      "repayment_escrow_release": "Automatically from the escrow payout for this order, before the balance reaches you. If it does not cover the total, you pay the rest to the lender directly.",
+      "repayment_buyer_instalment": "By you, to the lender, by the due date.",
+      "grievance": "Grievance officer",
+      "grievanceValue": "Name: {name}; email: {email}; phone: {phone}",
+      "expires": "This offer is valid until {date}.",
+      "cnoteRole": "cnote is not the lender. It shares your score and summary figures with the lender and shows you the lender's offer."
+    },
+    "accept": {
+      "acknowledge": "I have read the Key Fact Statement and agree to take this loan from {lender}.",
+      "submit": "Accept offer",
+      "decline": "Decline offer",
+      "noAuto": "Nothing is charged until you accept."
+    },
+    "loans": {
+      "heading": "Loans",
+      "empty": "You have no loans.",
+      "principal": "Amount borrowed",
+      "repaid": "Repaid",
+      "outstanding": "Outstanding",
+      "due": "Due {date}",
+      "dpd": "{days} days overdue",
+      "status": {
+        "active": "Active",
+        "overdue": "Overdue",
+        "repaid": "Repaid",
+        "written_off": "Written off by the lender"
+      },
+      "statusLabel": "Loan status",
+      "order": "Order {id}"
+    },
+    "dev": {
+      "simulate": "Simulate disbursal (development only)"
+    }
+  }
+}

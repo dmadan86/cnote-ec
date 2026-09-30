@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Sparkles } from "lucide-react";
 import { Field, Select, Textarea } from "@cnote/ui";
 import { LANGUAGES } from "@/lib/constants";
@@ -13,15 +14,16 @@ const EXAMPLES = [
 ];
 
 export function AiDraftBox({ mode, defaultLanguage = "hi" }: { mode: "onboarding" | "portal"; defaultLanguage?: string }) {
+  const t = useTranslations("listings.aiDraft");
   const [state, action] = useActionState<DraftResult | null, FormData>(draftListingAction, null);
   const [text, setText] = useState("");
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="mode" value={mode} />
       <Field
-        label="Describe what you sell, like you would tell a buyer on WhatsApp"
+        label={t("label")}
         htmlFor="text"
-        hint="What is it, size or grade, minimum order, price, and where it ships from. Hindi, Hinglish or English all work."
+        hint={t("hint")}
         error={fieldError(state, "text")}
       >
         <Textarea
@@ -39,7 +41,7 @@ export function AiDraftBox({ mode, defaultLanguage = "hi" }: { mode: "onboarding
       </Field>
 
       <div>
-        <p className="text-xs font-medium text-muted">Tap an example to start from it</p>
+        <p className="text-xs font-medium text-muted">{t("tapExample")}</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {EXAMPLES.map((ex) => (
             <button
@@ -54,7 +56,7 @@ export function AiDraftBox({ mode, defaultLanguage = "hi" }: { mode: "onboarding
         </div>
       </div>
 
-      <Field label="Language you wrote in" htmlFor="language" className="max-w-xs">
+      <Field label={t("language")} htmlFor="language" className="max-w-xs">
         <Select id="language" name="language" defaultValue={defaultLanguage} className="h-11">
           {LANGUAGES.map((l) => (
             <option key={l.code} value={l.code}>
@@ -65,11 +67,11 @@ export function AiDraftBox({ mode, defaultLanguage = "hi" }: { mode: "onboarding
       </Field>
 
       <FormAlert state={state} />
-      <SubmitButton size="lg" icon={<Sparkles className="size-4" aria-hidden />} pendingText="Drafting…">
-        Draft my listing with AI
+      <SubmitButton size="lg" icon={<Sparkles className="size-4" aria-hidden />} pendingText={t("drafting")}>
+        {t("submit")}
       </SubmitButton>
       <p className="text-xs text-muted">
-        AI writes a draft only. You review and edit everything before it goes live. Photos: you can paste image links in the next step; direct photo upload is coming.
+        {t("footnote")}
       </p>
     </form>
   );

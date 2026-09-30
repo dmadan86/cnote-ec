@@ -18,7 +18,13 @@ const isUniqueViolation = (e: unknown) => typeof e === "object" && e !== null &&
 
 interface OrderRow {
   id: string; status: string; totalPaise: bigint; currency: string; items: unknown; payload: unknown; sellerBusinessId: string; cancelReason: string | null;
-  createdAt: Date; updatedAt: Date;
+  createdAt: Date; updatedAt: Date; fulfilmentState?: string | null;
+}
+
+/** Sets `state.descriptor.code` on each fulfilment (F1 when the confirm carried none). */
+function withFulfilmentState(f: unknown, code: string): unknown[] {
+  const list = Array.isArray(f) && f.length ? (f as Record<string, unknown>[]) : [{ id: "F1", type: "Delivery" }];
+  return list.map((x) => ({ ...x, state: { descriptor: { code } } }));
 }
 
 /** The Beckn `order` object we return in on_confirm / on_status / on_cancel. */
@@ -31,7 +37,7 @@ export function orderToBeckn(o: OrderRow): Record<string, unknown> {
     provider: { id: o.sellerBusinessId },
     items: src.items ?? [],
     billing: src.billing,
-    fulfillments: src.fulfillments,
+    fulfillments: o.fulfilmentState ? withFulfilmentState(src.fulfillments, o.fulfilmentState) : src.fulfillments,
     payment: src.payment,
     quote: { price: { currency: o.currency, value: paiseToDecimal(Number(o.totalPaise)) }, breakup: (o.items as { breakup?: unknown[] } | null)?.breakup ?? [] },
     ...(o.cancelReason ? { cancellation: { reason: { id: o.cancelReason } } } : {}),

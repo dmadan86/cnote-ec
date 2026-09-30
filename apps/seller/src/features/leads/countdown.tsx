@@ -1,6 +1,7 @@
 "use client";
 import { useSyncExternalStore } from "react";
 import { Clock } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@cnote/ui";
 
 function subscribe(cb: () => void) {
@@ -9,15 +10,18 @@ function subscribe(cb: () => void) {
 }
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 
-function format(total: number): string {
+type T = ReturnType<typeof useTranslations<"leads">>;
+
+function format(total: number, t: T): string {
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  return h > 0 ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}m ${String(s).padStart(2, "0")}s`;
+  return h > 0 ? t("hoursMinutes", { h, m: String(m).padStart(2, "0") }) : t("minutesSeconds", { m, s: String(s).padStart(2, "0") });
 }
 
 /** Live countdown to `respondBy` (ADR-002: 2h window before the slot cascades to the next seller). */
 export function Countdown({ respondBy }: { respondBy: string }) {
+  const t = useTranslations("leads");
   const now = useSyncExternalStore(subscribe, nowSeconds, () => null);
   const target = Math.floor(new Date(respondBy).getTime() / 1000);
   const left = now === null ? null : target - now;
@@ -27,13 +31,13 @@ export function Countdown({ respondBy }: { respondBy: string }) {
     <span className={cn("inline-flex items-center gap-1.5 text-sm font-medium", closed ? "text-muted" : urgent ? "text-danger" : "text-ink")}>
       <Clock className="size-4" aria-hidden />
       {left === null ? (
-        "Respond within 2 hours"
+        t("respondWithin")
       ) : closed ? (
-        "Response window closed"
+        t("windowClosed")
       ) : (
         <>
-          <span className="sr-only">Time left to respond: </span>
-          <span className="tabular-nums">{format(left)}</span> left to respond
+          <span className="sr-only">{t("timeLeftSr")}</span>
+          {t.rich("timeLeft", { value: format(left, t), time: (c) => <span className="tabular-nums">{c}</span> })}
         </>
       )}
     </span>

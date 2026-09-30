@@ -1,1 +1,257 @@
 // Owned by @cnote/a2a. ADR-020 agent-to-agent commerce: standing buyer/seller agent mandates, typed offer/counter/accept protocol, external agent API. Flag A2A_ENABLED.
+// No Prisma relations to foreign models (ADR-006): business/person/enquiry/match/conversation/quote/order ids are plain uuid
+// columns. Money is integer paise (BigInt). The private per-side bounds (`buyerPrivate` / `sellerPrivate`) are snapshotted from
+// the mandates when a negotiation starts and are NEVER returned to the counterparty (an agent must not see the other side's
+// floor or ceiling). Mandate changes, messages, activity and anomalies are append-only.
+
+enum AgentSide {
+  buyer
+  seller
+
+  @@map("agent_side")
+}
+
+enum AgentMandateStatus {
+  active
+  paused
+  revoked
+  expired
+  completed
+  suspended
+
+  @@map("agent_mandate_status")
+}
+
+enum AgentNegotiationStatus {
+  open
+  agreed
+  accepted
+  rejected
+  withdrawn
+  expired
+
+  @@map("agent_negotiation_status")
+}
+
+enum AgentMessageType {
+  offer
+  counter
+  accept
+  reject
+  withdraw
+
+  @@map("agent_message_type")
+}
+
+enum AgentConfirmation {
+  pending
+  human
+  auto
+  declined
+
+  @@map("agent_confirmation")
+}
+
+enum AgentDriver {
+  internal
+  external
+
+  @@map("agent_driver")
+}
+
+/// A standing instruction a business gives its agent. Explicit opt-in (consentedAt); autoAccept is off unless the principal
+/// turned it on (autoAcceptConsentAt); revocable at any time. limitPricePaise is the buyer's maximum unit price or the seller's
+/// private floor unit price; autoAcceptLimitPaise is the buyer's auto-accept ceiling or the seller's auto-accept minimum.
+model AgentMandate {
+  id                   String             @id @default(uuid()) @db.Uuid
+  businessId           String             @map("business_id") @db.Uuid
+  side                 AgentSide
+  status               AgentMandateStatus @default(active)
+  name                 String
+  createdByPersonId    String             @map("created_by_person_id") @db.Uuid
+  categorySlug         String?            @map("category_slug")
+  /// buyer: what to buy { title, requirement, deliveryCity, deliveryPincode, deliveryTerms, paymentTerms }; seller: { deliveryTerms, paymentTerms }
+  spec                 Json               @default("{}")
+  quantity             Int?
+  unit                 String?
+  targetPricePaise     BigInt?            @map("target_price_paise")
+  limitPricePaise      BigInt?            @map("limit_price_paise")
+  maxLeadTimeDays      Int?               @map("max_lead_time_days")
+  /// seller: never discount more than this percent below the price-book price
+  maxDiscountPct       Int?               @map("max_discount_pct")
+  /// seller: largest quantity the agent may commit to in one negotiation
+  capacityQty          Int?               @map("capacity_qty")
+  /// seller: price-book entry the agent prices from (null = pick by category/requirement)
+  priceBookId          String?            @map("price_book_id") @db.Uuid
+  /// buyer: approved seller business ids (empty = any matched seller)
+  approvedSellerIds    Json               @default("[]") @map("approved_seller_ids")
+  maxRounds            Int                @default(6) @map("max_rounds")
+  /// buyer recurrence: run every N days (null = run once)
+  recurrenceDays       Int?               @map("recurrence_days")
+  nextRunAt            DateTime?          @map("next_run_at") @db.Timestamptz
+  lastRunAt            DateTime?          @map("last_run_at") @db.Timestamptz
+  expiresAt            DateTime?          @map("expires_at") @db.Timestamptz
+  autoAccept           Boolean            @default(false) @map("auto_accept")
+  autoAcceptLimitPaise BigInt?            @map("auto_accept_limit_paise")
+  consentedAt          DateTime           @map("consented_at") @db.Timestamptz
+  autoAcceptConsentAt  DateTime?          @map("auto_accept_consent_at") @db.Timestamptz
+  version              Int                @default(1)
+  revokedAt            DateTime?          @map("revoked_at") @db.Timestamptz
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([businessId, side, status])
+  @@index([status, nextRunAt])
+  @@index([side, status, categorySlug])
+  @@map("agent_mandate")
+}
+
+/// Append-only audit of every mandate change (who, what, the resulting terms). Never updated.
+model AgentMandateChange {
+  id            String   @id @default(uuid()) @db.Uuid
+  mandateId     String   @map("mandate_id") @db.Uuid
+  businessId    String   @map("business_id") @db.Uuid
+  version       Int
+  /// created | updated | paused | resumed | revoked | expired | completed | auto_accept_on | auto_accept_off | suspended | unsuspended | run
+  action        String
+  /// human | system | admin | api
+  actorKind     String   @map("actor_kind")
+  actorPersonId String?  @map("actor_person_id") @db.Uuid
+  snapshot      Json     @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([mandateId, createdAt])
+  @@index([businessId, createdAt])
+  @@map("agent_mandate_change")
+}
+
+/// One scheduled run of a recurring buyer mandate. Unique per (mandate, runKey) so a retried tick never posts a second enquiry.
+model AgentRun {
+  id         String   @id @default(uuid()) @db.Uuid
+  mandateId  String   @map("mandate_id") @db.Uuid
+  runKey     String   @map("run_key")
+  enquiryId  String?  @map("enquiry_id") @db.Uuid
+  outcome    String   @default("started")
+  detail     String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([mandateId, runKey])
+  @@map("agent_run")
+}
+
+model AgentNegotiation {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  buyerBusinessId    String                 @map("buyer_business_id") @db.Uuid
+  sellerBusinessId   String                 @map("seller_business_id") @db.Uuid
+  buyerMandateId     String                 @map("buyer_mandate_id") @db.Uuid
+  sellerMandateId    String                 @map("seller_mandate_id") @db.Uuid
+  enquiryId          String                 @map("enquiry_id") @db.Uuid
+  matchId            String                 @map("match_id") @db.Uuid
+  buyerDriver        AgentDriver            @default(internal) @map("buyer_driver")
+  sellerDriver       AgentDriver            @default(internal) @map("seller_driver")
+  initiatedBy        AgentSide              @map("initiated_by")
+  startKey           String?                @map("start_key")
+  status             AgentNegotiationStatus @default(open)
+  /// number of price offers/counters made so far
+  round              Int                    @default(0)
+  maxRounds          Int                    @map("max_rounds")
+  /// next side to act (null once agreed or closed)
+  turn               AgentSide?
+  /// private snapshots from the mandates at start; never shown to the other side
+  buyerPrivate       Json                   @map("buyer_private")
+  sellerPrivate      Json                   @map("seller_private")
+  /// the standing offer both sides are reacting to: { by, pricePaise, quantity, unit, leadTimeDays, deliveryTerms, validUntil, paymentTerms }
+  lastOffer          Json?                  @map("last_offer")
+  agreedTerms        Json?                  @map("agreed_terms")
+  agreedPricePaise   BigInt?                @map("agreed_price_paise")
+  buyerConfirmation  AgentConfirmation      @default(pending) @map("buyer_confirmation")
+  sellerConfirmation AgentConfirmation      @default(pending) @map("seller_confirmation")
+  quoteId            String?                @map("quote_id") @db.Uuid
+  orderId            String?                @map("order_id") @db.Uuid
+  realiseError       String?                @map("realise_error")
+  flagged            Boolean                @default(false)
+  expiresAt          DateTime               @map("expires_at") @db.Timestamptz
+  closedAt           DateTime?              @map("closed_at") @db.Timestamptz
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([matchId])
+  @@unique([buyerBusinessId, startKey])
+  @@index([buyerBusinessId, status])
+  @@index([sellerBusinessId, status])
+  @@index([status, expiresAt])
+  @@map("agent_negotiation")
+}
+
+/// The typed protocol transcript. seq is dense per negotiation; (negotiationId, side, idempotencyKey) makes a retried send a no-op.
+model AgentMessage {
+  id             String           @id @default(uuid()) @db.Uuid
+  negotiationId  String           @map("negotiation_id") @db.Uuid
+  seq            Int
+  side           AgentSide
+  type           AgentMessageType
+  pricePaise     BigInt?          @map("price_paise")
+  quantity       Int?
+  /// { unit, leadTimeDays, deliveryTerms, validUntil, paymentTerms }
+  terms          Json?
+  idempotencyKey String           @map("idempotency_key")
+  /// internal_agent | external_agent | human
+  actorKind      String           @map("actor_kind")
+  apiKeyId       String?          @map("api_key_id")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([negotiationId, seq])
+  @@unique([negotiationId, side, idempotencyKey])
+  @@map("agent_message")
+}
+
+/// "What my agent did": append-only, visible to the principal business (mirrors negotiation's AgentActionLog pattern).
+model AgentActivity {
+  id                  String   @id @default(uuid()) @db.Uuid
+  principalBusinessId String   @map("principal_business_id") @db.Uuid
+  principalSide       AgentSide @map("principal_side")
+  action              String
+  mandateId           String?  @map("mandate_id") @db.Uuid
+  negotiationId       String?  @map("negotiation_id") @db.Uuid
+  summary             String
+  details             Json     @default("{}")
+  /// the human who confirmed / changed something; null when the agent acted alone
+  actorPersonId       String?  @map("actor_person_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([principalBusinessId, createdAt])
+  @@index([negotiationId, createdAt])
+  @@map("agent_activity")
+}
+
+/// Admin (or automatic) suspension of one mandate, a business's agents, or an API key. liftedAt null = in force.
+model AgentSuspension {
+  id          String    @id @default(uuid()) @db.Uuid
+  /// mandate | business | api_key
+  kind        String
+  targetId    String    @map("target_id")
+  businessId  String?   @map("business_id") @db.Uuid
+  reason      String
+  suspendedBy String    @map("suspended_by")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  liftedAt    DateTime? @map("lifted_at") @db.Timestamptz
+
+  @@index([kind, targetId, liftedAt])
+  @@index([businessId, liftedAt])
+  @@map("agent_suspension")
+}
+
+/// Abuse signals (rapid identical offers, message floods, repeated out-of-bounds attempts). Flags, not verdicts: admin decides.
+model AgentAnomaly {
+  id            String   @id @default(uuid()) @db.Uuid
+  businessId    String   @map("business_id") @db.Uuid
+  negotiationId String?  @map("negotiation_id") @db.Uuid
+  apiKeyId      String?  @map("api_key_id")
+  kind          String
+  details       Json     @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([businessId, createdAt])
+  @@index([negotiationId])
+  @@map("agent_anomaly")
+}

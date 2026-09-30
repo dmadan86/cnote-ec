@@ -1,38 +1,44 @@
 import type { Metadata } from "next";
+import { getFormatter, getTranslations } from "next-intl/server";
 import { Alert, Badge, Card, CardBody, CardHeader, CardTitle, PageHeader } from "@cnote/ui";
 import { requireSeller } from "@/lib/auth";
-import { formatDateTime } from "@/lib/format";
 import { load } from "@/lib/safe";
 import { identity } from "@/lib/services";
 import { CompanyForm } from "@/features/company/company-form";
 
-export const metadata: Metadata = { title: "Company profile" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("settings.company");
+  return { title: t("meta") };
+}
 
 const STATES = Object.entries(identity.GST_STATES).map(([code, name]) => ({ code, name }));
 
 export default async function CompanyPage() {
   const session = await requireSeller("/settings/company");
+  const t = await getTranslations("settings.company");
+  const f = await getFormatter();
+  const when = (iso: string) => f.dateTime(new Date(iso), { dateStyle: "medium", timeStyle: "short" });
   const res = await load(() => identity.getCompanyProfile(session.business.id));
   const p = res.ok ? res.data : null;
   const gstTone = p?.gstStatus === "Active" ? "success" : p?.gstStatus ? "danger" : "neutral";
   return (
     <div className="max-w-2xl space-y-6">
-      <PageHeader title="Company profile" description="Your legal details, checked against the GST registry. Buyers see only your verified badge, never your PAN." />
+      <PageHeader title={t("title")} description={t("description")} />
       {!res.ok ? <Alert tone="danger">{res.error}</Alert> : null}
-      {p?.gstStatus && p.gstStatus !== "Active" ? <Alert tone="warning">Your GSTIN is {p.gstStatus.toLowerCase()} on the GST portal, so your GST verified badge is off. Fix it with your GST officer, then save below to re-check.</Alert> : null}
+      {p?.gstStatus && p.gstStatus !== "Active" ? <Alert tone="warning">{t("gstWarn", { status: p.gstStatus.toLowerCase() })}</Alert> : null}
       <Card>
         <CardHeader>
-          <CardTitle>GST status</CardTitle>
-          <Badge tone={gstTone}>{p?.gstStatus ?? "Not verified"}</Badge>
+          <CardTitle>{t("gstCard")}</CardTitle>
+          <Badge tone={gstTone}>{p?.gstStatus ?? t("notVerified")}</Badge>
         </CardHeader>
         <CardBody className="text-sm text-muted">
-          {p?.gstin ? <p>GSTIN <span className="font-mono text-ink">{p.gstin}</span></p> : <p>No GSTIN verified yet.</p>}
-          {p?.gstVerifiedAt ? <p>Verified {formatDateTime(p.gstVerifiedAt)}</p> : null}
-          {p?.gstLastCheckedAt ? <p>Last checked {formatDateTime(p.gstLastCheckedAt)}. We re-check about once a month.</p> : null}
+          {p?.gstin ? <p>{t.rich("gstinLine", { gstin: p.gstin, mono: (c) => <span className="font-mono text-ink">{c}</span> })}</p> : <p>{t("noGstin")}</p>}
+          {p?.gstVerifiedAt ? <p>{t("verifiedAt", { date: when(p.gstVerifiedAt) })}</p> : null}
+          {p?.gstLastCheckedAt ? <p>{t("lastChecked", { date: when(p.gstLastCheckedAt) })}</p> : null}
         </CardBody>
       </Card>
       <Card>
-        <CardHeader><CardTitle>Details</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("details")}</CardTitle></CardHeader>
         <CardBody>
           <CompanyForm
             mode="portal"

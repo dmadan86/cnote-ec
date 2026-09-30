@@ -25,3 +25,4 @@ export { purgeResolvedDisputeEvidence } from "./retention";
 export { COLLECT_TOPIC, BRIEF_TOPIC } from "./jobs";
 export { worker } from "./worker";
 export { escrowAdapter, qualityAdapter, wireDisputeAdapters } from "./adapters";
+export { disputeRecordForBusiness } from "./record";

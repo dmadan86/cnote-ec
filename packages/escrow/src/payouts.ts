@@ -6,6 +6,7 @@ import { prisma, type Tx } from "@cnote/db";
 import { openIssue } from "./escrow";
 import { ACCOUNTS, postJournal } from "./ledger";
 import { getEscrowPartner } from "./partner";
+import type { TransferRequest } from "./partner/types";
 
 const MAX_ATTEMPTS = 8;
 const STUCK_MS = 48 * 3_600_000;
@@ -21,10 +22,11 @@ export async function settleTransferTx(tx: Tx, payoutId: string, partnerRef: str
   if (!p) return "not_found";
   if (p.status === "settled") return "duplicate";
   const amount = Number(p.amountPaise);
-  const seller = p.kind === "seller_payout";
+  // a lender repayment is the seller's money going to their lender: it drains seller_payable like a payout
+  const seller = p.kind === "seller_payout" || p.kind === "lender_repayment";
   await postJournal(tx, {
     key: `transfer:${p.id}`, kind: seller ? "payout" : "refund_payout", escrowId: p.escrowId,
-    memo: `${seller ? "Payout to seller" : "Refund to buyer"} for order ${p.escrow.orderId}`,
+    memo: `${p.kind === "lender_repayment" ? "Repayment to lender from seller proceeds" : seller ? "Payout to seller" : "Refund to buyer"} for order ${p.escrow.orderId}`,
     lines: [
       { account: seller ? ACCOUNTS.sellerPayable(p.businessId) : ACCOUNTS.refundPayable(p.businessId), debitPaise: amount },
       { account: ACCOUNTS.nodal, creditPaise: amount },
@@ -32,7 +34,11 @@ export async function settleTransferTx(tx: Tx, payoutId: string, partnerRef: str
   });
   const latencyMs = Math.min(INT_MAX, Math.max(0, at.getTime() - p.requestedAt.getTime()));
   await tx.escrowPayout.update({ where: { id: p.id }, data: { status: "settled", settledAt: at, latencyMs, partnerRef: partnerRef ?? p.partnerRef, lastError: null } });
-  if (seller) {
+  if (p.kind === "lender_repayment") {
+    await emit(tx, "EscrowLenderRepaid", { type: "escrow_payout", id: p.id }, {
+      payoutId: p.id, escrowId: p.escrowId, assignmentId: p.assignmentRef ?? "", amountPaise: amount, partnerRef: partnerRef ?? p.partnerRef ?? "",
+    });
+  } else if (seller) {
     await emit(tx, "PayoutSettled", { type: "escrow_payout", id: p.id }, {
       payoutId: p.id, escrowId: p.escrowId, sellerBusinessId: p.businessId, amountPaise: amount, partnerRef: partnerRef ?? p.partnerRef ?? "", latencyMs,
     });
@@ -55,9 +61,9 @@ export async function processPayouts(now: Date = new Date()): Promise<{ submitte
   const rows = await prisma.escrowPayout.findMany({ where: { status: "pending", submittedAt: null }, orderBy: { requestedAt: "asc" }, take: 100, include: { escrow: { select: { partner: true } } } });
   for (const p of rows) {
     const partner = getEscrowPartner(p.escrow.partner as never);
-    const req = { transferId: p.id, escrowId: p.escrowId, amountPaise: Number(p.amountPaise), beneficiaryBusinessId: p.businessId, purpose: p.kind as "seller_payout" | "buyer_refund" };
+    const req = { transferId: p.id, escrowId: p.escrowId, amountPaise: Number(p.amountPaise), beneficiaryBusinessId: p.businessId, purpose: p.kind as TransferRequest["purpose"], beneficiaryRef: p.beneficiaryRef ?? undefined };
     try {
-      const res = p.kind === "seller_payout" ? await partner.releasePayout(req) : await partner.refund(req);
+      const res = p.kind === "buyer_refund" ? await partner.refund(req) : await partner.releasePayout(req);
       out.submitted++;
       if (res.status === "settled") {
         await prisma.$transaction((tx) => settleTransferTx(tx, p.id, res.partnerRef, new Date()));

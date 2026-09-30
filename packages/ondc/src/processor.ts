@@ -6,6 +6,8 @@ import {
 } from "./beckn";
 import { catalogForIntent, providerFor } from "./catalog";
 import { loadConfig, type OndcConfig } from "./config";
+import { isKilled } from "./killswitch";
+import { handleIssue, handleIssueStatus } from "./igm";
 import { orderToBeckn, receiveOrder, transitionOrder, type OndcOrderStatus } from "./orders";
 import { queueCallback } from "./outbound";
 import { DOMAIN_ERRORS, quoteOrder } from "./quote";
@@ -14,7 +16,7 @@ const UUID = /^[0-9a-f-]{36}$/i;
 
 /** Worker handler for "ondc.inbound". */
 export async function processInbound(messageId: string, cfg: OndcConfig = loadConfig()): Promise<"processed" | "skipped"> {
-  if (!cfg.enabled) return "skipped";
+  if (!cfg.enabled || (await isKilled())) return "skipped"; // parked as "received"; resumePending() re-queues
   const row = await prisma.ondcMessage.findUnique({ where: { id: messageId } });
   if (!row || row.direction !== "inbound" || row.status === "processed") return "skipped";
   const body = row.body as { context: BecknContext; message: unknown };
@@ -63,6 +65,10 @@ async function handle(action: InboundAction, body: { context: BecknContext; mess
       if (!o || o.bapId !== context.bap_id) return void (await fail(DOMAIN_ERRORS.orderNotFound));
       return void (await reply({ order: orderToBeckn(o) }));
     }
+    case "issue":
+      return void (await handleIssue(body, cfg));
+    case "issue_status":
+      return void (await handleIssueStatus(body, cfg));
     case "cancel": {
       const { order_id, cancellation_reason_id } = orderIdMessage.parse(body.message);
       const o = UUID.test(order_id) ? await prisma.ondcOrder.findUnique({ where: { id: order_id } }) : null;

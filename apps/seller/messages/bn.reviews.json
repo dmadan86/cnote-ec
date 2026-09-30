@@ -1,0 +1,35 @@
+{
+  "reviews": {
+    "_meta": {
+      "review": "machine-drafted; needs native review"
+    },
+    "title": "রিভিউ ও প্রশ্ন",
+    "description": "আপনার পণ্য নিয়ে ক্রেতাদের মতামত। আপনার উত্তরসহ সবকিছু প্রকাশের আগে আমাদের টিম যাচাই করে।",
+    "tabType": "ধরন",
+    "tabReviews": "রিভিউ",
+    "tabQuestions": "প্রশ্ন",
+    "tabFilter": "ফিল্টার",
+    "all": "সব",
+    "needsReply": "উত্তর দেওয়া বাকি",
+    "emptyNoReply": "আপনার উত্তরের অপেক্ষায় কিছু নেই",
+    "emptyReviews": "এখনও কোনো প্রকাশিত রিভিউ নেই",
+    "emptyQuestions": "এখনও কোনো প্রশ্ন নেই",
+    "emptyDesc": "আমাদের টিম অনুমোদন করলে নতুন রিভিউ ও প্রশ্ন এখানে দেখা যাবে।",
+    "product": "পণ্য",
+    "yourReply": "আপনার উত্তর",
+    "reason": "কারণ: {note}",
+    "next": "পরের পাতা →",
+    "stars": "5-এর মধ্যে {rating} স্টার",
+    "statusAwaiting": "অনুমোদনের অপেক্ষায়",
+    "statusPublished": "প্রকাশিত",
+    "statusRejected": "অনুমোদিত হয়নি",
+    "replaceLabel": "আপনার উত্তর বদলান",
+    "replyLabel": "আপনার উত্তর",
+    "thanks": "ধন্যবাদ। আমাদের টিমের দ্রুত যাচাইয়ের পর আপনার উত্তর দেখা যাবে।",
+    "sending": "পাঠানো হচ্ছে…",
+    "replaceBtn": "উত্তর বদলান",
+    "sendBtn": "উত্তর পাঠান",
+    "errWrite": "আগে আপনার উত্তর লিখুন।",
+    "errLong": "উত্তর ১,০০০ অক্ষরের মধ্যে রাখুন।"
+  }
+}

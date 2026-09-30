@@ -1,6 +1,7 @@
 "use server";
 // Seller-side dispute actions (ADR-013): respond, add evidence, message staff, escalate an auto-decision, appeal, withdraw.
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { actorOf, type ActionResult } from "@cnote/next-kit";
 import {
   addDisputeEvidence, appealDecision, escalateDispute, postDisputeMessage, respondToDispute, withdrawDispute, type EvidenceUpload, type Lang,
@@ -26,6 +27,7 @@ export async function disputeAction(_prev: DisputeResult | null, fd: FormData): 
   const id = String(fd.get("disputeId") ?? "");
   const intent = String(fd.get("intent") ?? "");
   const session = await requireSeller(`/disputes/${id}`);
+  const t = await getTranslations("disputes");
   const actor = actorOf(session);
   const text = String(fd.get("text") ?? "");
   const language = (LANGS.includes(String(fd.get("language"))) ? String(fd.get("language")) : "en") as Lang;
@@ -34,13 +36,13 @@ export async function disputeAction(_prev: DisputeResult | null, fd: FormData): 
     if (intent === "respond") await respondToDispute(actor, id, { text, language, voiceConsent, attachments: await uploads(fd) });
     else if (intent === "evidence") {
       const files = await uploads(fd);
-      if (files.length > 1) throw new Error("Add one file at a time.");
+      if (files.length > 1) throw new Error(t("oneFileAtATime"));
       await addDisputeEvidence(actor, id, { text, language, voiceConsent, attachment: files[0] });
     } else if (intent === "escalate") await escalateDispute(actor, id);
     else if (intent === "withdraw") await withdrawDispute(actor, id);
     else if (intent === "appeal") await appealDecision(actor, id, text);
     else if (intent === "message") await postDisputeMessage(actor, id, text);
-    else throw new Error("invalid action");
+    else throw new Error(t("invalidAction"));
     revalidatePath(`/disputes/${id}`);
     revalidatePath("/disputes");
     return null;

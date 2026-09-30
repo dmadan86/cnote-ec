@@ -31,7 +31,10 @@
       "billing": "বিলিং",
       "verification": "যাচাই",
       "appeals": "আপিল",
-      "settings": "সেটিংস"
+      "settings": "সেটিংস",
+      "prices": "দামের তথ্য",
+      "credit": "ক্রেডিট",
+      "agents": "কোটেশন এজেন্ট"
     }
   }
 }

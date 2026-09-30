@@ -185,7 +185,18 @@ export async function settleTx(tx: Tx, e0: EscrowAgreement, i: SettleInput): Pro
         ...(b.gstPaise > 0 ? [{ account: ACCOUNTS.gst, creditPaise: b.gstPaise }] : []),
       ],
     });
-    await tx.escrowPayout.create({ data: { escrowId: e.id, kind: "seller_payout", businessId: e.sellerBusinessId, amountPaise: BigInt(b.netPaise), requestedAt: now } });
+    // Invoice financing (ADR-019): proceeds assigned to a lender are paid to it first, the remainder to the seller.
+    const asg = await tx.escrowLenderAssignment.findUnique({ where: { escrowId: e.id } });
+    const toLender = asg && asg.status === "active" ? Math.min(b.netPaise, num(asg.duePaise)) : 0;
+    if (toLender > 0) {
+      await tx.escrowPayout.create({
+        data: { escrowId: e.id, kind: "lender_repayment", businessId: e.sellerBusinessId, amountPaise: BigInt(toLender), requestedAt: now, assignmentRef: asg!.assignmentId, beneficiaryRef: `${asg!.partner}:${asg!.partnerLoanRef}` },
+      });
+      await tx.escrowLenderAssignment.update({ where: { escrowId: e.id }, data: { duePaise: { decrement: BigInt(toLender) }, ...(toLender >= num(asg!.duePaise) ? { status: "cleared" } : {}) } });
+    }
+    if (b.netPaise - toLender > 0) {
+      await tx.escrowPayout.create({ data: { escrowId: e.id, kind: "seller_payout", businessId: e.sellerBusinessId, amountPaise: BigInt(b.netPaise - toLender), requestedAt: now } });
+    }
     await emit(tx, "EscrowReleased", { type: "escrow", id: e.id }, {
       escrowId: e.id, orderId: e.orderId, sellerBusinessId: e.sellerBusinessId, amountPaise: i.releasePaise, feePaise: b.feePaise, cause: i.releaseCause ?? "staff",
     });
@@ -297,6 +308,32 @@ export async function applyFundingTx(tx: Tx, escrowId: string, amountPaise: numb
   row = (await stamp(tx, row, "funded", "buyer")).row;
   await emit(tx, "EscrowFunded", { type: "escrow", id: e.id }, { escrowId: e.id, orderId: e.orderId, amountPaise, partnerRef: partnerRef ?? e.partnerRef ?? "" });
   return "funded";
+}
+
+/**
+ * BNPL (ADR-019): the lender paid the escrow amount into the nodal collect account on the buyer's behalf. Same effect as a
+ * captured buyer payment. Idempotent (a funded escrow reports "duplicate"). Called by @cnote/credit.
+ */
+export async function fundEscrowFromLender(escrowId: string, amountPaise: number, ref: string): Promise<FundingOutcome> {
+  if (!UUID.test(escrowId)) return "ignored";
+  if (!/^[\w:.-]{1,120}$/.test(ref)) throw new DomainError("validation", "Invalid lender reference.");
+  return prisma.$transaction((tx) => applyFundingTx(tx, escrowId, amountPaise, `lender:${ref}`));
+}
+
+/**
+ * Invoice financing (ADR-019): record (or update) that this escrow's seller proceeds are assigned to a lender up to
+ * `duePaise`. Called by @cnote/credit at disbursal and whenever the outstanding amount changes; `duePaise = 0` clears it.
+ * Refused once the escrow has released or refunded everything (nothing left to assign).
+ */
+export async function setEscrowLenderAssignment(i: { escrowId: string; assignmentId: string; partner: string; partnerLoanRef: string; duePaise: number }): Promise<void> {
+  if (!UUID.test(i.escrowId)) throw new DomainError("not_found", "Escrow not found");
+  if (!Number.isSafeInteger(i.duePaise) || i.duePaise < 0) throw new DomainError("validation", "Amounts must be whole paise.");
+  await prisma.$transaction(async (tx) => {
+    const e = await lockEscrow(tx, i.escrowId);
+    if (i.duePaise > 0 && !isHolding(e.status as EscrowStatus) && e.status !== "awaiting_funding") throw new DomainError("conflict", `Escrow is ${e.status}: its proceeds can no longer be assigned.`);
+    const data = { assignmentId: i.assignmentId, partner: i.partner, partnerLoanRef: i.partnerLoanRef, duePaise: BigInt(i.duePaise), status: i.duePaise > 0 ? "active" : "cleared" };
+    await tx.escrowLenderAssignment.upsert({ where: { escrowId: i.escrowId }, create: { escrowId: i.escrowId, ...data }, update: data });
+  });
 }
 
 // ---- buyer acceptance -----------------------------------------------------------------------------------------------

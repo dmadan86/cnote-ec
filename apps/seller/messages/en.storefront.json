@@ -1,0 +1,159 @@
+{
+  "storefront": {
+    "domains": {
+      "metaTitle": "Custom domain",
+      "title": "Custom domain",
+      "description": "Serve your storefront on your own web address, like www.yourshop.in. We check your DNS, then set up HTTPS for you.",
+      "viewTraffic": "View traffic",
+      "setupFirst": "Set up your storefront first, then come back to connect a domain.",
+      "freeAddress": "Your free address is always available:",
+      "emptyTitle": "No custom domain yet",
+      "emptyDesc": "Buy a domain from any registrar, then connect it below. It takes about 5 minutes.",
+      "connectTitle": "Connect a domain",
+      "limitNote": "You can connect up to {max} domains. One of them is your primary domain; visitors on the others are sent there, which is best for Google."
+    },
+    "form": {
+      "label": "Your domain",
+      "hint": "For example www.yourshop.in or yourshop.in. No https:// needed.",
+      "invalid": "Enter your domain, like www.example.com.",
+      "success": "Domain added. Follow the steps below to point it at your storefront.",
+      "pending": "Adding…",
+      "submit": "Connect domain"
+    },
+    "actions": {
+      "recheck": "Check again",
+      "rechecking": "Checking…",
+      "rechecked": "Check started. This page updates by itself.",
+      "makePrimary": "Make primary",
+      "saving": "Saving…",
+      "primaryUpdated": "Primary domain updated.",
+      "remove": "Remove",
+      "removing": "Removing…",
+      "removeConfirm": "Remove {host}? Visitors will no longer reach your storefront through it.",
+      "autoRefresh": "Checking automatically. You can leave this page open."
+    },
+    "copy": {
+      "copy": "Copy",
+      "copied": "Copied",
+      "aria": "Copy {label}",
+      "done": "{label} copied",
+      "typeName": "{type} name",
+      "typeValue": "{type} value"
+    },
+    "card": {
+      "status": {
+        "pending_dns": {
+          "label": "Waiting for DNS",
+          "help": "Add the records below at your domain provider. Changes can take from a few minutes to a few hours to spread."
+        },
+        "verifying": {
+          "label": "Checking",
+          "help": "We are checking your DNS records now."
+        },
+        "verified": {
+          "label": "DNS verified",
+          "help": "Your records are correct. We are setting up secure access (HTTPS)."
+        },
+        "provisioning_tls": {
+          "label": "Issuing certificate",
+          "help": "Your records are correct. Your HTTPS certificate is being issued, usually within a few minutes."
+        },
+        "active": {
+          "label": "Active",
+          "help": "Your domain is live and serving your storefront over HTTPS."
+        },
+        "misconfigured": {
+          "label": "Needs attention",
+          "help": "Something is wrong with this domain. See what we found below, fix it, then press Check again."
+        }
+      },
+      "primary": "Primary",
+      "visit": "Visit",
+      "visitSr": "{host} (opens in a new tab)",
+      "dnsAria": "DNS records for {host}",
+      "addRecords": "Add these DNS records",
+      "recordsCaption": "DNS records to add for {host}",
+      "colType": "Type",
+      "colName": "Name",
+      "colValue": "Value",
+      "nameHint": "Most providers want the name without your domain at the end, for example <code>www</code> instead of <code>www.example.com</code>. Remove any old A or AAAA records on the same name first.",
+      "seeTitle": "What we see",
+      "checked": "(checked {when})",
+      "notYet": "not yet",
+      "compareCaption": "Comparison of expected and observed DNS for {host}",
+      "colCheck": "Check",
+      "colExpect": "We expect",
+      "colFound": "We found",
+      "colResult": "Result",
+      "matches": "Matches",
+      "noMatch": "Does not match",
+      "ownership": "Ownership (TXT)",
+      "routingCname": "Routing (CNAME)",
+      "routingA": "Routing (A)",
+      "nothing": "nothing",
+      "na": "n/a",
+      "httpsReach": "HTTPS reachability",
+      "serversAnswer": "Our servers answer at your domain",
+      "reached": "Reached our servers",
+      "notReachable": "Not reachable",
+      "cert": "Certificate (HTTPS)",
+      "issued": "Issued",
+      "beingIssued": "Being issued",
+      "failed": "Failed"
+    },
+    "analytics": {
+      "metaTitle": "Storefront traffic",
+      "title": "Storefront traffic",
+      "description": "Who visits your storefront and where they come from. We do not use cookies or store IP addresses; visitors are counted with a hash that changes every day.",
+      "customDomain": "Custom domain",
+      "dateRange": "Date range",
+      "lastDays": "Last {days} days",
+      "noStorefrontTitle": "No storefront yet",
+      "noStorefrontDesc": "Publish your storefront and traffic will show up here.",
+      "visitors": "Visitors",
+      "visitorsHint": "Unique per day, added up",
+      "pageViews": "Page views",
+      "requests": "Requests served",
+      "requestsHint": "All requests, incl. crawlers and files",
+      "enquiries": "Enquiries",
+      "enquiriesHint": "Started from your storefront",
+      "chartTitle": "Visitors and page views",
+      "noVisits": "No visits recorded in this period yet. Numbers update every few minutes.",
+      "whereFrom": "Where visitors come from",
+      "topReferrers": "Top referrers",
+      "noReferrers": "No referrers yet.",
+      "topPages": "Top pages",
+      "devices": "Devices",
+      "bots": "Crawler and AI bot visits",
+      "noBots": "No crawler visits yet.",
+      "botNote": "Search engines and AI assistants (for example Googlebot, GPTBot, ClaudeBot, PerplexityBot) read your storefront so you can be found. They are counted here, not as visitors. {count} bot visits in this period.",
+      "addressUsed": "Address used",
+      "source": {
+        "organic_search": "Search engines (Google, Bing)",
+        "social": "Social media",
+        "ai_assistant": "AI assistants (ChatGPT, Perplexity, Gemini, Claude, Copilot)",
+        "paid": "Paid ads",
+        "email": "Email",
+        "referral": "Other websites",
+        "direct": "Direct (typed or bookmarked)"
+      },
+      "device": {
+        "mobile": "Mobile",
+        "desktop": "Desktop",
+        "tablet": "Tablet"
+      },
+      "host": {
+        "custom": "Your own domain",
+        "subdomain": "Free address",
+        "path": "Marketplace link"
+      }
+    },
+    "charts": {
+      "aria": "Page views and visitors per day. {total} page views in this period.",
+      "viewTable": "View as table",
+      "daily": "Daily traffic",
+      "day": "Day",
+      "noData": "No data yet."
+    }
+  }
+}

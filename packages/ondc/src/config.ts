@@ -35,6 +35,15 @@ export interface OndcConfig {
   /** allow http:// callback URLs (never in prod) */
   allowHttp: boolean;
   categoryMap: Record<string, string>;
+  /** require a valid X-Gateway-Authorization (registry type BG) on /search; default true in prod (ADR-021) */
+  gatewayAuthRequired: boolean;
+  /** IGM: default respondent-response and resolution TTLs (ISO 8601 durations) when the issue carries none */
+  igmResponseTtl: string;
+  igmResolutionTtl: string;
+  /** grievance officer contact shown in IGM respondent actions */
+  groName: string;
+  groEmail: string;
+  groPhone: string;
 }
 
 const list = (v: string | undefined, dflt: string[]): string[] => {
@@ -73,6 +82,12 @@ export function loadConfig(env: Env = process.env): OndcConfig {
     signatureTtlSeconds: Math.min(3600, Math.max(30, Number(env.ONDC_SIGNATURE_TTL_SECONDS) || 300)),
     allowHttp: which !== "prod" && env.ONDC_ALLOW_HTTP === "true",
     categoryMap,
+    gatewayAuthRequired: env.ONDC_REQUIRE_GATEWAY_AUTH ? env.ONDC_REQUIRE_GATEWAY_AUTH === "true" || env.ONDC_REQUIRE_GATEWAY_AUTH === "1" : which === "prod",
+    igmResponseTtl: env.ONDC_IGM_RESPONSE_TTL?.trim() || "PT1H",
+    igmResolutionTtl: env.ONDC_IGM_RESOLUTION_TTL?.trim() || "PT24H",
+    groName: env.ONDC_GRO_NAME?.trim() || "Grievance Officer",
+    groEmail: env.ONDC_GRO_EMAIL?.trim() ?? "",
+    groPhone: env.ONDC_GRO_PHONE?.trim() ?? "",
   };
 }
 

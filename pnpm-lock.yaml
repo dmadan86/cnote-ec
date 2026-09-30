@@ -208,6 +208,30 @@ importers:
         specifier: ^4
         version: 4.3.3
 
+  apps/ai-service:
+    dependencies:
+      '@cnote/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
+      '@cnote/compliance':
+        specifier: workspace:*
+        version: link:../../packages/compliance
+      '@cnote/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@cnote/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@hono/node-server':
+        specifier: ^2.1.3
+        version: 2.1.3(hono@4.13.11)
+      '@sentry/node':
+        specifier: ^11.1.0
+        version: 11.1.0(@babel/core@7.29.7)(rollup@4.63.5)
+      hono:
+        specifier: ^4.13.11
+        version: 4.13.11
+
   apps/api:
     dependencies:
       '@cnote/a2a':
@@ -294,6 +318,39 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.31.0
         version: 1.31.0(zod@4.6.5)
+      '@sentry/node':
+        specifier: ^11.1.0
+        version: 11.1.0(@babel/core@7.29.7)(rollup@4.63.5)
+      hono:
+        specifier: ^4.13.11
+        version: 4.13.11
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
+  apps/search-service:
+    dependencies:
+      '@cnote/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
+      '@cnote/compliance':
+        specifier: workspace:*
+        version: link:../../packages/compliance
+      '@cnote/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@cnote/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@cnote/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@cnote/search':
+        specifier: workspace:*
+        version: link:../../packages/search
+      '@hono/node-server':
+        specifier: ^2.1.3
+        version: 2.1.3(hono@4.13.11)
       '@sentry/node':
         specifier: ^11.1.0
         version: 11.1.0(@babel/core@7.29.7)(rollup@4.63.5)
@@ -678,6 +735,9 @@ importers:
       '@cnote/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@cnote/analytics':
+        specifier: workspace:*
+        version: link:../../packages/analytics
       '@cnote/billing':
         specifier: workspace:*
         version: link:../../packages/billing
@@ -859,6 +919,15 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
 
+  packages/analytics:
+    dependencies:
+      '@cnote/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cnote/db':
+        specifier: workspace:*
+        version: link:../db
+
   packages/billing:
     dependencies:
       '@cnote/core':
@@ -945,6 +1014,9 @@ importers:
       '@cnote/core':
         specifier: workspace:*
         version: link:../core
+      '@cnote/credit':
+        specifier: workspace:*
+        version: link:../credit
       '@cnote/db':
         specifier: workspace:*
         version: link:../db

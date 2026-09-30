@@ -13,6 +13,11 @@ import { worker as ondc, wireOndcOrderSink } from "@cnote/ondc";
 import { worker as escrow } from "@cnote/escrow";
 import { worker as negotiation } from "@cnote/negotiation";
 import { worker as disputes, wireDisputeAdapters } from "@cnote/disputes";
+import { worker as prices } from "@cnote/prices";
+import { worker as credit } from "@cnote/credit";
+import { worker as a2a } from "@cnote/a2a";
+import { worker as analytics, setBusinessStateResolver } from "@cnote/analytics";
+import { getTrustProfiles } from "@cnote/identity";
 import { worker as catalogue } from "@cnote/catalogue";
 import { consumeOnce, getJobQueue, relayOutbox, type JobTopic, type ModuleWorker } from "@cnote/core";
 import { worker as enquiry } from "@cnote/enquiry";
@@ -48,7 +53,9 @@ Sentry.init(sentryOptions("worker", "nodejs"));
 // identity can't import catalogue (cycle); the composition root supplies the GST HSN-alignment source.
 setListingHsnSource(getSellerListingHsns);
 
-const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, notifications, developer, email, cacheWorker, searchIndexer, leadgen, domains, storefront, bulk, metrics, compliance, whatsapp, promotions, ads, verticals, quality, ondc, escrow, negotiation, disputes];
+const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, notifications, developer, email, cacheWorker, searchIndexer, leadgen, domains, storefront, bulk, metrics, compliance, whatsapp, promotions, ads, verticals, quality, ondc, escrow, negotiation, disputes, prices, credit, a2a, analytics];
+// Seller-cohort facts group sellers by state (identity owns it; analytics reads it through this resolver).
+setBusinessStateResolver(async (ids) => new Map([...(await getTrustProfiles(ids))].map(([id, p]) => [id, p.state])));
 wireDisputeAdapters();
 wireOndcOrderSink();
 setCouponPort(couponPortFromModule(couponPort));

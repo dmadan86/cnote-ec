@@ -1,0 +1,54 @@
+{
+  "referrals": {
+    "meta": {
+      "title": "Refer a business"
+    },
+    "page": {
+      "title": "Refer a business",
+      "description": "Share your link yourself, for example on WhatsApp. We never message people on your behalf and never read your contacts.",
+      "linkTitle": "Your referral link",
+      "codeLabel": "Your code:",
+      "howTitle": "How it works",
+      "step1Title": "1. They join with your link",
+      "step1Body": "The business signs up through your link. Signing up alone earns nothing.",
+      "step2Title": "2. They do something real",
+      "step2Body": "They get verified (GST) and publish a first approved listing, or send a first verified enquiry.",
+      "step3Title": "3. You both get credits",
+      "step3Body": "After a 7-day safety check, you and they each get {credits} lead credits. Credits, never cash. They expire after 90 days.",
+      "footnote": "There is no deadline and no bonus that grows or expires to pressure you. Each business can be referred once. You can earn from up to {cap} referrals per quarter. Referring yourself or accounts you control is not rewarded.",
+      "statJoined": "Joined",
+      "statJoinedHint": "Not qualified yet",
+      "statHold": "In safety hold",
+      "statHoldHint": "Reward after 7 days",
+      "statRewarded": "Rewarded",
+      "statCredits": "Credits earned",
+      "listTitle": "Your referrals",
+      "emptyTitle": "No referrals yet",
+      "emptyDesc": "Share your link with a supplier or buyer you trust.",
+      "aBusiness": "A business",
+      "joined": "Joined {date}",
+      "joinedWithAction": "Joined {date} · {action}",
+      "holdReward": "Reward on {date}, after our safety check.",
+      "reviewing": "Our team is reviewing this referral before releasing credits.",
+      "rewardedNote": "{count, plural, one {# credit} other {# credits}} added to both accounts.",
+      "reason": "Reason: {reason}"
+    },
+    "status": {
+      "pending": "Joined, not qualified yet",
+      "qualified": "Qualified, in safety hold",
+      "rewarded": "Rewarded",
+      "rejected": "Not rewarded",
+      "expired": "Expired"
+    },
+    "action": {
+      "listing_published": "published a first listing",
+      "first_verified_enquiry": "sent a first verified enquiry"
+    },
+    "copy": {
+      "label": "Your referral link",
+      "button": "Copy link",
+      "copiedSr": "Link copied",
+      "copied": "Copied"
+    }
+  }
+}

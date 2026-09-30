@@ -14,3 +14,6 @@ export const LOCALE_NATIVE: Record<Locale, string> = {
 
 /** BCP 47 tag for <html lang> and Intl formatting (Latin digits). */
 export const bcp47 = (l: Locale): string => `${l}-IN`;
+
+/** Tag for Intl number/date formatting: Indian conventions (lakh grouping) with Latin digits in every language. */
+export const intlTag = (l: string): string => `${isLocale(l) ? l : DEFAULT_LOCALE}-IN-u-nu-latn`;

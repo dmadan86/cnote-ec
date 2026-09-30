@@ -56,10 +56,13 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   "@cnote/ai": ["@cnote/core", "@cnote/db"],
   "@cnote/templates": ["@cnote/core", "@cnote/db", "@cnote/media"],
   "@cnote/metrics": ["@cnote/core", "@cnote/db"],
+  // ADR-023 CDC-style read models (funnel, GMV by category/state, seller cohorts) projected from the domain event log.
+  // Depends only on the kernel: state-of-business comes through a resolver port the worker wires (no identity edge).
+  "@cnote/analytics": ["@cnote/core", "@cnote/db"],
   // DPDP orchestrator (ADR-010 access/erasure/retention): sits ABOVE the domain modules and calls their public
   // export/erase functions, so it may depend on many of them. Nothing may depend on it except apps.
   "@cnote/compliance": [
-    "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/disputes", "@cnote/enquiry", "@cnote/identity", "@cnote/leadgen", "@cnote/notifications",
+    "@cnote/catalogue", "@cnote/core", "@cnote/credit", "@cnote/db", "@cnote/disputes", "@cnote/enquiry", "@cnote/identity", "@cnote/leadgen", "@cnote/notifications",
     "@cnote/ondc", "@cnote/quality", "@cnote/reviews", "@cnote/storefront", "@cnote/whatsapp", "@cnote/wishlist",
   ],
   "@cnote/developer": ["@cnote/core", "@cnote/db", "@cnote/identity"],
@@ -118,6 +121,12 @@ export const ALLOWLIST: AllowEntry[] = [
     file: "packages/metrics/src/sql.ts",
     models: ["DomainEvent"],
     reason: "Read-only analytics over the append-only domain event log (metrics.prisma header: 'read-only over DomainEvent'); writes stay in @cnote/core.",
+  },
+  {
+    pkg: "@cnote/analytics",
+    file: "packages/analytics/src/log.ts",
+    models: ["DomainEvent"],
+    reason: "ADR-023 projections read the append-only domain event log by id range (same sanctioned read-only exception as @cnote/metrics); writes stay in @cnote/core.",
   },
   {
     pkg: "@cnote/worker",

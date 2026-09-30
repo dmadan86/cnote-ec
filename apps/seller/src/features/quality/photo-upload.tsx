@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Camera, ImagePlus, X } from "lucide-react";
 import { Alert, Button } from "@cnote/ui";
 
@@ -8,15 +9,17 @@ const MAX_BYTES = 5 * 1024 * 1024;
 
 /** Re-fetches the server component while an analysis is queued or running. */
 export function PendingRefresh() {
+  const t = useTranslations("quality");
   const router = useRouter();
   useEffect(() => {
     const t = setInterval(() => router.refresh(), 6000);
     return () => clearInterval(t);
   }, [router]);
-  return <p className="text-sm text-muted" role="status" aria-live="polite">Analysing your photos. This page updates automatically.</p>;
+  return <p className="text-sm text-muted" role="status" aria-live="polite">{t("pendingRefresh")}</p>;
 }
 
 export function PhotoUpload({ orderId, maxPhotos }: { orderId: string; maxPhotos: number }) {
+  const t = useTranslations("quality");
   const router = useRouter();
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -30,9 +33,9 @@ export function PhotoUpload({ orderId, maxPhotos }: { orderId: string; maxPhotos
     setError(null);
     const next = [...files];
     for (const f of Array.from(list ?? [])) {
-      if (!/^image\/(jpeg|png|webp)$/.test(f.type)) { setError("Use JPEG, PNG or WebP photos."); continue; }
-      if (f.size > MAX_BYTES) { setError(`${f.name || "A photo"} is larger than 5 MB.`); continue; }
-      if (next.length >= maxPhotos) { setError(`You can add up to ${maxPhotos} photos.`); break; }
+      if (!/^image\/(jpeg|png|webp)$/.test(f.type)) { setError(t("errors.format")); continue; }
+      if (f.size > MAX_BYTES) { setError(t("errors.tooLarge", { name: f.name || t("errors.aPhoto") })); continue; }
+      if (next.length >= maxPhotos) { setError(t("errors.maxPhotos", { max: maxPhotos })); break; }
       next.push(f);
     }
     setFiles(next);
@@ -41,7 +44,7 @@ export function PhotoUpload({ orderId, maxPhotos }: { orderId: string; maxPhotos
   }
 
   async function submit() {
-    if (!files.length) return setError("Add at least one photo.");
+    if (!files.length) return setError(t("errors.addOne"));
     setError(null);
     setBusy(true);
     try {
@@ -49,11 +52,11 @@ export function PhotoUpload({ orderId, maxPhotos }: { orderId: string; maxPhotos
       files.forEach((f) => form.append("files", f, f.name));
       const res = await fetch(`/api/quality/${orderId}`, { method: "POST", body: form });
       const body = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(body.error && body.error !== "internal" ? body.error : "We could not share your photos. Please try again.");
+      if (!res.ok) throw new Error(body.error && body.error !== "internal" ? body.error : t("errors.shareFailed"));
       setFiles([]);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setError(e instanceof Error ? e.message : t("errors.generic"));
     } finally {
       setBusy(false);
     }
@@ -62,18 +65,18 @@ export function PhotoUpload({ orderId, maxPhotos }: { orderId: string; maxPhotos
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <input ref={camera} type="file" accept="image/*" capture="environment" className="sr-only" id="quality-camera" aria-label="Take a photo" onChange={(e) => add(e.target.files)} />
-        <input ref={gallery} type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" id="quality-gallery" aria-label="Choose photos" onChange={(e) => add(e.target.files)} />
-        <Button type="button" variant="outline" className="min-h-11" disabled={busy || files.length >= maxPhotos} onClick={() => camera.current?.click()} icon={<Camera className="size-4" aria-hidden />}>Take a photo</Button>
-        <Button type="button" variant="outline" className="min-h-11" disabled={busy || files.length >= maxPhotos} onClick={() => gallery.current?.click()} icon={<ImagePlus className="size-4" aria-hidden />}>Choose photos</Button>
+        <input ref={camera} type="file" accept="image/*" capture="environment" className="sr-only" id="quality-camera" aria-label={t("takePhoto")} onChange={(e) => add(e.target.files)} />
+        <input ref={gallery} type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" id="quality-gallery" aria-label={t("choosePhotos")} onChange={(e) => add(e.target.files)} />
+        <Button type="button" variant="outline" className="min-h-11" disabled={busy || files.length >= maxPhotos} onClick={() => camera.current?.click()} icon={<Camera className="size-4" aria-hidden />}>{t("takePhoto")}</Button>
+        <Button type="button" variant="outline" className="min-h-11" disabled={busy || files.length >= maxPhotos} onClick={() => gallery.current?.click()} icon={<ImagePlus className="size-4" aria-hidden />}>{t("choosePhotos")}</Button>
       </div>
       {files.length ? (
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Selected photos">
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label={t("selectedPhotos")}>
           {files.map((f, i) => (
             <li key={`${f.name}-${i}`} className="relative overflow-hidden rounded-md border border-line">
               {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview */}
-              <img src={previews[i]} alt={`Photo ${i + 1}: ${f.name}`} className="aspect-square w-full object-cover" />
-              <button type="button" disabled={busy} onClick={() => setFiles(files.filter((_, j) => j !== i))} className="absolute right-1 top-1 grid size-9 place-items-center rounded-full bg-ink/70 text-white focus-visible:outline-2 focus-visible:outline-brand-600" aria-label={`Remove photo ${i + 1}`}>
+              <img src={previews[i]} alt={t("photoAlt", { n: i + 1, name: f.name })} className="aspect-square w-full object-cover" />
+              <button type="button" disabled={busy} onClick={() => setFiles(files.filter((_, j) => j !== i))} className="absolute right-1 top-1 grid size-9 place-items-center rounded-full bg-ink/70 text-white focus-visible:outline-2 focus-visible:outline-brand-600" aria-label={t("removePhoto", { n: i + 1 })}>
                 <X className="size-4" aria-hidden />
               </button>
             </li>
@@ -81,8 +84,8 @@ export function PhotoUpload({ orderId, maxPhotos }: { orderId: string; maxPhotos
         </ul>
       ) : null}
       {error ? <Alert tone="danger">{error}</Alert> : null}
-      <Button type="button" className="min-h-11" onClick={submit} disabled={busy || !files.length} aria-busy={busy}>{busy ? "Sharing…" : "Share photos"}</Button>
-      <p className="text-xs text-muted">Location and camera details are removed from photos before they are stored. Photos are private and deleted after 6 months.</p>
+      <Button type="button" className="min-h-11" onClick={submit} disabled={busy || !files.length} aria-busy={busy}>{busy ? t("sharing") : t("share")}</Button>
+      <p className="text-xs text-muted">{t("privacy")}</p>
     </div>
   );
 }

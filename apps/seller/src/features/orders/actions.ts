@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { actorOf, type ActionResult } from "@cnote/next-kit";
 import type { OrderMove } from "@cnote/enquiry";
 import { requireSeller } from "@/lib/auth";
@@ -14,10 +15,11 @@ export async function orderAction(_prev: OrderResult | null, fd: FormData): Prom
   const orderId = String(fd.get("orderId") ?? "");
   const intent = String(fd.get("intent") ?? "");
   const session = await requireSeller(`/orders/${orderId}`);
+  const t = await getTranslations("orders");
   return run(async () => {
     if (intent === "confirm") await enquiry.confirmOrder(actorOf(session), orderId);
     else if (MOVES.includes(intent)) await enquiry.transitionOrder(actorOf(session), orderId, intent as OrderMove);
-    else throw new Error("invalid action");
+    else throw new Error(t("invalidAction"));
     revalidatePath(`/orders/${orderId}`);
     revalidatePath("/orders");
     return null;

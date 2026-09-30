@@ -1,0 +1,41 @@
+{
+  "escrow": {
+    "title": "Escrow payment",
+    "statusSr": "Escrow status: ",
+    "status": {
+      "created": "Buyer has not started",
+      "awaiting_funding": "Waiting for the buyer's payment",
+      "funded": "Payment held safely in escrow",
+      "accepted": "Accepted by the buyer",
+      "released": "Released to you",
+      "refunded": "Refunded to the buyer",
+      "cancelled": "Closed without payment"
+    },
+    "frozen": "A dispute is open. The money is frozen and will not be released until it is resolved.",
+    "heldAuto": "Do not dispatch on credit: the buyer has paid and the money is safe. It is released to you when the buyer accepts delivery, or automatically on {date}.",
+    "heldDefault": "Do not dispatch on credit: the buyer has paid and the money is safe. It is released to you when the buyer accepts delivery, or automatically 7 days after delivery if there is no dispute.",
+    "awaitingFunding": "Wait for the buyer's payment before you dispatch. You will see it here as soon as it arrives.",
+    "orderValue": "Order value",
+    "fee": "Escrow fee (charged to you, plus GST)",
+    "feeValue": "{fee} + {gst}",
+    "youReceive": "You receive",
+    "payout": "Payout",
+    "payoutSettled": "Paid",
+    "payoutFailed": "Failed, our team is on it",
+    "payoutPending": "On its way",
+    "payoutWithDate": "{status}, {date}",
+    "payoutNone": "Not released yet",
+    "progress": "Progress",
+    "step": {
+      "funded": "Buyer paid into escrow",
+      "confirmed": "Order confirmed",
+      "dispatched": "You dispatched",
+      "delivered": "Delivered",
+      "accepted": "Buyer accepted delivery",
+      "released": "Released to you",
+      "refunded": "Refunded to the buyer"
+    },
+    "done": "Done, {date}",
+    "pending": "Pending"
+  }
+}

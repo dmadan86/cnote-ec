@@ -43,18 +43,22 @@ export interface AdminOverview {
   orders: { total: number; created: number };
   failedCallbacks: number;
   failedInbound: number;
+  issues: { open: number; overdue: number; needsManual: number };
 }
 
 export async function adminOverview(): Promise<AdminOverview> {
-  const [connectedSellers, optedInListings, total, created, failedCallbacks, failedInbound] = await Promise.all([
+  const [connectedSellers, optedInListings, total, created, failedCallbacks, failedInbound, issuesOpen, issuesOverdue, issuesManual] = await Promise.all([
     prisma.ondcSeller.count({ where: { enabled: true } }),
     prisma.ondcListingOptIn.count(),
     prisma.ondcOrder.count(),
     prisma.ondcOrder.count({ where: { status: "created" } }),
     prisma.ondcMessage.count({ where: { direction: "outbound", status: "failed" } }),
     prisma.ondcMessage.count({ where: { direction: "inbound", status: "failed" } }),
+    prisma.ondcIssue.count({ where: { status: { in: ["open", "processing"] } } }),
+    prisma.ondcIssue.count({ where: { status: { in: ["open", "processing"] }, expectedResolutionAt: { lt: new Date() } } }),
+    prisma.ondcIssue.count({ where: { status: { in: ["open", "processing"] }, needsManual: true } }),
   ]);
-  return { config: configStatus(loadConfig()), connectedSellers, optedInListings, orders: { total, created }, failedCallbacks, failedInbound };
+  return { config: configStatus(loadConfig()), connectedSellers, optedInListings, orders: { total, created }, failedCallbacks, failedInbound, issues: { open: issuesOpen, overdue: issuesOverdue, needsManual: issuesManual } };
 }
 
 /** Retention (DPDP, ADR-010): protocol messages carry buyer contact details; keep them 90 days by default. */

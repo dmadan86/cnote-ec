@@ -1,6 +1,7 @@
 import type { Scope } from "@cnote/developer";
 import { z } from "zod";
 import * as ops from "../ops";
+import { AGENT_TOOLS } from "./tools/agents";
 
 export interface ToolDef<S extends z.ZodRawShape = z.ZodRawShape> {
   name: string;
@@ -182,4 +183,5 @@ export const TOOLS: ToolDef[] = [
     input: {},
     run: (p) => ops.balance(p),
   }),
+  ...AGENT_TOOLS,
 ];

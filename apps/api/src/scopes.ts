@@ -2,6 +2,8 @@ import type { Scope } from "@cnote/developer";
 
 // Typed on Scope so a scope added to @cnote/developer fails typecheck until documented here.
 export const SCOPE_DOCS: Record<Scope, string> = {
+  "agents:read": "Read your agent mandates and negotiations (business keys).",
+  "agents:write": "Start negotiations and send offers, counters, accepts, rejects and withdrawals as your business's agent. Deals still need human confirmation.",
   "profile:read": "Read the key owner's profile and business summary (GET /v1/me).",
   "catalogue:read": "Browse categories, published listings and seller trust profiles.",
   "search:read": "Search the catalogue (trust-ranked).",

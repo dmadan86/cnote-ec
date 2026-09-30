@@ -53,7 +53,10 @@ vi.mock("@cnote/wishlist", () => ({ addItem: m.addItem, getList: m.getList, list
 
 const { createApp } = await import("../src/app");
 const { paginate } = await import("../src/ops");
-const { TOOLS } = await import("../src/mcp/tools");
+const { TOOLS: ALL_TOOLS } = await import("../src/mcp/tools");
+const { AGENT_TOOLS } = await import("../src/mcp/tools/agents");
+// Agent-to-agent tools (ADR-020) have their own suite (agents.mcp.test.ts); this one covers the core tools.
+const TOOLS = ALL_TOOLS.filter((t) => !AGENT_TOOLS.some((a) => a.name === t.name));
 const { SCOPE_DOCS } = await import("../src/scopes");
 const { DomainError, HTTP_STATUS } = await import("@cnote/core");
 const { hasScope } = await import("@cnote/developer");
@@ -340,23 +343,23 @@ describe("MCP", () => {
         const r = await app.request("/mcp", rpc("tools/list"));
         const body = await r.json();
         // A key with no tool scope has no tools capability at all; the SDK answers "method not found".
-        if (!scopes.some((s) => TOOLS.some((t) => hasScope({ scopes: [s] } as never, t.scope)))) {
+        if (!scopes.some((s) => ALL_TOOLS.some((t) => hasScope({ scopes: [s] } as never, t.scope)))) {
           expect(body.error).toBeTruthy();
           return;
         }
         const names = body.result.tools.map((t: { name: string }) => t.name).sort();
-        const expected = TOOLS.filter((t) => hasScope({ scopes } as never, t.scope)).map((t) => t.name).sort();
+        const expected = ALL_TOOLS.filter((t) => hasScope({ scopes } as never, t.scope)).map((t) => t.name).sort();
         expect(names).toEqual(expected);
       }),
       { numRuns: 25 },
     );
   });
   it("every tool is scoped, uniquely named, and every scope-holding key can call it (no unknown-tool)", () => {
-    expect(new Set(TOOLS.map((t) => t.name)).size).toBe(TOOLS.length);
-    for (const t of TOOLS) expect(t.scope in SCOPE_DOCS).toBe(true);
+    expect(new Set(ALL_TOOLS.map((t) => t.name)).size).toBe(ALL_TOOLS.length);
+    for (const t of ALL_TOOLS) expect(t.scope in SCOPE_DOCS).toBe(true);
   });
   it("calling a tool outside the key's scopes is refused for every tool", async () => {
-    for (const t of TOOLS) {
+    for (const t of ALL_TOOLS) {
       resetPrincipal(ALL_SCOPES.filter((s) => s !== t.scope && s !== t.scope.replace(":read", ":write")));
       const b = await (await app.request("/mcp", rpc("tools/call", { name: t.name, arguments: {} }))).json();
       expect(b.error ?? b.result?.isError, t.name).toBeTruthy();

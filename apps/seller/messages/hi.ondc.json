@@ -1,0 +1,56 @@
+{
+  "ondc": {
+    "metaTitle": "ONDC",
+    "title": "ONDC",
+    "description": "अपने प्रोडक्ट ओपन नेटवर्क फ़ॉर डिजिटल कॉमर्स (ONDC) पर बेचें। कौन-सी लिस्टिंग जोड़नी है, यह आप चुनते हैं, और हर ऑर्डर आपके पास accept या reject करने के लिए आता है।",
+    "ordersButton": "ONDC ऑर्डर",
+    "notLive": "ONDC अभी लाइव नहीं है। आप अभी कनेक्ट करके लिस्टिंग चुन सकते हैं; हमारे लाइव होने तक नेटवर्क पर बायर को कुछ नहीं दिखेगा।",
+    "channel": "चैनल",
+    "statusLabel": "स्थिति:",
+    "connected": "कनेक्टेड",
+    "notConnected": "कनेक्ट नहीं है",
+    "termsAccepted": "शर्तें {version} {when} को मानी गईं।",
+    "listingsReady": "{count, plural, one {# लिस्टिंग नेटवर्क के लिए तैयार।} other {# लिस्टिंग नेटवर्क के लिए तैयार।}}",
+    "yourListings": "आपकी लिस्टिंग",
+    "noListingsTitle": "अभी कोई लिस्टिंग नहीं है",
+    "noListingsDescription": "पहले लिस्टिंग बनाकर पब्लिश करें, फिर उसे यहाँ ONDC में जोड़ें।",
+    "shown": "ONDC पर दिख रही है",
+    "reason": {
+      "not_opted_in": "जोड़ी नहीं गई",
+      "not_published": "अभी लाइव नहीं: पहले लिस्टिंग पब्लिश करें",
+      "not_approved": "रिव्यू का इंतज़ार",
+      "seller_unverified": "ONDC पर बेचने के लिए वेरिफ़िकेशन पूरा करें",
+      "no_price": "ONDC पर बेचने के लिए कीमत जोड़ें"
+    },
+    "disconnect": "ONDC से डिस्कनेक्ट करें",
+    "disconnecting": "डिस्कनेक्ट हो रहा है…",
+    "termsText": "मैंने ONDC सेलर की शर्तें पढ़ ली हैं और मानता/मानती हूँ: मेरी चुनी हुई लिस्टिंग ONDC बायर ऐप्स को दिख सकती हैं, और ऑर्डर मेरे ONDC इनबॉक्स में accept या reject करने के लिए आएँगे।",
+    "connect": "ONDC से कनेक्ट करें",
+    "connecting": "कनेक्ट हो रहा है…",
+    "saving": "सेव हो रहा है…",
+    "remove": "ONDC से हटाएँ",
+    "add": "ONDC में जोड़ें",
+    "accept": "Accept करें",
+    "accepting": "Accept हो रहा है…",
+    "reject": "Reject करें",
+    "rejecting": "Reject हो रहा है…",
+    "acceptTerms": "कनेक्ट करने के लिए कृपया ONDC सेलर की शर्तें मानें।",
+    "orders": {
+      "metaTitle": "ONDC ऑर्डर",
+      "title": "ONDC ऑर्डर",
+      "description": "ONDC नेटवर्क पर बायर के दिए ऑर्डर। हर एक को accept या reject करें; बायर के ऐप को तुरंत बता दिया जाता है।",
+      "settings": "ONDC सेटिंग",
+      "emptyTitle": "अभी कोई ONDC ऑर्डर नहीं है",
+      "emptyDescription": "नेटवर्क से आए ऑर्डर यहाँ दिखेंगे।",
+      "order": "ऑर्डर",
+      "from": "{bap} की तरफ़ से · {date}",
+      "status": {
+        "created": "आपके फ़ैसले का इंतज़ार",
+        "accepted": "Accept किया गया",
+        "in_progress": "जारी है",
+        "completed": "पूरा हुआ",
+        "cancelled": "रद्द"
+      }
+    }
+  }
+}

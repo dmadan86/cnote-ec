@@ -1,0 +1,109 @@
+{
+  "offers": {
+    "meta": {
+      "title": "Offers"
+    },
+    "kind": {
+      "timed_price": "Limited-time price",
+      "volume_tiers": "Volume pricing",
+      "free_delivery_moq": "Free delivery"
+    },
+    "kindHint": {
+      "timed_price": "A lower unit price for up to 30 days. A 14-day gap is needed before the next one.",
+      "volume_tiers": "Lower unit prices as the order quantity grows (up to 5 tiers).",
+      "free_delivery_moq": "Free delivery above a quantity or order value, optionally for chosen regions."
+    },
+    "status": {
+      "draft": "Scheduled",
+      "needs_review": "With our team",
+      "active": "Live",
+      "rejected": "Not approved",
+      "expired": "Ended",
+      "cancelled": "Ended by you",
+      "suspended": "Paused"
+    },
+    "flag": {
+      "deep_discount": "large discount",
+      "below_floor": "very low price",
+      "prior_honour_complaint": "earlier buyer report"
+    },
+    "ended": {
+      "listing_changed": "the listing changed",
+      "suspended": "paused by our team",
+      "expired": "it reached its end date",
+      "cancelled": "you ended it"
+    },
+    "terms": {
+      "perUnit": "{price} per unit",
+      "tier": "{qty}+ at {price}",
+      "units": "{qty}+ units",
+      "above": "orders above {price}",
+      "allIndia": "all of India"
+    },
+    "page": {
+      "title": "Offers",
+      "description": "Volume pricing, limited-time prices and free delivery on your live listings. Honest by design: buyers only ever see a real 30-day comparison.",
+      "howTitle": "How the comparison price works.",
+      "howBody": "If your offer is below the lowest price your listing had in the last 30 days, buyers see that price struck through, labelled as such, with the percentage rounded down. We work it out from your price history, so raising a price before a sale does not create a bigger discount. Offers end exactly when they say they do.",
+      "paused": "Offers are paused on your account after buyer reports that were upheld. Contact support to have this reviewed.",
+      "createTitle": "Create an offer",
+      "yourOffers": "Your offers",
+      "emptyTitle": "No offers yet",
+      "emptyDesc": "Create your first offer above. Offers help buyers choose you at larger quantities.",
+      "listingFallback": "Listing",
+      "period": "{start} to {end}",
+      "untilEnd": "{start}, until you end it",
+      "refSeen": "Buyers see <money></money> struck through, the lowest price of the last 30 days.",
+      "refSeenPct": "Buyers see <money></money> struck through, {pct}% below, the lowest price of the last 30 days.",
+      "noRef": "Buyers see your offer price only (not enough price history for a comparison).",
+      "held": "Held for a quick check: {flags}.",
+      "note": "Note from our team: {note}",
+      "endedBecause": "Ended because {reason}."
+    },
+    "cancel": {
+      "pending": "Ending…",
+      "aria": "End offer on {title}",
+      "button": "End offer"
+    },
+    "form": {
+      "noListings": "Publish a listing with a price first. Offers run on live listings.",
+      "listing": "Listing",
+      "currentPrice": "Current price: <b>{price}</b>",
+      "notSet": "not set",
+      "minOrder": "Minimum order: <b>{moq}</b>",
+      "refWith": "Buyers compare your offer with <b>{price}</b>, the lowest price this listing had in the last 30 days. We work this out from your price history. You cannot type it.",
+      "noHistory": "This listing does not have 30 days of price history yet, so buyers will see your offer price only, with no “was” price and no percentage.",
+      "offerType": "Offer type",
+      "priceLabel": "Offer price per unit (₹)",
+      "priceHint": "Must be at least 3% below your lowest price of the last 30 days.",
+      "pricePlaceholder": "e.g. 42.50",
+      "tiersTitle": "Price tiers",
+      "tiersHelp": "Quantities must grow and prices must fall. The first tier starts at or above your minimum order.",
+      "tierQty": "Tier {n}: from quantity",
+      "tierPrice": "Price per unit (₹)",
+      "removeTier": "Remove tier {n}",
+      "remove": "Remove",
+      "addTier": "Add a tier",
+      "freeQty": "Free delivery from quantity",
+      "freeValue": "or from order value (₹)",
+      "regions": "Regions (optional, comma separated)",
+      "regionsHint": "e.g. Karnataka, Tamil Nadu. Leave empty for all of India.",
+      "starts": "Starts (India time)",
+      "startsHint": "Leave empty to start now.",
+      "endsRequired": "Ends (India time)",
+      "endsOptional": "Ends (optional)",
+      "honour": "You must honour this offer for enquiries that meet its terms. Buyers can report an offer that was not honoured, and repeated upheld reports pause offers on your account. Offers never change your search ranking.",
+      "submit": "Create offer",
+      "submitPending": "Checking…",
+      "okReview": "Your offer is with our team for a quick check (it is a large discount or needs a second look). We will notify you.",
+      "okLive": "Your offer is live.",
+      "okScheduled": "Your offer is scheduled and starts automatically."
+    },
+    "errors": {
+      "chooseListing": "Choose a listing.",
+      "chooseKind": "Choose an offer type.",
+      "addTier": "Add at least one price tier.",
+      "chooseEnd": "Choose when the offer ends."
+    }
+  }
+}

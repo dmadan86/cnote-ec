@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import type { ActionResult } from "@cnote/next-kit";
 import { cancelOffer, createOffer, type OfferInput } from "@cnote/promotions";
@@ -21,9 +22,10 @@ const istDate = (v: string): Date | undefined => (v ? new Date(`${v}:00+05:30`) 
  */
 export async function createOfferAction(_prev: OfferResult | null, fd: FormData): Promise<OfferResult> {
   const session = await requireSeller("/offers");
+  const t = await getTranslations("offers");
   const res = await run(async (): Promise<{ status: string }> => {
-    const listingId = z.uuid("Choose a listing.").parse(str(fd, "listingId"));
-    const kind = z.enum(["volume_tiers", "timed_price", "free_delivery_moq"], "Choose an offer type.").parse(str(fd, "kind"));
+    const listingId = z.uuid(t("errors.chooseListing")).parse(str(fd, "listingId"));
+    const kind = z.enum(["volume_tiers", "timed_price", "free_delivery_moq"], t("errors.chooseKind")).parse(str(fd, "kind"));
     const startsAt = istDate(str(fd, "startsAt"));
     const endsAt = istDate(str(fd, "endsAt"));
     let input: OfferInput;
@@ -31,10 +33,10 @@ export async function createOfferAction(_prev: OfferResult | null, fd: FormData)
       const qtys = strs(fd, "tierQty");
       const prices = strs(fd, "tierPrice");
       const tiers = qtys.map((q, i) => ({ minQty: Number(q), unitPricePaise: rupeesToPaise(prices[i] ?? "") })).filter((t) => t.minQty || t.unitPricePaise);
-      if (tiers.length === 0) throw new z.ZodError([{ code: "custom", path: ["tiers"], message: "Add at least one price tier.", input: null }]);
+      if (tiers.length === 0) throw new z.ZodError([{ code: "custom", path: ["tiers"], message: t("errors.addTier"), input: null }]);
       input = { kind, listingId, terms: { tiers }, startsAt, endsAt };
     } else if (kind === "timed_price") {
-      if (!endsAt) throw new z.ZodError([{ code: "custom", path: ["endsAt"], message: "Choose when the offer ends.", input: null }]);
+      if (!endsAt) throw new z.ZodError([{ code: "custom", path: ["endsAt"], message: t("errors.chooseEnd"), input: null }]);
       input = { kind, listingId, terms: { unitPricePaise: rupeesToPaise(str(fd, "unitPrice")) }, startsAt, endsAt };
     } else {
       const minValue = str(fd, "minOrderValue");

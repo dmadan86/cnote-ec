@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { getTranslations } from "next-intl/server";
 import type { ActionResult } from "@cnote/next-kit";
 import { requireSeller } from "@/lib/auth";
 import { str } from "@/lib/form-data";
@@ -16,11 +17,12 @@ export type GstResult = ActionResult<{ passed: boolean; tier: number; reason?: s
 export async function verifyGstinAction(_prev: GstResult | null, fd: FormData): Promise<GstResult> {
   const mode = str(fd, "mode") === "onboarding" ? "onboarding" : "portal";
   const session = await requireSeller(mode === "onboarding" ? "/onboarding" : "/verification");
+  const t = await getTranslations("verification.gst");
   const result = await run(async () => {
     const parsed = z
       .object({
-        gstin: z.string().refine((v) => checkGstin(v).ok, "This GSTIN does not look right. Check it and try again."),
-        udyam: z.string().refine((v) => v === "" || UDYAM_PATTERN.test(v), "Udyam looks like UDYAM-KA-03-0012345."),
+        gstin: z.string().refine((v) => checkGstin(v).ok, t("errGstin")),
+        udyam: z.string().refine((v) => v === "" || UDYAM_PATTERN.test(v), t("errUdyam")),
       })
       .parse({ gstin: normalizeGstin(str(fd, "gstin")), udyam: str(fd, "udyam").toUpperCase().replace(/\s+/g, "") });
     const res = await identity.verifyGstin(session.business.id, parsed.gstin, parsed.udyam || undefined);

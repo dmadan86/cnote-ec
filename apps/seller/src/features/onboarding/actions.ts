@@ -1,6 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { getTranslations } from "next-intl/server";
 import { requireSession, type ActionResult } from "@cnote/next-kit";
 import { requireSeller } from "@/lib/auth";
 import { applyReferralCode } from "@cnote/promotions";
@@ -16,14 +17,15 @@ import { billing, identity } from "@/lib/services";
 export async function createBusinessAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const session = await requireSession("/onboarding");
   if (session.business) redirect("/onboarding");
+  const t = await getTranslations("onboarding.errors");
   const result = await run(async () => {
     const input = z
       .object({
-        name: z.string().min(2, "Enter your business name.").max(120),
-        city: z.string().min(2, "Enter your city.").max(80),
-        state: z.string().min(2, "Choose your state."),
-        pincode: z.string().regex(/^[1-9]\d{5}$/, "Pincode is 6 digits."),
-        languages: z.array(z.enum(LANGUAGES.map((l) => l.code) as [string, ...string[]])).min(1, "Pick at least one language."),
+        name: z.string().min(2, t("name")).max(120),
+        city: z.string().min(2, t("city")).max(80),
+        state: z.string().min(2, t("state")),
+        pincode: z.string().regex(/^[1-9]\d{5}$/, t("pincode")),
+        languages: z.array(z.enum(LANGUAGES.map((l) => l.code) as [string, ...string[]])).min(1, t("languages")),
       })
       .parse({ name: str(fd, "name"), city: str(fd, "city"), state: str(fd, "state"), pincode: str(fd, "pincode"), languages: strs(fd, "languages") });
     const { businessId } = await identity.createBusiness(session.personId, { ...input, isSeller: true });
@@ -43,18 +45,20 @@ export async function createBusinessAction(_prev: ActionResult | null, fd: FormD
   return result;
 }
 
-const phoneSchema = z
-  .string()
-  .transform((v) => v.replace(/[\s-]/g, "").replace(/^(\+91|91|0)(?=\d{10}$)/, ""))
-  .refine((v) => /^[6-9]\d{9}$/.test(v), "Enter a 10-digit Indian mobile number.")
-  .transform((v) => `+91${v}`);
+const phoneSchema = (message: string) =>
+  z
+    .string()
+    .transform((v) => v.replace(/[\s-]/g, "").replace(/^(\+91|91|0)(?=\d{10}$)/, ""))
+    .refine((v) => /^[6-9]\d{9}$/.test(v), message)
+    .transform((v) => `+91${v}`);
 
 export type OtpSent = ActionResult<{ phone: string; devCode?: string }>;
 
 export async function requestOtpAction(_prev: OtpSent | null, fd: FormData): Promise<OtpSent> {
   const session = await requireSession("/onboarding");
+  const t = await getTranslations("onboarding.errors");
   return run(async () => {
-    const phone = phoneSchema.parse(str(fd, "phone"));
+    const phone = phoneSchema(t("phone")).parse(str(fd, "phone"));
     const res = await identity.requestPhoneOtp(session.personId, phone);
     logEvent("seller.onboarding_otp_requested", { personId: session.personId });
     return { phone, devCode: res.devCode };
@@ -63,11 +67,12 @@ export async function requestOtpAction(_prev: OtpSent | null, fd: FormData): Pro
 
 export async function verifyOtpAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const session = await requireSession("/onboarding");
+  const t = await getTranslations("onboarding.errors");
   const result = await run(async () => {
-    const phone = phoneSchema.parse(str(fd, "phone"));
-    const code = z.string().regex(/^\d{4,8}$/, "Enter the code from the SMS.").parse(str(fd, "code"));
+    const phone = phoneSchema(t("phone")).parse(str(fd, "phone"));
+    const code = z.string().regex(/^\d{4,8}$/, t("code")).parse(str(fd, "code"));
     const res = await identity.verifyPhoneOtp(session.personId, phone, code);
-    if (!res.verified) throw new z.ZodError([{ code: "custom", path: ["code"], message: "That code did not match. Check it and try again.", input: code }]);
+    if (!res.verified) throw new z.ZodError([{ code: "custom", path: ["code"], message: t("codeMismatch"), input: code }]);
     logEvent("seller.onboarding_phone_verified", { personId: session.personId });
     return undefined;
   });
@@ -87,6 +92,7 @@ export async function skipStepAction(fd: FormData): Promise<void> {
 /** Step 5: plan (free by default, no auto-upgrade) + purpose-scoped consents (ADR-005, ADR-010). */
 export async function finishOnboardingAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const session = await requireSeller("/onboarding");
+  const t = await getTranslations("onboarding.errors");
   let paidPlan: string | null = null;
   const result = await run(async () => {
     for (const purpose of ["matching", "counterparty_sharing", "marketing"] as const) {
@@ -96,7 +102,7 @@ export async function finishOnboardingAction(_prev: ActionResult | null, fd: For
     if (planCode) {
       const plans = await billing.listPlans();
       const plan = plans.find((p) => p.code === planCode);
-      if (!plan) throw new z.ZodError([{ code: "custom", path: ["planCode"], message: "Choose one of the plans shown.", input: planCode }]);
+      if (!plan) throw new z.ZodError([{ code: "custom", path: ["planCode"], message: t("plan"), input: planCode }]);
       // Paid plans are bought through hosted checkout (never activated without payment); onboarding still completes.
       if (plan.monthlyPricePaise > 0) paidPlan = plan.code;
     }

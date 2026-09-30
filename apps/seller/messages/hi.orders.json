@@ -1,0 +1,43 @@
+{
+  "orders": {
+    "metaTitle": "ऑर्डर",
+    "title": "ऑर्डर",
+    "description": "जो डील पक्की बताई गई हैं। बायर के साथ शर्तें कन्फ़र्म करें, फिर हर ऑर्डर को डिस्पैच हुआ मार्क करें।",
+    "emptyTitle": "अभी कोई ऑर्डर नहीं है",
+    "emptyDescription": "जब आप या बायर किसी डील को पक्की बताते हैं, तो वह यहाँ दिखती है।",
+    "emptyAction": "लीड पर जाएँ",
+    "paginationLabel": "ऑर्डर के पेज",
+    "older": "पुराने ऑर्डर",
+    "detailMetaTitle": "ऑर्डर",
+    "back": "ऑर्डर पर वापस",
+    "notFound": "यह ऑर्डर नहीं मिला, या यह किसी और बिज़नेस का है।",
+    "orderFor": "{name} के लिए ऑर्डर",
+    "youConfirmedWaiting": "आपने ये details कन्फ़र्म कर दी हैं। बायर के कन्फ़र्म करने का इंतज़ार है।",
+    "checkAndConfirm": "बायर के साथ details जाँच लें, फिर कन्फ़र्म करें।",
+    "paymentNote": "पेमेंट सीधे बायर से तय होता है; अभी प्लेटफ़ॉर्म से कुछ नहीं गुज़रता।",
+    "detailsTitle": "ऑर्डर की details",
+    "buyer": "बायर",
+    "quantity": "मात्रा",
+    "pricePerUnit": "प्रति यूनिट कीमत",
+    "total": "कुल",
+    "youConfirmed": "आपने कन्फ़र्म किया",
+    "buyerConfirmed": "बायर ने कन्फ़र्म किया",
+    "notRecorded": "दर्ज नहीं है",
+    "notYet": "अभी नहीं",
+    "status": {
+      "recorded": "कन्फ़र्मेशन का इंतज़ार",
+      "confirmed": "कन्फ़र्म",
+      "dispatched": "डिस्पैच हो गया",
+      "delivered": "डिलीवर हो गया",
+      "completed": "पूरा हुआ",
+      "cancelled": "रद्द"
+    },
+    "confirm": "ऑर्डर की details कन्फ़र्म करें",
+    "confirming": "कन्फ़र्म हो रहा है…",
+    "dispatch": "डिस्पैच हुआ मार्क करें",
+    "saving": "सेव हो रहा है…",
+    "cancel": "ऑर्डर रद्द करें",
+    "cancelling": "रद्द हो रहा है…",
+    "invalidAction": "यह कार्रवाई सही नहीं है।"
+  }
+}

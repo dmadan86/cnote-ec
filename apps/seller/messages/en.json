@@ -31,7 +31,10 @@
       "billing": "Billing",
       "verification": "Verification",
       "appeals": "Appeals",
-      "settings": "Settings"
+      "settings": "Settings",
+      "prices": "Price insights",
+      "credit": "Credit",
+      "agents": "Quoting agent"
     }
   }
 }

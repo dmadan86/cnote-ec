@@ -1,5 +1,6 @@
 import "server-only";
 import { unstable_rethrow } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { runAction, type ActionResult } from "@cnote/next-kit";
 
 /**
@@ -12,6 +13,12 @@ export async function run<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
   } catch (err) {
     unstable_rethrow(err);
     console.error("[seller] action failed", err);
-    return { ok: false, error: "Something went wrong on our side. Please try again in a moment." };
+    let error = "Something went wrong on our side. Please try again in a moment.";
+    try {
+      error = (await getTranslations("common"))("error");
+    } catch {
+      // translation loading itself failed: keep the English fallback
+    }
+    return { ok: false, error };
   }
 }

@@ -1,6 +1,7 @@
 "use client";
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import type { ActionResult } from "@cnote/next-kit";
 import { Alert } from "@cnote/ui";
 import { SubmitButton } from "@/features/shell/form-bits";
@@ -27,22 +28,24 @@ function ActionButton({ id, action, label, pending, variant = "outline", confirm
 }
 
 export function DomainActions({ id, hostname, status, isPrimary }: { id: string; hostname: string; status: string; isPrimary: boolean }) {
+  const t = useTranslations("storefront.actions");
   return (
     <div className="flex flex-wrap items-start gap-2">
-      {status !== "active" ? <ActionButton id={id} action={recheckDomainAction} label="Check again" pending="Checking…" ok="Check started. This page updates by itself." /> : null}
-      {status === "active" && !isPrimary ? <ActionButton id={id} action={setPrimaryAction} label="Make primary" pending="Saving…" ok="Primary domain updated." /> : null}
-      <ActionButton id={id} action={removeDomainAction} label="Remove" pending="Removing…" variant="danger" confirm={`Remove ${hostname}? Visitors will no longer reach your storefront through it.`} />
+      {status !== "active" ? <ActionButton id={id} action={recheckDomainAction} label={t("recheck")} pending={t("rechecking")} ok={t("rechecked")} /> : null}
+      {status === "active" && !isPrimary ? <ActionButton id={id} action={setPrimaryAction} label={t("makePrimary")} pending={t("saving")} ok={t("primaryUpdated")} /> : null}
+      <ActionButton id={id} action={removeDomainAction} label={t("remove")} pending={t("removing")} variant="danger" confirm={t("removeConfirm", { host: hostname })} />
     </div>
   );
 }
 
 /** Refreshes the server-rendered page while a domain is still being verified, so status updates appear live. */
 export function AutoRefresh({ active }: { active: boolean }) {
+  const t = useTranslations("storefront.actions");
   const router = useRouter();
   useEffect(() => {
     if (!active) return;
     const t = setInterval(() => router.refresh(), 8000);
     return () => clearInterval(t);
   }, [active, router]);
-  return active ? <p role="status" className="text-xs text-muted">Checking automatically. You can leave this page open.</p> : null;
+  return active ? <p role="status" className="text-xs text-muted">{t("autoRefresh")}</p> : null;
 }

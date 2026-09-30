@@ -1,0 +1,43 @@
+{
+  "orders": {
+    "metaTitle": "Orders",
+    "title": "Orders",
+    "description": "Deals reported as won. Confirm the terms with the buyer, then mark each order dispatched.",
+    "emptyTitle": "No orders yet",
+    "emptyDescription": "When you or the buyer report a deal as won, it appears here.",
+    "emptyAction": "Go to leads",
+    "paginationLabel": "Orders pagination",
+    "older": "Older orders",
+    "detailMetaTitle": "Order",
+    "back": "Back to orders",
+    "notFound": "We could not find this order, or it belongs to another business.",
+    "orderFor": "Order for {name}",
+    "youConfirmedWaiting": "You confirmed these details. Waiting for the buyer to confirm.",
+    "checkAndConfirm": "Check the details with the buyer, then confirm.",
+    "paymentNote": "Payment is settled directly with the buyer; nothing goes through the platform yet.",
+    "detailsTitle": "Order details",
+    "buyer": "Buyer",
+    "quantity": "Quantity",
+    "pricePerUnit": "Price per unit",
+    "total": "Total",
+    "youConfirmed": "You confirmed",
+    "buyerConfirmed": "Buyer confirmed",
+    "notRecorded": "Not recorded",
+    "notYet": "Not yet",
+    "status": {
+      "recorded": "Awaiting confirmation",
+      "confirmed": "Confirmed",
+      "dispatched": "Dispatched",
+      "delivered": "Delivered",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "confirm": "Confirm order details",
+    "confirming": "Confirming…",
+    "dispatch": "Mark as dispatched",
+    "saving": "Saving…",
+    "cancel": "Cancel order",
+    "cancelling": "Cancelling…",
+    "invalidAction": "That action is not valid."
+  }
+}

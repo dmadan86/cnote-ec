@@ -1,0 +1,13 @@
+# Two-region topology building blocks (docs/ops/deploy.md). This base holds ONLY what the scale/DR work adds:
+#   ai-service, search-service, analytics wiring, region-agnostic config. It composes with the existing app manifests in
+#   deploy/k8s/base (web, seller, admin, api, worker, migrate) through the region overlays.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: cnote
+resources:
+  - ai-service.yaml
+  - search-service.yaml
+  - network-policy.yaml
+images:
+  - {name: cnote-ai-service, newName: ghcr.io/OWNER/cnote-ai-service, newTag: latest}
+  - {name: cnote-search-service, newName: ghcr.io/OWNER/cnote-search-service, newTag: latest}

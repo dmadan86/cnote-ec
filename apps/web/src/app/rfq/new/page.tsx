@@ -4,6 +4,7 @@ import { Container, PageHeader } from "@cnote/ui";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { RfqForm } from "@/features/enquiry/rfq-form";
+import { PriceHint } from "@/features/prices/price-hint";
 
 export const metadata: Metadata = { title: "Post your requirement" };
 
@@ -26,6 +27,7 @@ export default async function NewRfqPage(props: PageProps<"/rfq/new">) {
     <Container className="max-w-3xl py-8">
       <PageHeader title={t("title")} description={t("subtitle")} />
       <div className="mt-6">
+        <PriceHint />
         <RfqForm
           categories={categories}
           defaults={{

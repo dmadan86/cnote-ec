@@ -9,6 +9,7 @@ import { REASONING_MODEL, VISION_TIMEOUT_MS, createAnthropicClient, type Message
 import { REVIEW_THRESHOLDS, runLogged } from "./decisions";
 import { HEURISTIC_MODEL } from "./heuristic/intent";
 import { redactDeep, redactPii } from "./redact";
+import { aiTransport, remoteDispatchInspector, remoteFallbackEnabled, sharedAiServiceClient } from "./remote";
 import { assertVisionImages } from "./vision";
 import type { AiResult, Lang, Subject, VisionImage } from "./index";
 import type { ProviderResult } from "./types";
@@ -161,6 +162,7 @@ let cached: { name: string; ins: DispatchInspector } | null = null;
 /** AI_PROVIDER=anthropic -> vision model; anything else -> heuristic. */
 export function getDispatchInspector(): DispatchInspector {
   if (override) return override;
+  if (aiTransport() === "http") return remoteDispatchInspector(sharedAiServiceClient(), remoteFallbackEnabled() ? { inspect: async (i) => inspectDispatchHeuristic(i) } : null); // ADR-018
   const name = process.env.AI_PROVIDER === "anthropic" ? "anthropic" : "heuristic";
   if (cached?.name !== name) cached = { name, ins: name === "anthropic" ? anthropicDispatchInspector() : { inspect: async (i) => inspectDispatchHeuristic(i) } };
   return cached.ins;

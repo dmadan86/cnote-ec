@@ -1,33 +1,34 @@
 import type { NotificationView } from "@cnote/notifications";
 import { Badge, Button, Card, EmptyState, LinkTabs, buttonClasses } from "@cnote/ui";
 import Link from "next/link";
+import { useFormatter, useTranslations } from "next-intl";
 import { markAllReadAction, markReadAction } from "./actions";
 
-const fmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" });
-
 export function Inbox({ items, nextCursor, unreadOnly, unread }: { items: NotificationView[]; nextCursor: string | null; unreadOnly: boolean; unread: number }) {
+  const t = useTranslations("notifications");
+  const f = useFormatter();
   const page = (cursor: string) => `/notifications?${unreadOnly ? "filter=unread&" : ""}cursor=${cursor}`;
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <LinkTabs
-          label="Filter notifications"
+          label={t("filter")}
           variant="underline"
           items={[
-            { href: "/notifications", label: "All", active: !unreadOnly },
-            { href: "/notifications?filter=unread", label: `Unread${unread > 0 ? ` (${unread})` : ""}`, active: unreadOnly },
+            { href: "/notifications", label: t("all"), active: !unreadOnly },
+            { href: "/notifications?filter=unread", label: unread > 0 ? t("unreadCount", { count: unread }) : t("unread"), active: unreadOnly },
           ]}
         />
         <div className="flex items-center gap-2">
-          <Link href="/notifications/preferences" className={buttonClasses("outline", "sm")}>Preferences</Link>
+          <Link href="/notifications/preferences" className={buttonClasses("outline", "sm")}>{t("preferences")}</Link>
           {unread > 0 ? (
-            <form action={markAllReadAction}><Button type="submit" variant="outline-brand" size="sm">Mark all as read</Button></form>
+            <form action={markAllReadAction}><Button type="submit" variant="outline-brand" size="sm">{t("markAll")}</Button></form>
           ) : null}
         </div>
       </div>
 
       {items.length === 0 ? (
-        <EmptyState title={unreadOnly ? "You are all caught up" : "No notifications yet"} description="We will let you know here when something needs your attention." />
+        <EmptyState title={unreadOnly ? t("caughtUp") : t("empty")} description={t("emptyDesc")} />
       ) : (
         <ul className="grid gap-2">
           {items.map((n) => (
@@ -37,15 +38,15 @@ export function Inbox({ items, nextCursor, unreadOnly, unread }: { items: Notifi
                   <div className="min-w-0 space-y-1">
                     <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
                       {n.href ? <Link href={n.href} className="hover:underline focus-visible:underline">{n.title}</Link> : n.title}
-                      {n.read ? null : <Badge tone="brand">New</Badge>}
+                      {n.read ? null : <Badge tone="brand">{t("new")}</Badge>}
                     </p>
                     {n.body ? <p className="whitespace-pre-line text-sm text-muted">{n.body}</p> : null}
-                    <p className="text-xs text-muted"><time dateTime={n.createdAt}>{fmt.format(new Date(n.createdAt))}</time></p>
+                    <p className="text-xs text-muted"><time dateTime={n.createdAt}>{f.dateTime(new Date(n.createdAt), { dateStyle: "medium", timeStyle: "short" })}</time></p>
                   </div>
                   {n.read ? null : (
                     <form action={markReadAction} className="shrink-0">
                       <input type="hidden" name="id" value={n.id} />
-                      <Button type="submit" variant="ghost" size="sm" aria-label={`Mark "${n.title}" as read`}>Mark as read</Button>
+                      <Button type="submit" variant="ghost" size="sm" aria-label={t("markReadAria", { title: n.title })}>{t("markRead")}</Button>
                     </form>
                   )}
                 </div>
@@ -54,7 +55,7 @@ export function Inbox({ items, nextCursor, unreadOnly, unread }: { items: Notifi
           ))}
         </ul>
       )}
-      {nextCursor ? <Link href={page(nextCursor)} className="inline-block text-sm font-medium text-brand-700 hover:underline">Older notifications →</Link> : null}
+      {nextCursor ? <Link href={page(nextCursor)} className="inline-block text-sm font-medium text-brand-700 hover:underline">{t("older")}</Link> : null}
     </div>
   );
 }

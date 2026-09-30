@@ -1,0 +1,63 @@
+{
+  "landing": {
+    "accountNav": "Account",
+    "signIn": "Sign in",
+    "join": "Join for Free",
+    "dashboard": "Go to dashboard",
+    "start": "Start selling, free",
+    "eyebrow": "For manufacturers, traders and suppliers",
+    "headline1": "Real buyers. Fewer leads.",
+    "headline2": "Your rank, your score, your call.",
+    "lede": "Broadcast platforms sell the same enquiry to everyone. We match each buyer to a few relevant sellers, show you how serious the buyer is, and refund you when a lead turns out fake.",
+    "seePricing": "See pricing",
+    "noGst": "No GST needed to start. First listing in about five minutes.",
+    "whyTitle": "Why sellers switch",
+    "value": {
+      "cap": {
+        "title": "3 sellers per lead, at most",
+        "body": "Every enquiry goes to a small, capped group instead of everyone in the category. No price wars with ten strangers."
+      },
+      "intent": {
+        "title": "See intent before you spend",
+        "body": "Each lead shows a 0-100 intent score with the reasons, and your rank among the sellers who received it."
+      },
+      "refund": {
+        "title": "Auto-refund, no ticket",
+        "body": "Buyer unreachable or fake? Report it within 72 hours and your credit is returned automatically."
+      },
+      "badge": {
+        "title": "Badge is earned, never bought",
+        "body": "Verification comes from your GST and your track record. Paying more never changes your badge or your rank."
+      },
+      "noSales": {
+        "title": "No field sales",
+        "body": "Plans and prices are public and self-serve. Nobody will call to upsell you, and nothing renews on its own."
+      },
+      "list": {
+        "title": "List by describing it",
+        "body": "Tell us what you sell in Hindi, Hinglish or English, like a WhatsApp message. We draft the listing, you check it."
+      }
+    },
+    "howTitle": "How it works",
+    "steps": {
+      "one": {
+        "title": "Tell us about your business",
+        "body": "Name, city and a phone OTP. GST can wait."
+      },
+      "two": {
+        "title": "Describe what you sell",
+        "body": "Type it like you would tell a buyer. AI drafts the listing and you approve it."
+      },
+      "three": {
+        "title": "Accept the leads you want",
+        "body": "Pay one credit only when you accept. Decline the rest for free."
+      }
+    },
+    "pricingTitle": "Pricing, in public",
+    "pricingIntro": "One credit per accepted lead. Unused credits roll over for 90 days. Plans never renew on their own and you can cancel in three taps.",
+    "free": "Free",
+    "credits": "{count, plural, one {# lead credit every month} other {# lead credits every month}}",
+    "plansUnavailable": "Plan details are not available right now. Sign up and see them in Billing.",
+    "footerNote": "Verification badges reflect your real verification tier, never your plan."
+  }
+}

@@ -10,6 +10,7 @@ import { REASONING_MODEL, VISION_TIMEOUT_MS, createAnthropicClient, type Message
 import { runLogged } from "./decisions";
 import { HEURISTIC_MODEL } from "./heuristic/intent";
 import { redactDeep } from "./redact";
+import { aiTransport, remoteDocumentExtractor, remoteFallbackEnabled, sharedAiServiceClient } from "./remote";
 import type { AiResult, Subject, VisionImage } from "./index";
 import type { ProviderResult } from "./types";
 
@@ -152,6 +153,7 @@ let cached: { name: string; ex: DocumentExtractor } | null = null;
 /** AI_PROVIDER=anthropic -> vision model; anything else -> heuristic. */
 export function getDocumentExtractor(): DocumentExtractor {
   if (override) return override;
+  if (aiTransport() === "http") return remoteDocumentExtractor(sharedAiServiceClient(), remoteFallbackEnabled() ? { extract: async (i) => extractDocumentHeuristic(i) } : null); // ADR-018
   const name = process.env.AI_PROVIDER === "anthropic" ? "anthropic" : "heuristic";
   if (cached?.name !== name) cached = { name, ex: name === "anthropic" ? anthropicDocumentExtractor() : { extract: async (i) => extractDocumentHeuristic(i) } };
   return cached.ex;

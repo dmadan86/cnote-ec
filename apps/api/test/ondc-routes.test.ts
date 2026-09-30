@@ -9,7 +9,7 @@ const sub = vi.fn((..._a: unknown[]) => ({ status: 200, body: { answer: "a" } as
 const site = vi.fn((): string | null => "<html>ok</html>");
 vi.mock("@cnote/ondc", () => ({
   isEnabled: () => enabled(),
-  INBOUND_ACTIONS: ["search", "select", "init", "confirm", "status", "cancel"],
+  INBOUND_ACTIONS: ["search", "select", "init", "confirm", "status", "cancel", "issue", "issue_status"],
   ERROR_CODES: { unavailable: { type: "POLICY-ERROR", code: "20000", message: "x" }, badRequest: { type: "JSON-SCHEMA-ERROR", code: "10000", message: "y" } },
   nack: (e: { code: string }, d?: string) => ({ message: { ack: { status: "NACK" } }, error: { code: e.code, message: d } }),
   receiveInbound: (...a: unknown[]) => (receive as (...x: unknown[]) => unknown)(...a),
@@ -32,6 +32,12 @@ describe("ONDC routes", () => {
     expect(receive.mock.calls[0]![0]).toEqual({ action: "search", rawBody: '{"a":1}', authorization: "Signature x" });
     receive.mockResolvedValueOnce({ status: 401, body: { message: { ack: { status: "NACK" } } } });
     expect((await post("/ondc/select")).status).toBe(401);
+  });
+  it("forwards the gateway signature and accepts IGM actions", async () => {
+    await post("/ondc/search", "{}", { authorization: "Signature a", "x-gateway-authorization": "Signature g" });
+    expect(receive.mock.calls.at(-1)![0]).toMatchObject({ action: "search", authorization: "Signature a", gatewayAuthorization: "Signature g" });
+    expect((await post("/ondc/issue")).status).toBe(200);
+    expect((await post("/ondc/issue_status")).status).toBe(200);
   });
   it("404s when disabled or for unknown actions", async () => {
     enabled.mockReturnValue(false);

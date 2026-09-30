@@ -9,6 +9,7 @@ import { z } from "zod";
 import { prisma, type Prisma } from "@cnote/db";
 import { createAnthropicClient, REASONING_MODEL, TIMEOUT_MS, type MessagesClient } from "./anthropic";
 import { redactDeep } from "./redact";
+import { aiTransport, remoteDisputeProvider, remoteFallbackEnabled, sharedAiServiceClient } from "./remote";
 import type { AiResult } from "./index";
 import type { ProviderResult } from "./types";
 
@@ -259,6 +260,7 @@ let override: DisputeBriefProvider | null = null;
 export function setDisputeBriefProviderForTests(p: DisputeBriefProvider | null) { override = p; }
 function provider(): DisputeBriefProvider {
   if (override) return override;
+  if (aiTransport() === "http") return remoteDisputeProvider(sharedAiServiceClient(), remoteFallbackEnabled() ? heuristicDisputeProvider : null); // ADR-018
   return process.env.AI_PROVIDER === "anthropic" ? anthropicDisputeProvider() : heuristicDisputeProvider;
 }
 

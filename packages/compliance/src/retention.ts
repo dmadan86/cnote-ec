@@ -13,6 +13,7 @@ import { purgeReadNotifications } from "@cnote/notifications";
 import { purgeRejectedUgc } from "@cnote/reviews";
 import * as whatsapp from "@cnote/whatsapp";
 import { purgeStaleEmptyWishlists } from "@cnote/wishlist";
+import { purgeClosedCreditData } from "@cnote/credit";
 import { purgeResolvedDisputeEvidence } from "@cnote/disputes";
 import { purgeOldMessages, purgeOndcOrderPayloads } from "@cnote/ondc";
 import { purgeOldQualityMedia } from "@cnote/quality";
@@ -106,6 +107,12 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     description: "Dispute evidence files and statements after the dispute is resolved or withdrawn; decisions and the AI brief summary are kept.",
     legalBasis: "DPDP s.8(7); 3 years covers the limitation period for contract claims (Limitation Act art. 55) pending counsel review (ADR-013)",
     run: async (before, { dryRun }) => (dryRun ? 0 : purgeResolvedDisputeEvidence(before)),
+  },
+  {
+    name: "credit.closed_loan_mirror", module: "credit", envKey: "CREDIT_CLOSED", defaultDays: 2920, supportsDryRun: false,
+    description: "Our mirror of closed credit applications and loans (offers, partner shares, repayments, assignments) after the loan closed; the NBFC is lender of record and keeps its own books.",
+    legalBasis: "DPDP s.8(7); 8 years covers accounting/tax record keeping (Companies Act s.128) and PMLA pending counsel review (ADR-019)",
+    run: async (before, { dryRun }) => (dryRun ? 0 : Object.values(await purgeClosedCreditData(before)).reduce((a, n) => a + (typeof n === "number" ? n : 0), 0)),
   },
   {
     name: "quality.dispatch_photos", module: "quality", envKey: "QUALITY_MEDIA", defaultDays: 180, supportsDryRun: true,

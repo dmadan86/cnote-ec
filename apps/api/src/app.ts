@@ -8,6 +8,7 @@ import { requestId } from "./middleware/request-id";
 import { corsAllowlist, security } from "./middleware/security";
 import { validationHook } from "./routes/helpers";
 import { v1 } from "./routes/v1";
+import { creditWebhook } from "./routes/webhooks/credit";
 import { escrowWebhook } from "./routes/webhooks/escrow";
 import { kycWebhook } from "./routes/webhooks/kyc";
 import { ondcRoutes } from "./routes/ondc";
@@ -83,6 +84,7 @@ export function createApp(deps: { health?: HealthCheck; onServerError?: (err: un
   app.route("/webhooks/kyc", kycWebhook);
   app.route("/webhooks/payments", paymentsWebhook);
   app.route("/webhooks/escrow", escrowWebhook);
+  app.route("/webhooks/credit", creditWebhook);
   // ONDC Beckn endpoints (ADR-017): Beckn-signature-authenticated; /on_subscribe and the site-verification file must sit
   // at the domain root. 404/NACK unless ONDC_ENABLED.
   app.route("/", ondcRoutes);

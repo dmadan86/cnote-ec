@@ -31,7 +31,10 @@
       "billing": "બિલિંગ",
       "verification": "ચકાસણી",
       "appeals": "અપીલ",
-      "settings": "સેટિંગ્સ"
+      "settings": "સેટિંગ્સ",
+      "prices": "ભાવ માહિતી",
+      "credit": "ક્રેડિટ",
+      "agents": "ક્વોટેશન એજન્ટ"
     }
   }
 }

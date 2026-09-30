@@ -1,10 +1,12 @@
 "use client";
-import { Bell, ClipboardList, LogOut, Store, User } from "lucide-react";
+import { Bell, Bot, ClipboardList, LogOut, Store, User } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Avatar } from "@cnote/ui";
 import { LocaleLink as Link } from "@/i18n/link";
 import { Popover } from "./popover";
 import { SELLER_APP_URL } from "./site";
+
+const A2A_ON = ["1", "true", "yes"].includes((process.env.NEXT_PUBLIC_A2A_ENABLED ?? "").toLowerCase());
 
 export function AccountMenu({ name, email, isSeller }: { name: string | null; email: string | null; isSeller: boolean }) {
   const t = useTranslations("shell");
@@ -36,6 +38,13 @@ export function AccountMenu({ name, email, isSeller }: { name: string | null; em
             <ClipboardList className="size-4" aria-hidden /> {t("myOrders")}
           </Link>
         </li>
+        {A2A_ON ? (
+          <li>
+            <Link href="/buyer/agents" className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-600">
+              <Bot className="size-4" aria-hidden /> {t("myAgents")}
+            </Link>
+          </li>
+        ) : null}
         <li>
           <Link href="/account/notifications" className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-600">
             <Bell className="size-4" aria-hidden /> {t("notifications")}

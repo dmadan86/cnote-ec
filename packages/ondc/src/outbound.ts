@@ -6,6 +6,7 @@ import { assertPublicHttpUrl } from "@cnote/security";
 import { callbackContext, callbackOf, type BecknContext, type CallbackAction, type InboundAction } from "./beckn";
 import { buildAuthHeader } from "./crypto";
 import { loadConfig, type OndcConfig } from "./config";
+import { isKilled } from "./killswitch";
 import { httpFetch } from "./registry";
 import "./types";
 
@@ -18,11 +19,13 @@ export interface CallbackInput {
   error?: { type: string; code: string; message: string };
   /** fresh id for unsolicited callbacks (seller-driven status changes) */
   messageId?: string;
+  /** IGM callbacks run on their own core version (default 1.0.0 unless the request said otherwise) */
+  coreVersion?: string;
 }
 
 /** Stores + enqueues a callback. Re-running for the same (action, transaction, message) is a no-op. */
 export async function queueCallback(i: CallbackInput, cfg: OndcConfig = loadConfig()): Promise<string> {
-  const context = callbackContext(cfg, i.inbound, i.action, { messageId: i.messageId });
+  const context = callbackContext(cfg, i.inbound, i.action, { messageId: i.messageId, coreVersion: i.coreVersion });
   const body = { context, ...(i.message ? { message: i.message } : {}), ...(i.error ? { error: i.error } : {}) };
   let id: string;
   try {
@@ -48,7 +51,7 @@ export const callbackFor = (a: InboundAction): CallbackAction => callbackOf(a);
 
 /** Worker handler: signs and POSTs the stored callback. Throws on transient failure so the queue retries. */
 export async function deliverCallback(messageId: string, cfg: OndcConfig = loadConfig()): Promise<"sent" | "rejected" | "skipped"> {
-  if (!cfg.enabled) return "skipped";
+  if (!cfg.enabled || (await isKilled())) return "skipped"; // kill switch: leave it pending; resumePending() re-queues on resume
   const row = await prisma.ondcMessage.findUnique({ where: { id: messageId } });
   if (!row || row.direction !== "outbound" || row.status === "sent") return "skipped";
   if (!cfg.signingPrivateKey || !cfg.subscriberId || !cfg.uniqueKeyId) {

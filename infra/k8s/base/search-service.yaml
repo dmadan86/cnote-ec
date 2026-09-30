@@ -1,0 +1,94 @@
+# Search query service (ADR-018 pattern, ADR-009). Read-only over Postgres FTS + pgvector (or OpenSearch); indexing stays in the worker.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cnote-search-service
+  labels: {app.kubernetes.io/name: cnote-search-service, app.kubernetes.io/part-of: cnote, cnote.io/tier: search}
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  selector:
+    matchLabels: {app.kubernetes.io/name: cnote-search-service}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: cnote-search-service, app.kubernetes.io/part-of: cnote, cnote.io/tier: search}
+    spec:
+      terminationGracePeriodSeconds: 20
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: {type: RuntimeDefault}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: {app.kubernetes.io/name: cnote-search-service}
+      containers:
+        - name: search-service
+          image: cnote-search-service
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          ports:
+            - {name: http, containerPort: 3006}
+          env:
+            - {name: PORT, value: "3006"}
+            - {name: SEARCH_TRANSPORT, value: inproc}
+            - {name: AI_TRANSPORT, value: http}   # query embeddings come from ai-service (falls back to the local embedder)
+            - {name: AI_SERVICE_URL, value: "http://cnote-ai-service"}
+            - {name: SERVICE_NAME, value: search-service}
+          envFrom:
+            - configMapRef: {name: cnote-config}
+            - secretRef: {name: cnote-secrets}       # SEARCH_SERVICE_TOKEN_SECRET, AI_SERVICE_TOKEN_SECRET, DATABASE_URL (read replica), REDIS_URL
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 3
+            failureThreshold: 20
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 20
+            timeoutSeconds: 3
+          resources:
+            requests: {cpu: 200m, memory: 320Mi}
+            limits: {cpu: "1", memory: 768Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cnote-search-service
+  labels: {app.kubernetes.io/name: cnote-search-service}
+spec:
+  selector: {app.kubernetes.io/name: cnote-search-service}
+  ports:
+    - {name: http, port: 80, targetPort: http}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cnote-search-service
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: cnote-search-service}
+  minReplicas: 2
+  maxReplicas: 12
+  metrics:
+    - type: Resource
+      resource: {name: cpu, target: {type: Utilization, averageUtilization: 65}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cnote-search-service
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: cnote-search-service}

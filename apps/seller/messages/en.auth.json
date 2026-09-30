@@ -1,0 +1,30 @@
+{
+  "auth": {
+    "aside": {
+      "title1": "Fewer leads.",
+      "title2": "Real buyers.",
+      "p1": "Each lead goes to at most 3 sellers, never a crowd.",
+      "p2": "You see the buyer's intent score and your rank before you spend a credit.",
+      "p3": "Buyer unreachable or fake? The credit comes back within 72 hours, no ticket needed.",
+      "p4": "Free plan. Public pricing. Your badge never depends on what you pay."
+    },
+    "signup": {
+      "meta": "Create your seller account",
+      "title": "Start selling, free",
+      "body": "Create your account, then list your first product in about five minutes. No GST needed to start."
+    },
+    "signin": {
+      "meta": "Sign in"
+    },
+    "mfa": {
+      "meta": "Two-factor authentication"
+    },
+    "forgot": {
+      "meta": "Forgot password"
+    },
+    "reset": {
+      "meta": "Reset password",
+      "incomplete": "This reset link is incomplete. <link>Ask for a new one</link>."
+    }
+  }
+}

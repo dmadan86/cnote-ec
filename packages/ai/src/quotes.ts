@@ -8,6 +8,7 @@ import { z } from "zod";
 import { prisma, type Prisma } from "@cnote/db";
 import { createAnthropicClient, REASONING_MODEL, TIMEOUT_MS, type MessagesClient } from "./anthropic";
 import { redactDeep, redactPii } from "./redact";
+import { aiTransport, remoteFallbackEnabled, remoteQuoteProviders, sharedAiServiceClient } from "./remote";
 import type { AiResult } from "./index";
 import type { ProviderResult } from "./types";
 
@@ -323,6 +324,7 @@ let override: QuoteProviders | null = null;
 /** AI_PROVIDER ("heuristic" default | "anthropic"), read per call like the other capabilities. */
 export function getQuoteProviders(): QuoteProviders {
   if (override) return override;
+  if (aiTransport() === "http") return remoteQuoteProviders(sharedAiServiceClient(), remoteFallbackEnabled() ? heuristicQuoteProviders : null); // ADR-018
   const name = process.env.AI_PROVIDER === "anthropic" ? "anthropic" : "heuristic";
   if (cached?.name !== name) cached = { name, providers: name === "anthropic" ? anthropicQuoteProviders() : heuristicQuoteProviders };
   return cached.providers;

@@ -1,8 +1,10 @@
 "use client";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@cnote/ui";
 
 export function CopyButton({ value, label }: { value: string; label: string }) {
+  const t = useTranslations("storefront.copy");
   const [copied, setCopied] = useState(false);
   return (
     <>
@@ -10,7 +12,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
         size="sm"
         variant="outline"
         className="min-h-8"
-        aria-label={`Copy ${label}`}
+        aria-label={t("aria", { label })}
         onClick={async () => {
           try {
             await navigator.clipboard.writeText(value);
@@ -21,9 +23,9 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
           }
         }}
       >
-        {copied ? "Copied" : "Copy"}
+        {copied ? t("copied") : t("copy")}
       </Button>
-      <span role="status" className="sr-only">{copied ? `${label} copied` : ""}</span>
+      <span role="status" className="sr-only">{copied ? t("done", { label }) : ""}</span>
     </>
   );
 }

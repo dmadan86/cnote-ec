@@ -1,0 +1,128 @@
+{
+  "verification": {
+    "meta": "Verification",
+    "title": "Verification",
+    "description": "Your badge reflects what we have verified and how you behave. It cannot be bought.",
+    "currentBadge": "Current badge:",
+    "paused": "Your badge is paused because your trust score is below the threshold. Responding quickly to leads and closing the loop on deals raises it.",
+    "tiersLabel": "Verification tiers",
+    "tiers": {
+      "t0": {
+        "name": "T0 Phone verified",
+        "body": "Your mobile number is confirmed by OTP."
+      },
+      "t1": {
+        "name": "T1 GST verified",
+        "body": "Your GSTIN is checked with the GST network. Shows the GST verified badge and improves your ranking."
+      },
+      "t2": {
+        "name": "T2 KYC verified",
+        "body": "Document checks and a short video KYC of the owner. Shows the KYC verified badge."
+      },
+      "t3": {
+        "name": "T3 Audited",
+        "body": "Physical or partner audit, for categories that need it. Arranged by our team."
+      }
+    },
+    "done": "Done",
+    "toDo": "To do",
+    "comingSoon": "Coming soon",
+    "gstCard": "Verify your GST",
+    "kycCard": "Complete KYC (Tier 2)",
+    "auditCard": "Audit (Tier 3)",
+    "history": "History",
+    "noChecks": "No verification checks yet.",
+    "status": {
+      "passed": "passed",
+      "failed": "failed",
+      "pending": "pending"
+    },
+    "gst": {
+      "label": "GSTIN",
+      "hintEmpty": "15 characters, like 27AAPFU0939F1ZV. You can find it on your GST certificate.",
+      "hintOk": "Format looks right.",
+      "progress": "{count} of 15 characters",
+      "tooLong": "GSTIN has 15 characters",
+      "badPattern": "This does not look like a GSTIN. Check the letters and digits.",
+      "badChecksum": "Last character does not match. Check for a typing mistake.",
+      "udyamLabel": "Udyam registration (optional)",
+      "udyamHint": "For MSME status, like UDYAM-KA-03-0012345.",
+      "failed": "We could not verify this GSTIN. {reason}",
+      "defaultReason": "Check the number matches your registration and try again.",
+      "passed": "GST verified. Your badge now shows GST verified.",
+      "submit": "Verify GST",
+      "pending": "Verifying…",
+      "errGstin": "This GSTIN does not look right. Check it and try again.",
+      "errUdyam": "Udyam looks like UDYAM-KA-03-0012345."
+    },
+    "kyc": {
+      "docs": {
+        "gst_certificate": {
+          "label": "GST registration certificate",
+          "tips": "Page 1 of the GST REG-06 certificate. GSTIN, legal name and address must be readable."
+        },
+        "pan_card": {
+          "label": "PAN card",
+          "tips": "Photo of the PAN card of the business or proprietor. Name and PAN number must be readable."
+        },
+        "udyam_certificate": {
+          "label": "Udyam certificate",
+          "tips": "Optional. Helps MSME status."
+        },
+        "bank_proof": {
+          "label": "Bank proof",
+          "tips": "Optional. Cancelled cheque or first page of a statement. Only the last 4 digits of the account are kept."
+        },
+        "address_proof": {
+          "label": "Address proof",
+          "tips": "Optional. Electricity bill or rent agreement page showing the business address."
+        }
+      },
+      "optional": "(optional)",
+      "verdict": {
+        "pass": "Looks good",
+        "fail": "Needs a new photo",
+        "review": "Under review"
+      },
+      "notUploaded": "Not uploaded",
+      "panRead": "PAN read as <mono>{pan}</mono>",
+      "chooseAria": "Choose a photo of {doc}",
+      "replace": "Replace photo",
+      "upload": "Upload photo",
+      "uploadHint": "JPEG, PNG or WebP, up to 5 MB. No PDFs yet: photograph or screenshot page 1.",
+      "netError": "Network problem. Please try again.",
+      "uploadFailed": "Upload failed. Please try again.",
+      "docsLabel": "KYC documents",
+      "expired": "Your last KYC attempt expired. Start again; it takes about 10 minutes.",
+      "intro": "You will need your GST certificate and PAN card, then a short video check on your phone (a live selfie matched to your PAN photo). Only the owner or authorised signatory can do this.",
+      "start": "Start KYC",
+      "approved": "KYC verified. Your badge now shows Tier 2.",
+      "rejectedNote": "We could not verify your KYC: {note} Contact support to try again with corrected documents.",
+      "rejected": "We could not verify your KYC. Contact support to try again with corrected documents.",
+      "inReview": "Submitted. A verification officer is reviewing your documents. This usually takes one working day.",
+      "videoStarted": "Video check started. Finish it on the provider page; this page updates when the result arrives. <link>Refresh</link>",
+      "videoTitle": "Video check",
+      "videoBody": "A hosted page opens on your phone or computer camera: a live selfie and a short liveness check. We keep only the result scores, never the video or face template.",
+      "startVideo": "Start video KYC",
+      "replaceFirst": "Replace the documents marked \"{label}\" first.",
+      "uploadFirst": "Upload the GST certificate and PAN card first."
+    },
+    "t3": {
+      "afterKyc": "Available after KYC. ",
+      "none": "Only categories that need it are audited. If yours does, our team will contact you.",
+      "requested": "An audit by {partner} has been requested. We will confirm a date with you.",
+      "scheduled": "Audit by {partner} scheduled for {date}. Keep your premises and stock records ready.",
+      "scheduledTbc": "Audit by {partner} scheduled for a date to be confirmed. Keep your premises and stock records ready.",
+      "passed": "Passed",
+      "validUntil": "Valid until {date}.",
+      "validFurther": "Valid until further notice.",
+      "conditional": "Conditional",
+      "conditionalBody": "Our team will follow up on the open points.",
+      "expired": "Expired",
+      "expiredOn": "Your last audit lapsed on {date}. Contact support to renew.",
+      "expiredBody": "Your last audit lapsed. Contact support to renew.",
+      "failed": "Not passed",
+      "failedBody": "Contact support to discuss next steps."
+    }
+  }
+}

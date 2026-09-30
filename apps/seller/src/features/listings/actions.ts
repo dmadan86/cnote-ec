@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { DomainError, rupeesToPaise } from "@cnote/core";
@@ -16,17 +17,21 @@ export type DraftResult = ActionResult<{ listingId: string }>;
 export type SaveResult = ActionResult<{ listing: ListingView; intent: "save" | "publish"; version?: VersionView }>;
 export type RowResult = ActionResult<null>;
 
-const draftSchema = z.object({
-  text: z.string().min(10, "Write at least a sentence about what you sell.").max(2000, "Please keep it under 2,000 characters."),
-  language: z.string().min(2).max(5),
-});
+type T = Awaited<ReturnType<typeof getTranslations>>;
+
+const draftSchema = (t: T) =>
+  z.object({
+    text: z.string().min(10, t("actions.draftMin")).max(2000, t("actions.draftMax")),
+    language: z.string().min(2).max(5),
+  });
 
 /** ADR-004: free text (Hindi/Hinglish/English) -> AI draft listing. Never auto-published (DESIGN principle 5). */
 export async function draftListingAction(_prev: DraftResult | null, fd: FormData): Promise<DraftResult> {
   const mode = str(fd, "mode") === "onboarding" ? "onboarding" : "portal";
+  const t = await getTranslations("listings");
   const session = await requireSeller(mode === "onboarding" ? "/onboarding" : "/listings/new");
   const result = await run(async () => {
-    const input = draftSchema.parse({ text: str(fd, "text"), language: str(fd, "language") || "en" });
+    const input = draftSchema(t).parse({ text: str(fd, "text"), language: str(fd, "language") || "en" });
     const started = Date.now();
     const listing = await catalogue.draftListingFromText(session.business.id, input.text, input.language);
     logEvent("seller.listing_drafted", { businessId: session.business.id, listingId: listing.id, aiMs: Date.now() - started });
@@ -39,19 +44,20 @@ export async function draftListingAction(_prev: DraftResult | null, fd: FormData
   return result;
 }
 
-const formSchema = z.object({
-  id: z.string().optional(),
-  categoryId: z.string().min(1, "Choose a category."),
-  title: z.string().min(3, "Give the listing a short title.").max(140, "Keep the title under 140 characters."),
-  description: z.string().min(10, "Describe the product in a sentence or two.").max(4000),
-  priceRupees: z.number().min(0, "Price cannot be negative.").nullable().refine((v) => v === null || Number.isFinite(v), "Enter a number, like 120 or 5.20."),
-  priceUnit: z.string().max(20),
-  moq: z.number().int("Use a whole number.").min(1, "Minimum order must be at least 1.").nullable().refine((v) => v === null || Number.isFinite(v), "Enter a whole number."),
-  moqUnit: z.string().max(20),
-  hsn: z.string().regex(/^(\d{4}|\d{6}|\d{8})?$/, "HSN is 4, 6 or 8 digits.").optional(),
-  language: z.string().min(2).max(5),
-  imageUrls: z.array(z.url("Use full links starting with https://").refine((u) => u.startsWith("https://"), "Use full links starting with https://")).max(5, "Add up to 5 image links."),
-});
+const formSchema = (t: T) =>
+  z.object({
+    id: z.string().optional(),
+    categoryId: z.string().min(1, t("actions.chooseCategory")),
+    title: z.string().min(3, t("actions.titleMin")).max(140, t("actions.titleMax")),
+    description: z.string().min(10, t("actions.descMin")).max(4000),
+    priceRupees: z.number().min(0, t("actions.priceNegative")).nullable().refine((v) => v === null || Number.isFinite(v), t("actions.priceNumber")),
+    priceUnit: z.string().max(20),
+    moq: z.number().int(t("actions.moqWhole")).min(1, t("actions.moqMin")).nullable().refine((v) => v === null || Number.isFinite(v), t("actions.moqNumber")),
+    moqUnit: z.string().max(20),
+    hsn: z.string().regex(/^(\d{4}|\d{6}|\d{8})?$/, t("actions.hsnFormat")).optional(),
+    language: z.string().min(2).max(5),
+    imageUrls: z.array(z.url(t("actions.imageLink")).refine((u) => u.startsWith("https://"), t("actions.imageLink"))).max(5, t("actions.imageMax")),
+  });
 
 function issue(path: string, message: string): z.core.$ZodIssue {
   return { code: "custom", path: [path], message, input: undefined };
@@ -59,11 +65,12 @@ function issue(path: string, message: string): z.core.$ZodIssue {
 
 /** Create/update a listing; with intent=publish also validates + moderates via catalogue.publishListing (ADR-003/004). */
 export async function saveListingAction(_prev: SaveResult | null, fd: FormData): Promise<SaveResult> {
+  const t = await getTranslations("listings");
   const session = await requireSeller("/listings");
   const actor = actorOf(session);
   return run(async () => {
     const intent: "save" | "publish" = str(fd, "intent") === "publish" ? "publish" : "save";
-    const parsed = formSchema.parse({
+    const parsed = formSchema(t).parse({
       id: str(fd, "id") || undefined,
       categoryId: str(fd, "categoryId"),
       title: str(fd, "title"),
@@ -78,22 +85,22 @@ export async function saveListingAction(_prev: SaveResult | null, fd: FormData):
     });
 
     const category = (await catalogue.listCategories()).find((c) => c.id === parsed.categoryId);
-    if (!category) throw new DomainError("validation", "Choose a category.");
-    if (category.prohibited) throw new DomainError("validation", "This category is not allowed on the marketplace. See the prohibited-category policy.");
+    if (!category) throw new DomainError("validation", t("actions.chooseCategory"));
+    if (category.prohibited) throw new DomainError("validation", t("actions.prohibited"));
 
     const issues: z.core.$ZodIssue[] = [];
-    if (parsed.priceRupees !== null && !parsed.priceUnit) issues.push(issue("priceUnit", "Choose the unit this price is for."));
-    if (parsed.moq !== null && !parsed.moqUnit) issues.push(issue("moqUnit", "Choose the unit for the minimum order."));
+    if (parsed.priceRupees !== null && !parsed.priceUnit) issues.push(issue("priceUnit", t("actions.priceUnitNeeded")));
+    if (parsed.moq !== null && !parsed.moqUnit) issues.push(issue("moqUnit", t("actions.moqUnitNeeded")));
     const attributes: Record<string, string | number> = {};
     for (const f of category.attributeSchema.fields) {
       const raw = str(fd, `attr.${f.key}`);
       if (raw === "") {
-        if (f.required && intent === "publish") issues.push(issue(`attr.${f.key}`, `${f.label} is needed to publish.`));
+        if (f.required && intent === "publish") issues.push(issue(`attr.${f.key}`, t("actions.attrNeeded", { label: f.label })));
         continue;
       }
       if (f.type === "number") {
         const n = Number(raw);
-        if (!Number.isFinite(n)) issues.push(issue(`attr.${f.key}`, "Enter a number."));
+        if (!Number.isFinite(n)) issues.push(issue(`attr.${f.key}`, t("actions.attrNumber")));
         else attributes[f.key] = n;
       } else attributes[f.key] = raw;
     }
@@ -162,6 +169,7 @@ export type VersionActionResult = ActionResult<{ message: string }>;
 
 /** Snapshot the saved working copy as a new version; optional schedule (datetime-local, interpreted in the seller's timezone offset sent by the form). */
 export async function submitVersionAction(_prev: VersionActionResult | null, fd: FormData): Promise<VersionActionResult> {
+  const t = await getTranslations("listings.actions");
   const session = await requireSeller("/listings");
   return run(async () => {
     const d = submitSchema.parse({ listingId: str(fd, "listingId"), changeNote: str(fd, "changeNote") || undefined, publishAt: str(fd, "publishAt") || undefined });
@@ -170,7 +178,7 @@ export async function submitVersionAction(_prev: VersionActionResult | null, fd:
       // <input type=datetime-local> has no zone; the form also posts tzOffset (minutes, Date#getTimezoneOffset).
       const off = Number(str(fd, "tzOffset") || 0);
       const local = new Date(`${d.publishAt}:00Z`);
-      if (Number.isNaN(local.getTime())) throw new DomainError("validation", "Pick a valid date and time.");
+      if (Number.isNaN(local.getTime())) throw new DomainError("validation", t("actions.badDate"));
       publishAt = new Date(local.getTime() + (Number.isFinite(off) ? off : 0) * 60_000);
     }
     const v = await catalogue.submitListingVersion(session.business.id, d.listingId, { changeNote: d.changeNote, publishAt, createdBy: session.personId });
@@ -178,30 +186,32 @@ export async function submitVersionAction(_prev: VersionActionResult | null, fd:
     revalidatePath("/listings");
     revalidatePath(`/listings/${d.listingId}/edit`);
     const message =
-      v.status === "approved" ? (publishAt ? `Version ${v.version} approved. It goes live at the scheduled time.` : `Version ${v.version} approved. It goes live within a minute.`)
-      : v.status === "rejected" ? `Version ${v.version} was not accepted: ${v.reviewNote ?? "policy check failed"}`
-      : `Version ${v.version} submitted. Our team will review it; your live listing stays unchanged meanwhile.`;
+      v.status === "approved" ? (publishAt ? t("approvedScheduled", { version: v.version }) : t("approvedLive", { version: v.version }))
+      : v.status === "rejected" ? t("rejected", { version: v.version, note: v.reviewNote ?? t("policyFailed") })
+      : t("submitted", { version: v.version });
     return { message };
   });
 }
 
 export async function withdrawVersionAction(_prev: VersionActionResult | null, fd: FormData): Promise<VersionActionResult> {
+  const t = await getTranslations("listings.actions");
   const session = await requireSeller("/listings");
   return run(async () => {
     const v = await catalogue.withdrawVersion(session.business.id, z.string().min(1).parse(str(fd, "versionId")));
     revalidatePath("/listings");
     revalidatePath(`/listings/${v.listingId}/edit`);
-    return { message: `Version ${v.version} withdrawn.` };
+    return { message: t("withdrawn", { version: v.version }) };
   });
 }
 
 export async function unpublishListingAction(_prev: VersionActionResult | null, fd: FormData): Promise<VersionActionResult> {
+  const t = await getTranslations("listings.actions");
   const session = await requireSeller("/listings");
   return run(async () => {
     const id = z.string().min(1).parse(str(fd, "id"));
     await catalogue.unpublishListing(session.business.id, id);
     revalidatePath("/listings");
     revalidatePath(`/listings/${id}/edit`);
-    return { message: "Listing taken offline. Buyers no longer see it." };
+    return { message: t("offline") };
   });
 }

@@ -1,5 +1,6 @@
 import { cachedTagged, cacheTags } from "@cnote/core";
 import { listCategories, suggestListingTitles } from "@cnote/catalogue";
+import { remoteSuggest, searchFallbackEnabled, searchTransport, sharedSearchServiceClient } from "./remote";
 
 /** Matches the "Try asking" chips on the home page. */
 export const EXAMPLE_QUERIES = [
@@ -14,7 +15,13 @@ const matches = (s: string, p: string) => {
   return l.startsWith(p) || l.split(/\s+/).some((w) => w.startsWith(p));
 };
 
+/** SEARCH_TRANSPORT=http routes to apps/search-service (in-process fallback); default in-process. */
 export async function suggest(prefix: string, limit = 8): Promise<string[]> {
+  if (searchTransport() === "http") return remoteSuggest(sharedSearchServiceClient(), prefix, limit, searchFallbackEnabled() ? () => suggestLocal(prefix, limit) : null);
+  return suggestLocal(prefix, limit);
+}
+
+export async function suggestLocal(prefix: string, limit = 8): Promise<string[]> {
   const p = prefix.trim().toLowerCase().replace(/\s+/g, " ").slice(0, 50);
   const n = Math.max(1, Math.min(20, Math.trunc(limit)));
   if (!p) return EXAMPLE_QUERIES.slice(0, n);

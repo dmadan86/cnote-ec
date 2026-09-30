@@ -1,4 +1,5 @@
 import { currentSession } from "@cnote/next-kit";
+import { getTranslations } from "next-intl/server";
 import { unreadCount } from "@cnote/notifications";
 import { Bell } from "lucide-react";
 import Link from "next/link";
@@ -10,8 +11,9 @@ import Link from "next/link";
 export async function NotificationBell({ className }: { className?: string }) {
   const session = await currentSession();
   if (!session) return null;
+  const t = await getTranslations("notifications");
   const count = await unreadCount(session.personId, "seller").catch(() => 0);
-  const label = count > 0 ? `Notifications, ${count} unread` : "Notifications";
+  const label = count > 0 ? t("bellUnread", { count }) : t("bell");
   return (
     <Link
       href="/notifications"

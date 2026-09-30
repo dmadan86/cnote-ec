@@ -122,8 +122,11 @@ model EscrowFreeze {
 model EscrowPayout {
   id          String    @id @default(uuid()) @db.Uuid
   escrowId    String    @map("escrow_id") @db.Uuid
-  /// seller_payout | buyer_refund
+  /// seller_payout | buyer_refund | lender_repayment (seller proceeds assigned to an NBFC, ADR-019)
   kind        String
+  /// lender_repayment only: the credit assignment id and the lender's loan reference
+  assignmentRef  String? @map("assignment_ref")
+  beneficiaryRef String? @map("beneficiary_ref")
   businessId  String    @map("business_id") @db.Uuid
   amountPaise BigInt    @map("amount_paise")
   /// pending | settled | failed
@@ -178,4 +181,20 @@ model EscrowReconciliationIssue {
 
   @@index([status, createdAt])
   @@map("escrow_reconciliation_issues")
+}
+
+/// Seller proceeds of an escrow assigned to an NBFC (invoice financing, ADR-019). Written by @cnote/credit through escrow's
+/// public API at disbursal and kept current as the loan is repaid; at release escrow pays min(net, duePaise) to the lender
+/// before the seller.
+model EscrowLenderAssignment {
+  escrowId       String   @id @map("escrow_id") @db.Uuid
+  assignmentId   String   @unique @map("assignment_id")
+  partner        String
+  partnerLoanRef String   @map("partner_loan_ref")
+  duePaise       BigInt   @map("due_paise")
+  /// active | cleared
+  status         String   @default("active")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("escrow_lender_assignments")
 }

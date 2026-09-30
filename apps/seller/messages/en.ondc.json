@@ -1,0 +1,56 @@
+{
+  "ondc": {
+    "metaTitle": "ONDC",
+    "title": "ONDC",
+    "description": "Offer your products on the Open Network for Digital Commerce. You choose which listings to add, and every order comes to you to accept or reject.",
+    "ordersButton": "ONDC orders",
+    "notLive": "ONDC is not live yet. You can connect and choose listings now; nothing is shown to buyers on the network until we go live.",
+    "channel": "Channel",
+    "statusLabel": "Status:",
+    "connected": "Connected",
+    "notConnected": "Not connected",
+    "termsAccepted": "Terms {version} accepted {when}.",
+    "listingsReady": "{count, plural, one {# listing ready for the network.} other {# listings ready for the network.}}",
+    "yourListings": "Your listings",
+    "noListingsTitle": "No listings yet",
+    "noListingsDescription": "Create and publish a listing first, then add it to ONDC here.",
+    "shown": "Shown on ONDC",
+    "reason": {
+      "not_opted_in": "Not added",
+      "not_published": "Not live yet: publish the listing first",
+      "not_approved": "Waiting for review",
+      "seller_unverified": "Complete verification to sell on ONDC",
+      "no_price": "Add a price to sell on ONDC"
+    },
+    "disconnect": "Disconnect from ONDC",
+    "disconnecting": "Disconnecting…",
+    "termsText": "I have read and accept the ONDC seller terms: my opted-in listings may be shown to ONDC buyer apps, and orders arrive in my ONDC inbox for me to accept or reject.",
+    "connect": "Connect to ONDC",
+    "connecting": "Connecting…",
+    "saving": "Saving…",
+    "remove": "Remove from ONDC",
+    "add": "Add to ONDC",
+    "accept": "Accept",
+    "accepting": "Accepting…",
+    "reject": "Reject",
+    "rejecting": "Rejecting…",
+    "acceptTerms": "Please accept the ONDC seller terms to connect.",
+    "orders": {
+      "metaTitle": "ONDC orders",
+      "title": "ONDC orders",
+      "description": "Orders placed by buyers on the ONDC network. Accept or reject each one; the buyer's app is told straight away.",
+      "settings": "ONDC settings",
+      "emptyTitle": "No ONDC orders yet",
+      "emptyDescription": "Orders from the network appear here.",
+      "order": "Order",
+      "from": "From {bap} · {date}",
+      "status": {
+        "created": "Needs your decision",
+        "accepted": "Accepted",
+        "in_progress": "In progress",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      }
+    }
+  }
+}

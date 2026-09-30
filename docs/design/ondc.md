@@ -1,12 +1,12 @@
 # ONDC seller-network-participant adapter (ADR-017)
 
-Status: built, **not live on the network**. Flag `ONDC_ENABLED` defaults to `false`; with it off the API routes return 404, nothing is published, and every worker consumer/job is a no-op. Going live is ADR-021 and depends on ADR-013 (dispute capacity).
+Status: built and **live-ready (ADR-021), not yet certified or live**. Flag `ONDC_ENABLED` defaults to `false`; with it off the API routes return 404, nothing is published, and every worker consumer/job is a no-op. Going live needs the ONDC certification items below and ADR-013 dispute capacity (`DISPUTES_ENABLED`).
 
 Package `@cnote/ondc` (`packages/ondc`), schema `packages/db/prisma/schema/ondc.prisma`, routes `apps/api/src/routes/ondc`, seller UI `apps/seller/src/app/(portal)/ondc`, admin UI `apps/admin/src/app/(console)/ondc`.
 
 ## Scope
 
-Seller-side only (BPP): we expose opted-in catalogue and receive orders. The buyer experience stays first-party (ADR-017). Out of scope now: IGM (issues and grievances), buyer-side participation, payments settlement on the network, logistics (ONDC LSP) fulfilment.
+Seller-side only (BPP): we expose opted-in catalogue and receive orders. The buyer experience stays first-party (ADR-017). IGM (issues and grievances) is implemented (ADR-021, below). Out of scope: buyer-side participation (evaluated after two quarters), payments settlement on the network, logistics (ONDC LSP) fulfilment.
 
 ## Protocol flows
 
@@ -44,7 +44,7 @@ Domain errors we emit: 30001 provider unavailable, 30004 item/order not found, 4
 - Verification: parse -> `keyId.subscriber_id == context.bap_id` -> registry lookup (`POST {registry}/lookup {subscriber_id, ukId, country}`; entry must be SUBSCRIBED and inside `valid_from/valid_until`; positive cache 10 min, negative 60 s, transient failures not cached) -> reject future `created` (30 s skew) and past `expires` -> verify over the raw body string as received.
 - Signatures on callbacks are made at send time (lifetime `ONDC_SIGNATURE_TTL_SECONDS`, default 300).
 - Keys: base64 raw libsodium (ed25519 private = seed||pub, 64 bytes; or bare 32-byte seed), or base64 PKCS8/SPKI DER. Tests pin RFC 8032 test 1 and RFC 7693 (`abc`) vectors plus a fixed-input header vector.
-- Gateway `X-Gateway-Authorization` is not verified (BAP signature is); add if ONDC certification requires it.
+- Gateway `X-Gateway-Authorization` (ADR-021): on `/search` we verify it in addition to the BAP signature, same scheme, over the raw body; the signer is looked up in the registry (`type` must be `BG`, SUBSCRIBED, in its validity window). Required when `ONDC_REQUIRE_GATEWAY_AUTH` is true (default on when `ONDC_ENV=prod`); when present but not required it is still verified, so a forged header is never ignored. Missing/invalid -> 401 NACK 10001, registry outage -> 503.
 
 ### Registry onboarding
 
@@ -80,7 +80,7 @@ Fulfilment is a single `F1` (Delivery) and location `L1`. GST rates are not mode
 
 Mirroring to the enquiry `Order` model is a port: `setOrderSink({ recordExternalOrder })`, default `null` (orders stay in the ONDC inbox). Enquiry today requires `matchId/enquiryId`, so the lead must add an enquiry public function (see the build report): create an Order with `settlement="ondc"`, no match, idempotent on `externalRef`. A sink failure never loses the order and never blocks `on_confirm`: the row is re-offered on redelivery, so sinks MUST be idempotent on `externalRef = "ondc:<ondcOrderId>"`.
 
-Seller inbox (`/ondc/orders`): accept (`on_status` with state Accepted) or reject (`on_cancel`, reason code 011). Buyer `cancel` is honoured from `created`/`accepted`. Order status changes after accept (dispatch/completion) are not yet mirrored back from enquiry: Phase 3 follow-up together with the sink.
+Seller inbox (`/ondc/orders`): accept (`on_status` with state Accepted) or reject (`on_cancel`, reason code 011). Buyer `cancel` is honoured from `created`/`accepted`. Later order status changes are mirrored back as unsolicited `on_status` (see Fulfilment status push).
 
 ## Queue, retries and failure handling
 
@@ -95,22 +95,79 @@ Topics (declaration-merged `JobTopics`): `ondc.inbound {messageId}` and `ondc.ca
 - DPDP (ADR-010): protocol messages contain buyer contact/billing. Admin views redact `billing`, `contact`, `end`, `phone`, `email`, `address`, `gps`, `name` (except catalogue names). Job `ondc.purge-messages` deletes messages older than 90 days. `OndcOrder.payload` follows the order's own retention: register it with `@cnote/compliance` before go-live. Data stays in India regions.
 - Seller consent: explicit terms acceptance (`TERMS_VERSION`), recorded with person and timestamp on `OndcSeller`.
 
-## Disputes: IGM is Phase 3
+## Live participation (ADR-021)
 
-ONDC IGM (issue and grievance management: `issue`, `on_issue`, `issue_status`, L1/L2/GRO escalation, resolution SLAs) is not implemented. ONDC disputes are unbundled (buyer app, seller app and logistics each own a part), so they cannot be absorbed by the Phase-2 disputes module (ADR-013) as is. Dependency for ADR-021: ADR-013 needs an external-case intake (from `issue`) and outcome push (`on_issue` resolution), plus reviewer capacity. Until then, seller-facing ONDC terms state that grievances are handled outside the network, and going live is blocked on this.
+### Fulfilment status push
+
+The worker observes `OrderStatusChanged`. For a platform order with an ONDC mirror (`OndcOrder.internalOrderId`), the status maps to a Beckn fulfilment state and an unsolicited, signed `on_status` is queued on `ondc.callback` (same retry/dead-letter path):
+
+| platform status | fulfilment state | ONDC order state |
+|---|---|---|
+| confirmed (only if the order was still `created`, i.e. accepted on the platform side) | Packed | Accepted |
+| dispatched | Order-picked-up | In-progress |
+| delivered | Order-delivered | In-progress |
+| completed | Order-delivered | Completed |
+| cancelled (unless already cancelled through the inbox) | Cancelled | Cancelled |
+
+`recorded` is not pushed; inbox accept/reject already sent their own callback and the handler skips them. Idempotent per (order, state): the `message_id` is a deterministic uuid of (order, fulfilment state, order state) and outbound rows are unique on it; states never move backwards. `OndcOrder.fulfilmentState` also feeds `on_status` replies to buyer `status` calls (`fulfillments[].state.descriptor.code`). Out-for-delivery has no platform trigger yet (enquiry has no such status); it is in `FULFILMENT_STATES` for when a logistics signal exists.
+
+### IGM (issue and grievance management)
+
+Endpoints (same signed-request pipeline, same `/ondc/{action}` route): `POST /ondc/issue`, `POST /ondc/issue_status`. We ACK synchronously and answer `on_issue` / `on_issue_status` to `bap_uri` (same callback queue; IGM core_version follows the request, default 1.0.0).
+
+```
+issue          -> OndcIssue (unique bap_id + issue.id) -> dispute opened via @cnote/disputes.openDispute
+                  (opener = ONDC system buyer business, respondent = seller) -> OndcIssueReceived (once) -> on_issue PROCESSING
+issue (again)  -> re-ack with current state; issue.status CLOSED -> dispute withdrawn (if still withdrawable), issue closed
+issue_status   -> on_issue_status with respondent_actions (+ resolution when resolved)
+DisputeEscalated -> on_issue_status PROCESSING "escalated to human review"
+DisputeResolved  -> on_issue_status RESOLVED + resolution {action_triggered REFUND|NO-ACTION, refund_amount}
+TTL job (10 min) -> resolution TTL exceeded -> on_issue_status CASCADED (level 2), once
+```
+
+Mapping: `order_details.id` = the `OndcOrder.id` we returned as `order.id` (must belong to the same BAP, else `on_issue` error 30004). Dispute type from category/sub-category (`disputeTypeFor`: ITEM ITM01/04 quantity_short, ITM02 quality_mismatch, ITM03 wrong_item, ITM05/06 damaged, FULFILLMENT/ORDER non_delivery, PAYMENT payment_issue, else other; best effort, reconcile with the IGM sheet). Outcome: buyer_favour/split with a refund -> REFUND with `refund_amount`; seller_favour -> NO-ACTION. TTLs: `expected_response_time` / `expected_resolution_time` from the request, else `ONDC_IGM_RESPONSE_TTL` (PT1H) / `ONDC_IGM_RESOLUTION_TTL` (PT24H). We answer `on_issue` at receipt, so the response TTL is met by the worker turnaround; `expectedResponseAt` is kept for audit.
+
+**Gap: manual fallback.** `openDispute` needs a platform order in `confirmed/dispatched/delivered/completed` and `DISPUTES_ENABLED`. When the issue arrives for an order with no mirror (sink not wired), still `recorded`, or with disputes off, the issue is stored with `needsManual = true` and no dispute; the network is still answered (PROCESSING) and staff resolve it in the admin console ("Network issues" table, Resolve), which pushes `on_issue_status` RESOLVED (audited). Issues with a live dispute must be resolved through the dispute. ADR-013 has no "external opener" concept: the system buyer business plus a zero person id is used as the actor (no FK on the person column); if disputes later require a real person, add a system person.
+
+DPDP: `OndcIssue.payload` holds the complainant contact; `ondc.purge-messages` strips resolved/closed issue payloads (to the Beckn context only) after 90 days. Register `OndcIssue`/`OndcOrder` payloads with `@cnote/compliance`.
+
+### Kill switch
+
+`OndcControl` row `killswitch` (DB, no redeploy), toggled in the admin console (ondc.manage, audited in `AdminAuditLog`, note stored). While on: every inbound action is NACKed 503 (retryable, error 20000 "suspended"), catalogue publishing and the `on_search` projection are empty, the worker skips inbound processing and callback delivery (rows stay `received`/`pending`), fulfilment and IGM pushes are not queued, the TTL job is a no-op. `/on_subscribe` and site verification keep working. Releasing re-queues parked inbound and outbound rows (`resumePending`). The state is cached 3 s per process.
+
+### Evaluation (ADR-021, two quarters)
+
+`ondcEvaluation(from, to)` returns incremental GMV (non-cancelled ONDC orders; network buyers have no platform business, so all of it is GMV the platform did not have from its own buyers; overlap with existing buyers is not observable), GMV by month, order counts, issue counts by category/status, issues and disputes per 100 orders, share resolved within TTL and median resolution hours. The admin page shows the last 90 days.
+
+### Readiness checklist
+
+The admin ONDC page shows automatic checks (keys present, registry encryption key, subscribed in the registry with our signing key, site verification served, gateway auth required, order sink wired, disputes enabled, grievance officer contact, category map, environment) and manual certification items (`cert.*` rows, ticked by staff, audited).
+
+## Go-live runbook
+
+1. Staging: set env (below) on api + worker + admin, `DISPUTES_ENABLED=true`, `ONDC_GRO_EMAIL/PHONE`; the order sink is wired in the composition roots. Keep `ONDC_ENABLED=false` until the admin readiness page shows the automatic checks green.
+2. Register on the ONDC staging registry (subscriber id, unique key id, keys, B2B domain code, city codes); complete `/on_subscribe`; confirm `/ondc-site-verification.html`.
+3. Set `ONDC_ENABLED=true` (staging) and run the ONDC log-verification suite for search, select, init, confirm, status, cancel, unsolicited on_status, and IGM (issue, on_issue, issue_status, on_issue_status). Tick the checklist items in admin as each passes.
+4. Pre-prod, then prod: `ONDC_ENV` changes the registry URL and turns gateway auth on by default; verify the gateway header against the ONDC gateway before prod.
+5. Pilot with a few verified (tier >= 1) sellers. Watch failed callbacks, dead-lettered `ondc.*` topics and overdue issues. Use the kill switch first, investigate second.
+6. Two quarters of `ondcEvaluation` before deciding on buyer-side participation.
+
+## Still needs ONDC certification / decisions
+
+B2B domain code and city codes (defaults are the retail domain `ONDC:RET10`); error-code sheet reconciliation (including IGM errors); IGM sub-category codes and the `resolution_provider` shape against the current IGM spec (this build follows IGM 1.0 field names; IGM 2.0 differs); the gateway registry type (`BG`) and header handling against the staging gateway; the log-verification suites; logistics-driven fulfilment states (Out-for-delivery, In-transit) once a logistics signal exists; GST in quotes; legal review of seller terms (they must now describe network grievance handling instead of "outside the network").
 
 ## Configuration
 
-`ONDC_ENABLED` (false), `ONDC_ENV` (staging|preprod|prod), `ONDC_REGISTRY_URL` (override), `ONDC_SUBSCRIBER_ID`, `ONDC_UNIQUE_KEY_ID`, `ONDC_SUBSCRIBER_URL`, `ONDC_SIGNING_PRIVATE_KEY`, `ONDC_ENCRYPTION_PRIVATE_KEY`, `ONDC_ENCRYPTION_PUBLIC_KEY`, `ONDC_REGISTRY_ENCRYPTION_PUBLIC_KEY`, `ONDC_SITE_REQUEST_ID`, `ONDC_DOMAINS` (`ONDC:RET10`), `ONDC_CITY_CODES` (`*`), `ONDC_COUNTRY` (IND), `ONDC_CORE_VERSION` (1.2.0), `ONDC_TTL` (PT30S), `ONDC_SIGNATURE_TTL_SECONDS` (300), `ONDC_ALLOW_HTTP`, `ONDC_CATEGORY_MAP` (JSON).
+`ONDC_ENABLED` (false), `ONDC_ENV` (staging|preprod|prod), `ONDC_REGISTRY_URL` (override), `ONDC_SUBSCRIBER_ID`, `ONDC_UNIQUE_KEY_ID`, `ONDC_SUBSCRIBER_URL`, `ONDC_SIGNING_PRIVATE_KEY`, `ONDC_ENCRYPTION_PRIVATE_KEY`, `ONDC_ENCRYPTION_PUBLIC_KEY`, `ONDC_REGISTRY_ENCRYPTION_PUBLIC_KEY`, `ONDC_SITE_REQUEST_ID`, `ONDC_DOMAINS` (`ONDC:RET10`), `ONDC_CITY_CODES` (`*`), `ONDC_COUNTRY` (IND), `ONDC_CORE_VERSION` (1.2.0), `ONDC_TTL` (PT30S), `ONDC_SIGNATURE_TTL_SECONDS` (300), `ONDC_ALLOW_HTTP`, `ONDC_CATEGORY_MAP` (JSON), `ONDC_REQUIRE_GATEWAY_AUTH` (true in prod), `ONDC_IGM_RESPONSE_TTL` (PT1H), `ONDC_IGM_RESOLUTION_TTL` (PT24H), `ONDC_GRO_NAME`, `ONDC_GRO_EMAIL`, `ONDC_GRO_PHONE`. The kill switch and certification items live in the database (`OndcControl`), not env.
 
 ## Go-live checklist (ADR-021)
 
-1. ADR-013 IGM prerequisite met (see above) and ONDC terms reviewed by legal.
+1. ADR-013 disputes enabled (IGM issues open disputes) and ONDC terms reviewed by legal.
 2. Participant registered on ONDC (staging -> pre-prod -> prod): subscriber id, unique key id, domains and city codes confirmed; error-code sheet reconciled; domain code for B2B confirmed.
 3. Keys generated (`generateSigningKeyPair`, `generateEncryptionKeyPair`), private keys in the secrets provider, public keys submitted; `ONDC_REGISTRY_ENCRYPTION_PUBLIC_KEY` set for the environment.
 4. `/on_subscribe` and `/ondc-site-verification.html` reachable on the subscriber domain (admin console shows Ready).
 5. ONDC test-harness/log-verification suite passes for search, select, init, confirm, status, cancel.
-6. Order sink wired to enquiry (`settlement="ondc"`); status mirror back to ONDC agreed.
+6. Order sink wired to enquiry (`settlement="ondc"`); fulfilment status mirror verified in the log suite.
 7. Category map (`ONDC_CATEGORY_MAP`) reviewed for the launch vertical (ADR-011).
 8. Retention for `OndcOrder.payload` registered with compliance; alerts on failed callbacks and dead-lettered `ondc.*` topics.
 9. Pilot with a handful of verified (tier >= 1) sellers; `ONDC_ENABLED=true` on api + worker in staging first; measure incremental GMV and dispute load for two quarters before evaluating buyer-side participation (ADR-021).

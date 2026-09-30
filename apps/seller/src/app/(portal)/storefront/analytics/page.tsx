@@ -1,29 +1,31 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import { getTrafficSummaryForSeller } from "@cnote/domains";
 import { Alert, Card, CardBody, CardHeader, CardTitle, EmptyState, LinkTabs, PageHeader, Stat } from "@cnote/ui";
+import { type Locale, intlTag } from "@/i18n/config";
 import { BarList, TrafficChart } from "@/features/domains/charts";
 import { requireSeller } from "@/lib/auth";
 import { load } from "@/lib/safe";
 
-export const metadata: Metadata = { title: "Storefront traffic" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("storefront.analytics");
+  return { title: t("metaTitle") };
+}
 export const dynamic = "force-dynamic";
 
 const RANGES = [7, 30, 90] as const;
-const SOURCE_LABELS: Record<string, string> = {
-  organic_search: "Search engines (Google, Bing)",
-  social: "Social media",
-  ai_assistant: "AI assistants (ChatGPT, Perplexity, Gemini, Claude, Copilot)",
-  paid: "Paid ads",
-  email: "Email",
-  referral: "Other websites",
-  direct: "Direct (typed or bookmarked)",
-};
-const DEVICE_LABELS: Record<string, string> = { mobile: "Mobile", desktop: "Desktop", tablet: "Tablet" };
-const HOST_LABELS: Record<string, string> = { custom: "Your own domain", subdomain: "Free address", path: "Marketplace link" };
-const n = (v: number) => v.toLocaleString("en-IN");
+const SOURCES = ["organic_search", "social", "ai_assistant", "paid", "email", "referral", "direct"] as const;
+const DEVICES = ["mobile", "desktop", "tablet"] as const;
+const HOSTS = ["custom", "subdomain", "path"] as const;
 
 export default async function AnalyticsPage({ searchParams }: PageProps<"/storefront/analytics">) {
+  const t = await getTranslations("storefront.analytics");
+  const locale = (await getLocale()) as Locale;
+  const n = (v: number) => v.toLocaleString(intlTag(locale));
+  const SOURCE_LABELS = Object.fromEntries(SOURCES.map((k) => [k, t(`source.${k}`)]));
+  const DEVICE_LABELS = Object.fromEntries(DEVICES.map((k) => [k, t(`device.${k}`)]));
+  const HOST_LABELS = Object.fromEntries(HOSTS.map((k) => [k, t(`host.${k}`)]));
   const sp = await searchParams;
   const raw = Number(Array.isArray(sp.range) ? sp.range[0] : sp.range);
   const days = (RANGES as readonly number[]).includes(raw) ? raw : 30;
@@ -33,35 +35,35 @@ export default async function AnalyticsPage({ searchParams }: PageProps<"/storef
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Storefront traffic"
-        description="Who visits your storefront and where they come from. We do not use cookies or store IP addresses; visitors are counted with a hash that changes every day."
-        actions={<Link href="/storefront/domains" className="text-sm font-medium text-brand-700 hover:underline">Custom domain</Link>}
+        title={t("title")}
+        description={t("description")}
+        actions={<Link href="/storefront/domains" className="text-sm font-medium text-brand-700 hover:underline">{t("customDomain")}</Link>}
       />
-      <LinkTabs label="Date range" items={RANGES.map((r) => ({ href: `/storefront/analytics?range=${r}`, label: `Last ${r} days`, active: r === days }))} />
+      <LinkTabs label={t("dateRange")} items={RANGES.map((r) => ({ href: `/storefront/analytics?range=${r}`, label: t("lastDays", { days: r }), active: r === days }))} />
       {!res.ok ? <Alert tone="danger">{res.error}</Alert> : !res.data ? (
-        <EmptyState title="No storefront yet" description="Publish your storefront and traffic will show up here." />
+        <EmptyState title={t("noStorefrontTitle")} description={t("noStorefrontDesc")} />
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Stat label="Visitors" value={n(res.data.totals.uniqueVisitors)} hint="Unique per day, added up" />
-            <Stat label="Page views" value={n(res.data.totals.pageviews)} />
-            <Stat label="Requests served" value={n(res.data.totals.requests)} hint="All requests, incl. crawlers and files" />
-            <Stat label="Enquiries" value={n(res.data.totals.enquiries)} hint="Started from your storefront" />
+            <Stat label={t("visitors")} value={n(res.data.totals.uniqueVisitors)} hint={t("visitorsHint")} />
+            <Stat label={t("pageViews")} value={n(res.data.totals.pageviews)} />
+            <Stat label={t("requests")} value={n(res.data.totals.requests)} hint={t("requestsHint")} />
+            <Stat label={t("enquiries")} value={n(res.data.totals.enquiries)} hint={t("enquiriesHint")} />
           </div>
           <Card>
-            <CardHeader><CardTitle>Visitors and page views</CardTitle></CardHeader>
-            <CardBody>{res.data.totals.requests === 0 ? <p className="text-sm text-muted">No visits recorded in this period yet. Numbers update every few minutes.</p> : <TrafficChart series={res.data.series} />}</CardBody>
+            <CardHeader><CardTitle>{t("chartTitle")}</CardTitle></CardHeader>
+            <CardBody>{res.data.totals.requests === 0 ? <p className="text-sm text-muted">{t("noVisits")}</p> : <TrafficChart series={res.data.series} />}</CardBody>
           </Card>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card><CardBody><BarList title="Where visitors come from" items={res.data.bySource} labels={SOURCE_LABELS} /></CardBody></Card>
-            <Card><CardBody><BarList title="Top referrers" items={res.data.byReferrer} empty="No referrers yet." /></CardBody></Card>
-            <Card><CardBody><BarList title="Top pages" items={res.data.byPage} /></CardBody></Card>
-            <Card><CardBody><BarList title="Devices" items={res.data.byDevice} labels={DEVICE_LABELS} /></CardBody></Card>
+            <Card><CardBody><BarList title={t("whereFrom")} items={res.data.bySource} labels={SOURCE_LABELS} /></CardBody></Card>
+            <Card><CardBody><BarList title={t("topReferrers")} items={res.data.byReferrer} empty={t("noReferrers")} /></CardBody></Card>
+            <Card><CardBody><BarList title={t("topPages")} items={res.data.byPage} /></CardBody></Card>
+            <Card><CardBody><BarList title={t("devices")} items={res.data.byDevice} labels={DEVICE_LABELS} /></CardBody></Card>
             <Card><CardBody className="space-y-2">
-              <BarList title="Crawler and AI bot visits" items={res.data.bots} empty="No crawler visits yet." />
-              <p className="text-xs text-muted">Search engines and AI assistants (for example Googlebot, GPTBot, ClaudeBot, PerplexityBot) read your storefront so you can be found. They are counted here, not as visitors. {n(res.data.totals.botHits)} bot visits in this period.</p>
+              <BarList title={t("bots")} items={res.data.bots} empty={t("noBots")} />
+              <p className="text-xs text-muted">{t("botNote", { count: n(res.data.totals.botHits) })}</p>
             </CardBody></Card>
-            <Card><CardBody><BarList title="Address used" items={res.data.byHostKind} labels={HOST_LABELS} /></CardBody></Card>
+            <Card><CardBody><BarList title={t("addressUsed")} items={res.data.byHostKind} labels={HOST_LABELS} /></CardBody></Card>
           </div>
         </>
       )}

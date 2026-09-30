@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import * as ads from "@cnote/ads";
 import type { ActionResult } from "@cnote/next-kit";
@@ -18,30 +19,34 @@ function refresh(id?: string) {
   if (id) revalidatePath(`/ads/${id}`);
 }
 
-function requireEnabled() {
-  if (!ads.isAdsEnabled()) throw new DomainError("validation", "Advertising is coming soon. It is not switched on yet.");
+type T = Awaited<ReturnType<typeof getTranslations>>;
+
+function requireEnabled(t: T) {
+  if (!ads.isAdsEnabled()) throw new DomainError("validation", t("comingSoon.error"));
 }
 
-const createSchema = z.object({
-  name: z.string().trim().min(2, "Give the campaign a name."),
-  dailyRupees: z.coerce.number({ message: "Enter a daily budget." }).positive("Enter a daily budget."),
-  totalRupees: z.union([z.literal(""), z.coerce.number().positive()]).optional(),
-  startsAt: z.string().min(1, "Choose a start date."),
-  endsAt: z.string().optional(),
-});
+const createSchema = (t: T) =>
+  z.object({
+    name: z.string().trim().min(2, t("errors.name")),
+    dailyRupees: z.coerce.number({ message: t("errors.dailyBudget") }).positive(t("errors.dailyBudget")),
+    totalRupees: z.union([z.literal(""), z.coerce.number().positive()]).optional(),
+    startsAt: z.string().min(1, t("errors.startDate")),
+    endsAt: z.string().optional(),
+  });
 
 /** Creates campaign + ad group + products + keywords in one go; `intent=submit` also sends it for review. */
 export async function createCampaignAction(_prev: AdsResult | null, fd: FormData): Promise<AdsResult> {
   const session = await requireSeller("/ads/new");
   const seller = session.business.id;
+  const t = await getTranslations("ads");
   const res = await run(async () => {
-    requireEnabled();
-    const f = createSchema.parse({ name: str(fd, "name"), dailyRupees: str(fd, "dailyRupees"), totalRupees: str(fd, "totalRupees"), startsAt: str(fd, "startsAt"), endsAt: str(fd, "endsAt") });
+    requireEnabled(t);
+    const f = createSchema(t).parse({ name: str(fd, "name"), dailyRupees: str(fd, "dailyRupees"), totalRupees: str(fd, "totalRupees"), startsAt: str(fd, "startsAt"), endsAt: str(fd, "endsAt") });
     const listingIds = strs(fd, "listingId");
-    if (!listingIds.length) throw new DomainError("validation", "Choose at least one product to advertise.");
+    if (!listingIds.length) throw new DomainError("validation", t("errors.chooseProduct"));
     const keywords = parseKeywords(str(fd, "keywords"));
     const categoryIds = strs(fd, "categoryId");
-    if (!keywords.some((k) => !k.negative) && !categoryIds.length) throw new DomainError("validation", "Add at least one keyword or choose a category.");
+    if (!keywords.some((k) => !k.negative) && !categoryIds.length) throw new DomainError("validation", t("errors.needKeyword"));
     const camp = await ads.createCampaign(seller, {
       name: f.name,
       dailyBudgetPaise: rupeesToPaise(f.dailyRupees),
@@ -70,11 +75,12 @@ export async function createCampaignAction(_prev: AdsResult | null, fd: FormData
   return res;
 }
 
-async function simple(id: string, fn: (seller: string) => Promise<unknown>): Promise<AdsResult> {
+async function simple(id: string, fn: (seller: string, t: T) => Promise<unknown>): Promise<AdsResult> {
   const session = await requireSeller(`/ads/${id}`);
+  const t = await getTranslations("ads");
   const res = await run(async () => {
-    requireEnabled();
-    await fn(session.business.id);
+    requireEnabled(t);
+    await fn(session.business.id, t);
     return null;
   });
   if (res.ok) refresh(id);
@@ -88,8 +94,8 @@ export const endCampaignAction = async (_p: AdsResult | null, fd: FormData) => s
 
 export async function updateBudgetAction(_p: AdsResult | null, fd: FormData): Promise<AdsResult> {
   const id = str(fd, "id");
-  return simple(id, async (s) => {
-    const daily = z.coerce.number({ message: "Enter a daily budget." }).positive("Enter a daily budget.").parse(str(fd, "dailyRupees"));
+  return simple(id, async (s, t) => {
+    const daily = z.coerce.number({ message: t("errors.dailyBudget") }).positive(t("errors.dailyBudget")).parse(str(fd, "dailyRupees"));
     const r = await ads.updateCampaign(s, id, { dailyBudgetPaise: rupeesToPaise(daily) });
     if (r.returnedToReview) logEvent("seller.ad_budget_review", { businessId: s });
   });
@@ -97,12 +103,12 @@ export async function updateBudgetAction(_p: AdsResult | null, fd: FormData): Pr
 
 export async function addKeywordsAction(_p: AdsResult | null, fd: FormData): Promise<AdsResult> {
   const id = str(fd, "id");
-  return simple(id, async (s) => {
+  return simple(id, async (s, t) => {
     const c = await ads.getCampaign(s, id);
     const group = c.adGroups[0];
-    if (!group) throw new DomainError("validation", "This campaign has no ad group.");
+    if (!group) throw new DomainError("validation", t("errors.noAdGroup"));
     const kws = parseKeywords(str(fd, "keywords"));
-    if (!kws.length) throw new DomainError("validation", "Enter at least one keyword.");
+    if (!kws.length) throw new DomainError("validation", t("errors.enterKeyword"));
     for (const k of kws) await ads.addKeyword(s, group.id, k);
   });
 }

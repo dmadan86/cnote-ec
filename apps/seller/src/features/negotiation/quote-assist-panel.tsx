@@ -1,5 +1,7 @@
+import { getLocale, getTranslations } from "next-intl/server";
 import { Alert, Badge, Card, CardBody, CardHeader, CardTitle } from "@cnote/ui";
 import { getDraftForMatch, isQuoteAssistEnabled, listAgentActions } from "@cnote/negotiation";
+import { isLocale } from "@/i18n/config";
 import { formatDate } from "@/lib/format";
 import { AssistantLog } from "./assistant-log";
 import { DraftCard, RequestDraft } from "./draft-card";
@@ -10,6 +12,9 @@ import { DraftCard, RequestDraft } from "./draft-card";
  */
 export async function QuoteAssistPanel({ matchId, conversationId, sellerBusinessId }: { matchId: string; conversationId: string; sellerBusinessId: string }) {
   if (!isQuoteAssistEnabled()) return null;
+  const t = await getTranslations("negotiation.panel");
+  const loc = await getLocale();
+  const locale = isLocale(loc) ? loc : "en";
   let draft, thisLeadLog;
   try {
     draft = await getDraftForMatch(sellerBusinessId, matchId);
@@ -17,13 +22,13 @@ export async function QuoteAssistPanel({ matchId, conversationId, sellerBusiness
     thisLeadLog = lists.flat().sort((x, y) => y.createdAt.localeCompare(x.createdAt));
   } catch (err) {
     console.error("[seller] quote assist failed to load", err);
-    return <Alert tone="warning">The quote assistant is unavailable right now. You can still send a quote yourself below.</Alert>;
+    return <Alert tone="warning">{t("unavailable")}</Alert>;
   }
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Quote assistant</CardTitle>
-        {draft ? <Badge tone={draft.status === "pending" ? "brand" : draft.status === "approved" ? "success" : "neutral"}>{draft.status === "pending" ? "Draft ready" : draft.status === "approved" ? "Approved and sent" : "Discarded"}</Badge> : null}
+        <CardTitle>{t("title")}</CardTitle>
+        {draft ? <Badge tone={draft.status === "pending" ? "brand" : draft.status === "approved" ? "success" : "neutral"}>{draft.status === "pending" ? t("draftReady") : draft.status === "approved" ? t("approvedSent") : t("discarded")}</Badge> : null}
       </CardHeader>
       <CardBody className="space-y-5">
         {!draft ? <RequestDraft matchId={matchId} conversationId={conversationId} /> : draft.status === "pending" ? (
@@ -35,10 +40,10 @@ export async function QuoteAssistPanel({ matchId, conversationId, sellerBusiness
             }}
           />
         ) : (
-          <p className="text-sm text-muted">{draft.status === "approved" ? `You approved this draft and the quote was sent${draft.validUntil ? ` (valid until ${formatDate(draft.validUntil)})` : ""}.` : "You discarded this draft. You can still send a quote yourself below."}</p>
+          <p className="text-sm text-muted">{draft.status === "approved" ? (draft.validUntil ? t("approvedNoteValid", { date: formatDate(draft.validUntil, locale) }) : t("approvedNote")) : t("discardedNote")}</p>
         )}
         <section aria-labelledby="qa-log-h" className="space-y-2">
-          <h3 id="qa-log-h" className="text-sm font-semibold text-ink">What the assistant did</h3>
+          <h3 id="qa-log-h" className="text-sm font-semibold text-ink">{t("logHeading")}</h3>
           <AssistantLog actions={thisLeadLog} />
         </section>
       </CardBody>

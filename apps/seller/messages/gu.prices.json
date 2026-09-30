@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "review": "machine-drafted; needs native review"
+  },
+  "prices": {
+    "metaTitle": "ભાવ સ્પર્ધાત્મકતા",
+    "title": "ભાવ સ્પર્ધાત્મકતા",
+    "description": "તમારી દરેક લાઇવ લિસ્ટિંગનો ભાવ ખરીદદારોને દેખાતી સામાન્ય શ્રેણી સામે ક્યાં છે તે જુઓ (અનામી ક્વોટ અને ઓર્ડર પર આધારિત).",
+    "disabledTitle": "ભાવ માહિતી હજી ઉપલબ્ધ નથી",
+    "disabledDescription": "બેન્ચમાર્ક તૈયાર થતાં જ અમે તમને જણાવીશું.",
+    "lockedTitle": "ભાવ માહિતી ચૂકવણીવાળા પ્લાનમાં શામેલ છે",
+    "lockedDescription": "તમારા રાજ્યની સામાન્ય ભાવ શ્રેણી સાથે દરેક લિસ્ટિંગની સરખામણી કરવા અને વલણ જોવા અપગ્રેડ કરો.",
+    "lockedAction": "પ્લાન જુઓ",
+    "emptyTitle": "ભાવ સાથેની લાઇવ લિસ્ટિંગ નથી",
+    "emptyDescription": "બજાર સાથે સરખામણી માટે ભાવ અને એકમ સાથે લિસ્ટિંગ પ્રકાશિત કરો.",
+    "tableCaption": "તમારી લિસ્ટિંગની સામાન્ય ભાવ શ્રેણી સાથે સરખામણી",
+    "colListing": "લિસ્ટિંગ",
+    "colYourPrice": "તમારો ભાવ",
+    "colBand": "સામાન્ય શ્રેણી",
+    "colPosition": "સ્થાન",
+    "colTrend": "બજાર વલણ",
+    "per": "પ્રતિ {unit}",
+    "bandValue": "{low} થી {high}, મધ્યક {median}",
+    "bandScope": "{region}, {period}",
+    "widerArea": "વિશાળ વિસ્તાર અથવા જથ્થા શ્રેણી",
+    "positionBelow": "શ્રેણીથી નીચે",
+    "positionWithin": "શ્રેણીમાં",
+    "positionAbove": "શ્રેણીથી ઉપર",
+    "positionNoData": "પૂરતો ડેટા નથી",
+    "vsMedianAbove": "મધ્યક કરતાં {percent}% વધુ",
+    "vsMedianBelow": "મધ્યક કરતાં {percent}% ઓછો",
+    "vsMedianEqual": "મધ્યક પર",
+    "trendUp": "વધી રહ્યો છે",
+    "trendDown": "ઘટી રહ્યો છે",
+    "trendFlat": "સ્થિર",
+    "trendUnknown": "હજી વલણ નથી",
+    "basis": "ફક્ત સૂચક. બેન્ચમાર્ક અનામી ક્વોટ અને એસ્ક્રો ઓર્ડરનો ઉપયોગ કરે છે અને પૂરતા અલગ ખરીદદારો તથા વિક્રેતાઓ હોય ત્યારે જ પ્રકાશિત થાય છે."
+  }
+}

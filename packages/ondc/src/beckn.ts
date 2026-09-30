@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { OndcConfig } from "./config";
 
-export const INBOUND_ACTIONS = ["search", "select", "init", "confirm", "status", "cancel"] as const;
+export const INBOUND_ACTIONS = ["search", "select", "init", "confirm", "status", "cancel", "issue", "issue_status"] as const;
 export type InboundAction = (typeof INBOUND_ACTIONS)[number];
 export type CallbackAction = `on_${InboundAction}`;
 export const callbackOf = (a: InboundAction): CallbackAction => `on_${a}`;
@@ -49,6 +49,23 @@ export const orderMessage = z.object({
     quote: z.record(z.string(), z.unknown()).optional(),
   }).loose(),
 });
+const igmText = z.string().max(4000).optional();
+/** ONDC IGM `issue` message (light validation of what we consume). */
+export const issueMessage = z.object({
+  issue: z.object({
+    id: z.string().min(1).max(100),
+    category: z.string().min(1).max(50),
+    sub_category: z.string().max(50).optional(),
+    issue_type: z.string().max(20).optional(),
+    status: z.string().max(20).optional(),
+    order_details: z.object({ id: z.string().min(1).max(100) }).loose(),
+    description: z.object({ short_desc: igmText, long_desc: igmText, additional_desc: z.record(z.string(), z.unknown()).optional() }).loose().optional(),
+    expected_response_time: z.object({ duration: z.string().max(30).optional() }).loose().optional(),
+    expected_resolution_time: z.object({ duration: z.string().max(30).optional() }).loose().optional(),
+  }).loose(),
+});
+export const issueStatusMessage = z.object({ issue_id: z.string().min(1).max(100) }).loose();
+
 export const orderIdMessage = z.object({ order_id: z.string().min(1).max(100), cancellation_reason_id: z.string().max(20).optional() }).loose();
 
 export type OrderItemInput = z.infer<typeof orderItem>;
@@ -74,11 +91,11 @@ export function cityAllowed(cfg: Pick<OndcConfig, "cityCodes">, city: string | u
 }
 
 /** Context for a callback: same transaction, swapped roles, our identity as BPP, fresh timestamp. */
-export function callbackContext(cfg: OndcConfig, inbound: BecknContext, action: CallbackAction, opts: { messageId?: string; now?: Date } = {}): BecknContext {
+export function callbackContext(cfg: OndcConfig, inbound: BecknContext, action: CallbackAction, opts: { messageId?: string; now?: Date; coreVersion?: string } = {}): BecknContext {
   return {
     ...inbound,
     action,
-    core_version: cfg.coreVersion,
+    core_version: opts.coreVersion ?? cfg.coreVersion,
     bpp_id: cfg.subscriberId,
     bpp_uri: cfg.subscriberUrl,
     message_id: opts.messageId ?? inbound.message_id,

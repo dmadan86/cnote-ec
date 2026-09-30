@@ -23,7 +23,9 @@ export interface TransferRequest {
   escrowId: string;
   amountPaise: number;
   beneficiaryBusinessId: string;
-  purpose: "seller_payout" | "buyer_refund";
+  purpose: "seller_payout" | "buyer_refund" | "lender_repayment";
+  /** lender_repayment: "<partner>:<loan ref>" so the PA routes the transfer to the lender's collection account */
+  beneficiaryRef?: string;
 }
 export interface TransferResult { partnerRef: string; status: "settled" | "pending" }
 

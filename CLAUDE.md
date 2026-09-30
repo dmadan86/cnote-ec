@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 An AI-first B2B marketplace for Indian MSMEs, positioned against IndiaMART's broadcast-lead model. The working name is TBD; "BizKart" in the design reference is a placeholder. The source of truth for product and architecture decisions is `docs/adr/ADR-v0.1.md`. Read the relevant ADR before building a feature, and cite it (e.g. "per ADR-002") in PRs and non-obvious code.
 
-**Current phase: Phase 1** (trust-first lead marketplace, one vertical). Phase 2 modules are **built but flagged off** (`@cnote/escrow`, `disputes`, `negotiation`, `quality`, `verticals`, `ondc`; flags in `.env.example`, status in `docs/adr/ADR-coverage.md`). Phase 3 items (credit, agent-to-agent, price intel) are not built yet, and the data model must not block them (see Data model below). The Phase-1 vertical (ADR-011) is still undecided, so category-specific logic must be config and data, not hardcoded.
+**Current phase: Phase 1** (trust-first lead marketplace, one vertical). Phase 2 modules are **built but flagged off** (`@cnote/escrow`, `disputes`, `negotiation`, `quality`, `verticals`, `ondc`; flags in `.env.example`, status in `docs/adr/ADR-coverage.md`). Phase 3 modules are also built and flagged off (`@cnote/credit`, `a2a`, `prices`, ONDC live; plus `apps/ai-service`, `apps/search-service`, `@cnote/analytics` for ADR-018/023). The Phase-1 vertical (ADR-011) is still undecided, so category-specific logic must be config and data, not hardcoded.
 
 ## Stack and layout
 
@@ -19,6 +19,7 @@ pnpm monorepo (Node ≥ 22). Internal packages ship TypeScript source (no build 
 - `packages/core`: shared kernel: domain event catalogue + `emit()`, the **transport factories** (`getEventTransport()` for pub/sub domain events, `getJobQueue()` for work queues with retries/backoff/dead letters; driver chosen by `QUEUE_DRIVER=redis|memory|kafka`, Kafka stubbed), Redis (`cached`, `rateLimit`), money (paise), `DomainError`, and `ModuleWorker` (`handlers` for events, `queues` for job topics, `jobs` for schedules). Job topics are typed by declaration-merging `JobTopics`.
 - `packages/templates` + `packages/email` + `packages/notifications`: email/notification content lives in the **database** and is edited in the admin template studio (rich text, images, layouts with header/footer, versions, publish/rollback). Code only registers template keys + variables + defaults (`defineTemplates`). Never hard-code user-facing email/notification copy in the sending path. Notifications observe domain events and fan out through the job queue, honouring preferences and marketing consent.
 - `packages/metrics` (ADR success metrics from the event log, SLO alerts), `packages/compliance` (DPDP: retention registry calling each module's own purge function, grievances, appeals, residency guard), `packages/whatsapp` (WhatsApp Cloud API channel + onboarding state machine), `packages/bulk`, `packages/leadgen`, `packages/storefront`, `packages/domains`, `packages/live-db` (CQRS read DB), `packages/security`, `packages/media`: see each `src/index.ts` and `docs/design/`.
+- **i18n (seller app):** cookie locale (`seller_locale`), catalogues in `apps/seller/messages/<locale>[.<ns>].json` (8 locales, parity test in `apps/seller/test/i18n.test.ts`), register new namespaces in `src/i18n/messages.ts`; format numbers/dates with `intlTag(locale)` from `@/i18n/config`.
 - **i18n (buyer web):** `apps/web/messages/*.json` (next-intl); public pages live under `app/[locale]/` and stay static; `/` is English, `/hi/...` Hindi. Every new user-facing web string goes into `en.json` AND `hi.json` (a test enforces key parity). See `docs/guides/i18n.md`.
 - `packages/observability`: SDK-free Sentry options with DPDP-safe PII scrubbing; every app/worker calls `Sentry.init(sentryOptions(app, runtime))`. No-op without a DSN. Microsoft Clarity runs on the buyer web only, after analytics consent.
 - `packages/ui`: shared React UI library plus design tokens. See `DESIGN.md`.
@@ -48,6 +49,8 @@ pnpm db:test:prepare                                 # once: create/migrate isol
 pnpm typecheck | pnpm lint | pnpm test | pnpm build   # all workspaces
 pnpm test:coverage                                   # per-package coverage thresholds (vitest.shared.ts)
 pnpm --filter @cnote/enquiry test                    # one package
+# app package names: @cnote/web, @cnote/seller-app, @cnote/admin-app, @cnote/studio-app, @cnote/api, @cnote/worker
+# (@cnote/admin is the RBAC package, not the admin app; a --filter that matches nothing exits 0 silently)
 pnpm --filter @cnote/enquiry exec vitest run test/matching.test.ts -t "cascades"   # one test
 
 pnpm db:new <snake_name>   # schema change → new migration (non-interactive; see below)

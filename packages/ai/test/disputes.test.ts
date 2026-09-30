@@ -238,8 +238,8 @@ describe("dispute brief edge cases", () => {
   it("formats missing quantities/units and reads received counts written after the number", () => {
     const r = briefDisputeHeuristic(base({
       claimedType: "quantity_short",
-      order: { totalPaise: 1_000_000, quantity: 100, unit: null, pricePaise: 10_000, status: "delivered" },
-      quote: { pricePaise: 10_000, quantity: null as unknown as number, unit: null, leadTimeDays: null, notes: null },
+      order: { totalPaise: 1_000_000, quantity: 100, unit: null as unknown as string, pricePaise: 10_000, status: "delivered" },
+      quote: { pricePaise: 10_000, quantity: null as unknown as number, unit: null as unknown as string, leadTimeDays: null, notes: null },
       evidence: [ev("e1", "buyer", "150 pcs only?? no wait, 80 boxes received")],
     }));
     const qv = r.output.specChecks.find((c) => c.field === "quantity (quote vs order)")!;

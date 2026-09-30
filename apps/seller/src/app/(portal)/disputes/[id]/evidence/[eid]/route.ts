@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { actorOf, currentSession } from "@cnote/next-kit";
 import { readEvidenceFileForParty } from "@/lib/disputes";
 
@@ -5,7 +6,8 @@ import { readEvidenceFileForParty } from "@/lib/disputes";
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string; eid: string }> }) {
   const { id, eid } = await ctx.params;
   const s = await currentSession();
-  const notFound = () => new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
+  const t = await getTranslations("disputes");
+  const notFound = () => new Response(t("evidenceNotFound"), { status: 404, headers: { "Cache-Control": "no-store" } });
   if (!s?.business) return notFound();
   const f = await readEvidenceFileForParty(actorOf(s as never), id, eid);
   if (!f) return notFound();

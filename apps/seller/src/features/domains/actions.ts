@@ -2,6 +2,7 @@
 import type { ActionResult } from "@cnote/next-kit";
 import { addDomain, removeDomain, requestRecheck, setPrimary } from "@cnote/domains";
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { requireSeller } from "@/lib/auth";
 import { str } from "@/lib/form-data";
@@ -12,8 +13,9 @@ const id = z.uuid();
 
 export async function addDomainAction(_prev: ActionResult<null> | null, fd: FormData): Promise<ActionResult<null>> {
   const session = await requireSeller(PATH);
+  const t = await getTranslations("storefront.form");
   return run(async () => {
-    const hostname = z.string().trim().min(3, "Enter your domain, like www.example.com.").max(253).parse(str(fd, "hostname"));
+    const hostname = z.string().trim().min(3, t("invalid")).max(253).parse(str(fd, "hostname"));
     await addDomain(session.business.id, hostname);
     revalidatePath(PATH);
     return null;

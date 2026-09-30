@@ -1,0 +1,32 @@
+{
+  "reviews": {
+    "title": "Reviews & questions",
+    "description": "Buyers' feedback on your products. Everything, including your replies, is checked by our team before it goes public.",
+    "tabType": "Type",
+    "tabReviews": "Reviews",
+    "tabQuestions": "Questions",
+    "tabFilter": "Filter",
+    "all": "All",
+    "needsReply": "Needs a reply",
+    "emptyNoReply": "Nothing waiting for your reply",
+    "emptyReviews": "No published reviews yet",
+    "emptyQuestions": "No questions yet",
+    "emptyDesc": "New reviews and questions appear here once our team has approved them.",
+    "product": "Product",
+    "yourReply": "Your reply",
+    "reason": "Reason: {note}",
+    "next": "Next page →",
+    "stars": "{rating} out of 5 stars",
+    "statusAwaiting": "Awaiting approval",
+    "statusPublished": "Published",
+    "statusRejected": "Not approved",
+    "replaceLabel": "Replace your reply",
+    "replyLabel": "Your reply",
+    "thanks": "Thanks. Your reply will appear after a quick check by our team.",
+    "sending": "Sending…",
+    "replaceBtn": "Replace reply",
+    "sendBtn": "Send reply",
+    "errWrite": "Write your reply first.",
+    "errLong": "Keep replies under 1,000 characters."
+  }
+}

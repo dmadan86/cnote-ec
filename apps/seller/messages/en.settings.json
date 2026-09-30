@@ -1,0 +1,126 @@
+{
+  "settings": {
+    "meta": "Settings",
+    "title": "Settings",
+    "profile": {
+      "title": "Profile",
+      "name": "Your name",
+      "signedInAs": "Signed in as {email}",
+      "language": "Preferred language",
+      "languageHint": "Stored with your profile. Use the language menu to change the screen language.",
+      "saved": "Saved.",
+      "save": "Save profile",
+      "noAddress": "No address added",
+      "phoneVerified": "Phone: {phone} (verified)",
+      "phoneUnverified": "Phone: {phone} (not verified)",
+      "phoneNone": "Phone: not added",
+      "errName": "Enter your name.",
+      "errLanguage": "Choose a language."
+    },
+    "consents": {
+      "title": "Your data choices",
+      "intro": "Each choice is separate and applies only to the purpose described. Withdrawing consent stops that use going forward.",
+      "saved": "Your choices are saved. You can change them any time.",
+      "save": "Save consent choices",
+      "matching": {
+        "title": "Match me to buyer leads",
+        "body": "We use your business details and listings to match you with buyer enquiries. Without this we cannot send you leads."
+      },
+      "sharing": {
+        "title": "Share my contact with matched buyers",
+        "body": "When you accept a lead, the buyer sees your business name, city and phone so you can talk. Without this you cannot accept leads."
+      },
+      "marketing": {
+        "title": "Send me tips and offers (optional)",
+        "body": "Occasional product updates and selling tips. Not needed to use the service."
+      }
+    },
+    "sessions": {
+      "title": "Where you are signed in",
+      "unknown": "Unknown device",
+      "thisDevice": "This device",
+      "lastUsed": "Last used {date}",
+      "signOut": "Sign out",
+      "signOutAll": "Sign out everywhere"
+    },
+    "company": {
+      "meta": "Company profile",
+      "title": "Company profile",
+      "description": "Your legal details, checked against the GST registry. Buyers see only your verified badge, never your PAN.",
+      "gstWarn": "Your GSTIN is {status} on the GST portal, so your GST verified badge is off. Fix it with your GST officer, then save below to re-check.",
+      "gstCard": "GST status",
+      "notVerified": "Not verified",
+      "noGstin": "No GSTIN verified yet.",
+      "gstinLine": "GSTIN <mono>{gstin}</mono>",
+      "verifiedAt": "Verified {date}",
+      "lastChecked": "Last checked {date}. We re-check about once a month.",
+      "details": "Details",
+      "form": {
+        "legalName": "Legal name",
+        "legalHint": "As on your GST certificate.",
+        "tradeName": "Trade name (optional)",
+        "type": "Company type",
+        "typePick": "Select type",
+        "types": {
+          "proprietorship": "Proprietorship",
+          "partnership": "Partnership firm",
+          "llp": "LLP",
+          "private_limited": "Private Limited company",
+          "public_limited": "Public Limited company",
+          "huf": "HUF",
+          "other": "Other"
+        },
+        "gstin": "GSTIN",
+        "gstinHint": "15 characters, like 27AAPFU0939F1ZV.",
+        "pan": "PAN (optional)",
+        "panSaved": "Saved: {pan}. Enter again only to change it.",
+        "panHint": "Must match your GSTIN. Stored encrypted.",
+        "cin": "CIN (companies only)",
+        "address": "Registered address",
+        "line1": "Address line 1",
+        "line2": "Address line 2 (optional)",
+        "city": "City",
+        "state": "State",
+        "statePick": "Select state",
+        "pincode": "Pincode",
+        "website": "Website (optional)",
+        "pending": "Checking…",
+        "submit": "Save and verify"
+      },
+      "checks": {
+        "labels": {
+          "status": "GST status",
+          "name": "Business name",
+          "state": "State",
+          "pan": "PAN link",
+          "filing": "Return filing",
+          "hsn": "Product HSN codes"
+        },
+        "passed": "Passed",
+        "failed": "Failed",
+        "warn": "Needs a look",
+        "skipped": "Skipped",
+        "headline": {
+          "passed": "GST verified. Your badge now shows GST verified.",
+          "review": "We saved your details. A person on our team will check a few things and confirm, usually within one working day.",
+          "unavailable": "The GST service is busy right now. Your details are saved. Please try again in a few minutes.",
+          "saved": "Company details saved.",
+          "failed": "We could not verify this GSTIN."
+        }
+      }
+    },
+    "developers": {
+      "meta": "Developers",
+      "title": "Developers",
+      "description": "API keys let your systems read leads and manage listings through the REST API or MCP server.",
+      "createTitle": "Create an API key",
+      "keysTitle": "Your keys",
+      "empty": "No API keys yet."
+    },
+    "security": {
+      "meta": "Security",
+      "title": "Security",
+      "description": "Add a second step to sign-in so your leads and credits stay yours."
+    }
+  }
+}

@@ -1,0 +1,119 @@
+# Two-region topology on plain Docker hosts (one host or VM group PER REGION; the app tier only).
+# State is NOT in this file: Postgres, Redis and object storage are managed India-region services (or your own hosts) reached
+# through the env file, exactly as in Kubernetes. See docs/ops/deploy.md and docs/ops/dr-runbook.md.
+#
+#   Region A (Mumbai, ap-south-1, ACTIVE):     docker compose -f infra/compose/docker-compose.prod.yml --env-file /etc/cnote/region-a.env --profile primary up -d
+#   Region B (Hyderabad, ap-south-2, STANDBY): docker compose -f infra/compose/docker-compose.prod.yml --env-file /etc/cnote/region-b.env --profile standby up -d
+#   Failover (after promoting the region-B databases):  ... --profile active up -d worker   (see the runbook)
+#
+# Profiles: `standby` = everything except the worker; `primary`/`active` add the worker (only ONE region may run it).
+# Images are built by CI from apps/*/Dockerfile and pushed to your India-region registry; pin by digest in the env file.
+name: cnote-${CNOTE_REGION:-ap-south-1}
+
+x-common: &common
+  restart: unless-stopped
+  env_file: ["${CNOTE_ENV_FILE:-/etc/cnote/common.env}"]
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  user: "1000:1000"
+  logging: {driver: json-file, options: {max-size: "20m", max-file: "5"}}
+  networks: [internal]
+
+x-node-health: &node-health
+  interval: 15s
+  timeout: 3s
+  retries: 3
+  start_period: 30s
+
+services:
+  ai-service:
+    <<: *common
+    image: ${REGISTRY:?}/cnote-ai-service:${TAG:?}
+    environment:
+      PORT: "3005"
+      AI_TRANSPORT: inproc
+      AI_SERVICE_MAX_INFLIGHT: "48"
+    read_only: true
+    tmpfs: [/tmp]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3005/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      <<: *node-health
+    deploy:
+      replicas: ${AI_SERVICE_REPLICAS:-2}
+      resources: {limits: {cpus: "2", memory: 1G}}
+    profiles: [primary, standby, active]
+    stop_grace_period: 40s
+
+  search-service:
+    <<: *common
+    image: ${REGISTRY:?}/cnote-search-service:${TAG:?}
+    environment:
+      PORT: "3006"
+      SEARCH_TRANSPORT: inproc
+      AI_TRANSPORT: http
+      AI_SERVICE_URL: http://ai-service:3005
+      SERVICE_NAME: search-service
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3006/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      <<: *node-health
+    deploy:
+      replicas: ${SEARCH_SERVICE_REPLICAS:-2}
+      resources: {limits: {cpus: "1", memory: 768M}}
+    depends_on: [ai-service]
+    profiles: [primary, standby, active]
+
+  api:
+    <<: *common
+    image: ${REGISTRY:?}/cnote-api:${TAG:?}
+    environment:
+      PORT: "3003"
+      AI_TRANSPORT: http
+      AI_SERVICE_URL: http://ai-service:3005
+      SEARCH_TRANSPORT: http
+      SEARCH_SERVICE_URL: http://search-service:3006
+      SERVICE_NAME: api
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3003/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      <<: *node-health
+    ports: ["127.0.0.1:3003:3003"]   # TLS terminates at the regional load balancer / Caddy / Cloudflare in front
+    profiles: [primary, standby, active]
+
+  web:
+    <<: *common
+    image: ${REGISTRY:?}/cnote-web:${TAG:?}
+    environment:
+      PORT: "3000"
+      AI_TRANSPORT: http
+      AI_SERVICE_URL: http://ai-service:3005
+      SEARCH_TRANSPORT: http
+      SEARCH_SERVICE_URL: http://search-service:3006
+      SERVICE_NAME: web
+    ports: ["127.0.0.1:3000:3000"]
+    profiles: [primary, standby, active]
+
+  seller:
+    <<: *common
+    image: ${REGISTRY:?}/cnote-seller:${TAG:?}
+    environment: {PORT: "3002", AI_TRANSPORT: http, AI_SERVICE_URL: "http://ai-service:3005", SERVICE_NAME: seller}
+    ports: ["127.0.0.1:3002:3002"]
+    profiles: [primary, standby, active]
+
+  admin:
+    <<: *common
+    image: ${REGISTRY:?}/cnote-admin:${TAG:?}
+    environment: {PORT: "3001", AI_TRANSPORT: http, AI_SERVICE_URL: "http://ai-service:3005", SERVICE_NAME: admin}
+    ports: ["127.0.0.1:3001:3001"]
+    profiles: [primary, standby, active]
+
+  # Outbox relay + event handlers + queue consumers + schedulers (incl. analytics projections). Exactly ONE region runs it.
+  worker:
+    <<: *common
+    image: ${REGISTRY:?}/cnote-worker:${TAG:?}
+    environment:
+      AI_TRANSPORT: http
+      AI_SERVICE_URL: http://ai-service:3005
+      SERVICE_NAME: worker
+    profiles: [primary, active]
+
+networks:
+  internal: {}

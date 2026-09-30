@@ -1,5 +1,6 @@
 "use client";
 import { useActionState } from "react";
+import { useTranslations } from "next-intl";
 import { Alert, Badge, Field, Input, Select, Textarea } from "@cnote/ui";
 import { UNITS } from "@/lib/constants";
 import { FormAlert, SubmitButton, fieldError } from "@/features/shell/form-bits";
@@ -24,58 +25,60 @@ export interface DraftCardData {
 
 /** Pre-filled, editable quote draft. "Approve and send" is the only thing that sends anything to the buyer. */
 export function DraftCard({ d }: { d: DraftCardData }) {
+  const t = useTranslations("negotiation.draft");
   const [state, approve] = useActionState<NegotiationResult | null, FormData>(approveDraftAction, null);
   const [dState, discard] = useActionState<NegotiationResult | null, FormData>(discardDraftAction, null);
   return (
     <form action={approve} className="space-y-4" aria-describedby="draft-guard">
       <input type="hidden" name="draftId" value={d.id} />
       <input type="hidden" name="conversationId" value={d.conversationId} />
-      <p id="draft-guard" className="text-sm text-muted">Drafted by the assistant. <strong>Nothing has been sent to the buyer.</strong> Check it, change anything you like, then approve.</p>
+      <p id="draft-guard" className="text-sm text-muted">{t.rich("guard", { b: (c) => <strong>{c}</strong> })}</p>
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={d.needsReview ? "warning" : "brand"}>{d.needsReview ? "Check this carefully" : `Confidence ${Math.round(d.confidence * 100)}%`}</Badge>
-        {d.modelPriceRejected ? <Badge tone="warning">First price was below your limit and was replaced</Badge> : null}
+        <Badge tone={d.needsReview ? "warning" : "brand"}>{d.needsReview ? t("checkCarefully") : t("confidence", { percent: Math.round(d.confidence * 100) })}</Badge>
+        {d.modelPriceRejected ? <Badge tone="warning">{t("belowLimit")}</Badge> : null}
       </div>
-      <p className="rounded-lg bg-canvas p-3 text-sm text-ink"><span className="font-medium">Why this price: </span>{d.rationale}</p>
+      <p className="rounded-lg bg-canvas p-3 text-sm text-ink"><span className="font-medium">{t("why")}</span>{d.rationale}</p>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Price (₹ per unit)" htmlFor="dr-price" hint={d.floorRupees != null ? `Your lowest price is ₹${d.floorRupees}.` : undefined} error={fieldError(state, "price")}>
+        <Field label={t("price")} htmlFor="dr-price" hint={d.floorRupees != null ? t("floorHint", { floor: d.floorRupees }) : undefined} error={fieldError(state, "price")}>
           <Input id="dr-price" name="price" inputMode="decimal" required defaultValue={d.priceRupees} className="h-11" />
         </Field>
-        <Field label="Quantity" htmlFor="dr-qty" error={fieldError(state, "quantity")}>
+        <Field label={t("quantity")} htmlFor="dr-qty" error={fieldError(state, "quantity")}>
           <Input id="dr-qty" name="quantity" inputMode="numeric" required defaultValue={d.quantity} className="h-11" />
         </Field>
-        <Field label="Unit" htmlFor="dr-unit" error={fieldError(state, "unit")}>
+        <Field label={t("unit")} htmlFor="dr-unit" error={fieldError(state, "unit")}>
           <Select id="dr-unit" name="unit" defaultValue={d.unit} className="h-11">{[...new Set([d.unit, ...UNITS])].map((u) => <option key={u}>{u}</option>)}</Select>
         </Field>
-        <Field label="Delivery time (days)" htmlFor="dr-lead" error={fieldError(state, "leadTimeDays")}>
+        <Field label={t("lead")} htmlFor="dr-lead" error={fieldError(state, "leadTimeDays")}>
           <Input id="dr-lead" name="leadTimeDays" inputMode="numeric" defaultValue={d.leadTimeDays ?? ""} className="h-11" />
         </Field>
-        <Field label="Quote valid until" htmlFor="dr-valid" error={fieldError(state, "validUntil")}>
+        <Field label={t("validUntil")} htmlFor="dr-valid" error={fieldError(state, "validUntil")}>
           <Input id="dr-valid" name="validUntil" type="date" defaultValue={d.validUntil ?? ""} className="h-11" />
         </Field>
       </div>
-      <Field label="Notes to the buyer" htmlFor="dr-notes" error={fieldError(state, "notes")}>
+      <Field label={t("notes")} htmlFor="dr-notes" error={fieldError(state, "notes")}>
         <Textarea id="dr-notes" name="notes" maxLength={1000} defaultValue={d.notes} />
       </Field>
       <FormAlert state={state} />
       <FormAlert state={dState} />
       <div className="flex flex-wrap gap-3">
-        <SubmitButton variant="accent" size="lg" pendingText="Sending…">Approve and send quote</SubmitButton>
-        <SubmitButton variant="outline" size="lg" formAction={discard} formNoValidate pendingText="Discarding…">Discard draft</SubmitButton>
+        <SubmitButton variant="accent" size="lg" pendingText={t("sending")}>{t("approve")}</SubmitButton>
+        <SubmitButton variant="outline" size="lg" formAction={discard} formNoValidate pendingText={t("discarding")}>{t("discard")}</SubmitButton>
       </div>
     </form>
   );
 }
 
 export function RequestDraft({ matchId, conversationId }: { matchId: string; conversationId: string }) {
+  const t = useTranslations("negotiation.draft");
   const [state, action] = useActionState<NegotiationResult | null, FormData>(requestDraftAction, null);
   return (
     <form action={action} className="space-y-3">
       <input type="hidden" name="matchId" value={matchId} />
       <input type="hidden" name="conversationId" value={conversationId} />
-      <p className="text-sm text-muted">The assistant can draft a quote from the buyer&apos;s requirement and your price book. You approve it before anything is sent.</p>
+      <p className="text-sm text-muted">{t("requestHelp")}</p>
       <FormAlert state={state} />
-      {state?.ok ? <Alert tone="success">Draft ready.</Alert> : null}
-      <SubmitButton variant="outline" pendingText="Drafting…">Draft a quote for me</SubmitButton>
+      {state?.ok ? <Alert tone="success">{t("requestDone")}</Alert> : null}
+      <SubmitButton variant="outline" pendingText={t("drafting")}>{t("request")}</SubmitButton>
     </form>
   );
 }

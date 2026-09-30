@@ -1,0 +1,54 @@
+{
+  "credit": {
+    "heading": "Pay later",
+    "intro": "Pay for this order later through our NBFC partner, {lender}. The lender pays your escrow now and you repay the lender by the due date. The lender is the lender of record; cnote does not lend its own money.",
+    "consentLabel": "I agree that cnote may use my GST verification, escrow order history, dispute record and trust score to compute a credit score, and share the score with a few summary figures (not my GST returns) with {lender} for this application.",
+    "tenorLabel": "Repayment period",
+    "days": "{days} days",
+    "apply": "See pay-later offer",
+    "noAuto": "Nothing is charged until you accept an offer.",
+    "error": "Something went wrong. Please try again.",
+    "status": {
+      "submitted": "Waiting for the lender to respond.",
+      "accepted": "Offer accepted. The lender will pay your escrow once the loan is disbursed.",
+      "disbursed": "Loan disbursed. The lender pays your escrow, and you repay the lender by the due date.",
+      "rejected": "The lender did not approve this request. You can still pay through the normal escrow payment above.",
+      "declined": "You declined the offer.",
+      "expired": "The offer expired.",
+      "failed": "The request could not be submitted. Please try again later.",
+      "cancelled": "The request was cancelled."
+    },
+    "kfs": {
+      "heading": "Key Fact Statement",
+      "intro": "Read this before you accept. It is provided by the lender, {lender}.",
+      "lender": "Lender of record",
+      "principal": "Loan amount",
+      "tenor": "Repayment period",
+      "interestRate": "Interest rate (per year)",
+      "allInApr": "Total cost of credit including fees (per year)",
+      "interest": "Interest for the period",
+      "processingFee": "Processing fee",
+      "otherFees": "Other fees",
+      "total": "Total you repay",
+      "lateFee": "Late payment charge",
+      "lateFeeValue": "{percent} per month on the overdue amount",
+      "coolingOff": "Cooling-off period",
+      "coolingOffValue": "{days} days after disbursal. You can exit by repaying the amount and interest for the days you used, with no penalty.",
+      "prepayment": "Charge for repaying early",
+      "prepaymentNone": "None",
+      "repayment": "How it is repaid",
+      "repayment_buyer_instalment": "By you, to the lender, by the due date.",
+      "grievance": "Grievance officer",
+      "grievanceValue": "Name: {name}; email: {email}; phone: {phone}",
+      "expires": "This offer is valid until {date}."
+    },
+    "accept": {
+      "acknowledge": "I have read the Key Fact Statement and agree to take this loan from {lender}.",
+      "submit": "Accept offer",
+      "decline": "Decline offer"
+    },
+    "dev": {
+      "simulate": "Simulate disbursal (development only)"
+    }
+  }
+}

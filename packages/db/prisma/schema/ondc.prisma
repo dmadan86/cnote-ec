@@ -77,6 +77,8 @@ model OndcOrder {
   /// the confirm body as received (full Beckn payload)
   payload          Json
   cancelReason     String?   @map("cancel_reason")
+  /// last Beckn fulfilment state pushed/known (Packed, Order-picked-up, Out-for-delivery, Order-delivered, Cancelled)
+  fulfilmentState  String?   @map("fulfilment_state")
   /// order created via the order sink (enquiry), when wired
   internalOrderId  String?   @map("internal_order_id") @db.Uuid
   receivedEmittedAt DateTime? @map("received_emitted_at") @db.Timestamptz
@@ -87,4 +89,58 @@ model OndcOrder {
   @@index([sellerBusinessId, createdAt])
   @@index([transactionId])
   @@map("ondc_orders")
+}
+
+/// An IGM issue raised by a network buyer app (ADR-021). Idempotent by (bap_id, issue_id). Each issue opens a dispute
+/// (ADR-013) when the mirrored platform order is disputable; `disputeId` is a plain uuid (no relation).
+model OndcIssue {
+  id                 String    @id @default(uuid()) @db.Uuid
+  /// the network's issue id
+  issueId            String    @map("issue_id")
+  transactionId      String    @map("transaction_id")
+  bapId              String    @map("bap_id")
+  bapUri             String    @map("bap_uri")
+  ondcOrderId        String?   @map("ondc_order_id") @db.Uuid
+  sellerBusinessId   String?   @map("seller_business_id") @db.Uuid
+  category           String
+  subCategory        String?   @map("sub_category")
+  /// ISSUE | GRIEVANCE | DISPUTE
+  issueType          String    @default("ISSUE") @map("issue_type")
+  description        String
+  /// open | processing | resolved | closed
+  status             String    @default("open")
+  /// PROCESSING | CASCADED | RESOLVED | NEED-MORE-INFO (last respondent action sent)
+  respondentAction   String?   @map("respondent_action")
+  disputeId          String?   @map("dispute_id") @db.Uuid
+  /// no dispute could be opened (order not disputable / disputes off): staff must handle and resolve manually
+  needsManual        Boolean   @default(false) @map("needs_manual")
+  resolution         Json?
+  expectedResponseAt   DateTime  @map("expected_response_at") @db.Timestamptz
+  expectedResolutionAt DateTime  @map("expected_resolution_at") @db.Timestamptz
+  respondedAt        DateTime? @map("responded_at") @db.Timestamptz
+  cascadedAt         DateTime? @map("cascaded_at") @db.Timestamptz
+  resolvedAt         DateTime? @map("resolved_at") @db.Timestamptz
+  receivedEmittedAt  DateTime? @map("received_emitted_at") @db.Timestamptz
+  /// the issue request as received (holds complainant contact: purged by retention)
+  payload            Json
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([bapId, issueId])
+  @@index([disputeId])
+  @@index([status, expectedResolutionAt])
+  @@index([ondcOrderId])
+  @@map("ondc_issues")
+}
+
+/// Ops controls and manual checklist items: `killswitch` (enabled = ONDC suspended for this environment) and `cert.<item>`.
+/// Changes are audited in the admin console (AdminAuditLog).
+model OndcControl {
+  key       String   @id
+  enabled   Boolean  @default(false)
+  note      String?
+  updatedBy String?  @map("updated_by")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("ondc_controls")
 }

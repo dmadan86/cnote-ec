@@ -87,7 +87,7 @@ describe("scopes", () => {
   });
   it("scopeNeedsBusiness matrix: business writes/reads flagged; person-level writes and public reads not", () => {
     const needs = SCOPES.filter(scopeNeedsBusiness).sort();
-    expect(needs).toEqual(["billing:read", "enquiries:write", "leads:read", "leads:write", "listings:read", "listings:write"]);
+    expect(needs).toEqual(["agents:read", "agents:write", "billing:read", "enquiries:write", "leads:read", "leads:write", "listings:read", "listings:write"]);
     for (const s of ["wishlist:write", "reviews:write", "messages:write", "profile:read", "search:read", "catalogue:read"] as Scope[]) expect(scopeNeedsBusiness(s)).toBe(false);
   });
   it("scopesFromAccess: write => write scope only, read => read, none/unknown/null ignored; output is a subset of SCOPES without dupes", () => {

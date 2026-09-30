@@ -1,0 +1,30 @@
+# ai-service and search-service accept traffic only from the workloads that call them (service tokens are the second lock).
+# ai-service egress: DNS, in-cluster, and 443 to the model vendors. Restrict the vendor CIDRs/FQDNs with your CNI's FQDN policy
+# (ADR-010: only redacted text leaves; vendor endpoints must be India-region or covered by DPDP cross-border terms).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cnote-ai-service
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: cnote-ai-service}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app.kubernetes.io/part-of: cnote}}
+      ports:
+        - {port: 3005}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cnote-search-service
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: cnote-search-service}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app.kubernetes.io/part-of: cnote}}
+      ports:
+        - {port: 3006}

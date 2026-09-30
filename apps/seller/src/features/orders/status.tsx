@@ -1,16 +1,17 @@
+import { useTranslations } from "next-intl";
 import { Badge, type BadgeTone } from "@cnote/ui";
 import type { OrderView } from "@cnote/enquiry";
 
-const STATUS: Record<OrderView["status"], { label: string; tone: BadgeTone }> = {
-  recorded: { label: "Awaiting confirmation", tone: "warning" },
-  confirmed: { label: "Confirmed", tone: "brand" },
-  dispatched: { label: "Dispatched", tone: "brand" },
-  delivered: { label: "Delivered", tone: "success" },
-  completed: { label: "Completed", tone: "success" },
-  cancelled: { label: "Cancelled", tone: "neutral" },
+const TONE: Record<OrderView["status"], BadgeTone> = {
+  recorded: "warning",
+  confirmed: "brand",
+  dispatched: "brand",
+  delivered: "success",
+  completed: "success",
+  cancelled: "neutral",
 };
 
 export function OrderStatusBadge({ status }: { status: OrderView["status"] }) {
-  const s = STATUS[status];
-  return <Badge tone={s.tone}>{s.label}</Badge>;
+  const t = useTranslations("orders.status");
+  return <Badge tone={TONE[status]}>{t(status)}</Badge>;
 }

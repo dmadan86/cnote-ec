@@ -1,0 +1,46 @@
+# STANDBY region: ap-south-2 (Hyderabad). Warm: stateless tiers run at minimum size, the worker is OFF (exactly one region may
+# run the outbox relay / schedulers), Postgres is a streaming replica (read-only), Redis a replica.
+# Apply:  kubectl apply -k infra/k8s/overlays/region-b-hyderabad-standby
+# Failover: promote the databases, then apply region-b-hyderabad-active (docs/ops/dr-runbook.md).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: cnote
+resources:
+  - ../../../../deploy/k8s/base
+  - ../../base
+labels:
+  - pairs: {cnote.io/region: ap-south-2, cnote.io/role: standby}
+    includeSelectors: false
+    includeTemplates: true
+patches:
+  - target: {kind: ConfigMap, name: cnote-config}
+    patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata: {name: cnote-config}
+      data:
+        CNOTE_REGION: ap-south-2
+        DR_PRIMARY_REGION: ap-south-1
+        DR_SECONDARY_REGION: ap-south-2
+        DATA_RESIDENCY_ENFORCE: "true"
+        DATA_RESIDENCY_DB_HOST_ALLOW: '\.ap-south-[12]\.(rds|elasticache)\.amazonaws\.com$'
+        MEDIA_DRIVER: s3
+        MEDIA_REGION: ap-south-2
+        MEDIA_ENDPOINT: https://s3.ap-south-2.amazonaws.com
+        AI_TRANSPORT: http
+        AI_SERVICE_URL: http://cnote-ai-service
+        SEARCH_TRANSPORT: http
+        SEARCH_SERVICE_URL: http://cnote-search-service
+        AI_REMOTE_FALLBACK: heuristic
+        SEARCH_REMOTE_FALLBACK: inproc
+  # Worker OFF: two active relays/schedulers would double-run jobs that are only idempotent, not free.
+  - {target: {kind: Deployment, name: cnote-worker}, patch: '[{"op":"replace","path":"/spec/replicas","value":0}]'}
+  - {target: {kind: Deployment, name: cnote-ai-service}, patch: '[{"op":"replace","path":"/spec/replicas","value":1}]'}
+  - {target: {kind: HorizontalPodAutoscaler, name: cnote-ai-service}, patch: '[{"op":"replace","path":"/spec/minReplicas","value":1}]'}
+  - {target: {kind: Deployment, name: cnote-search-service}, patch: '[{"op":"replace","path":"/spec/replicas","value":1}]'}
+  - {target: {kind: HorizontalPodAutoscaler, name: cnote-search-service}, patch: '[{"op":"replace","path":"/spec/minReplicas","value":1}]'}
+  # Migrations are only ever run against the primary.
+  - {target: {kind: Job, name: cnote-migrate}, patch: '[{"op":"add","path":"/spec/suspend","value":true}]'}
+images:
+  - {name: cnote-ai-service, newName: ghcr.io/OWNER/cnote-ai-service, newTag: REPLACE_WITH_RELEASE}
+  - {name: cnote-search-service, newName: ghcr.io/OWNER/cnote-search-service, newTag: REPLACE_WITH_RELEASE}

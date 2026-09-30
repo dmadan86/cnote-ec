@@ -103,6 +103,8 @@ export interface DomainEventPayloads {
   EscrowReleased:         { escrowId: string; orderId: string; sellerBusinessId: string; amountPaise: number; feePaise: number; cause: "buyer_accepted" | "auto_release" | "dispute_resolution" | "staff" };
   EscrowRefunded:         { escrowId: string; orderId: string; buyerBusinessId: string; amountPaise: number; cause: "cancelled" | "dispute_resolution" | "funding_expired" | "staff" };
   PayoutSettled:          { payoutId: string; escrowId: string; sellerBusinessId: string; amountPaise: number; partnerRef: string; latencyMs: number };
+  /** seller proceeds assigned to an NBFC were paid to the lender first (ADR-019 invoice financing) */
+  EscrowLenderRepaid:     { payoutId: string; escrowId: string; assignmentId: string; amountPaise: number; partnerRef: string };
   // disputes (ADR-013)
   DisputeOpened:    { disputeId: string; orderId: string; openedByBusinessId: string; againstBusinessId: string; type: string; amountPaise: number | null };
   DisputeBriefReady: { disputeId: string; orderId: string; recommendation: string; confidence: number; autoResolvable: boolean };
@@ -254,6 +256,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   EscrowReleased: 1,
   EscrowRefunded: 1,
   PayoutSettled: 1,
+  EscrowLenderRepaid: 1,
   DisputeOpened: 1,
   DisputeBriefReady: 1,
   DisputeEscalated: 1,

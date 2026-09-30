@@ -7,6 +7,7 @@ import { z } from "zod";
 import { locationBoost, rrfFuse, toCandidates, trustFactor } from "./fusion";
 import { getSearchIndex, type SearchFacets } from "./index-port";
 import { normaliseQuery } from "./normalise";
+import { remoteSearch, searchFallbackEnabled, searchTransport, sharedSearchServiceClient } from "./remote";
 import type { SearchHit } from "./index";
 
 const optsSchema = z.object({
@@ -22,8 +23,20 @@ interface Page {
   facets?: SearchFacets;
 }
 
+type SearchOpts = { q: string; categorySlug?: string; limit?: number; cursor?: string };
+type SearchResult = { hits: SearchHit[]; tookMs: number; nextCursor?: string | null; facets?: SearchFacets };
+
+/**
+ * Entry point. SEARCH_TRANSPORT=http routes to apps/search-service (breaker + in-process fallback, ADR-018 pattern);
+ * the default runs in-process. The service itself always runs in-process.
+ */
+export async function searchListings(opts: SearchOpts): Promise<SearchResult> {
+  if (searchTransport() === "http") return remoteSearch(sharedSearchServiceClient(), opts, searchFallbackEnabled() ? () => searchListingsLocal(opts) : null);
+  return searchListingsLocal(opts);
+}
+
 /** `cursor`, `nextCursor` and `facets` are additive and only populated by backends that support them (OpenSearch). */
-export async function searchListings(opts: { q: string; categorySlug?: string; limit?: number; cursor?: string }): Promise<{ hits: SearchHit[]; tookMs: number; nextCursor?: string | null; facets?: SearchFacets }> {
+export async function searchListingsLocal(opts: SearchOpts): Promise<SearchResult> {
   const started = Date.now();
   const { q, categorySlug, limit, cursor } = optsSchema.parse(opts);
   const nq = normaliseQuery(q);

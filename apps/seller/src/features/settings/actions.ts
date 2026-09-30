@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { getTranslations } from "next-intl/server";
 import type { ActionResult } from "@cnote/next-kit";
 import { requireSeller } from "@/lib/auth";
 import { LANGUAGES } from "@/lib/constants";
@@ -13,11 +14,12 @@ export type SettingsResult = ActionResult<null>;
 
 export async function updateProfileAction(_prev: SettingsResult | null, fd: FormData): Promise<SettingsResult> {
   const session = await requireSeller("/settings");
+  const t = await getTranslations("settings.profile");
   return run(async () => {
     const input = z
       .object({
-        name: z.string().min(2, "Enter your name.").max(80),
-        preferredLanguage: z.enum(LANGUAGES.map((l) => l.code) as [string, ...string[]], "Choose a language."),
+        name: z.string().min(2, t("errName")).max(80),
+        preferredLanguage: z.enum(LANGUAGES.map((l) => l.code) as [string, ...string[]], t("errLanguage")),
       })
       .parse({ name: str(fd, "name"), preferredLanguage: str(fd, "preferredLanguage") });
     await identity.updateProfile(session.personId, input);

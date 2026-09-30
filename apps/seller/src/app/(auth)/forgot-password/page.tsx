@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
-import { ForgotPasswordForm } from "@cnote/next-kit/client";
+import { getTranslations } from "next-intl/server";
+import { LocalizedForgotPasswordForm } from "@/features/shell/localized-auth-forms";
 
-export const metadata: Metadata = { title: "Forgot password" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("auth.forgot");
+  return { title: t("meta") };
+}
 
 export default function ForgotPasswordPage() {
-  return <ForgotPasswordForm />;
+  return <LocalizedForgotPasswordForm />;
 }

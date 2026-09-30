@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import type { ActionResult } from "@cnote/next-kit";
 import { requireSeller } from "@/lib/auth";
@@ -27,10 +28,11 @@ function actor(session: Awaited<ReturnType<typeof requireSeller>>) {
  */
 export async function subscribeAction(_prev: BillingResult | null, fd: FormData): Promise<BillingResult> {
   const session = await requireSeller("/billing");
+  const t = await getTranslations("billing.errors");
   const res = await run(async () => {
-    const code = z.string().min(1, "Choose a plan.").parse(str(fd, "planCode"));
+    const code = z.string().min(1, t("choosePlan")).parse(str(fd, "planCode"));
     const plan = (await billing.listPlans()).find((p) => p.code === code);
-    if (!plan) throw new z.ZodError([{ code: "custom", path: ["planCode"], message: "Choose one of the plans shown.", input: code }]);
+    if (!plan) throw new z.ZodError([{ code: "custom", path: ["planCode"], message: t("planNotShown"), input: code }]);
     if (plan.monthlyPricePaise > 0) return `/billing/checkout?plan=${encodeURIComponent(code)}`;
     await billing.subscribe(session.business.id, code);
     logEvent("seller.plan_started", { businessId: session.business.id, planCode: code });
@@ -44,13 +46,14 @@ export async function subscribeAction(_prev: BillingResult | null, fd: FormData)
 /** Order summary confirmed: create the PaymentOrder and hand over to the gateway's hosted page (no card data here, ADR-010). */
 export async function checkoutAction(_prev: BillingResult | null, fd: FormData): Promise<BillingResult> {
   const session = await requireSeller("/billing");
+  const t = await getTranslations("billing.errors");
   const res = await run(async () => {
     const couponCode = str(fd, "couponCode") || undefined;
     const planCode = str(fd, "planCode");
     const packId = str(fd, "packId");
     const c = await billing.startCheckout(
       actor(session),
-      planCode ? { purpose: "subscription", planCode, couponCode } : { purpose: "credit_pack", packId: z.string().min(1, "Choose a pack.").parse(packId), couponCode },
+      planCode ? { purpose: "subscription", planCode, couponCode } : { purpose: "credit_pack", packId: z.string().min(1, t("choosePack")).parse(packId), couponCode },
     );
     logEvent("seller.checkout_started", { businessId: session.business.id, purpose: planCode ? "subscription" : "credit_pack", ref: planCode || packId });
     return c.redirectUrl;

@@ -1,1 +1,75 @@
 // Owned by @cnote/prices. ADR-022 price intelligence: k-anonymous regional, volume-tiered category benchmarks from quotes and escrow orders. Flag PRICE_INTEL_ENABLED.
+
+/// One published (or manually unpublished) k-anonymous benchmark cell. NEVER stores business ids: only aggregates.
+/// Percentiles are paise per CANONICAL unit (kg, pcs, m, l, or the unit itself for set/pair/box/...).
+model PriceBenchmark {
+  id           String   @id @default(uuid()) @db.Uuid
+  /// "YYYY-MM": the month of the run that produced it (window = trailing 90 days ending at that run)
+  period       String
+  /// plain uuid: no relation to the catalogue model
+  categoryId   String   @map("category_id") @db.Uuid
+  /// canonical unit
+  unit         String
+  /// state slug (e.g. "maharashtra") or "national"
+  region       String
+  /// "all" | "t1" | "t2" | "t3" (quantity bands per unit)
+  tier         String
+  p10Paise     BigInt   @map("p10_paise")
+  p25Paise     BigInt   @map("p25_paise")
+  p50Paise     BigInt   @map("p50_paise")
+  p75Paise     BigInt   @map("p75_paise")
+  p90Paise     BigInt   @map("p90_paise")
+  sampleCount  Int      @map("sample_count")
+  quoteCount   Int      @map("quote_count")
+  /// samples from escrow-funded orders (weighted higher)
+  escrowCount  Int      @map("escrow_count")
+  /// distinct counts (aggregates only; identities are never stored)
+  sellerCount  Int      @map("seller_count")
+  buyerCount   Int      @map("buyer_count")
+  /// the k in force when published
+  k            Int
+  /// published | unpublished (staff took it down; a re-run refreshes numbers but keeps it down)
+  status       String   @default("published")
+  unpublishedReason String? @map("unpublished_reason")
+  unpublishedBy String? @map("unpublished_by") @db.Uuid
+  unpublishedAt DateTime? @map("unpublished_at") @db.Timestamptz
+  runId        String?  @map("run_id") @db.Uuid
+  publishedAt  DateTime @default(now()) @map("published_at") @db.Timestamptz
+
+  @@unique([period, categoryId, unit, region, tier])
+  @@index([categoryId, status, period])
+  @@map("price_benchmarks")
+}
+
+/// One aggregation run (nightly job or staff-triggered): counts only, including why cells were suppressed.
+model PriceBenchmarkRun {
+  id              String    @id @default(uuid()) @db.Uuid
+  period          String
+  /// nightly | manual
+  trigger         String
+  /// running | completed | failed
+  status          String    @default("running")
+  k               Int
+  samples         Int       @default(0)
+  categories      Int       @default(0)
+  cells           Int       @default(0)
+  suppressedCells Int       @default(0)
+  /// { sellers: n, buyers: n, dominance: n }: cells failing each rule (a cell counts under its first failing rule)
+  suppressedReasons Json    @default("{}") @map("suppressed_reasons")
+  error           String?
+  startedAt       DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  finishedAt      DateTime? @map("finished_at") @db.Timestamptz
+
+  @@index([startedAt])
+  @@map("price_benchmark_runs")
+}
+
+/// Key/value config edited in the admin console (audited there): currently only "k".
+model PriceConfig {
+  key       String   @id
+  value     Json
+  updatedBy String?  @map("updated_by") @db.Uuid
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("price_config")
+}

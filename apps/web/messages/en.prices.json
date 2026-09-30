@@ -1,0 +1,13 @@
+{
+  "prices": {
+    "title": "Typical price range",
+    "sectionLabel": "Price guide for your requirement",
+    "range": "In {region}, the usual price is {low} to {high} per {unit}, with a median of {median}.",
+    "widerArea": "There is not enough data for your exact area or quantity, so this covers a wider range.",
+    "basis": "Indicative only, from {count} recent anonymised quotes and orders. Your quotes may differ.",
+    "trendUp": "The median is up {percent}% on last month.",
+    "trendDown": "The median is down {percent}% on last month.",
+    "trendFlat": "The median is steady compared with last month.",
+    "checking": "Checking typical prices…"
+  }
+}

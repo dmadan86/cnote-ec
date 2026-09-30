@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { Alert, PageHeader } from "@cnote/ui";
 import { requireSeller } from "@/lib/auth";
@@ -11,9 +12,12 @@ import { VersionPanel, type PanelOverview } from "@/features/listings/version-pa
 
 const WEB_ORIGIN = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 
-export const metadata: Metadata = { title: "Edit listing" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("listings.meta"))("edit") };
+}
 
 export default async function EditListingPage({ params }: PageProps<"/listings/[id]/edit">) {
+  const t = await getTranslations("listings.edit");
   const { id } = await params;
   const session = await requireSeller(`/listings/${id}/edit`);
   const [listing, cats] = await Promise.all([load(() => catalogue.getListing(id)), load(() => catalogue.listCategories())]);
@@ -26,7 +30,7 @@ export default async function EditListingPage({ params }: PageProps<"/listings/[
   if (!listing.data || listing.data.sellerBusinessId !== session.business.id) notFound();
   return (
     <div className="max-w-2xl space-y-6">
-      <PageHeader title="Edit listing" description="Edits are saved to your working copy. Buyers see a new version only after you submit it and it is approved." />
+      <PageHeader title={t("title")} description={t("description")} />
       <ListingStatusBadges listing={listing.data} />
       <ImageManager listingId={listing.data.id} initialImages={images.ok ? images.data : []} />
       <ListingEditor listing={listing.data} categories={cats.data.filter((c) => !c.prohibited)} mode="portal" defaultLanguage={session.preferredLanguage} />
