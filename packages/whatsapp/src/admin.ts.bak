@@ -1,0 +1,75 @@
+// Read models for the admin conversation inspector. Numbers are never stored, so nothing here can leak one; bodies
+// were redacted on write and are scrubbed after 30 days.
+import { prisma } from "@cnote/db";
+
+export interface ContactRow {
+  id: string;
+  /** first 8 chars of the sha256 lookup hash: enough to correlate, useless to reverse */
+  ref: string;
+  personId: string | null;
+  language: string;
+  flow: string | null;
+  step: string | null;
+  consented: boolean;
+  optedOut: boolean;
+  windowOpen: boolean;
+  updatedAt: string;
+  failedSends: number;
+}
+export interface MessageRow {
+  id: string;
+  direction: string;
+  kind: string;
+  body: string | null;
+  template: string | null;
+  status: string;
+  costPaise: number | null;
+  createdAt: string;
+}
+
+export async function listContacts(opts: { step?: string; limit?: number } = {}): Promise<ContactRow[]> {
+  const rows = await prisma.whatsAppContact.findMany({ orderBy: { updatedAt: "desc" }, take: Math.min(opts.limit ?? 100, 200) });
+  const failed = await prisma.whatsAppMessage.groupBy({ by: ["contactId"], where: { status: "failed", contactId: { in: rows.map((r) => r.id) } }, _count: true });
+  const fc = new Map(failed.map((f) => [f.contactId, f._count]));
+  const now = Date.now();
+  const out = rows.map((r): ContactRow => {
+    const st = (r.state ?? {}) as { flow?: string; step?: string; data?: { consent?: boolean } };
+    return {
+      id: r.id, ref: r.phoneHash.slice(0, 8), personId: r.personId, language: r.language, flow: st.flow ?? null, step: st.step ?? null,
+      consented: st.data?.consent === true, optedOut: !!r.optedOutAt, windowOpen: !!r.windowUntil && r.windowUntil.getTime() > now,
+      updatedAt: r.updatedAt.toISOString(), failedSends: fc.get(r.id) ?? 0,
+    };
+  });
+  return opts.step ? out.filter((c) => c.step === opts.step) : out;
+}
+
+export async function getContactMessages(contactId: string, limit = 50): Promise<MessageRow[]> {
+  const rows = await prisma.whatsAppMessage.findMany({ where: { contactId }, orderBy: { createdAt: "desc" }, take: limit });
+  return rows.map((m) => ({ id: m.id, direction: m.direction, kind: m.kind, body: m.body, template: m.template, status: m.status, costPaise: m.costPaise, createdAt: m.createdAt.toISOString() }));
+}
+
+/** Support action (wrap in audited()): send the conversation back to the start; identity links are kept. */
+export async function resetContact(contactId: string): Promise<void> {
+  await prisma.whatsAppContact.update({ where: { id: contactId }, data: { state: {} } });
+}
+
+export interface DeadInbound {
+  id: string;
+  attempt: number;
+  enqueuedAt: string;
+  kind: string;
+  /** message type or status; never the sender number or text */
+  summary: string;
+}
+
+/** Inbound jobs that exhausted their retries (e.g. provisioning kept failing). Numbers/text are not exposed. */
+export async function listInboundDeadLetters(limit = 50): Promise<DeadInbound[]> {
+  const list = await getJobQueue().deadLetters("whatsapp.inbound", limit);
+  return list.map((m) => {
+    const p = m.payload as { kind?: string; message?: { content?: { type?: string } }; status?: { status?: string } };
+    return { id: m.id, attempt: m.attempt, enqueuedAt: m.enqueuedAt, kind: p.kind ?? "?", summary: p.message?.content?.type ?? p.status?.status ?? "?" };
+  });
+}
+
+/** Support action (wrap in audited()): re-enqueue one dead-lettered inbound job. */
+export const replayInboundDeadLetter = (id: string): Promise<boolean> => getJobQueue().replayDeadLetter("whatsapp.inbound", id);

@@ -119,10 +119,12 @@ describe("recomputeTrust", () => {
     await redis.hset(`trust:${b}`, { expired: "not-a-number", acceptedFast: "-", lastActivityAt: "x" });
     await expect(recomputeTrust(b)).resolves.toMatchObject({ score: expect.any(Number) });
   });
-  it("runTrustDecay pages over sellers and reports how many changed", async () => {
+  it("runTrustDecay pages over sellers and recomputes their scores", async () => {
     const b = await seller();
     await prisma.business.update({ where: { id: b }, data: { trustScore: 3 } });
-    expect(await runTrustDecay()).toBeGreaterThanOrEqual(1);
+    // The count is global (other test files may run a decay pass in parallel and fix this seller first), so assert
+    // on this seller's outcome rather than on how many rows this particular run changed.
+    expect(await runTrustDecay()).toBeGreaterThanOrEqual(0);
     expect(await score(b)).not.toBe(3);
     expect(await recomputeTrust(b)).toMatchObject({ changed: false });
   });
@@ -243,5 +245,31 @@ describe("mfa edge cases", () => {
     const rowA = await prisma.personMfa.findUniqueOrThrow({ where: { personId: a.id } });
     await prisma.personMfa.update({ where: { personId: b.id }, data: { totpSecretEnc: rowA.totpSecretEnc } });
     await expect(verifyMfa(b.id, totp(a.secret, Date.now() + 60_000))).rejects.toThrow();
+  });
+});
+
+describe("runTrustDecay pagination", () => {
+  it("keeps going when the previous page's last row is deleted mid-run (keyset, not row cursor)", async () => {
+    const ids = [await seller(), await seller(), await seller()].sort();
+    for (const id of ids) await prisma.business.update({ where: { id }, data: { trustScore: 3 } });
+    const original = prisma.business.findMany.bind(prisma.business);
+    let pages = 0;
+    const spy = vi.spyOn(prisma.business, "findMany").mockImplementation((async (args: Parameters<typeof original>[0]) => {
+      const where = { ...(args?.where ?? {}), id: { ...((args?.where?.id as object) ?? {}), in: ids } };
+      const page = await original({ ...args, where } as never);
+      // After the first page, delete the row the next page would have used as a Prisma row cursor.
+      if (pages++ === 0 && page[0]) {
+        await prisma.businessMember.deleteMany({ where: { businessId: page[0].id } });
+        await prisma.business.delete({ where: { id: page[0].id } });
+      }
+      return page;
+    }) as never);
+    try {
+      await runTrustDecay({ pageSize: 1 });
+    } finally {
+      spy.mockRestore();
+    }
+    expect(pages).toBeGreaterThanOrEqual(3);
+    for (const id of ids.slice(1)) expect(await score(id)).not.toBe(3);
   });
 });

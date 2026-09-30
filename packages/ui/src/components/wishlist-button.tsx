@@ -18,6 +18,7 @@ export function WishlistButton({
   onToggle,
   signInPath = "/signin",
   className,
+  labels,
 }: {
   id: string;
   title: string;
@@ -25,6 +26,8 @@ export function WishlistButton({
   onToggle?: (id: string) => Promise<WishlistToggleResult>;
   signInPath?: string;
   className?: string;
+  /** Translated strings (defaults are English). `save`/`remove` use the `{title}` placeholder. */
+  labels?: { save?: string; remove?: string; saved?: string; saveShort?: string; signInToSave?: string; error?: string };
 }) {
   const [prev, setPrev] = useState(initialSaved);
   const [saved, setSaved] = useState(initialSaved);
@@ -51,11 +54,11 @@ export function WishlistButton({
         if (r.ok) setSaved(r.saved);
         else {
           setSaved(before);
-          setError(r.error ?? "Couldn't update your saved items.");
+          setError(r.error ?? labels?.error ?? "Couldn't update your saved items.");
         }
       } catch {
         setSaved(before);
-        setError("Couldn't update your saved items.");
+        setError(labels?.error ?? "Couldn't update your saved items.");
       }
     });
   }
@@ -66,8 +69,8 @@ export function WishlistButton({
         type="button"
         aria-pressed={saved}
         aria-busy={pending}
-        aria-label={saved ? `Remove ${title} from saved items` : `Save ${title}`}
-        title={saved ? "Saved" : onToggle ? "Save" : "Sign in to save"}
+        aria-label={(saved ? (labels?.remove ?? "Remove {title} from saved items") : (labels?.save ?? "Save {title}")).replace("{title}", title)}
+        title={saved ? (labels?.saved ?? "Saved") : onToggle ? (labels?.saveShort ?? "Save") : (labels?.signInToSave ?? "Sign in to save")}
         onClick={click}
         className={cn(
           "inline-flex size-8 items-center justify-center rounded-full bg-surface/95 shadow-sm ring-1 ring-line transition-colors hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-600",

@@ -1,17 +1,19 @@
 import { ProductCardSkeleton, Rail } from "@cnote/ui";
+import { getTranslations } from "next-intl/server";
+import type { Locale } from "@/i18n/config";
 import type { ListingView } from "@cnote/catalogue";
 import { ListingCard } from "@/features/search/cards";
 import { loadFeatured, loadRatings } from "@/features/search/data";
 import { RailSwitcher } from "./rail-switcher";
 
-function Cards({ items, ratings, priority }: { items: ListingView[]; ratings: Record<string, { average: number; count: number }>; priority?: boolean }) {
+function Cards({ items, ratings, priority, locale, empty }: { items: ListingView[]; ratings: Record<string, { average: number; count: number }>; priority?: boolean; locale: Locale; empty: string }) {
   if (!items.length) {
-    return <p className="rounded-card border border-dashed border-line bg-surface px-4 py-10 text-center text-sm text-muted">Products will show up here as suppliers publish listings.</p>;
+    return <p className="rounded-card border border-dashed border-line bg-surface px-4 py-10 text-center text-sm text-muted">{empty}</p>;
   }
   return (
     <Rail className="md:grid-cols-4 xl:grid-cols-8">
       {items.map((l, i) => (
-        <ListingCard key={l.id} listing={l} rating={ratings[l.id]} priority={priority && i < 2} />
+        <ListingCard key={l.id} listing={l} rating={ratings[l.id]} priority={priority && i < 2} locale={locale} />
       ))}
     </Rail>
   );
@@ -22,12 +24,13 @@ function Cards({ items, ratings, priority }: { items: ListingView[]; ratings: Re
  * business/best → catalogue "popular"; trending → the next window of "popular"; new → "new".
  * Static, Redis + data-cache backed; only the tab switch is client-side.
  */
-export async function PopularRails() {
+export async function PopularRails({ locale }: { locale: Locale }) {
+  const empty = (await getTranslations({ locale, namespace: "home" }))("productsEmpty");
   const [popularAll, fresh] = await Promise.all([loadFeatured("popular", 16), loadFeatured("new", 8)]);
   const popular = popularAll.slice(0, 8);
   const trending = popularAll.length > 8 ? popularAll.slice(8, 16) : popularAll.slice(0, 8);
   const ratings = await loadRatings([...popular, ...trending, ...fresh].map((l) => l.id));
-  return <RailSwitcher panels={{ popular: <Cards items={popular} ratings={ratings} priority />, trending: <Cards items={trending} ratings={ratings} />, new: <Cards items={fresh} ratings={ratings} /> }} />;
+  return <RailSwitcher panels={{ popular: <Cards items={popular} ratings={ratings} priority locale={locale} empty={empty} />, trending: <Cards items={trending} ratings={ratings} locale={locale} empty={empty} />, new: <Cards items={fresh} ratings={ratings} locale={locale} empty={empty} /> }} />;
 }
 
 export function PopularRailSkeleton() {

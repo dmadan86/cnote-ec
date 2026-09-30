@@ -40,9 +40,16 @@ export function unconfiguredOtpSender(provider: "msg91" | "gupshup" | "twilio"):
   };
 }
 
-let sender: OtpSender = consoleOtpSender;
-export const getOtpSender = () => sender;
-export const setOtpSender = (s: OtpSender) => void (sender = s);
+// Resolved lazily from OTP_SENDER on first use (see otp-senders.ts), so every process and every Next.js bundle
+// gets the configured provider without bootstrap wiring. setOtpSender overrides it (tests, composition roots).
+let sender: OtpSender | undefined;
+/** The sender in use, or the console adapter if nothing has resolved yet (sync, for diagnostics). */
+export const getOtpSender = (): OtpSender => sender ?? consoleOtpSender;
+export const setOtpSender = (s: OtpSender | undefined) => void (sender = s);
+export async function resolveOtpSender(): Promise<OtpSender> {
+  // Dynamic import: otp-senders imports this module, so a static import would be circular.
+  return (sender ??= (await import("./otp-senders")).otpSenderFromEnv());
+}
 
 const OTP_TTL = 10 * 60;
 const MAX_ATTEMPTS = 5;
@@ -72,7 +79,7 @@ export async function requestLoginOtp(
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const k = key(phone);
   await redis.multi().hset(k, { hash: digest(phone, code), attempts: 0 }).expire(k, OTP_TTL).exec();
-  await getOtpSender().send({ to: phone, code, channel, ttlMinutes: OTP_TTL / 60 });
+  await (await resolveOtpSender()).send({ to: phone, code, channel, ttlMinutes: OTP_TTL / 60 });
   const base = { sent: true as const, phone, phoneHash: sha256(phone), channel, resendAfterSeconds: RESEND_COOLDOWN };
   return process.env.OTP_DEV_ECHO === "true" ? { ...base, devCode: code } : base;
 }

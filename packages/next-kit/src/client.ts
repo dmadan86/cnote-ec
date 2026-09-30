@@ -1,7 +1,8 @@
 "use client";
 // Client auth UI shared by all apps. Each app renders these on its own /signin, /signup, ... pages.
 // PUBLIC CONTRACT (props). Extend, don't break.
-export type { AuthFormProps } from "./forms";
+export type { AuthFormProps, AuthLabels } from "./forms";
+export { DEFAULT_AUTH_LABELS } from "./forms";
 export { SignInForm, SignUpForm, ForgotPasswordForm, ResetPasswordForm, GoogleButton } from "./forms";
 
 export * from "./otp-client";

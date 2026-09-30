@@ -107,8 +107,8 @@ const read = (f: string) => readFileSync(f, "utf8");
 describe("guards", () => {
   // The whole point of the performance design: public pages/shell never touch per-request data, so they stay static/ISR.
   const STATIC_FILES = [
-    "app/layout.tsx", "app/page.tsx", "app/(discover)/c/[slug]/page.tsx", "app/(discover)/p/[slugId]/page.tsx", "app/(discover)/s/[category]/[keyword]/page.tsx",
-    "app/(discover)/categories/page.tsx", "app/(discover)/manufacturers/[id]/page.tsx", "features/search/cards.tsx", "features/search/data.ts",
+    "app/layout.tsx", "app/[locale]/layout.tsx", "app/[locale]/page.tsx", "app/[locale]/(discover)/c/[slug]/page.tsx", "app/[locale]/(discover)/p/[slugId]/page.tsx", "app/[locale]/(discover)/s/[category]/[keyword]/page.tsx",
+    "app/[locale]/(discover)/categories/page.tsx", "app/[locale]/(discover)/manufacturers/[id]/page.tsx", "features/search/cards.tsx", "features/search/data.ts",
     "features/shell/site-header.tsx", "features/shell/site-footer.tsx", "features/reviews/public-section.tsx", "features/shell/home/popular-products.tsx", "features/shell/home/category-grid.tsx",
   ];
   it.each(STATIC_FILES)("%s stays cache-friendly (no cookies/headers/session/searchParams)", (f) => {

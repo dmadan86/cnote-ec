@@ -1,0 +1,198 @@
+// Retention framework (ADR-010; DPDP Act 2023 s.8(7) storage limitation: erase personal data once the purpose is
+// served unless retention is required by law; DPDP Rules 2025 r.8/Third Schedule and the 1-year log retention rule).
+//
+// Every policy is a thin wrapper around a purge function EXPORTED BY THE OWNING MODULE, so this package never touches
+// another module's tables. Each run writes a RetentionRun row (evidence for storage limitation). Windows come from env
+// (`RETENTION_<KEY>_DAYS`) with the safe defaults below. Consent ledger rows and admin audit logs are never purged.
+import { prisma } from "@cnote/db";
+import * as catalogue from "@cnote/catalogue";
+import { purgeInactiveConversationMessages } from "@cnote/enquiry";
+import { purgeErasedPersonResiduals, purgeExpiredAuthSessions } from "@cnote/identity";
+import { purgeAbandonedCaptures } from "@cnote/leadgen";
+import { purgeReadNotifications } from "@cnote/notifications";
+import { purgeRejectedUgc } from "@cnote/reviews";
+import * as whatsapp from "@cnote/whatsapp";
+import { purgeStaleEmptyWishlists } from "@cnote/wishlist";
+import { numFromEnv } from "./config";
+
+const DAY = 86_400_000;
+
+export interface RetentionPolicy {
+  /** unique, stable: written to RetentionRun.policy */
+  name: string;
+  module: string;
+  description: string;
+  legalBasis: string;
+  /** env override: RETENTION_<envKey>_DAYS */
+  envKey: string;
+  defaultDays: number;
+  /** false when the owning purge cannot count without deleting (dry-run then reports 0 and does nothing) */
+  supportsDryRun: boolean;
+  /** purge everything older than `before`; returns rows affected (dry-run: rows that WOULD be affected) */
+  run(before: Date, opts: { dryRun: boolean }): Promise<number>;
+}
+
+export const windowDays = (p: Pick<RetentionPolicy, "envKey" | "defaultDays">, env: NodeJS.ProcessEnv = process.env): number =>
+  numFromEnv(env[`RETENTION_${p.envKey}_DAYS`], p.defaultDays);
+
+/** Normalise the unknown return type of a guarded optional purge (number, or an object with a count-like field). */
+export function toCount(v: unknown): number {
+  if (typeof v === "number") return v;
+  if (v && typeof v === "object") {
+    for (const k of ["purged", "count", "deleted", "removed"]) {
+      const n = (v as Record<string, unknown>)[k];
+      if (typeof n === "number") return n;
+    }
+  }
+  return 0;
+}
+
+/** Calls an export that another workstream may not have shipped yet; 0 when absent so the build never breaks. */
+export async function optionalPurge(ns: unknown, fn: string, args: unknown[], dryRun: boolean): Promise<number> {
+  const f = (ns as Record<string, unknown>)[fn];
+  if (typeof f !== "function" || dryRun) return 0;
+  return toCount(await (f as (...a: unknown[]) => Promise<unknown>)(...args));
+}
+
+export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
+  {
+    name: "enquiry.message_bodies_inactive_24m", module: "enquiry", envKey: "ENQUIRY_MESSAGES", defaultDays: 730, supportsDryRun: true,
+    description: "Message bodies in conversations inactive for the window are tombstoned; metadata and events are kept.",
+    legalBasis: "DPDP s.8(7) storage limitation; commercial-dispute limitation period (3 years) bounds the outer limit",
+    run: (before, { dryRun }) => purgeInactiveConversationMessages(before, { dryRun }),
+  },
+  {
+    name: "identity.auth_sessions_expired_90d", module: "identity", envKey: "AUTH_SESSIONS", defaultDays: 90, supportsDryRun: true,
+    description: "Revoked or expired login sessions (IP, user agent) are deleted. The consent ledger is never deleted.",
+    legalBasis: "DPDP s.8(7); security logs of the last 90 days kept for incident response",
+    run: (before, { dryRun }) => purgeExpiredAuthSessions(before, { dryRun }),
+  },
+  {
+    name: "identity.erased_person_residuals_30d", module: "identity", envKey: "ERASED_RESIDUALS", defaultDays: 30, supportsDryRun: true,
+    description: "Residual session rows of persons who exercised the right to erasure.",
+    legalBasis: "DPDP s.12(3) right to erasure; s.8(7)",
+    run: (before, { dryRun }) => purgeErasedPersonResiduals(before, { dryRun }),
+  },
+  {
+    name: "catalogue.soft_deleted_images_30d", module: "catalogue", envKey: "DELETED_IMAGES", defaultDays: 30, supportsDryRun: true,
+    description: "Bytes and rows of listing images the seller deleted. Listing versions are audit history and are kept.",
+    legalBasis: "DPDP s.8(7); seller-initiated deletion",
+    run: (before, { dryRun }) => catalogue.purgeSoftDeletedImages(before, { dryRun }),
+  },
+  {
+    name: "catalogue.voice_notes_expired", module: "catalogue", envKey: "VOICE_NOTES", defaultDays: 1, supportsDryRun: false,
+    description: "Seller voice notes past their purge date (audio kept only with voice_retention consent). Skipped until the AI workstream exports purgeExpiredVoiceNotes.",
+    legalBasis: "DPDP s.6 consent (purpose-scoped voice_retention); ADR-004/010",
+    run: (_before, { dryRun }) => optionalPurge(catalogue, "purgeExpiredVoiceNotes", [new Date()], dryRun),
+  },
+  {
+    name: "whatsapp.message_bodies_retention", module: "whatsapp", envKey: "WHATSAPP_MESSAGES", defaultDays: 30, supportsDryRun: false,
+    description: "WhatsApp message bodies and media keys past the retention window. Skipped until the WhatsApp workstream exports purgeWhatsAppMessages.",
+    legalBasis: "DPDP s.8(7); message bodies are not stored beyond the window (ADR-004)",
+    run: (before, { dryRun }) => optionalPurge(whatsapp, "purgeWhatsAppMessages", [before], dryRun),
+  },
+  {
+    name: "leadgen.abandoned_captures_90d", module: "leadgen", envKey: "ABANDONED_CAPTURES", defaultDays: 90, supportsDryRun: true,
+    description: "Lead captures that never verified (started, otp_sent, abandoned).",
+    legalBasis: "DPDP s.8(7); data minimisation for unconverted funnel data",
+    run: (before, { dryRun }) => purgeAbandonedCaptures(before, { dryRun }),
+  },
+  {
+    name: "notifications.read_90d", module: "notifications", envKey: "READ_NOTIFICATIONS", defaultDays: 90, supportsDryRun: true,
+    description: "In-app notifications the person has read. Unread notifications are kept.",
+    legalBasis: "DPDP s.8(7)",
+    run: (before, { dryRun }) => purgeReadNotifications(before, { dryRun }),
+  },
+  {
+    name: "reviews.rejected_ugc_12m", module: "reviews", envKey: "REJECTED_UGC", defaultDays: 365, supportsDryRun: true,
+    description: "Rejected reviews and comments (never public), after the appeal window.",
+    legalBasis: "DPDP s.8(7); IT Rules 2021 appeal window",
+    run: (before, { dryRun }) => purgeRejectedUgc(before, { dryRun }),
+  },
+  {
+    name: "wishlist.empty_lists_24m", module: "wishlist", envKey: "EMPTY_WISHLISTS", defaultDays: 730, supportsDryRun: true,
+    description: "Empty, non-default wishlists untouched for the window.",
+    legalBasis: "DPDP s.8(7)",
+    run: (before, { dryRun }) => purgeStaleEmptyWishlists(before, { dryRun }),
+  },
+];
+
+export interface RetentionResult {
+  policy: string;
+  module: string;
+  dryRun: boolean;
+  before: string;
+  purged: number;
+  error: string | null;
+}
+
+export interface RunOptions {
+  policies?: readonly RetentionPolicy[];
+  dryRun?: boolean;
+  now?: Date;
+  env?: NodeJS.ProcessEnv;
+}
+
+/** Runs the given policies (default: all), recording one RetentionRun per policy. A failing policy never stops the rest. */
+export async function runRetention(opts: RunOptions = {}): Promise<RetentionResult[]> {
+  const { policies = RETENTION_POLICIES, dryRun = false, env = process.env } = opts;
+  const now = opts.now ?? new Date();
+  const results: RetentionResult[] = [];
+  for (const p of policies) {
+    const before = new Date(now.getTime() - windowDays(p, env) * DAY);
+    const startedAt = new Date();
+    let purged = 0;
+    let error: string | null = null;
+    try {
+      purged = await p.run(before, { dryRun });
+    } catch (e) {
+      error = (e instanceof Error ? e.message : String(e)).slice(0, 500);
+      console.error(`[compliance] retention ${p.name} failed`, e);
+    }
+    await prisma.retentionRun.create({
+      data: { policy: dryRun ? `${p.name} (dry-run)` : p.name, module: p.module, purged, startedAt, finishedAt: new Date(), error },
+    });
+    results.push({ policy: p.name, module: p.module, dryRun, before: before.toISOString(), purged, error });
+  }
+  return results;
+}
+
+const RUN_EVERY_MS = 23 * 3_600_000;
+
+/**
+ * Scheduled tick (call hourly): runs policies whose last real run is older than ~23h, at most `maxPerTick` at a time,
+ * so the daily work is staggered across the day instead of hitting the database at once.
+ */
+export async function runDueRetention(opts: { now?: Date; maxPerTick?: number; dryRun?: boolean; env?: NodeJS.ProcessEnv } = {}): Promise<RetentionResult[]> {
+  const now = opts.now ?? new Date();
+  const env = opts.env ?? process.env;
+  if (env.RETENTION_ENABLED === "false") return [];
+  const dryRun = opts.dryRun ?? env.RETENTION_DRY_RUN === "true";
+  const recent = await prisma.retentionRun.findMany({
+    where: { startedAt: { gt: new Date(now.getTime() - RUN_EVERY_MS) }, error: null },
+    select: { policy: true },
+  });
+  const ran = new Set(recent.map((r) => r.policy));
+  const due = RETENTION_POLICIES.filter((p) => !ran.has(dryRun ? `${p.name} (dry-run)` : p.name)).slice(0, opts.maxPerTick ?? 2);
+  return runRetention({ policies: due, dryRun, now, env });
+}
+
+export interface RetentionRunView {
+  id: string;
+  policy: string;
+  module: string;
+  purged: number;
+  startedAt: string;
+  finishedAt: string;
+  error: string | null;
+}
+
+export async function listRetentionRuns(limit = 100): Promise<RetentionRunView[]> {
+  const rows = await prisma.retentionRun.findMany({ orderBy: { startedAt: "desc" }, take: Math.min(Math.max(limit, 1), 500) });
+  return rows.map((r) => ({ id: r.id, policy: r.policy, module: r.module, purged: r.purged, startedAt: r.startedAt.toISOString(), finishedAt: r.finishedAt.toISOString(), error: r.error }));
+}
+
+/** Registry for the admin schedule table: policy metadata with the effective window. */
+export function describePolicies(env: NodeJS.ProcessEnv = process.env) {
+  return RETENTION_POLICIES.map((p) => ({ name: p.name, module: p.module, description: p.description, legalBasis: p.legalBasis, windowDays: windowDays(p, env), supportsDryRun: p.supportsDryRun }));
+}

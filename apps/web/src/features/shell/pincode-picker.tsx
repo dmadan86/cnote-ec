@@ -1,5 +1,6 @@
 "use client";
 import { MapPin } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useSyncExternalStore } from "react";
 import { Button, Input } from "@cnote/ui";
 import { Popover } from "./popover";
@@ -19,6 +20,7 @@ function readCookiePin(): string | null {
 
 /** "Deliver to" picker. Stores a 6-digit pincode in a (non-httpOnly, non-sensitive) cookie. */
 export function PincodePicker() {
+  const t = useTranslations("shell");
   // The header is static/cached, so the pincode is read from the cookie on the client (null while hydrating).
   const cookiePin = useSyncExternalStore(noopSubscribe, readCookiePin, () => null);
   const [override, setOverride] = useState<string | null | undefined>(undefined);
@@ -30,7 +32,7 @@ export function PincodePicker() {
 
   function save(pin: string | null, close: () => void) {
     if (pin !== null && !/^[1-9]\d{5}$/.test(pin)) {
-      setError("Enter a valid 6-digit pincode.");
+      setError(t("pincodeInvalid"));
       return;
     }
     setError(null);
@@ -44,15 +46,15 @@ export function PincodePicker() {
     <Popover
       align="right"
       chevron
-      ariaLabel={`Deliver to ${initial ?? "India"}, change delivery pincode`}
+      ariaLabel={t("pincodeAria", { pin: initial ?? t("india") })}
       buttonClassName="text-left leading-tight"
       panelClassName="w-72 p-4"
       label={
         <span className="flex items-center gap-2">
           <MapPin className="size-4 text-brand-600" aria-hidden />
           <span className="flex flex-col text-[11px] leading-tight text-muted">
-            Deliver to
-            <span className="text-sm font-semibold text-ink">{initial ?? "India"}</span>
+            {t("deliverTo")}
+            <span className="text-sm font-semibold text-ink">{initial ?? t("india")}</span>
           </span>
         </span>
       }
@@ -66,23 +68,23 @@ export function PincodePicker() {
           className="flex flex-col gap-3"
         >
           <label htmlFor="pincode-input" className="text-sm font-semibold text-ink">
-            Delivery pincode
+            {t("pincodeLabel")}
           </label>
-          <Input id="pincode-input" inputMode="numeric" autoComplete="postal-code" maxLength={6} placeholder="e.g. 400069" value={value} onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))} aria-invalid={error ? true : undefined} aria-describedby={error ? "pincode-error" : undefined} />
+          <Input id="pincode-input" inputMode="numeric" autoComplete="postal-code" maxLength={6} placeholder={t("pincodePlaceholder")} value={value} onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))} aria-invalid={error ? true : undefined} aria-describedby={error ? "pincode-error" : undefined} />
           {error ? (
             <p id="pincode-error" className="text-xs text-danger">
               {error}
             </p>
           ) : (
-            <p className="text-xs text-muted">We use this to show delivery options. It stays on your device.</p>
+            <p className="text-xs text-muted">{t("pincodeHint")}</p>
           )}
           <div className="flex gap-2">
             <Button type="submit" size="sm">
-              Apply
+              {t("apply")}
             </Button>
             {initial ? (
               <Button type="button" size="sm" variant="ghost" onClick={() => save(null, close)}>
-                Clear
+                {t("clear")}
               </Button>
             ) : null}
           </div>

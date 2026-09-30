@@ -50,6 +50,7 @@ pnpm --filter @cnote/enquiry exec vitest run test/matching.test.ts -t "cascades"
 
 pnpm db:new <snake_name>   # schema change → new migration (non-interactive; see below)
 pnpm db:check              # CI guard for raw-SQL objects
+pnpm check:boundaries   # ADR-006: declared deps, no cycles, model ownership
 ```
 
 **Migrations.** Edit the module's `packages/db/prisma/schema/<module>.prisma`, then run `pnpm db:new <name>`. Don't use `prisma migrate dev` directly: Prisma can't model the pgvector HNSW indexes or the generated `listings.search_tsv` column and will try to drop them. `db:new` strips those statements, and `db:check` fails CI if one slips through. Read and write `embedding` columns with `$queryRaw` using `toVectorLiteral()` from `@cnote/db`.

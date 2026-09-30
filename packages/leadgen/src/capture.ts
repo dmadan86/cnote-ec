@@ -1,3 +1,4 @@
+import { getPublicListing } from "@cnote/catalogue";
 import { DomainError, emit } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { hashPhone } from "@cnote/identity";
@@ -6,9 +7,9 @@ import { startCaptureSchema, type StartCaptureInput } from "./types";
 /** Step 1: unlock prompt opened. Stores no phone. */
 export async function startCapture(input: StartCaptureInput, personId?: string | null): Promise<{ captureId: string }> {
   const d = startCaptureSchema.parse(input);
-  const listing = d.listingId
-    ? await prisma.listing.findUnique({ where: { id: d.listingId }, select: { sellerBusinessId: true, categoryId: true } })
-    : null;
+  // Captures start from public pages, so only a LIVE listing counts (catalogue's public read model).
+  const live = d.listingId ? await getPublicListing(d.listingId) : null;
+  const listing = live ? { sellerBusinessId: live.sellerBusinessId, categoryId: live.category.id } : null;
   const row = await prisma.leadCapture.create({
     data: {
       visitorId: d.visitorId, trigger: d.trigger, unlock: d.unlock, listingId: listing ? d.listingId : null,

@@ -1,6 +1,6 @@
 import { prisma } from "@cnote/db";
 import { afterAll, describe, expect, it } from "vitest";
-import { extractListing, listOpenReviews, moderate, purgeOldDecisionInputs, resolveReview, scoreIntent } from "../src";
+import { extractListing, getReview, listOpenReviews, moderate, purgeOldDecisionInputs, resolveReview, scoreIntent } from "../src";
 
 const runId = crypto.randomUUID();
 const subject = (type: "enquiry" | "listing") => ({ type, id: `test-${runId}-${type}` });
@@ -34,7 +34,9 @@ describe("decision logging + review queue", () => {
   it("always enqueues a 'review' verdict, and lists/resolves it once", async () => {
     const r = await moderate({ text: "citric acid food grade" }, subject("listing"));
     expect(r).toMatchObject({ verdict: "review", needsReview: true });
-    const open = (await listOpenReviews(200)).find((x) => x.subjectId === subject("listing").id && x.confidence === r.confidence);
+    // Look the item up by this test's subject: the shared test DB may hold more open items than one queue page.
+    const mine = await prisma.reviewItem.findFirstOrThrow({ where: { aiDecisionId: r.decisionId, status: "open" } });
+    const open = (await listOpenReviews(200)).find((x) => x.id === mine.id) ?? (await getReview(mine.id));
     expect(open).toBeTruthy();
     expect(open!.output).toMatchObject({ verdict: "review" });
     const done = await resolveReview(open!.id, "approved", reviewer);

@@ -2,10 +2,10 @@ import { ChevronRight } from "lucide-react";
 import { cn } from "../cn";
 import type { LinkComponent } from "./link";
 
-export function Breadcrumbs({ items, linkComponent, className }: { items: { label: string; href?: string }[]; linkComponent?: LinkComponent; className?: string }) {
+export function Breadcrumbs({ items, linkComponent, className, label }: { items: { label: string; href?: string }[]; linkComponent?: LinkComponent; className?: string; /** Accessible name of the nav landmark (default "Breadcrumb"). */ label?: string }) {
   const A = linkComponent ?? "a";
   return (
-    <nav aria-label="Breadcrumb" className={cn("text-sm text-muted", className)}>
+    <nav aria-label={label ?? "Breadcrumb"} className={cn("text-sm text-muted", className)}>
       <ol className="flex flex-wrap items-center gap-1">
         {items.map((it, i) => (
           <li key={i} className="flex items-center gap-1">

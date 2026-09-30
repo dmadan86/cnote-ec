@@ -1,9 +1,13 @@
 import type { ListingView } from "@cnote/catalogue";
 import type { TrustProfile } from "@cnote/identity";
+import { DEFAULT_LOCALE, localizePath, type Locale } from "@/i18n/config";
 import { absoluteUrl } from "./site-url";
 import { productPath, sellerPath } from "./paths";
 
 type Json = Record<string, unknown>;
+
+/** Absolute URL of a public path in a locale (English is unprefixed). */
+const localUrl = (path: string, locale: Locale) => absoluteUrl(localizePath(path, locale));
 
 export const breadcrumbLd = (items: { name: string; path?: string }[]): Json => ({
   "@context": "https://schema.org",
@@ -12,12 +16,12 @@ export const breadcrumbLd = (items: { name: string; path?: string }[]): Json => 
 });
 
 /** ItemList of product URLs for category / landing / search pages (lets crawlers and LLMs enumerate the results). */
-export const itemListLd = (name: string, listings: Pick<ListingView, "id" | "title">[]): Json => ({
+export const itemListLd = (name: string, listings: Pick<ListingView, "id" | "title">[], locale: Locale = DEFAULT_LOCALE): Json => ({
   "@context": "https://schema.org",
   "@type": "ItemList",
   name,
   numberOfItems: listings.length,
-  itemListElement: listings.map((l, i) => ({ "@type": "ListItem", position: i + 1, url: absoluteUrl(productPath(l)), name: l.title })),
+  itemListElement: listings.map((l, i) => ({ "@type": "ListItem", position: i + 1, url: localUrl(productPath(l), locale), name: l.title })),
 });
 
 const toImages = (l: ListingView) => l.imageUrls.filter((u) => !u.endsWith(".svg")).map((u) => absoluteUrl(u));
@@ -26,14 +30,14 @@ const toImages = (l: ListingView) => l.imageUrls.filter((u) => !u.endsWith(".svg
  * schema.org Product + Offer. Price is INR (paise / 100). `rating` must come from APPROVED reviews only
  * (getRatingSummaries is approved-only by construction); it is omitted entirely when there are no reviews.
  */
-export function productLd(l: ListingView, seller: TrustProfile | null, rating: { average: number; count: number } | null, reviews: { rating: number; author: string; body: string; date: string }[] = []): Json {
-  const url = absoluteUrl(productPath(l));
+export function productLd(l: ListingView, seller: TrustProfile | null, rating: { average: number; count: number } | null, reviews: { rating: number; author: string; body: string; date: string }[] = [], locale: Locale = DEFAULT_LOCALE): Json {
+  const url = localUrl(productPath(l), locale);
   const images = toImages(l);
   return {
     "@context": "https://schema.org",
     "@type": "Product",
     "@id": `${url}#product`,
-    name: l.title,
+      name: l.title,
     description: l.description || undefined,
     url,
     ...(images.length ? { image: images } : {}),
@@ -49,7 +53,7 @@ export function productLd(l: ListingView, seller: TrustProfile | null, rating: {
       itemCondition: "https://schema.org/NewCondition",
       ...(l.moq != null ? { eligibleQuantity: { "@type": "QuantitativeValue", minValue: l.moq, ...(l.moqUnit ? { unitText: l.moqUnit } : {}) } } : {}),
       ...(seller
-        ? { seller: { "@type": "Organization", name: seller.name, url: absoluteUrl(sellerPath(seller.businessId)), ...(seller.city ? { address: { "@type": "PostalAddress", addressLocality: seller.city, ...(seller.state ? { addressRegion: seller.state } : {}), addressCountry: "IN" } } : {}) } }
+        ? { seller: { "@type": "Organization", name: seller.name, url: localUrl(sellerPath(seller.businessId), locale), ...(seller.city ? { address: { "@type": "PostalAddress", addressLocality: seller.city, ...(seller.state ? { addressRegion: seller.state } : {}), addressCountry: "IN" } } : {}) } }
         : {}),
     },
     ...(rating && rating.count > 0 ? { aggregateRating: { "@type": "AggregateRating", ratingValue: rating.average, reviewCount: rating.count, bestRating: 5, worstRating: 1 } } : {}),
@@ -59,13 +63,13 @@ export function productLd(l: ListingView, seller: TrustProfile | null, rating: {
   };
 }
 
-export function sellerLd(s: TrustProfile): Json {
-  const url = absoluteUrl(sellerPath(s.businessId));
+export function sellerLd(s: TrustProfile, locale: Locale = DEFAULT_LOCALE): Json {
+  const url = localUrl(sellerPath(s.businessId), locale);
   return {
     "@context": "https://schema.org",
     "@type": ["Organization", "LocalBusiness"],
     "@id": `${url}#org`,
-    name: s.name,
+      name: s.name,
     url,
     ...(s.city || s.state
       ? { address: { "@type": "PostalAddress", ...(s.city ? { addressLocality: s.city } : {}), ...(s.state ? { addressRegion: s.state } : {}), ...(s.pincode ? { postalCode: s.pincode } : {}), addressCountry: "IN" } }

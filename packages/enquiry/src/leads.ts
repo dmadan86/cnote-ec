@@ -137,7 +137,7 @@ export async function expireOverdueOffers(now = new Date()): Promise<number> {
 
 /** Refunds one accepted match inside the tx: status → refunded, credit returned, LeadRefunded. */
 async function refundMatch(tx: Tx, m: Match, reason: "buyer_unreachable" | "buyer_fake" | "enquiry_rejected") {
-  await tx.match.update({ where: { id: m.id }, data: { status: "refunded" } });
+  await tx.match.update({ where: { id: m.id }, data: { status: "refunded", refundReason: reason } });
   if (m.creditTxnId) await billing.refundCredit(tx, m.creditTxnId);
   await emit(tx, "LeadRefunded", { type: "enquiry", id: m.enquiryId }, { enquiryId: m.enquiryId, matchId: m.id, sellerBusinessId: m.sellerBusinessId, reason });
 }
@@ -146,8 +146,7 @@ const FAKE_FLAGS_TO_REJECT = 2;
 
 /**
  * Seller flags buyer unreachable/fake within 72h of accepting → auto-refund, no ticket (ADR-002).
- * Flag kinds are counted from our own LeadRefunded events (Match has no reason column), which
- * are written in the same tx. 2+ distinct sellers flagging "fake" rejects the enquiry and refunds
+ * 2+ distinct sellers flagging "fake" (one match per seller per enquiry) rejects the enquiry and refunds
  * every accepted match.
  */
 export async function reportBuyerProblem(actor: Actor, matchId: string, kind: "buyer_unreachable" | "buyer_fake"): Promise<void> {
@@ -161,10 +160,8 @@ export async function reportBuyerProblem(actor: Actor, matchId: string, kind: "b
     await refundMatch(tx, m, kind);
     if (kind !== "buyer_fake") return;
 
-    const flags = await tx.$queryRaw<{ n: number }[]>`
-      SELECT count(DISTINCT payload->>'sellerBusinessId')::int AS n FROM domain_events
-      WHERE aggregate_type = 'enquiry' AND aggregate_id = ${m.enquiryId} AND type = 'LeadRefunded' AND payload->>'reason' = 'buyer_fake'`;
-    if ((flags[0]?.n ?? 0) < FAKE_FLAGS_TO_REJECT) return;
+    const flags = await tx.match.count({ where: { enquiryId: m.enquiryId, refundReason: "buyer_fake" } });
+    if (flags < FAKE_FLAGS_TO_REJECT) return;
     await lockRow(tx, "enquiries", m.enquiryId);
     await tx.enquiry.update({ where: { id: m.enquiryId }, data: { status: "rejected", moderationStatus: "rejected" } });
     for (const other of await tx.match.findMany({ where: { enquiryId: m.enquiryId, id: { not: m.id } } })) {

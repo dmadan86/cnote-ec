@@ -7,15 +7,8 @@ import { getHumanToken, humanSlot } from "./human";
 import type { Trigger, Unlock, UnlockResult } from "@cnote/leadgen";
 import { useRouter } from "next/navigation";
 import { useCallback, useState, type ReactNode } from "react";
+import { useUnlockHeadings, useUnlockLabels } from "./labels";
 import { captureAttribution, getVisitorId } from "./visitor";
-
-const HEADINGS: Record<Unlock, (t: string) => string> = {
-  enquiry: (t) => `Get the best price for ${t}`,
-  seller_contact: (t) => `Contact the supplier of ${t}`,
-  quotes: (t) => `Request a quote for ${t}`,
-  save: () => "Verify your mobile number to save this",
-  catalogue: () => "Verify your mobile number to download",
-};
 
 export interface UnlockButtonProps {
   trigger: Trigger;
@@ -31,9 +24,11 @@ export interface UnlockButtonProps {
 
 export function UnlockButton({ trigger, unlock, listingId, listingTitle, label, variant = "accent", size = "lg", className, icon }: UnlockButtonProps) {
   const router = useRouter();
+  const labels = useUnlockLabels();
+  const headings = useUnlockHeadings();
   const [vid, setVid] = useState("");
   const onUnlocked = useCallback((r: UnlockResult) => router.push(r.next), [router]);
-  const { start, dialog, pending, error } = useUnlock({ visitorId: vid, onUnlocked, humanSlot, getHumanToken });
+  const { start, dialog, pending, error } = useUnlock({ visitorId: vid, onUnlocked, humanSlot, getHumanToken, labels });
   return (
     <>
       <button
@@ -44,7 +39,7 @@ export function UnlockButton({ trigger, unlock, listingId, listingTitle, label, 
         onClick={() => {
           const visitorId = getVisitorId(); // read at click time: cookies are not available during static render
           setVid(visitorId);
-          void start({ visitorId, trigger, unlock, listingId, attribution: captureAttribution() }, HEADINGS[unlock](listingTitle));
+          void start({ visitorId, trigger, unlock, listingId, attribution: captureAttribution() }, headings[unlock](listingTitle));
         }}
       >
         {icon}

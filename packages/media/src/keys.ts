@@ -9,7 +9,8 @@ const MEDIA_KEY_RE = /^(listings|templates|storefronts|bulk)\/[a-z0-9/_.-]+$/;
  */
 export function isValidMediaKey(key: string, bucket?: MediaBucket): boolean {
   if (key.length > 300 || !MEDIA_KEY_RE.test(key)) return false;
-  if (bucket === "public" && key.startsWith("bulk/")) return false;
+  // Private-only content: product sheets and voice recordings (personal data under DPDP) are never publicly addressable.
+  if (bucket === "public" && (key.startsWith("bulk/") || key.startsWith("listings/_voice/"))) return false;
   const segs = key.split("/");
   if (segs.some((s) => s === "" || s.startsWith("."))) return false;
   return /\.[a-z0-9]{2,5}$/.test(key);
@@ -30,6 +31,14 @@ export const KEY_MIME: Record<string, string> = {
   csv: "text/csv",
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   zip: "application/zip",
+  // Seller voice notes (private bucket only, see isValidMediaKey).
+  ogg: "audio/ogg",
+  opus: "audio/opus",
+  mp3: "audio/mpeg",
+  m4a: "audio/mp4",
+  aac: "audio/aac",
+  wav: "audio/wav",
+  webm: "audio/webm",
 };
 
 export const keyExt = (key: string): string => key.slice(key.lastIndexOf(".") + 1);

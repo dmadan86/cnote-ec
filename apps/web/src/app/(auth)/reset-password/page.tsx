@@ -1,22 +1,24 @@
 import { Alert } from "@cnote/ui";
-import { ResetPasswordForm } from "@cnote/next-kit/client";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
+import { LocalizedResetPasswordForm } from "@/features/identity/localized-forms";
 import { AuthHeading, first } from "@/features/identity/auth-page";
 
 export const metadata = { title: "Choose a new password" };
 
 export default async function ResetPasswordPage({ searchParams }: PageProps<"/reset-password">) {
+  const t = await getTranslations({ locale: "en", namespace: "auth" });
   const token = first((await searchParams).token);
   return (
     <>
-      <AuthHeading title="Choose a new password" />
+      <AuthHeading title={t("resetTitle")} />
       {token ? (
-        <ResetPasswordForm token={token} />
+        <LocalizedResetPasswordForm token={token} />
       ) : (
         <Alert tone="danger">
-          This reset link is invalid.{" "}
+          {t("resetInvalid")}{" "}
           <Link href="/forgot-password" className="font-medium underline">
-            Request a new one
+            {t("resetRequestNew")}
           </Link>
           .
         </Alert>

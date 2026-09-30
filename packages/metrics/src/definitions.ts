@@ -1,0 +1,323 @@
+// Registry of ADR success metrics. Every metric is computed per IST day from the append-only
+// DomainEvent log (ADR-007) by `compute.ts`; the declarative `spec` is turned into aggregate SQL by
+// `sql.ts`. Full prose definitions live in docs/design/metrics.md.
+//
+// Cohort semantics: a metric "of day D" is anchored on the cohort event that occurred on D (e.g.
+// leads matched on D). The follow-up event may occur up to `windowDays` later, so the value of a
+// day keeps changing until D + windowDays has passed ("matured"). Alerts and the scorecard's
+// "latest" only use matured days; the daily job recomputes the trailing 31 days for that reason.
+
+export type MetricUnit = "ratio" | "minutes" | "count" | "per_enquiry";
+export type MetricKind = "rate" | "median" | "count" | "average";
+
+export interface MetricTarget {
+  value: number;
+  /** at_least: value >= target is good. below: value < target is good. */
+  direction: "at_least" | "below";
+}
+export interface MetricAlertRule {
+  threshold: number;
+  /** "below": raise when value < threshold. "above": raise when value > threshold. */
+  direction: "below" | "above";
+  /** Minimum denominator (cohort size / sample) before an alert may fire. */
+  minSample: number;
+}
+
+/** SQL fragments are constants from this file only (never user input). `key` is an SQL expression. */
+interface CohortSpec {
+  mode: "cohort";
+  cohort: { types: string[]; where?: string; key: string; latest?: boolean; flag?: string };
+  follow?: { types: string[]; where?: string; key: string; count?: boolean };
+  /** payload field on the cohort event holding an enquiryId, used to look up the category */
+  categoryViaEnquiry?: boolean;
+  /** cohort event itself carries payload.categoryId */
+  categoryOwn?: boolean;
+  /** median of minutes(cohort -> first follow event) instead of a rate */
+  medianMinutes?: boolean;
+}
+export type MetricSpec =
+  | CohortSpec
+  | { mode: "median_response" }
+  | { mode: "count"; types: string[] }
+  | { mode: "snapshot_t1" };
+
+export interface MetricDefinition {
+  id: string;
+  title: string;
+  /** ADR reference, e.g. "ADR-002" */
+  adr: string;
+  description: string;
+  /** exact formula in words */
+  formula: string;
+  unit: MetricUnit;
+  kind: MetricKind;
+  /** follow-up window; a day is "matured" once day end + windowDays has passed */
+  windowDays: number;
+  target?: MetricTarget;
+  alert?: MetricAlertRule;
+  /** part of the Phase-1 gate scorecard (ADR-v0.1 phase gates) */
+  gate: boolean;
+  /** available breakdowns beyond overall */
+  dimensions: readonly "category"[];
+  spec: MetricSpec;
+}
+
+const rate = (d: Omit<MetricDefinition, "kind" | "unit" | "dimensions"> & { dimensions?: readonly "category"[] }): MetricDefinition => ({
+  kind: "rate",
+  unit: "ratio",
+  dimensions: [],
+  ...d,
+});
+
+const alertFromTarget = (t: MetricTarget, minSample: number): MetricAlertRule => ({
+  threshold: t.value,
+  direction: t.direction === "at_least" ? "below" : "above",
+  minSample,
+});
+
+const T = {
+  leadToConv: { value: 0.6, direction: "at_least" } as MetricTarget,
+  convToDeal: { value: 0.15, direction: "at_least" } as MetricTarget,
+  refund: { value: 0.1, direction: "below" } as MetricTarget,
+  t1: { value: 0.8, direction: "at_least" } as MetricTarget,
+  falseBadge: { value: 0.005, direction: "below" } as MetricTarget,
+  firstListing: { value: 15, direction: "below" } as MetricTarget,
+  onboarding: { value: 0.6, direction: "at_least" } as MetricTarget,
+};
+
+const count = (id: string, title: string, adr: string, types: string[], description: string): MetricDefinition => ({
+  id,
+  title,
+  adr,
+  description,
+  formula: `count of ${types.join(" + ")} events on the day`,
+  unit: "count",
+  kind: "count",
+  windowDays: 0,
+  gate: false,
+  dimensions: [],
+  spec: { mode: "count", types },
+});
+
+export const METRICS: readonly MetricDefinition[] = [
+  rate({
+    id: "lead_to_conversation_rate",
+    title: "Lead to first conversation",
+    adr: "ADR-002",
+    description: "Share of leads matched on the day that started a conversation within 7 days of being matched.",
+    formula: "distinct matchId with ConversationStarted within 7d of LeadMatched / distinct matchId with LeadMatched on day",
+    windowDays: 7,
+    target: T.leadToConv,
+    alert: alertFromTarget(T.leadToConv, 20),
+    gate: true,
+    dimensions: ["category"],
+    spec: {
+      mode: "cohort",
+      cohort: { types: ["LeadMatched"], key: "payload->>'matchId'" },
+      follow: { types: ["ConversationStarted"], key: "payload->>'matchId'" },
+      categoryViaEnquiry: true,
+    },
+  }),
+  rate({
+    id: "conversation_to_deal_rate",
+    title: "Conversation to deal (self-reported)",
+    adr: "ADR-002",
+    description: "Share of conversations started on the day whose match was reported won off-platform within 30 days.",
+    formula: "distinct matchId with DealReportedOffPlatform(outcome=won) within 30d / distinct matchId with ConversationStarted on day",
+    windowDays: 30,
+    target: T.convToDeal,
+    alert: alertFromTarget(T.convToDeal, 20),
+    gate: true,
+    spec: {
+      mode: "cohort",
+      cohort: { types: ["ConversationStarted"], key: "payload->>'matchId'" },
+      follow: { types: ["DealReportedOffPlatform"], where: "payload->>'outcome' = 'won'", key: "payload->>'matchId'" },
+    },
+  }),
+  rate({
+    id: "auto_refund_rate",
+    title: "Auto-refund rate",
+    adr: "ADR-002",
+    description: "Share of leads accepted on the day that were refunded within 14 days (unreachable / fake buyer, rejected enquiry).",
+    formula: "distinct matchId with LeadRefunded within 14d / distinct matchId with LeadAccepted on day",
+    windowDays: 14,
+    target: T.refund,
+    alert: alertFromTarget(T.refund, 20),
+    gate: true,
+    dimensions: ["category"],
+    spec: {
+      mode: "cohort",
+      cohort: { types: ["LeadAccepted"], key: "payload->>'matchId'" },
+      follow: { types: ["LeadRefunded"], key: "payload->>'matchId'" },
+      categoryViaEnquiry: true,
+    },
+  }),
+  {
+    id: "leads_per_enquiry",
+    title: "Leads per enquiry",
+    adr: "ADR-002",
+    description: "Average number of sellers an enquiry created on the day is matched to (within 2 days). The ADR caps fan-out to keep leads scarce.",
+    formula: "count of LeadMatched within 2d for enquiries created on day / distinct enquiries created on day",
+    unit: "per_enquiry",
+    kind: "average",
+    windowDays: 2,
+    gate: false,
+    dimensions: ["category"],
+    spec: {
+      mode: "cohort",
+      cohort: { types: ["EnquiryCreated"], key: "payload->>'enquiryId'" },
+      follow: { types: ["LeadMatched"], key: "payload->>'enquiryId'", count: true },
+      categoryOwn: true,
+    },
+  },
+  {
+    id: "median_lead_response_minutes",
+    title: "Median lead response time",
+    adr: "ADR-002",
+    description: "Median time from lead delivery to seller acceptance for leads accepted on the day. SLO: 120 minutes.",
+    formula: "median(LeadAccepted.responseMs) / 60000 over LeadAccepted on day",
+    unit: "minutes",
+    kind: "median",
+    windowDays: 0,
+    alert: { threshold: 120, direction: "above", minSample: 5 },
+    gate: false,
+    dimensions: [],
+    spec: { mode: "median_response" },
+  },
+  rate({
+    id: "enquiry_review_hold_rate",
+    title: "Enquiries held for review",
+    adr: "ADR-002",
+    description: "Share of enquiries scored on the day that the intent model held for human review (fake-lead precision/recall need labelled data and are not derivable from events).",
+    formula: "distinct enquiryId with latest EnquiryScored.needsReview = true / distinct enquiryId with EnquiryScored on day",
+    windowDays: 0,
+    gate: false,
+    dimensions: ["category"],
+    spec: {
+      mode: "cohort",
+      cohort: { types: ["EnquiryScored"], key: "payload->>'enquiryId'", latest: true, flag: "(payload->>'needsReview')::boolean" },
+      categoryViaEnquiry: true,
+    },
+  }),
+  rate({
+    id: "t1_plus_seller_share",
+    title: "Sellers at T1+ (cumulative)",
+    adr: "ADR-003",
+    description: "Snapshot at end of day: share of all sellers created so far that hold a verification of tier 1 or higher. Approximates 'active sellers at T1+ within 90 days' (no activity or age filter).",
+    formula: "distinct businessId with BusinessVerified(tier>=1) / distinct businessId with BusinessCreated(isSeller), both up to end of day",
+    windowDays: 0,
+    target: T.t1,
+    gate: true,
+    spec: { mode: "snapshot_t1" },
+  }),
+  rate({
+    id: "false_badge_proxy",
+    title: "False-badge proxy (badge revoked <90d)",
+    adr: "ADR-003",
+    description: "Proxy for false-badge rate: share of businesses verified (tier >= 1) on the day whose trust badge was later switched off within 90 days. Revocation is not always fraud, so this over-estimates.",
+    formula: "distinct businessId with TrustScoreChanged(badgeActive=false) within 90d of BusinessVerified / distinct businessId with BusinessVerified(tier>=1) on day",
+    windowDays: 90,
+    target: T.falseBadge,
+    alert: alertFromTarget(T.falseBadge, 50),
+    gate: true,
+    spec: {
+      mode: "cohort",
+      cohort: { types: ["BusinessVerified"], where: "(payload->>'tier')::int >= 1", key: "payload->>'businessId'" },
+      follow: { types: ["TrustScoreChanged"], where: "(payload->>'badgeActive')::boolean = false", key: "payload->>'businessId'" },
+    },
+  }),
+  {
+    id: "time_to_first_listing_median_minutes",
+    title: "Time to first listing (median)",
+    adr: "ADR-004",
+    description: "Median minutes from a seller business being created to its first published listing, for sellers created on the day that published within 30 days. Sellers who never publish are excluded (see onboarding completion).",
+    formula: "median(first ListingVersionPublished|ListingPublished - BusinessCreated(isSeller)) in minutes, for sellers created on day publishing within 30d",
+    unit: "minutes",
+    kind: "median",
+    windowDays: 30,
+    target: T.firstListing,
+    alert: alertFromTarget(T.firstListing, 10),
+    gate: true,
+    dimensions: [],
+    spec: {
+      mode: "cohort",
+      cohort: { types: ["BusinessCreated"], where: "(payload->>'isSeller')::boolean", key: "payload->>'businessId'" },
+      follow: { types: ["ListingVersionPublished", "ListingPublished"], key: "payload->>'sellerBusinessId'" },
+      medianMinutes: true,
+    },
+  },
+  rate({
+    id: "onboarding_completion_rate",
+    title: "Seller onboarding completion",
+    adr: "ADR-004",
+    description: "Share of sellers created on the day with a published listing within 7 days.",
+    formula: "distinct sellers with a listing published within 7d / distinct BusinessCreated(isSeller) on day",
+    windowDays: 7,
+    target: T.onboarding,
+    alert: alertFromTarget(T.onboarding, 10),
+    gate: true,
+    spec: {
+      mode: "cohort",
+      cohort: { types: ["BusinessCreated"], where: "(payload->>'isSeller')::boolean", key: "payload->>'businessId'" },
+      follow: { types: ["ListingVersionPublished", "ListingPublished"], key: "payload->>'sellerBusinessId'" },
+    },
+  }),
+  rate({
+    id: "listing_moderation_reject_rate",
+    title: "Listing moderation reject rate",
+    adr: "ADR-004",
+    description: "Share of listing moderation decisions on the day that rejected the listing or version.",
+    formula: "(ListingModerated + ListingVersionReviewed with status=rejected) / (all ListingModerated + ListingVersionReviewed) on day",
+    windowDays: 0,
+    gate: false,
+    spec: {
+      mode: "cohort",
+      cohort: { types: ["ListingModerated", "ListingVersionReviewed"], key: "id", flag: "payload->>'status' = 'rejected'" },
+    },
+  }),
+  rate({
+    id: "ugc_approval_rate",
+    title: "UGC approval rate",
+    adr: "ADR-008",
+    description: "Share of review and comment moderation decisions on the day that approved the content.",
+    formula: "(ReviewModerated + CommentModerated with status=approved) / (all ReviewModerated + CommentModerated) on day",
+    windowDays: 0,
+    gate: false,
+    spec: {
+      mode: "cohort",
+      cohort: { types: ["ReviewModerated", "CommentModerated"], key: "id", flag: "payload->>'status' = 'approved'" },
+    },
+  }),
+  rate({
+    id: "leadgen_verified_to_enquiry_rate",
+    title: "Lead capture: verified to enquiry",
+    adr: "ADR-002",
+    description: "Share of OTP-verified lead captures on the day that converted into an enquiry within 7 days. (OTP-sent is not an event; see leadgen.funnelByTriggerDay for start to verified.)",
+    formula: "distinct captureId with LeadCaptureConverted within 7d / distinct captureId with LeadCaptureVerified on day",
+    windowDays: 7,
+    gate: false,
+    spec: {
+      mode: "cohort",
+      cohort: { types: ["LeadCaptureVerified"], key: "payload->>'captureId'" },
+      follow: { types: ["LeadCaptureConverted"], key: "payload->>'captureId'" },
+    },
+  }),
+  count("leads_accepted", "Leads accepted", "ADR-002", ["LeadAccepted"], "Leads accepted by sellers (volume context for the rates)."),
+  count("enquiries_created", "Enquiries created", "ADR-002", ["EnquiryCreated"], "Enquiries created by buyers."),
+  count("orders_recorded", "Orders recorded", "ADR-007", ["OrderRecorded"], "Orders recorded against a match (off-platform in Phase 1)."),
+  count("subscription_starts", "Subscription starts", "ADR-005", ["SubscriptionStarted"], "Plan subscriptions started."),
+  count("subscription_cancels", "Subscription cancels", "ADR-005", ["SubscriptionCancelled"], "Plan subscriptions cancelled."),
+  count("credits_consumed", "Credits consumed", "ADR-005", ["CreditConsumed"], "Credit ledger consumptions (lead unlocks)."),
+  count("credits_refunded", "Credits refunded", "ADR-005", ["CreditRefunded"], "Credit ledger refunds."),
+];
+
+export const METRIC_BY_ID: ReadonlyMap<string, MetricDefinition> = new Map(METRICS.map((m) => [m.id, m]));
+
+export function getDefinition(id: string): MetricDefinition | undefined {
+  return METRIC_BY_ID.get(id);
+}
+
+/** Evaluate a value against the ADR target. */
+export function meetsTarget(t: MetricTarget, value: number): boolean {
+  return t.direction === "at_least" ? value >= t.value : value < t.value;
+}

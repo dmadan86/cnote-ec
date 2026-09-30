@@ -1,11 +1,13 @@
-import Link from "next/link";
 import type { ListingView } from "@cnote/catalogue";
 import type { TrustProfile } from "@cnote/identity";
 import { ProductCard, SellerCard } from "@cnote/ui";
+import type { Locale } from "@/i18n/config";
+import { LocaleLink } from "@/i18n/link";
 import { productPath, sellerPath } from "@/lib/paths";
 import { RatingStars } from "@/features/reviews/stars";
 import { CompareIsland, SaveIsland } from "@/features/user-state/islands";
 import { moqText } from "./format";
+import { getUiLabels } from "./labels";
 import { ProductImage } from "./product-image";
 
 const CARD_SIZES = "(min-width: 1280px) 12vw, (min-width: 1024px) 20vw, (min-width: 640px) 30vw, 45vw";
@@ -15,7 +17,8 @@ const CARD_SIZES = "(min-width: 1280px) 12vw, (min-width: 1024px) 20vw, (min-wid
  * state after hydration, so any page made of these cards can be ISR/CDN cached. Pass `rating` from a batched
  * `loadRatings()` so approved review stars show without a query per card.
  */
-export function ListingCard({ listing, seller, priority, rating }: { listing: ListingView; seller?: TrustProfile | null; priority?: boolean; rating?: { average: number; count: number } }) {
+export async function ListingCard({ listing, seller, priority, rating, locale }: { listing: ListingView; seller?: TrustProfile | null; priority?: boolean; rating?: { average: number; count: number }; locale: Locale }) {
+  const labels = await getUiLabels(locale);
   return (
     <ProductCard
       id={listing.id}
@@ -29,12 +32,14 @@ export function ListingCard({ listing, seller, priority, rating }: { listing: Li
       wishlist={<SaveIsland id={listing.id} title={listing.title} />}
       rating={rating ? <RatingStars average={rating.average} count={rating.count} /> : null}
       footer={<CompareIsland id={listing.id} title={listing.title} />}
-      linkComponent={Link}
+      linkComponent={LocaleLink}
+      labels={labels.card}
     />
   );
 }
 
-export function SellerTile({ seller }: { seller: TrustProfile }) {
+export async function SellerTile({ seller, locale }: { seller: TrustProfile; locale: Locale }) {
+  const labels = await getUiLabels(locale);
   return (
     <SellerCard
       href={sellerPath(seller.businessId)}
@@ -44,7 +49,8 @@ export function SellerTile({ seller }: { seller: TrustProfile }) {
       tier={seller.verificationTier}
       badgeActive={seller.badgeActive}
       trustScore={seller.trustScore}
-      linkComponent={Link}
+      linkComponent={LocaleLink}
+      labels={labels.seller}
     />
   );
 }

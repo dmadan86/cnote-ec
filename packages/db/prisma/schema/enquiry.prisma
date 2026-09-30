@@ -80,6 +80,8 @@ model Match {
   respondedAt      DateTime?   @map("responded_at") @db.Timestamptz
   /// credit_ledger row consumed on accept; refunded per ADR-002 auto-refund
   creditTxnId      String?     @map("credit_txn_id") @db.Uuid
+  /// why an accepted lead was refunded: buyer_unreachable | buyer_fake | enquiry_rejected
+  refundReason     String?     @map("refund_reason")
 
   enquiry      Enquiry       @relation(fields: [enquiryId], references: [id])
   seller       Business      @relation(fields: [sellerBusinessId], references: [id])
@@ -89,6 +91,7 @@ model Match {
   @@unique([enquiryId, sellerBusinessId])
   @@index([sellerBusinessId, status])
   @@index([status, respondBy])
+  @@index([enquiryId, refundReason])
   @@map("matches")
 }
 

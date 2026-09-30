@@ -2,16 +2,19 @@
 // Every capability: typed input/output, provider-agnostic, logs an AiDecision (redacted input,
 // model id, prompt version, latency), and enqueues a ReviewItem when confidence < threshold.
 // PUBLIC CONTRACT — other modules depend on these signatures. Extend, don't break.
-import type { ModuleWorker } from "@cnote/core";
+import { createHash } from "node:crypto";
+import { DomainError, type ModuleWorker } from "@cnote/core";
 import { INPUT_RETENTION_DAYS, listOpenReviewsImpl, purgeOldDecisionInputs, resolveReviewImpl, runLogged } from "./decisions";
-import { redactDeep } from "./redact";
-import { getProviders } from "./registry";
+import { redactDeep, redactPii } from "./redact";
+import { getProviders, heuristicProviders } from "./registry";
+import { MAX_AUDIO_MS, assertAudio, getSpeechToText } from "./speech";
+import { assertVisionImages, imageAudit } from "./vision";
 
 export type Lang = "en" | "hi" | "kn" | "ta" | "te" | "mr" | "gu" | "bn";
 
 /** Links a decision to the thing it's about, for audit + the review queue. */
 export interface Subject {
-  type: "enquiry" | "listing" | "business" | "message";
+  type: "enquiry" | "listing" | "business" | "message" | "voice_note";
   id: string;
 }
 
@@ -59,6 +62,40 @@ export interface ExtractListingOutput {
   hsn: string | null;
 }
 
+export interface VisionImage {
+  bytes: Uint8Array;
+  /** image/jpeg | image/png | image/webp only. EXIF must already be stripped by the caller. */
+  mimeType: string;
+  /** optional, for the audit log only (the log never stores pixels) */
+  width?: number;
+  height?: number;
+}
+export interface ExtractListingFromImagesInput {
+  /** 1-4 photos of one product, pre-resized by the caller to <= 1568 px on the long edge */
+  images: VisionImage[];
+  hintText?: string;
+  language: Lang;
+  categories: ExtractListingInput["categories"];
+}
+export interface ExtractListingFromImagesOutput extends ExtractListingOutput {
+  /** things visible in the photos: colour, material, finish... */
+  visualAttributes: Record<string, string>;
+  detected: { productType: string; quantityVisible: number | null };
+}
+
+export interface TranscribeInput {
+  audio: { bytes: Uint8Array; mimeType: string };
+  languageHint?: Lang;
+}
+export interface TranscribeOutput {
+  text: string;
+  /** ISO 639-1 code of the spoken language, or "unknown" */
+  language: string;
+  confidence: number; // 0..1
+  durationMs: number;
+  segments?: { text: string; startMs: number; endMs: number }[];
+}
+
 export interface ModerateInput {
   text: string;
   categorySlug?: string | null;
@@ -83,6 +120,25 @@ export async function embed(texts: string[]): Promise<{ vectors: number[][]; ver
 export async function extractListing(input: ExtractListingInput, subject: Subject): Promise<AiResult<ExtractListingOutput>> {
   const audit = { text: input.text, language: input.language, categories: input.categories.map((c) => c.slug) };
   return runLogged("extract", subject, redactDeep(audit), () => getProviders().extractor.extract(input));
+}
+
+/** Photos (+ optional hint) → structured draft fields. Always reviewed by the seller; low confidence also goes to the ops queue. */
+export async function extractListingFromImages(input: ExtractListingFromImagesInput, subject: Subject): Promise<AiResult<ExtractListingFromImagesOutput>> {
+  assertVisionImages(input.images);
+  const p = getProviders();
+  const run = () => (p.imageExtractor ?? heuristicProviders.imageExtractor!).extract(input);
+  return runLogged("extract_image", subject, redactDeep(imageAudit(input)), run);
+}
+
+/** Audio → transcript via the ASR port (ASR_PROVIDER). The logged output holds the redacted transcript only. */
+export async function transcribe(input: TranscribeInput, subject: Subject): Promise<AiResult<TranscribeOutput>> {
+  const mime = assertAudio(input.audio);
+  const audit = { mimeType: mime, bytes: input.audio.bytes.length, sha256: createHash("sha256").update(input.audio.bytes).digest("hex"), languageHint: input.languageHint ?? null };
+  return runLogged("transcribe", subject, audit, async () => {
+    const r = await getSpeechToText().transcribe(input);
+    if (r.output.durationMs > MAX_AUDIO_MS) throw new DomainError("validation", "Recording is longer than 5 minutes");
+    return r;
+  }, (o) => (o.text.trim() ? null : "Empty transcript"), (o) => ({ ...o, text: redactPii(o.text), segments: undefined }));
 }
 
 export async function moderate(input: ModerateInput, subject: Subject): Promise<AiResult<ModerateOutput>> {
@@ -125,8 +181,10 @@ export async function resolveReview(id: string, outcome: "approved" | "rejected"
 export { redactPii, redactDeep } from "./redact";
 export { REVIEW_THRESHOLDS, purgeOldDecisionInputs } from "./decisions";
 export { EMBEDDER_VERSION, embedText } from "./embedder";
+export { getSpeechToText, setSpeechToTextForTests, MockSpeechToText, SarvamSpeechToText, MOCK_TRANSCRIPT_PREFIX, MAX_AUDIO_BYTES, MAX_AUDIO_MS, AUDIO_EXT, assertAudio, type SarvamOptions } from "./speech";
+export { MAX_VISION_IMAGES, VISION_MAX_LONG_EDGE, VISION_MIMES } from "./vision";
 export { getProviders, setProvidersForTests, heuristicProviders, anthropicProviders } from "./registry";
-export type { Providers, IntentScorer, ListingExtractor, Moderator, Embedder, ProviderResult } from "./types";
+export type { Providers, IntentScorer, ListingExtractor, ImageListingExtractor, SpeechToText, Moderator, Embedder, ProviderResult } from "./types";
 
 const DAY_MS = 86_400_000;
 export const worker: ModuleWorker = {

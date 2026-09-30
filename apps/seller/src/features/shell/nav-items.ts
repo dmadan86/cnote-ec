@@ -1,4 +1,4 @@
-import { LayoutTemplate, CreditCard, Inbox, LayoutDashboard, Package, Settings, Star, ShieldCheck, type LucideIcon } from "lucide-react";
+import { BarChart3, Bell, ClipboardList, Globe, LayoutTemplate, CreditCard, Inbox, LayoutDashboard, Package, Scale, Settings, Star, ShieldCheck, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -15,9 +15,14 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard, primary: true },
   { href: "/leads", label: "Leads", icon: Inbox, primary: true },
   { href: "/listings", label: "Listings", icon: Package, primary: true },
+  { href: "/orders", label: "Orders", icon: ClipboardList, primary: false },
   { href: "/reviews", label: "Reviews", icon: Star, primary: false },
   { href: STUDIO_URL, label: "Storefront", icon: LayoutTemplate, primary: false },
+  { href: "/storefront/domains", label: "Domains", icon: Globe, primary: false },
+  { href: "/storefront/analytics", label: "Analytics", icon: BarChart3, primary: false },
+  { href: "/notifications", label: "Notifications", icon: Bell, primary: false },
   { href: "/billing", label: "Billing", icon: CreditCard, primary: true },
   { href: "/verification", label: "Verification", icon: ShieldCheck, primary: false },
+  { href: "/appeals", label: "Appeals", icon: Scale, primary: false },
   { href: "/settings", label: "Settings", icon: Settings, primary: true },
 ];

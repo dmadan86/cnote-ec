@@ -35,6 +35,7 @@ const lctx = (extra: object = {}) => ({ ip: `t-${uid()}`, userAgent: "vitest", v
 
 afterAll(async () => {
   setSmsSender(consoleSms);
+  setOtpSender(undefined);
   const byPhone = await prisma.person.findMany({ where: { phone: { in: phones } }, select: { id: true } });
   const ids = [...new Set([...people, ...byPhone.map((p) => p.id)])];
   await prisma.authSession.deleteMany({ where: { personId: { in: ids } } });
@@ -53,7 +54,7 @@ afterEach(() => { vi.unstubAllEnvs(); vi.useRealTimers(); });
 
 describe("phone OTP verification (T0)", () => {
   it("issues a 6-digit code, never stores it in clear, never echoes it without OTP_DEV_ECHO, and marks the phone verified once", async () => {
-    setSmsSender(sms);
+    setOtpSender(otpSender);
     vi.stubEnv("OTP_DEV_ECHO", "true");
     const id = await person();
     const phone = newPhone();
@@ -65,7 +66,8 @@ describe("phone OTP verification (T0)", () => {
     expect(rec.hash).not.toContain(r.devCode!);
     expect(await redis.ttl(`otp:${id}`)).toBeLessThanOrEqual(600);
     expect(await redis.ttl(`otp:${id}`)).toBeGreaterThan(590);
-    expect(smsSent.at(-1)!.text).toContain(r.devCode!);
+    // delivered to the phone through the OTP provider (same path as phone sign-in)
+    expect(loginSent.at(-1)).toMatchObject({ to: phone, code: r.devCode, channel: "sms" });
 
     const { businessId } = await createBusiness(id, { name: "OTP Biz", isSeller: false });
     bizIds.push(businessId);
@@ -80,18 +82,18 @@ describe("phone OTP verification (T0)", () => {
     expect(await verifyPhoneOtp(id, phone, r.devCode!)).toEqual({ verified: false });
     expect(await redis.exists(`otp:${id}`)).toBe(0);
   });
-  it("does not leak the code in the response or SMS body by default", async () => {
-    setSmsSender(sms);
+  it("never returns the code in the response by default; delivers it only to the phone", async () => {
+    setOtpSender(otpSender);
     vi.stubEnv("OTP_DEV_ECHO", "false");
     const id = await person();
     const phone = newPhone();
     const r = await requestPhoneOtp(id, phone);
     expect(r).toEqual({ sent: true });
-    expect(smsSent.at(-1)!.to).toBe(phone);
-    expect(smsSent.at(-1)!.text).not.toMatch(/\d{6}/);
+    expect(loginSent.at(-1)!.to).toBe(phone);
+    expect(loginSent.at(-1)!.code).toMatch(/^\d{6}$/);
   });
   it("wrong code / wrong phone / no pending code all return verified:false without consuming the code", async () => {
-    setSmsSender(sms);
+    setOtpSender(otpSender);
     vi.stubEnv("OTP_DEV_ECHO", "true");
     const id = await person();
     const phone = newPhone();
@@ -104,7 +106,7 @@ describe("phone OTP verification (T0)", () => {
     expect(await verifyPhoneOtp(id, phone, devCode!)).toEqual({ verified: true });
   });
   it("allows 5 wrong attempts, then locks and deletes the code (even the right code fails afterwards)", async () => {
-    setSmsSender(sms);
+    setOtpSender(otpSender);
     vi.stubEnv("OTP_DEV_ECHO", "true");
     const id = await person();
     const phone = newPhone();
@@ -116,7 +118,7 @@ describe("phone OTP verification (T0)", () => {
     expect(await verifyPhoneOtp(id, phone, devCode!)).toEqual({ verified: false });
   });
   it("expiry: once the Redis TTL lapses the code is invalid", async () => {
-    setSmsSender(sms);
+    setOtpSender(otpSender);
     vi.stubEnv("OTP_DEV_ECHO", "true");
     const id = await person();
     const phone = newPhone();
@@ -126,7 +128,7 @@ describe("phone OTP verification (T0)", () => {
     expect(await verifyPhoneOtp(id, phone, devCode!)).toEqual({ verified: false });
   });
   it("a new request replaces the old code and resets the attempt counter", async () => {
-    setSmsSender(sms);
+    setOtpSender(otpSender);
     vi.stubEnv("OTP_DEV_ECHO", "true");
     const id = await person();
     const phone = newPhone();
@@ -138,7 +140,7 @@ describe("phone OTP verification (T0)", () => {
     expect(await verifyPhoneOtp(id, phone, second.devCode!)).toEqual({ verified: true });
   });
   it("rate limits: 3 per phone / 10 min, 10 per person / day, window resets (fake time)", async () => {
-    setSmsSender(sms);
+    setOtpSender(otpSender);
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2035-01-01T00:00:00Z"));
     const id = await person();
@@ -163,7 +165,7 @@ describe("phone OTP verification (T0)", () => {
     await expect(requestPhoneOtp(id, phone)).rejects.toMatchObject({ code: "conflict" });
   });
   it("conflict if someone else claims the number between request and verify (unique violation)", async () => {
-    setSmsSender(sms);
+    setOtpSender(otpSender);
     vi.stubEnv("OTP_DEV_ECHO", "true");
     const id = await person();
     const phone = newPhone();
@@ -173,7 +175,7 @@ describe("phone OTP verification (T0)", () => {
     expect((await prisma.person.findUniqueOrThrow({ where: { id } })).phoneVerifiedAt).toBeNull();
   });
   it("re-throws unexpected errors from the update", async () => {
-    setSmsSender(sms);
+    setOtpSender(otpSender);
     vi.stubEnv("OTP_DEV_ECHO", "true");
     const id = await person();
     const phone = newPhone();

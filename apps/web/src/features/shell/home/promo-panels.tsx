@@ -1,25 +1,30 @@
 import { ArrowRight, Sparkles } from "lucide-react";
-import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { Avatar, Badge, buttonClasses, Skeleton, TrustBadge } from "@cnote/ui";
 import { loadSellers } from "@/features/search/data";
+import { getUiLabels } from "@/features/search/labels";
+import type { Locale } from "@/i18n/config";
+import { LocaleLink as Link } from "@/i18n/link";
 import { IndiaMap } from "./india-map";
 
-function AiDesignPanel() {
+async function AiDesignPanel({ locale }: { locale: Locale }) {
+  const t = await getTranslations({ locale, namespace: "home" });
+  const ts = await getTranslations({ locale, namespace: "shell" });
   return (
     <section aria-labelledby="promo-ai" className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand-100 to-brand-50 p-6 sm:p-7">
       <div className="relative z-10 max-w-[16rem] sm:max-w-xs">
-        <p className="text-xs font-bold uppercase tracking-wider text-brand-700">Create. Customize. Order.</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-brand-700">{t("promoAiKicker")}</p>
         <h2 id="promo-ai" className="mt-2 text-xl font-bold leading-tight text-ink sm:text-2xl">
-          Design custom packaging, logos and marketing materials for your business
+          {t("promoAiTitle")}
         </h2>
         <div className="mt-2">
           <Badge tone="brand">
-            <Sparkles className="size-3" aria-hidden /> Coming soon
+            <Sparkles className="size-3" aria-hidden /> {ts("comingSoon")}
           </Badge>
         </div>
         <Link href="/coming-soon/ai-design" className={`${buttonClasses("primary", "lg")} mt-4`}>
-          Try AI Design <ArrowRight className="size-4" aria-hidden />
+          {t("promoAiCta")} <ArrowRight className="size-4" aria-hidden />
         </Link>
       </div>
       <svg viewBox="0 0 220 200" aria-hidden focusable="false" className="pointer-events-none absolute -bottom-2 right-0 h-44 w-auto opacity-90 sm:h-52">
@@ -38,7 +43,9 @@ function AiDesignPanel() {
   );
 }
 
-async function QuotePanel() {
+async function QuotePanel({ locale }: { locale: Locale }) {
+  const t = await getTranslations({ locale, namespace: "home" });
+  const labels = await getUiLabels(locale);
   const all = await loadSellers({ limit: 12 });
   const sellers = all.filter((s) => s.badgeActive && s.verificationTier >= 1).slice(0, 3);
   return (
@@ -46,11 +53,11 @@ async function QuotePanel() {
       <div className="grid gap-5 sm:grid-cols-2 sm:items-start">
         <div>
           <h2 id="promo-quotes" className="text-xl font-bold leading-tight text-ink sm:text-2xl">
-            Get Quotes from Verified Suppliers
+            {t("promoQuotesTitle")}
           </h2>
-          <p className="mt-2 text-sm text-muted">Compare prices, quality and delivery, all in one place.</p>
+          <p className="mt-2 text-sm text-muted">{t("promoQuotesText")}</p>
           <Link href="/rfq/new" className={`${buttonClasses("accent", "lg")} mt-5`}>
-            Request Quote <ArrowRight className="size-4" aria-hidden />
+            {(await getTranslations({ locale, namespace: "shell" }))("requestQuote")} <ArrowRight className="size-4" aria-hidden />
           </Link>
         </div>
         {sellers.length ? (
@@ -63,29 +70,30 @@ async function QuotePanel() {
                     <span className="block truncate text-xs font-bold text-ink">{s.name}</span>
                     <span className="block truncate text-xs text-muted">{[s.city, s.state].filter(Boolean).join(", ")}</span>
                   </span>
-                  <TrustBadge tier={s.verificationTier} badgeActive={s.badgeActive} className="shrink-0" />
+                  <TrustBadge tier={s.verificationTier} badgeActive={s.badgeActive} className="shrink-0" labels={labels.trust} />
                 </Link>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="rounded-xl bg-surface p-4 text-sm text-muted">Verified suppliers will appear here as they join.</p>
+          <p className="rounded-xl bg-surface p-4 text-sm text-muted">{t("promoQuotesEmpty")}</p>
         )}
       </div>
     </section>
   );
 }
 
-function ManufacturersPanel() {
+async function ManufacturersPanel({ locale }: { locale: Locale }) {
+  const t = await getTranslations({ locale, namespace: "home" });
   return (
     <section aria-labelledby="promo-mfg" className="relative overflow-hidden rounded-card bg-gradient-to-br from-sky-50 to-brand-50 p-6 sm:p-7">
       <div className="relative z-10 max-w-[14rem]">
         <h2 id="promo-mfg" className="text-xl font-bold leading-tight text-brand-900 sm:text-2xl">
-          Connect with Manufacturers
+          {t("promoMfgTitle")}
         </h2>
-        <p className="mt-2 text-sm text-muted">Find trusted manufacturers across India for your business needs.</p>
+        <p className="mt-2 text-sm text-muted">{t("promoMfgText")}</p>
         <Link href="/manufacturers" className={`${buttonClasses("outline-brand", "lg")} mt-5`}>
-          Find Manufacturers <ArrowRight className="size-4" aria-hidden />
+          {t("promoMfgCta")} <ArrowRight className="size-4" aria-hidden />
         </Link>
       </div>
       <IndiaMap className="pointer-events-none absolute right-2 top-4 h-44 w-auto sm:h-48" />
@@ -93,20 +101,20 @@ function ManufacturersPanel() {
   );
 }
 
-export function PromoPanels() {
+export function PromoPanels({ locale }: { locale: Locale }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[1.25fr_1.15fr_0.9fr]">
-      <AiDesignPanel />
-      <QuotePanelBoundary />
-      <ManufacturersPanel />
+      <AiDesignPanel locale={locale} />
+      <QuotePanelBoundary locale={locale} />
+      <ManufacturersPanel locale={locale} />
     </div>
   );
 }
 
-function QuotePanelBoundary() {
+function QuotePanelBoundary({ locale }: { locale: Locale }) {
   return (
     <Suspense fallback={<Skeleton className="min-h-56 rounded-card" />}>
-      <QuotePanel />
+      <QuotePanel locale={locale} />
     </Suspense>
   );
 }

@@ -1,12 +1,13 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { cn } from "@cnote/ui";
 
 export const RAILS = [
-  { id: "business", label: "For Your Business", panel: "popular" },
-  { id: "trending", label: "Trending", panel: "trending" },
-  { id: "new", label: "New Arrivals", panel: "new" },
-  { id: "best", label: "Best Selling", panel: "popular" },
+  { id: "business", panel: "popular" },
+  { id: "trending", panel: "trending" },
+  { id: "new", panel: "new" },
+  { id: "best", panel: "popular" },
 ] as const;
 export type RailId = (typeof RAILS)[number]["id"];
 export type PanelId = (typeof RAILS)[number]["panel"];
@@ -16,6 +17,7 @@ export type PanelId = (typeof RAILS)[number]["panel"];
  * and LLM fetchers still read every product); only the tab state is client-side, which keeps the home page cacheable.
  */
 export function RailSwitcher({ panels }: { panels: Record<PanelId, ReactNode> }) {
+  const t = useTranslations("rails");
   const [active, setActive] = useState<RailId>("business");
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
   const activePanel = RAILS.find((r) => r.id === active)!.panel;
@@ -32,7 +34,7 @@ export function RailSwitcher({ panels }: { panels: Record<PanelId, ReactNode> })
 
   return (
     <div>
-      <div role="tablist" aria-label="Popular products" onKeyDown={onKeyDown} className="-mx-1 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">
+      <div role="tablist" aria-label={t("aria")} onKeyDown={onKeyDown} className="-mx-1 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">
         {RAILS.map((r) => (
           <button
             key={r.id}
@@ -49,7 +51,7 @@ export function RailSwitcher({ panels }: { panels: Record<PanelId, ReactNode> })
               r.id === active ? "bg-brand-100 text-brand-700" : "text-muted hover:bg-canvas hover:text-ink",
             )}
           >
-            {r.label}
+            {t(r.id)}
           </button>
         ))}
       </div>

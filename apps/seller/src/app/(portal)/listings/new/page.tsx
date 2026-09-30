@@ -4,6 +4,7 @@ import { Alert, PageHeader, buttonClasses } from "@cnote/ui";
 import { requireSeller } from "@/lib/auth";
 import { load } from "@/lib/safe";
 import { catalogue } from "@/lib/services";
+import { AiDraftAlternatives } from "@/features/ai-draft/ai-draft-alternatives";
 import { AiDraftBox } from "@/features/listings/ai-draft-box";
 import { ListingEditor } from "@/features/listings/listing-editor";
 
@@ -32,7 +33,10 @@ export default async function NewListingPage({ searchParams }: PageProps<"/listi
           <Alert tone="danger">{cats?.error}</Alert>
         )
       ) : (
-        <AiDraftBox mode="portal" defaultLanguage={session.preferredLanguage} />
+        <>
+          <AiDraftBox mode="portal" defaultLanguage={session.preferredLanguage} />
+          <AiDraftAlternatives mode="portal" defaultLanguage={session.preferredLanguage} />
+        </>
       )}
     </div>
   );

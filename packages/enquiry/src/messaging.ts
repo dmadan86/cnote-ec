@@ -1,6 +1,7 @@
 // Conversations between the buyer business and the matched seller business (ADR-007).
 import { DomainError, emit, rateLimit } from "@cnote/core";
 import { prisma, type Conversation, type Enquiry, type Match } from "@cnote/db";
+import { recordOrderTx } from "./orders";
 import { messageSchema, quoteSchema } from "./schemas";
 import { profiles } from "./support";
 import type { Actor, ConversationView } from "./types";
@@ -107,5 +108,7 @@ export async function reportDeal(actor: Actor, matchId: string, outcome: "won" |
     await emit(tx, "DealReportedOffPlatform", { type: "match", id: matchId }, {
       matchId, reportedByBusinessId: actor.businessId, outcome, ...(valuePaise != null ? { valuePaise } : {}),
     });
+    // ADR-007: a "won" deal becomes an off-platform Order record (idempotent per match).
+    if (outcome === "won") await recordOrderTx(tx, matchId, { totalPaise: valuePaise ?? null });
   });
 }

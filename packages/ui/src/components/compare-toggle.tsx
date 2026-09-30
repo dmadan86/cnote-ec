@@ -23,6 +23,7 @@ export function CompareToggle({
   onToggle,
   variant = "chip",
   className,
+  labels,
 }: {
   id: string;
   title: string;
@@ -30,6 +31,8 @@ export function CompareToggle({
   onToggle: (id: string, opts?: { replace?: boolean }) => Promise<CompareToggleResult>;
   variant?: "chip" | "button";
   className?: string;
+  /** Translated strings (defaults are English). `add`/`remove` use the `{title}` placeholder. */
+  labels?: { add?: string; remove?: string; inCompare?: string; compare?: string; replaceConfirm?: string; error?: string };
 }) {
   const [prev, setPrev] = useState(inTray);
   const [on, setOn] = useState(inTray);
@@ -47,11 +50,11 @@ export function CompareToggle({
         const r = await onToggle(id, replace ? { replace: true } : undefined);
         if (r.status === "added" || r.status === "removed") setOn(r.status === "added");
         else if (r.status === "category_mismatch") {
-          const ok = window.confirm(`${r.message}\n\nReplace the products in your compare tray with this one?`);
+          const ok = window.confirm(`${r.message}\n\n${labels?.replaceConfirm ?? "Replace the products in your compare tray with this one?"}`);
           if (ok) run(true);
         } else setMsg(r.message);
       } catch {
-        setMsg("Couldn't update your compare tray.");
+        setMsg(labels?.error ?? "Couldn't update your compare tray.");
       }
     });
   }
@@ -62,7 +65,7 @@ export function CompareToggle({
         type="button"
         aria-pressed={on}
         aria-busy={pending}
-        aria-label={on ? `Remove ${title} from compare` : `Add ${title} to compare`}
+        aria-label={(on ? (labels?.remove ?? "Remove {title} from compare") : (labels?.add ?? "Add {title} to compare")).replace("{title}", title)}
         onClick={() => run()}
         className={cn(
           "inline-flex items-center justify-center gap-1.5 rounded-full border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600",
@@ -70,7 +73,7 @@ export function CompareToggle({
           on ? "border-brand-600 bg-brand-50 text-brand-700" : "border-line bg-surface text-ink hover:bg-canvas",
         )}
       >
-        <Scale className="size-3.5" aria-hidden /> {on ? "In compare" : "Compare"}
+        <Scale className="size-3.5" aria-hidden /> {on ? (labels?.inCompare ?? "In compare") : (labels?.compare ?? "Compare")}
       </button>
       <span role="status" className={cn("text-xs text-danger", msg ? "" : "sr-only")}>
         {msg ?? ""}

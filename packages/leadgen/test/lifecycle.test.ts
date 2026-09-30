@@ -6,7 +6,7 @@ import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
 const enq = vi.hoisted(() => ({ calls: [] as { ctx: any; input: any; opts: any }[], fail: false }));
 // Unlocks only see LIVE (published) listings; tests register the live projection of the listings they create.
-const live = vi.hoisted(() => new Map<string, { title: string; category: { slug: string } }>());
+const live = vi.hoisted(() => new Map<string, { title: string; sellerBusinessId: string; category: { id: string; slug: string } }>());
 vi.mock("@cnote/catalogue", async (orig) => ({
   ...(await orig<typeof import("@cnote/catalogue")>()),
   getPublicListing: async (id: string) => live.get(id) ?? null,
@@ -115,7 +115,7 @@ describe("startCapture", () => {
     const cat = await prisma.category.create({ data: { slug: `lg2-${randomUUID()}`, name: "c" } });
     const listing = await prisma.listing.create({ data: { sellerBusinessId: seller.id, categoryId: cat.id, title: "Steel Pipe" } });
     listingIds.push(listing.id);
-    live.set(listing.id, { title: "Steel Pipe", category: { slug: cat.slug } });
+    live.set(listing.id, { title: "Steel Pipe", sellerBusinessId: seller.id, category: { id: cat.id, slug: cat.slug } });
     const id = await start({ listingId: listing.id });
     expect(await row(id)).toMatchObject({ listingId: listing.id, sellerBusinessId: seller.id, categoryId: cat.id });
 
@@ -339,7 +339,7 @@ describe("completeUnlock", () => {
     const cat = await prisma.category.create({ data: { slug: `lg2-${randomUUID()}`, name: "c" } });
     const listing = await prisma.listing.create({ data: { sellerBusinessId: seller.id, categoryId: cat.id, title: "T".repeat(300) } });
     listingIds.push(listing.id);
-    live.set(listing.id, { title: "T".repeat(300), category: { slug: cat.slug } });
+    live.set(listing.id, { title: "T".repeat(300), sellerBusinessId: seller.id, category: { id: cat.id, slug: cat.slug } });
     const p = await person();
     const id = await start({ listingId: listing.id });
     await markVerified(id, p.id, false);

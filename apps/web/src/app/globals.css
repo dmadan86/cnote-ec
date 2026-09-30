@@ -4,6 +4,15 @@
 /* Shared UI package ships Tailwind classes in TS source; let Tailwind scan it. */
 @source "../../../../packages/ui/src";
 
+/* Latin glyphs come from Geist, Devanagari glyphs from Noto Sans Devanagari (per-glyph fallback). The Devanagari
+   @font-face uses unicode-range and preload:false, so the file is only fetched when a page actually shows Devanagari. */
+html {
+  --font-sans: var(--font-geist-sans), var(--font-devanagari), ui-sans-serif, system-ui, sans-serif;
+}
+:lang(hi) {
+  line-height: 1.6; /* Devanagari matras need more vertical room than Latin; set once to avoid reflow on font swap */
+}
+
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 6rem;

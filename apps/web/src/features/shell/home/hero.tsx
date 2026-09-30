@@ -1,24 +1,27 @@
 import { BadgeCheck, Boxes, Factory, Sparkles, Tag, Truck, type LucideIcon } from "lucide-react";
-import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { Container } from "@cnote/ui";
 import { SITE_NAME } from "../site";
 import { HeroVisual } from "./hero-visual";
 import { SearchCard } from "@/features/search/search-card";
+import type { Locale } from "@/i18n/config";
+import { LocaleLink } from "@/i18n/link";
 
-const TICKS: { icon: LucideIcon; label: string }[] = [
-  { icon: BadgeCheck, label: "Verified suppliers" },
-  { icon: Tag, label: "Best prices" },
-  { icon: Boxes, label: "Bulk orders" },
-  { icon: Truck, label: "Pan India delivery" },
+const TICKS: { icon: LucideIcon; key: string }[] = [
+  { icon: BadgeCheck, key: "tickVerified" },
+  { icon: Tag, key: "tickPrices" },
+  { icon: Boxes, key: "tickBulk" },
+  { icon: Truck, key: "tickDelivery" },
 ];
 
-const VALUE_CARDS: { icon: LucideIcon; title: string; sub: string; href: string; tint: string; tilt: string }[] = [
-  { icon: Factory, title: "Find verified manufacturers", sub: "Get quotes in minutes", href: "/manufacturers", tint: "bg-brand-100 text-brand-700", tilt: "lg:-rotate-3 lg:self-start" },
-  { icon: Sparkles, title: "Create custom designs with AI", sub: "Logos, packaging, banners", href: "/coming-soon/ai-design", tint: "bg-accent-100 text-accent-600", tilt: "lg:-rotate-2 lg:self-end" },
-  { icon: Tag, title: "Source products at best prices", sub: "Wide range, bulk orders", href: "/search?tab=products", tint: "bg-green-100 text-green-700", tilt: "lg:-rotate-3 lg:self-start" },
+const VALUE_CARDS: { icon: LucideIcon; key: string; href: string; tint: string; tilt: string }[] = [
+  { icon: Factory, key: "cardMfg", href: "/manufacturers", tint: "bg-brand-100 text-brand-700", tilt: "lg:-rotate-3 lg:self-start" },
+  { icon: Sparkles, key: "cardAi", href: "/coming-soon/ai-design", tint: "bg-accent-100 text-accent-600", tilt: "lg:-rotate-2 lg:self-end" },
+  { icon: Tag, key: "cardSource", href: "/search?tab=products", tint: "bg-green-100 text-green-700", tilt: "lg:-rotate-3 lg:self-start" },
 ];
 
-export function Hero({ suggestions }: { suggestions: string[] }) {
+export async function Hero({ suggestions, locale }: { suggestions: string[]; locale: Locale }) {
+  const t = await getTranslations({ locale, namespace: "home" });
   return (
     <section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-gradient-to-r from-brand-50 via-white to-white">
       {/* Warehouse backdrop, right half on desktop only (nothing heavy on mobile). */}
@@ -29,19 +32,19 @@ export function Hero({ suggestions }: { suggestions: string[] }) {
       <Container className="grid gap-8 py-8 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)_minmax(0,320px)] lg:items-center lg:gap-6 lg:py-12">
         <div>
           <h1 id="hero-title" className="text-[2.5rem] font-extrabold leading-[1.05] tracking-tight text-ink sm:text-5xl lg:text-[3.25rem]">
-            Everything Your Business Needs
-            <span className="block text-brand-600">in One Place</span>
+            {t("titleLine1")}
+            <span className="block text-brand-600">{t("titleLine2")}</span>
           </h1>
           <p className="mt-4 max-w-md text-base text-muted sm:text-lg">
-            Source products, find verified manufacturers, create designs, and grow your business, powered by AI.
+            {t("subtitle")}
           </p>
           <ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-2 text-sm font-medium text-ink">
-            {TICKS.map((t) => (
-              <li key={t.label} className="flex items-center gap-2">
+            {TICKS.map((tick) => (
+              <li key={tick.key} className="flex items-center gap-2">
                 <span className="inline-flex size-6 items-center justify-center rounded-full bg-brand-100 text-brand-700">
-                  <t.icon className="size-3.5" aria-hidden />
+                  <tick.icon className="size-3.5" aria-hidden />
                 </span>
-                {t.label}
+                {t(tick.key)}
               </li>
             ))}
           </ul>
@@ -49,10 +52,10 @@ export function Hero({ suggestions }: { suggestions: string[] }) {
 
         <SearchCard suggestions={suggestions} />
 
-        <div className="grid gap-3 sm:grid-cols-3 lg:flex lg:flex-col lg:gap-4" aria-label={`Why ${SITE_NAME}`}>
+        <div className="grid gap-3 sm:grid-cols-3 lg:flex lg:flex-col lg:gap-4" aria-label={t("whyAria", { site: SITE_NAME })}>
           {VALUE_CARDS.map((c) => (
-            <Link
-              key={c.title}
+            <LocaleLink
+              key={c.key}
               href={c.href}
               className={`group flex items-center gap-3 rounded-2xl border border-line bg-surface/95 p-3.5 shadow-md transition-shadow hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 lg:w-72 ${c.tilt}`}
             >
@@ -60,10 +63,10 @@ export function Hero({ suggestions }: { suggestions: string[] }) {
                 <c.icon className="size-5" aria-hidden />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-bold leading-tight text-ink">{c.title}</span>
-                <span className="mt-0.5 block text-xs text-muted">{c.sub} →</span>
+                <span className="block text-sm font-bold leading-tight text-ink">{t(c.key)}</span>
+                <span className="mt-0.5 block text-xs text-muted">{t(`${c.key}Sub`)} →</span>
               </span>
-            </Link>
+            </LocaleLink>
           ))}
         </div>
       </Container>

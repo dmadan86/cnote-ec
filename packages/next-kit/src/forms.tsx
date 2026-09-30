@@ -6,7 +6,62 @@ import type { ActionResult } from "./action-result";
 import { forgotPasswordAction, resetPasswordAction, signInAction, signUpAction } from "./actions";
 import { TurnstileWidget } from "./turnstile-client";
 
+/** Every user-visible string of the auth forms. Apps pass a translated (partial) set through `labels`; defaults are English. */
+export interface AuthLabels {
+  google: string;
+  or: string;
+  email: string;
+  password: string;
+  name: string;
+  forgotLink: string;
+  signIn: string;
+  signingIn: string;
+  newHere: string;
+  createAccountLink: string;
+  passwordHint: string;
+  consentMatching: string;
+  consentMarketing: string;
+  createAccount: string;
+  creatingAccount: string;
+  haveAccount: string;
+  forgotSent: string;
+  sendReset: string;
+  sending: string;
+  backToSignIn: string;
+  newPassword: string;
+  saving: string;
+  setNewPassword: string;
+}
+
+export const DEFAULT_AUTH_LABELS: AuthLabels = {
+  google: "Continue with Google",
+  or: "or",
+  email: "Email",
+  password: "Password",
+  name: "Your name",
+  forgotLink: "Forgot password?",
+  signIn: "Sign in",
+  signingIn: "Signing in…",
+  newHere: "New here?",
+  createAccountLink: "Create an account",
+  passwordHint: "At least 10 characters.",
+  consentMatching: "I agree to my enquiries being shared with matching sellers so they can respond.",
+  consentMarketing: "Send me product updates and offers (optional).",
+  createAccount: "Create account",
+  creatingAccount: "Creating account…",
+  haveAccount: "Already have an account?",
+  forgotSent: "If an account exists for that email, we've sent a link to reset your password. It expires in 30 minutes.",
+  sendReset: "Send reset link",
+  sending: "Sending…",
+  backToSignIn: "Back to sign in",
+  newPassword: "New password",
+  saving: "Saving…",
+  setNewPassword: "Set new password",
+};
+
 export interface AuthFormProps {
+  /** Translated strings (partial; missing keys fall back to English). */
+  labels?: Partial<AuthLabels>;
   /** Where to go after success (validated to be a same-origin path). */
   next?: string;
   /** Show "Continue with Google" (hide when GOOGLE_CLIENT_ID is unset). */
@@ -36,7 +91,7 @@ function Shell({ children, error }: { children: ReactNode; error?: string }) {
 
 const link = "font-medium text-brand-700 hover:underline";
 
-export function GoogleButton({ next }: { next?: string }) {
+export function GoogleButton({ next, label = DEFAULT_AUTH_LABELS.google }: { next?: string; label?: string }) {
   const href = next ? `/api/auth/google?next=${encodeURIComponent(next)}` : "/api/auth/google";
   return (
     // Plain anchor: the route handler redirects off-site, so client-side routing must not intercept it.
@@ -47,123 +102,127 @@ export function GoogleButton({ next }: { next?: string }) {
         <path fill="#FBBC05" d="M6 14.2a6.6 6.6 0 0 1 0-4.4V7H2.4a11 11 0 0 0 0 9.9L6 14.2z" />
         <path fill="#EA4335" d="M12 5.4c1.6 0 3 .6 4.1 1.6l3.1-3.1A11 11 0 0 0 2.4 7L6 9.8c.8-2.6 3.2-4.4 6-4.4z" />
       </svg>
-      Continue with Google
+      {label}
     </a>
   );
 }
 
-const Divider = () => (
+const Divider = ({ label }: { label: string }) => (
   <div className="flex items-center gap-3 text-xs text-muted">
-    <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
+    <span className="h-px flex-1 bg-line" /> {label} <span className="h-px flex-1 bg-line" />
   </div>
 );
 
-export function SignInForm({ next, googleEnabled, paths, allowSignUp = true }: AuthFormProps) {
+export function SignInForm({ next, googleEnabled, paths, allowSignUp = true, labels }: AuthFormProps) {
+  const L = { ...DEFAULT_AUTH_LABELS, ...labels };
   const [state, action, pending] = useActionState<State, FormData>(signInAction, null);
   return (
     <Shell error={formError(state)}>
       {googleEnabled ? (
         <>
-          <GoogleButton next={next} />
-          <Divider />
+          <GoogleButton next={next} label={L.google} />
+          <Divider label={L.or} />
         </>
       ) : null}
       <form action={action} className="flex flex-col gap-4" noValidate>
         <input type="hidden" name="next" value={next ?? ""} />
-        <Field label="Email" htmlFor="email" error={fieldError(state, "email")}>
+        <Field label={L.email} htmlFor="email" error={fieldError(state, "email")}>
           <Input id="email" name="email" type="email" autoComplete="email" required aria-invalid={!!fieldError(state, "email")} />
         </Field>
-        <Field label="Password" htmlFor="password" error={fieldError(state, "password")}>
+        <Field label={L.password} htmlFor="password" error={fieldError(state, "password")}>
           <Input id="password" name="password" type="password" autoComplete="current-password" required />
         </Field>
         <div className="text-right text-sm">
-          <Link href={paths?.forgot ?? "/forgot-password"} className={link}>Forgot password?</Link>
+          <Link href={paths?.forgot ?? "/forgot-password"} className={link}>{L.forgotLink}</Link>
         </div>
-        <Button type="submit" size="lg" disabled={pending}>{pending ? "Signing in…" : "Sign in"}</Button>
+        <Button type="submit" size="lg" disabled={pending}>{pending ? L.signingIn : L.signIn}</Button>
       </form>
       {allowSignUp ? (
         <p className="text-center text-sm text-muted">
-          New here? <Link href={withNext(paths?.signUp ?? "/signup", next)} className={link}>Create an account</Link>
+          {L.newHere} <Link href={withNext(paths?.signUp ?? "/signup", next)} className={link}>{L.createAccountLink}</Link>
         </p>
       ) : null}
     </Shell>
   );
 }
 
-export function SignUpForm({ next, googleEnabled, paths }: AuthFormProps) {
+export function SignUpForm({ next, googleEnabled, paths, labels }: AuthFormProps) {
+  const L = { ...DEFAULT_AUTH_LABELS, ...labels };
   const [state, action, pending] = useActionState<State, FormData>(signUpAction, null);
   return (
     <Shell error={formError(state)}>
       {googleEnabled ? (
         <>
-          <GoogleButton next={next} />
-          <Divider />
+          <GoogleButton next={next} label={L.google} />
+          <Divider label={L.or} />
         </>
       ) : null}
       <form action={action} className="flex flex-col gap-4" noValidate>
         <input type="hidden" name="next" value={next ?? ""} />
-        <Field label="Your name" htmlFor="name" error={fieldError(state, "name")}>
+        <Field label={L.name} htmlFor="name" error={fieldError(state, "name")}>
           <Input id="name" name="name" autoComplete="name" required aria-invalid={!!fieldError(state, "name")} />
         </Field>
-        <Field label="Email" htmlFor="email" error={fieldError(state, "email")}>
+        <Field label={L.email} htmlFor="email" error={fieldError(state, "email")}>
           <Input id="email" name="email" type="email" autoComplete="email" required aria-invalid={!!fieldError(state, "email")} />
         </Field>
-        <Field label="Password" htmlFor="password" hint="At least 10 characters." error={fieldError(state, "password")}>
+        <Field label={L.password} htmlFor="password" hint={L.passwordHint} error={fieldError(state, "password")}>
           <Input id="password" name="password" type="password" autoComplete="new-password" required minLength={10} aria-invalid={!!fieldError(state, "password")} />
         </Field>
         <div className="flex flex-col gap-2 text-sm">
           <label className="flex items-start gap-2">
             <input type="checkbox" name="consent_matching" className="mt-0.5 size-4" required />
-            <span>I agree to my enquiries being shared with matching sellers so they can respond.</span>
+            <span>{L.consentMatching}</span>
           </label>
           {fieldError(state, "consent_matching") ? <p className="text-xs text-danger">{fieldError(state, "consent_matching")}</p> : null}
           <label className="flex items-start gap-2 text-muted">
             <input type="checkbox" name="consent_marketing" className="mt-0.5 size-4" />
-            <span>Send me product updates and offers (optional).</span>
+            <span>{L.consentMarketing}</span>
           </label>
         </div>
         <TurnstileWidget resetKey={state} />
-        <Button type="submit" size="lg" disabled={pending}>{pending ? "Creating account…" : "Create account"}</Button>
+        <Button type="submit" size="lg" disabled={pending}>{pending ? L.creatingAccount : L.createAccount}</Button>
       </form>
       <p className="text-center text-sm text-muted">
-        Already have an account? <Link href={withNext(paths?.signIn ?? "/signin", next)} className={link}>Sign in</Link>
+        {L.haveAccount} <Link href={withNext(paths?.signIn ?? "/signin", next)} className={link}>{L.signIn}</Link>
       </p>
     </Shell>
   );
 }
 
-export function ForgotPasswordForm({ paths }: AuthFormProps) {
+export function ForgotPasswordForm({ paths, labels }: AuthFormProps) {
+  const L = { ...DEFAULT_AUTH_LABELS, ...labels };
   const [state, action, pending] = useActionState<State, FormData>(forgotPasswordAction, null);
   return (
     <Shell error={formError(state)}>
       {state?.ok ? (
-        <Alert tone="success">If an account exists for that email, we&apos;ve sent a link to reset your password. It expires in 30 minutes.</Alert>
+        <Alert tone="success">{L.forgotSent}</Alert>
       ) : (
         <form action={action} className="flex flex-col gap-4" noValidate>
-          <Field label="Email" htmlFor="email" error={fieldError(state, "email")}>
+          <Field label={L.email} htmlFor="email" error={fieldError(state, "email")}>
             <Input id="email" name="email" type="email" autoComplete="email" required />
           </Field>
-          <Button type="submit" size="lg" disabled={pending}>{pending ? "Sending…" : "Send reset link"}</Button>
+          <Button type="submit" size="lg" disabled={pending}>{pending ? L.sending : L.sendReset}</Button>
         </form>
       )}
       <p className="text-center text-sm">
-        <Link href={paths?.signIn ?? "/signin"} className={link}>Back to sign in</Link>
+        <Link href={paths?.signIn ?? "/signin"} className={link}>{L.backToSignIn}</Link>
       </p>
     </Shell>
   );
 }
 
-export function ResetPasswordForm({ token, paths }: AuthFormProps & { token: string }) {
+export function ResetPasswordForm({ token, paths, labels }: AuthFormProps & { token: string }) {
+  const L = { ...DEFAULT_AUTH_LABELS, ...labels };
   const [state, action, pending] = useActionState<State, FormData>(resetPasswordAction, null);
   return (
     <Shell error={formError(state)}>
       <form action={action} className="flex flex-col gap-4" noValidate>
         <input type="hidden" name="token" value={token} />
         <input type="hidden" name="redirectTo" value={`${paths?.signIn ?? "/signin"}?reset=1`} />
-        <Field label="New password" htmlFor="password" hint="At least 10 characters." error={fieldError(state, "password")}>
+        <Field label={L.newPassword} htmlFor="password" hint={L.passwordHint} error={fieldError(state, "password")}>
           <Input id="password" name="password" type="password" autoComplete="new-password" required minLength={10} aria-invalid={!!fieldError(state, "password")} />
         </Field>
-        <Button type="submit" size="lg" disabled={pending}>{pending ? "Saving…" : "Set new password"}</Button>
+        <Button type="submit" size="lg" disabled={pending}>{pending ? L.saving : L.setNewPassword}</Button>
       </form>
     </Shell>
   );

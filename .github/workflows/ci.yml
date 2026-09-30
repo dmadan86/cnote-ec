@@ -65,6 +65,8 @@ jobs:
           pnpm db:migrate
           pnpm --filter @cnote/live-db migrate:deploy
       - run: pnpm typecheck
+      - name: Module boundaries
+        run: pnpm check:boundaries && pnpm test:boundaries
       - run: pnpm lint
       # Unit tests with per-package coverage thresholds enforced (vitest.shared.ts); fails the build on either.
       - name: Unit tests + coverage thresholds

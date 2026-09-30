@@ -41,40 +41,5 @@ export async function replayDeadLetter(topic: string, id: string): Promise<boole
 }
 export type { JobTopic };
 
-export interface EmailLogEntry {
-  id: string;
-  toMasked: string;
-  template: string;
-  category: string;
-  subject: string;
-  status: string;
-  provider: string | null;
-  attempts: number;
-  lastError: string | null;
-  createdAt: string;
-  sentAt: string | null;
-}
-const STATUSES = ["queued", "sending", "sent", "failed", "suppressed"] as const;
-export type EmailStatus = (typeof STATUSES)[number];
-export const EMAIL_STATUSES = STATUSES;
-
-/** EmailMessage delivery log, newest first. Masked recipient only; bodies are never stored. */
-export async function listEmailLog(filters: { status?: string; template?: string; cursor?: string; limit?: number } = {}): Promise<{ items: EmailLogEntry[]; nextCursor: string | null }> {
-  const limit = Math.min(Math.max(filters.limit ?? 50, 1), 200);
-  const status = STATUSES.find((s) => s === filters.status);
-  const rows = await prisma.emailMessage.findMany({
-    where: { ...(status ? { status } : {}), ...(filters.template ? { template: { contains: filters.template, mode: "insensitive" } } : {}) },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: limit + 1,
-    ...(filters.cursor ? { cursor: { id: filters.cursor }, skip: 1 } : {}),
-  });
-  const page = rows.slice(0, limit);
-  return {
-    items: page.map((r) => ({
-      id: r.id, toMasked: r.toMasked, template: r.template, category: r.category, subject: r.subject, status: r.status,
-      provider: r.provider, attempts: r.attempts, lastError: r.lastError ? maskEmail(r.lastError).slice(0, 300) : null,
-      createdAt: r.createdAt.toISOString(), sentAt: r.sentAt?.toISOString() ?? null,
-    })),
-    nextCursor: rows.length > limit ? page[page.length - 1]!.id : null,
-  };
-}
+// The email delivery log belongs to @cnote/email (it owns EmailMessage); re-exported here for the admin queues pages.
+export { EMAIL_STATUSES, listEmailLog, type EmailLogEntry, type EmailStatus } from "@cnote/email";

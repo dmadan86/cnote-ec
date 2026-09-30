@@ -5,6 +5,7 @@ import { reindexStaleEmbeddings } from "./reindex";
 import { purgeDeletedListingImages, type ListingImageView } from "./images";
 import { versionHandlers, versionJobs } from "./worker";
 import { processListingImage } from "./image-variants";
+import { transcribeVoiceNote } from "./voice";
 
 export interface CategoryView {
   id: string;
@@ -84,7 +85,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const worker: ModuleWorker = {
   name: "catalogue",
   handlers: { ...versionHandlers },
-  queues: [queueConsumer("media.process_image", async (msg) => void (await processListingImage(msg.payload.imageId)), 2)],
+  queues: [queueConsumer("media.process_image", async (msg) => void (await processListingImage(msg.payload.imageId)), 2),
+    // ADR-004: async voice transcription (idempotent; provider failures throw so the queue retries, then dead-letters)
+    queueConsumer("catalogue.transcribe", async (msg) => void (await transcribeVoiceNote(msg.payload.voiceNoteId, { language: msg.payload.language })), 2),
+  ],
   jobs: [
     ...versionJobs,
     { name: "catalogue.reembed-stale", everyMs: DAY_MS, run: async () => void (await reindexStaleEmbeddings()) },

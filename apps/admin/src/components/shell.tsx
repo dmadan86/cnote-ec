@@ -1,6 +1,6 @@
 import { type Privilege, type StaffView, hasPrivilege } from "@cnote/admin";
 import { signOutAction } from "@cnote/next-kit";
-import { Globe, Activity, Building2, FileClock, Filter, ImageIcon, KeyRound, LayoutDashboard, LayoutTemplate, ListChecks, LogOut, Mail, MessageSquareWarning, ScrollText, ShieldCheck, Store, UserCog, UserRound } from "lucide-react";
+import { Globe, MessageCircle, Activity, BarChart3, Building2, FileClock, Filter, ImageIcon, KeyRound, LayoutDashboard, LayoutTemplate, ListChecks, LogOut, Mail, MessageSquareWarning, Scale, ScrollText, ShieldCheck, Store, UserCog, UserRound } from "lucide-react";
 import { NavLink } from "./nav";
 
 const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Privilege }[] = [
@@ -15,8 +15,11 @@ const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Pri
   { href: "/developers", label: "API keys", icon: <KeyRound className="size-4" aria-hidden />, privilege: "api_keys.read" },
   { href: "/queues", label: "Queues", icon: <ListChecks className="size-4" aria-hidden />, privilege: "queues.read" },
   { href: "/leadgen", label: "Lead funnel", icon: <Filter className="size-4" aria-hidden />, privilege: "leadgen.read" },
+  { href: "/metrics", label: "Metrics", icon: <BarChart3 className="size-4" aria-hidden />, privilege: "metrics.read" },
   { href: "/domains", label: "Domains", icon: <Globe className="size-4" aria-hidden />, privilege: "storefronts.review" },
+  { href: "/whatsapp", label: "WhatsApp", icon: <MessageCircle className="size-4" aria-hidden />, privilege: "businesses.read" },
   { href: "/businesses", label: "Businesses", icon: <Building2 className="size-4" aria-hidden />, privilege: "businesses.read" },
+  { href: "/compliance", label: "Compliance", icon: <Scale className="size-4" aria-hidden />, privilege: "compliance.read" },
   { href: "/staff", label: "Staff", icon: <UserCog className="size-4" aria-hidden />, privilege: "staff.read" },
   { href: "/audit", label: "Audit log", icon: <ScrollText className="size-4" aria-hidden />, privilege: "audit.read" },
   { href: "/account", label: "My account", icon: <UserRound className="size-4" aria-hidden /> },

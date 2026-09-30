@@ -1,14 +1,16 @@
-import { AnthropicIntentScorer, AnthropicListingExtractor, AnthropicModerator, createAnthropicClient, type MessagesClient } from "./anthropic";
+import { AnthropicImageExtractor, AnthropicIntentScorer, AnthropicListingExtractor, AnthropicModerator, createAnthropicClient, type MessagesClient } from "./anthropic";
 import { localEmbedder } from "./embedder";
 import { extractListingHeuristic } from "./heuristic/extract";
 import { HEURISTIC_MODEL, scoreIntentHeuristic } from "./heuristic/intent";
 import { moderateHeuristic } from "./heuristic/moderate";
-import type { ListingExtractor, IntentScorer, Moderator, ProviderResult, Providers } from "./types";
+import { extractFromImagesHeuristic } from "./vision";
+import type { ImageListingExtractor, ListingExtractor, IntentScorer, Moderator, ProviderResult, Providers } from "./types";
 
 export const heuristicProviders: Providers = {
   intent: { score: async (i) => scoreIntentHeuristic(i) },
   extractor: { extract: async (i) => extractListingHeuristic(i) },
   moderator: { moderate: async (i) => moderateHeuristic(i) },
+  imageExtractor: { extract: async (i) => extractFromImagesHeuristic(i) },
   embedder: localEmbedder,
 };
 
@@ -32,6 +34,7 @@ export function anthropicProviders(client: MessagesClient = createAnthropicClien
   const intent = new AnthropicIntentScorer(client);
   const extractor = new AnthropicListingExtractor(client);
   const moderator = new AnthropicModerator(client);
+  const imageExtractor = new AnthropicImageExtractor(client);
   const h = heuristicProviders;
   const wrap = <I, O>(p: (i: I) => Promise<ProviderResult<O>>, f: (i: I) => Promise<ProviderResult<O>>) =>
     fallback ? (i: I) => withFallback(p, f, i) : p;
@@ -39,6 +42,7 @@ export function anthropicProviders(client: MessagesClient = createAnthropicClien
     intent: { score: wrap((i) => intent.score(i), (i) => h.intent.score(i)) } satisfies IntentScorer,
     extractor: { extract: wrap((i) => extractor.extract(i), (i) => h.extractor.extract(i)) } satisfies ListingExtractor,
     moderator: { moderate: wrap((i) => moderator.moderate(i), (i) => h.moderator.moderate(i)) } satisfies Moderator,
+    imageExtractor: { extract: wrap((i) => imageExtractor.extract(i), async (i) => extractFromImagesHeuristic(i)) } satisfies ImageListingExtractor,
     embedder: localEmbedder,
   };
 }

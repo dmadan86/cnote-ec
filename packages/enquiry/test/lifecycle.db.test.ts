@@ -105,6 +105,7 @@ afterAll(async () => {
   await prisma.quote.deleteMany({ where: { conversationId: { in: convos } } });
   await prisma.dealReport.deleteMany({ where: { match: { enquiryId: { in: enquiryIds } } } });
   await prisma.conversation.deleteMany({ where: { id: { in: convos } } });
+  await prisma.order.deleteMany({ where: { enquiryId: { in: enquiryIds } } });
   await prisma.match.deleteMany({ where: { enquiryId: { in: enquiryIds } } });
   await prisma.enquiry.deleteMany({ where: { id: { in: enquiryIds } } });
   await prisma.$executeRaw`DELETE FROM domain_events WHERE aggregate_id = ANY(${[...enquiryIds, ...bizIds, ...convos]}) OR payload->>'businessId' = ANY(${bizIds})`;

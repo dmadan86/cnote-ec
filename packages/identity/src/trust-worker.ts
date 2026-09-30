@@ -84,16 +84,17 @@ export const trustHandlers: EventHandlers = {
 };
 
 /** Daily inactivity decay over all sellers (paged by id). */
-export async function runTrustDecay(): Promise<number> {
+export async function runTrustDecay(opts: { pageSize?: number } = {}): Promise<number> {
   let cursor: string | undefined;
   let changed = 0;
   for (;;) {
+    // Keyset (id > last), not Prisma's row cursor: if the cursor row is deleted mid-run (erasure, cleanup) a row
+    // cursor yields an empty page and the run would silently stop early.
     const page = await prisma.business.findMany({
-      where: { isSeller: true },
+      where: { isSeller: true, ...(cursor ? { id: { gt: cursor } } : {}) },
       select: { id: true },
       orderBy: { id: "asc" },
-      take: 200,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      take: opts.pageSize ?? 200,
     });
     if (page.length === 0) break;
     for (const { id } of page) if ((await recomputeTrust(id))?.changed) changed++;

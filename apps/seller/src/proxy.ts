@@ -10,12 +10,15 @@ const authProxy = createAuthProxy({
 
 // Every seller page is rendered per request except these statically generated ones, which cannot carry a nonce
 // and so get the static-mode CSP. Add a path here if you add a page that reads no cookies/searchParams/headers.
+const VOICE_PATHS = ["/listings/new", "/onboarding"];
 const STATIC_PATHS = ["/forgot-password"];
 
 export async function proxy(req: NextRequest): Promise<NextResponse> {
   const nonce = pathMatches(req.nextUrl.pathname, STATIC_PATHS) ? undefined : createNonce();
-  const res = await authProxy(nonce ? withNonceRequest(req, nonce, { app: "seller" }) : req);
-  return withSecurityHeaders(res, { app: "seller", nonce });
+  // Voice drafts (ADR-004) record with MediaRecorder on the listing-creation screens only.
+  const microphone = pathMatches(req.nextUrl.pathname, VOICE_PATHS);
+  const res = await authProxy(nonce ? withNonceRequest(req, nonce, { app: "seller", microphone }) : req);
+  return withSecurityHeaders(res, { app: "seller", nonce, microphone });
 }
 
 export const config = { matcher: ["/((?!_next/|favicon.ico|api/auth/|.*\\..*).*)"] };

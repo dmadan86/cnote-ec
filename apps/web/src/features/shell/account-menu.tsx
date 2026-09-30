@@ -1,17 +1,19 @@
 "use client";
-import { LogOut, Store, User } from "lucide-react";
-import Link from "next/link";
+import { Bell, ClipboardList, LogOut, Store, User } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Avatar } from "@cnote/ui";
+import { LocaleLink as Link } from "@/i18n/link";
 import { Popover } from "./popover";
 import { SELLER_APP_URL } from "./site";
 
 export function AccountMenu({ name, email, isSeller }: { name: string | null; email: string | null; isSeller: boolean }) {
-  const display = name ?? email ?? "Account";
+  const t = useTranslations("shell");
+  const display = name ?? email ?? t("account");
   return (
     <Popover
       align="right"
       panelClassName="w-64"
-      ariaLabel={`Account menu for ${display}`}
+      ariaLabel={t("accountMenuFor", { name: display })}
       label={
         <span className="flex items-center gap-2">
           <Avatar name={display} size="sm" />
@@ -26,20 +28,30 @@ export function AccountMenu({ name, email, isSeller }: { name: string | null; em
       <ul className="py-1 text-sm">
         <li>
           <Link href="/buyer/enquiries" className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-600">
-            <User className="size-4" aria-hidden /> My enquiries
+            <User className="size-4" aria-hidden /> {t("myEnquiries")}
+          </Link>
+        </li>
+        <li>
+          <Link href="/buyer/orders" className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-600">
+            <ClipboardList className="size-4" aria-hidden /> {t("myOrders")}
+          </Link>
+        </li>
+        <li>
+          <Link href="/account/notifications" className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-600">
+            <Bell className="size-4" aria-hidden /> {t("notifications")}
           </Link>
         </li>
         {isSeller ? (
           <li>
             <a href={SELLER_APP_URL} className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-600">
-              <Store className="size-4" aria-hidden /> Seller dashboard
+              <Store className="size-4" aria-hidden /> {t("sellerDashboard")}
             </a>
           </li>
         ) : null}
         <li>
           <form method="post" action="/api/auth/signout">
             <button type="submit" className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-600">
-              <LogOut className="size-4" aria-hidden /> Sign out
+              <LogOut className="size-4" aria-hidden /> {t("signOut")}
             </button>
           </form>
         </li>

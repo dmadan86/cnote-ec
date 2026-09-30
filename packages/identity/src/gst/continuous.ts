@@ -69,9 +69,10 @@ export async function runGstRecheck(now = new Date(), maxPerRun = 500): Promise<
   let checked = 0, revoked = 0;
   for (;;) {
     const page = await prisma.business.findMany({
-      where: { gstin: { not: null }, verificationTier: { gte: 1 } },
+      // Keyset (id > last): a row cursor deleted mid-run would end the pass early.
+      where: { gstin: { not: null }, verificationTier: { gte: 1 }, ...(cursor ? { id: { gt: cursor } } : {}) },
       select: { id: true, gstLastCheckedAt: true },
-      orderBy: { id: "asc" }, take: 200, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      orderBy: { id: "asc" }, take: 200,
     });
     if (page.length === 0) break;
     for (const b of page) {

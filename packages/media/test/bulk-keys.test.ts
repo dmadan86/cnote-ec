@@ -39,3 +39,13 @@ describe("bulk document keys", () => {
     expect(() => pub.publicUrl("bulk/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/products.csv")).toThrow("Invalid media key");
   });
 });
+
+describe("voice note keys", () => {
+  it("are private-only and map to audio types", () => {
+    const k = "listings/_voice/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10.ogg";
+    expect(isValidMediaKey(k, "private")).toBe(true);
+    expect(isValidMediaKey(k, "public")).toBe(false);
+    expect(mimeForKey(k)).toBe("audio/ogg");
+    expect(mimeForKey("listings/_voice/a.m4a")).toBe("audio/mp4");
+  });
+});

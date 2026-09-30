@@ -232,3 +232,5 @@ export const worker: ModuleWorker = {
   jobs: [],
   queues: [queueConsumer("email.send", handleEmailSend, 2)],
 };
+
+export { EMAIL_STATUSES, listEmailLog, maskEmailsInText, type EmailLogEntry, type EmailStatus } from "./log";

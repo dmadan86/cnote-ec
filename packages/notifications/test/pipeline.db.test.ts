@@ -15,7 +15,7 @@ vi.mock("@cnote/identity", () => ({ BADGE_THRESHOLD: 40, getConsents: async () =
 import { bustUnread, cachedUnread } from "../src/cache";
 import { setChannelAdapter } from "../src/channels";
 import { getKind, KINDS } from "../src/kinds";
-import { listDeadLetters, listEmailLog, replayDeadLetter } from "../src/ops";
+import { listDeadLetters, replayDeadLetter } from "../src/ops";
 import { channelsFor, getPreferences, setPreference } from "../src/preferences";
 import { deliverJob, notifyForEvent, notifyRecipient, type NotificationDeliverJob } from "../src/pipeline";
 import { listNotifications, markRead, unreadCount } from "../src/read";
@@ -235,7 +235,7 @@ describe("worker and prune", () => {
   });
 });
 
-describe("dead letters and email log", () => {
+describe("dead letters", () => {
   it("lists redacted dead letters and replays exactly once", async () => {
     const q = new MemoryJobQueue(); setJobQueue(q);
     await q.enqueue("notification.deliver", job({ vars: { email: "asha@example.com", contactPhone: "+919876543210" } }), { maxAttempts: 1 });
@@ -251,24 +251,5 @@ describe("dead letters and email log", () => {
     expect(await listDeadLetters("notification.deliver")).toHaveLength(0);
     expect(await q.consume("notification.deliver", "g", "c", async () => {})).toBe(1);
   });
-  it("email log filters, masks errors, paginates", async () => {
-    const tag = `nt-${randomUUID()}`;
-    const mk = (i: number, status: "sent" | "failed") => prisma.emailMessage.create({ data: { toMasked: "a***@x.com", template: tag, category: "transactional", subject: "s", status, lastError: status === "failed" ? "bounce for bob@example.com" : null, sentAt: status === "sent" ? new Date() : null, createdAt: new Date(Date.now() - i * 1000) } });
-    for (let i = 0; i < 3; i++) await mk(i, i === 0 ? "failed" : "sent");
-    try {
-      const p1 = await listEmailLog({ template: tag.toUpperCase(), limit: 2 });
-      expect(p1.items).toHaveLength(2);
-      expect(p1.items[0]!.lastError).toBe("bounce for b***@example.com");
-      expect(p1.items[1]!.sentAt).toBeTruthy();
-      const p2 = await listEmailLog({ template: tag, limit: 2, cursor: p1.nextCursor! });
-      expect(p2.items).toHaveLength(1);
-      expect(p2.nextCursor).toBeNull();
-      expect((await listEmailLog({ template: tag, status: "failed" })).items).toHaveLength(1);
-      expect((await listEmailLog({ template: tag, status: "bogus" })).items).toHaveLength(3);
-      expect((await listEmailLog({ template: tag, limit: 0 })).items).toHaveLength(1);
-      expect(await listEmailLog()).toBeTruthy();
-    } finally {
-      await prisma.emailMessage.deleteMany({ where: { template: tag } });
-    }
-  });
+;
 });

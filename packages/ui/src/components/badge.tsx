@@ -24,22 +24,30 @@ export function Badge({ tone = "neutral", className, ...rest }: HTMLAttributes<H
 
 const TIER_LABEL = ["Phone verified", "GST verified", "KYC verified", "Audited"] as const;
 
+/** Optional translated strings (defaults are English). `tiers` is indexed by verification tier 0-3. */
+export interface TrustLabels {
+  unverified: string;
+  unverifiedTitle: string;
+  tiers: readonly [string, string, string, string];
+}
+
 /**
  * Verification badge. Reflects the real verification tier (ADR-003) — never payment or plan.
  * Renders nothing meaningful as "Verified" unless `badgeActive` (trust score above threshold).
  */
-export function TrustBadge({ tier, badgeActive, className }: { tier: number; badgeActive: boolean; className?: string }) {
+export function TrustBadge({ tier, badgeActive, className, labels }: { tier: number; badgeActive: boolean; className?: string; labels?: TrustLabels }) {
+  const tiers = labels?.tiers ?? TIER_LABEL;
   if (!badgeActive || tier < 1) {
     return (
-      <Badge tone="neutral" className={className} title="Not yet verified beyond phone">
-        <ShieldQuestion className="size-3.5" aria-hidden /> Unverified
+      <Badge tone="neutral" className={className} title={labels?.unverifiedTitle ?? "Not yet verified beyond phone"}>
+        <ShieldQuestion className="size-3.5" aria-hidden /> {labels?.unverified ?? "Unverified"}
       </Badge>
     );
   }
   const Icon = tier >= 2 ? ShieldCheck : BadgeCheck;
   return (
-    <Badge tone="accent" className={className} title={TIER_LABEL[Math.min(tier, 3)]}>
-      <Icon className="size-3.5" aria-hidden /> {TIER_LABEL[Math.min(tier, 3)]}
+    <Badge tone="accent" className={className} title={tiers[Math.min(tier, 3)]}>
+      <Icon className="size-3.5" aria-hidden /> {tiers[Math.min(tier, 3)]}
     </Badge>
   );
 }

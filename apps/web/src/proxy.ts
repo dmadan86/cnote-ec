@@ -2,6 +2,7 @@ import { createAuthProxy } from "@cnote/next-kit/proxy";
 import { createNonce, pathMatches, withNonceRequest, withSecurityHeaders } from "@cnote/next-kit/security";
 import { NextResponse, type NextRequest } from "next/server";
 import { recordStorefrontHit, routeStorefrontHost } from "@/features/domains/host-routing";
+import { DEFAULT_LOCALE, isLocalizedPath, splitLocale } from "@/i18n/config";
 
 const PROTECTED = ["/account", "/onboarding", "/buyer", "/rfq", "/conversations", "/wishlist"];
 const authProxy = createAuthProxy({ protectedPrefixes: PROTECTED, signInPath: "/signin" });
@@ -16,12 +17,42 @@ const NONCE_PATHS = [...PROTECTED, "/signin", "/signup", "/reset-password"];
 /** Paths that need the auth proxy (session refresh / protection) on the marketplace host. */
 const SESSION_PATHS = [...PROTECTED, "/compare", "/api/me", "/signin", "/signup"];
 
+/**
+ * Locale routing for public pages (docs/guides/i18n.md). Pure path logic: no cookies, no Accept-Language, no I/O, so
+ * every response stays CDN-cacheable and crawlers always get the URL they asked for.
+ *   /x            -> rewrite to /en/x (the default locale is unprefixed in the browser, prefixed internally)
+ *   /hi/x         -> pass through (static [locale] route)
+ *   /en/x         -> 308 to /x (one canonical URL per language, no duplicate content)
+ *   /hi/<other>   -> 307 to /<other> (only public discovery pages are localised; the rest stays unprefixed English)
+ * Returns null when the path is not a localised page (account, buyer, rfq, auth, api, storefront-rewritten, ...).
+ */
+function routeLocale(req: NextRequest): NextResponse | null {
+  const { pathname, search } = req.nextUrl;
+  const { locale, prefixed, rest } = splitLocale(pathname);
+  if (prefixed && locale === DEFAULT_LOCALE) {
+    // Generated metadata images (og image) are emitted under the internal /en prefix; leave those alone.
+    if (pathname.includes("opengraph-image")) return null;
+    return NextResponse.redirect(new URL(`${rest === "/" ? "/" : rest}${search}`, req.url), 308);
+  }
+  if (prefixed) {
+    return isLocalizedPath(rest) ? NextResponse.next() : NextResponse.redirect(new URL(`${rest}${search}`, req.url), 307);
+  }
+  if (!isLocalizedPath(rest)) return null;
+  const url = req.nextUrl.clone();
+  url.pathname = rest === "/" ? `/${DEFAULT_LOCALE}` : `/${DEFAULT_LOCALE}${rest}`;
+  return NextResponse.rewrite(url);
+}
+
 export async function proxy(req: NextRequest): Promise<NextResponse> {
   // HOST ROUTING first: seller custom domains and <slug>.<root> subdomains are rewritten to /store/<slug>/…
   // (resolveHost answers platform hosts without I/O). Metering is fire-and-forget and never blocks the response.
   recordStorefrontHit(req);
   const routed = await routeStorefrontHost(req);
   if (routed) return withSecurityHeaders(routed, { app: "web" });
+
+  // LOCALE ROUTING for public pages. Runs before the session paths (none of them are localised).
+  const localised = routeLocale(req);
+  if (localised) return localised;
 
   // Public marketplace pages stay proxy-free in effect: no auth work and never a Set-Cookie on a response a CDN may
   // cache. Their headers come from next.config headers() (staticHeaderList).

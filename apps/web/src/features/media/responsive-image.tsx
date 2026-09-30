@@ -37,7 +37,7 @@ export function ResponsiveImage({ image, sizes = "(min-width: 1024px) 50vw, 100v
       {(image.sources ?? []).map((s) => (
         <source key={s.type} type={s.type} srcSet={s.srcSet} sizes={sizes} />
       ))}
-      {/* eslint-disable-next-line @next/next/no-img-element -- pre-generated variants; the <picture> art direction is the optimiser */}
+      { }
       <img
         src={image.src}
         srcSet={hasSet ? image.srcSet : undefined}

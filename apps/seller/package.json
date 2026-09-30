@@ -29,6 +29,7 @@
     "@cnote/security": "workspace:*",
     "@cnote/storefront": "workspace:*",
     "@cnote/ui": "workspace:*",
+    "@cnote/wishlist": "workspace:*",
     "@sentry/nextjs": "^11.1.0",
     "lucide-react": "^1.48.0",
     "next": "16.3.7",

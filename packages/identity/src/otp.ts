@@ -2,7 +2,7 @@ import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import { DomainError, redis } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { enforceLimit } from "./limits";
-import { getSmsSender } from "./mailer";
+import { resolveOtpSender } from "./phone-login";
 import { jwtKey } from "./tokens";
 
 const OTP_TTL = 10 * 60;
@@ -32,9 +32,9 @@ export async function requestPhoneOtp(personId: string, phoneInput: string): Pro
   const key = otpKey(personId);
   await redis.multi().hset(key, { phone, hash: digest(personId, phone, code), attempts: 0 }).expire(key, OTP_TTL).exec();
 
-  const echo = process.env.OTP_DEV_ECHO === "true";
-  await getSmsSender().send({ to: phone, text: echo ? `Your verification code is ${code} (dev echo)` : "Your verification code was sent." });
-  return echo ? { sent: true, devCode: code } : { sent: true };
+  // Same delivery path as phone sign-in (OTP_SENDER: console | msg91 | whatsapp_cloud | whatsapp_then_sms).
+  await (await resolveOtpSender()).send({ to: phone, code, channel: "sms", ttlMinutes: OTP_TTL / 60 });
+  return process.env.OTP_DEV_ECHO === "true" ? { sent: true, devCode: code } : { sent: true };
 }
 
 export async function verifyPhoneOtp(personId: string, phoneInput: string, code: string): Promise<{ verified: boolean }> {

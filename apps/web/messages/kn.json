@@ -1,0 +1,3 @@
+{
+  "_todo": "TODO(kn): not translated yet. Every key falls back to English (see src/i18n/messages.ts). Copy keys from en.json as you translate, then promote the locale in src/i18n/config.ts (docs/guides/i18n.md)."
+}

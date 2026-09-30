@@ -1,0 +1,12 @@
+[
+  { "id": "boxes-hint", "fixture": { "pattern": "stripes", "a": [176, 130, 80], "b": [210, 170, 110] }, "hintText": "3 ply corrugated boxes, 180 gsm, ₹5.20/piece, MOQ 500 pcs. HSN 4819.", "language": "en",
+    "expect": { "categorySlug": "corrugated-boxes", "pricePaise": 520, "moq": 500, "hsn": "4819" },
+    "live": { "categorySlug": "corrugated-boxes", "visualAttributesInclude": ["colour"] } },
+  { "id": "fabric-hint", "fixture": { "pattern": "gradient", "a": [30, 60, 160], "b": [200, 210, 240] }, "hintText": "Cotton fabric 150 gsm, 450/set", "language": "en",
+    "expect": { "categorySlug": "fabric", "pricePaise": 45000 },
+    "live": { "categorySlug": "fabric" } },
+  { "id": "sack-hindi-hint", "fixture": { "pattern": "checker", "a": [200, 180, 120], "b": [150, 120, 70] }, "hintText": "boriya jute ki, 25 kg, ₹35/piece, MOQ 500 piece", "language": "hi",
+    "expect": { "categorySlug": "sacks-bags", "pricePaise": 3500, "moq": 500 },
+    "live": { "categorySlug": "sacks-bags" } },
+  { "id": "no-hint", "fixture": { "pattern": "circles", "a": [200, 30, 30], "b": [240, 240, 240] }, "language": "en", "expect": {}, "live": { "visualAttributesInclude": ["colour"] } }
+]

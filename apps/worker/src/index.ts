@@ -18,6 +18,9 @@ import { worker as domains } from "@cnote/domains";
 import { setListingHsnSource } from "@cnote/identity";
 import { getSellerListingHsns } from "@cnote/catalogue";
 import { worker as leadgen } from "@cnote/leadgen";
+import { worker as metrics } from "@cnote/metrics";
+import { assertIndiaResidency, worker as compliance } from "@cnote/compliance";
+import { worker as whatsapp } from "@cnote/whatsapp";
 import { seedStorefrontTemplates, worker as storefront } from "@cnote/storefront";
 import { assertRequiredSecrets } from "@cnote/security";
 import { cacheWorker, searchIndexer } from "@cnote/search";
@@ -26,12 +29,14 @@ import { worker as wishlist } from "@cnote/wishlist";
 import { hostname } from "node:os";
 
 assertRequiredSecrets("worker");
+// DPDP/ADR-010: refuse to start against non-India data stores when DATA_RESIDENCY_ENFORCE=true (warns otherwise).
+assertIndiaResidency();
 // No-op until SENTRY_DSN is set.
 Sentry.init(sentryOptions("worker", "nodejs"));
 // identity can't import catalogue (cycle); the composition root supplies the GST HSN-alignment source.
 setListingHsnSource(getSellerListingHsns);
 
-const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, notifications, developer, email, cacheWorker, searchIndexer, leadgen, domains, storefront, bulk];
+const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, notifications, developer, email, cacheWorker, searchIndexer, leadgen, domains, storefront, bulk, metrics, compliance, whatsapp];
 const consumer = `${hostname()}-${process.pid}`;
 let running = true;
 

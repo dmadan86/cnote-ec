@@ -11,9 +11,17 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@cnote/catalogue": "workspace:*",
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",
+    "@cnote/enquiry": "workspace:*",
     "@cnote/identity": "workspace:*",
+    "@cnote/leadgen": "workspace:*",
+    "@cnote/notifications": "workspace:*",
+    "@cnote/reviews": "workspace:*",
+    "@cnote/storefront": "workspace:*",
+    "@cnote/whatsapp": "workspace:*",
+    "@cnote/wishlist": "workspace:*",
     "zod": "^4.6.5"
   }
 }

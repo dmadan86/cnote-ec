@@ -55,8 +55,8 @@ export default async function AccountPage() {
           <CardHeader><CardTitle>Download my data</CardTitle></CardHeader>
           <CardBody className="flex flex-col gap-3">
             <p className="text-sm text-muted">Get a JSON copy of your profile, businesses, consents and sessions.</p>
-            {/* Plain anchor: a file download, not a page navigation. */}
-            <a href="/account/export" className={buttonClasses("outline", "md", "self-start")}>Download JSON</a>
+            {/* Plain anchor: /account/export is a route handler returning a file, so client-side <Link> navigation would break the download. */}
+            <a href="/account/export" download className={buttonClasses("outline", "md", "self-start")}>Download JSON</a>
           </CardBody>
         </Card>
 

@@ -4,7 +4,7 @@ import type { ProviderResult } from "./types";
 import type { AiResult, Subject } from "./index";
 
 /** Below these confidences an output goes to the human review queue (ADR-002, ADR-008). */
-export const REVIEW_THRESHOLDS = { intent: 0.55, extract: 0.5, moderate: 0.7 } as const;
+export const REVIEW_THRESHOLDS = { intent: 0.55, extract: 0.5, extract_image: 0.6, transcribe: 0.6, moderate: 0.7 } as const;
 export type Capability = keyof typeof REVIEW_THRESHOLDS;
 
 const json = (v: unknown) => v as Prisma.InputJsonValue;
@@ -19,6 +19,8 @@ export async function runLogged<T extends object>(
   inputRedacted: unknown,
   run: () => Promise<ProviderResult<T>>,
   forceReview?: (out: T) => string | null,
+  /** what to persist as the decision's output when the raw output holds personal data (e.g. a transcript) */
+  auditOutput: (out: T) => unknown = (o) => o,
 ): Promise<AiResult<T>> {
   const started = performance.now();
   const r = await run();
@@ -34,7 +36,7 @@ export async function runLogged<T extends object>(
       modelId: r.modelId,
       promptVersion: r.promptVersion,
       inputRedacted: json(inputRedacted),
-      output: json(r.output),
+      output: json(auditOutput(r.output)),
       confidence: r.confidence,
       subjectType: subject.type,
       subjectId: subject.id,

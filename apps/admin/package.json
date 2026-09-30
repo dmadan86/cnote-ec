@@ -34,6 +34,7 @@
     "@cnote/templates": "workspace:*",
     "@cnote/ui": "workspace:*",
     "@cnote/whatsapp": "workspace:*",
+    "@cnote/wishlist": "workspace:*",
     "@sentry/nextjs": "^11.1.0",
     "@tiptap/extension-image": "^3.31.3",
     "@tiptap/extension-placeholder": "^3.31.3",

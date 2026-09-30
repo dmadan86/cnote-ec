@@ -9,6 +9,7 @@ import { getOnboardingState, STEPS } from "@/features/onboarding/state";
 import { BusinessStep, PhoneStep, PlanStep, SkipButton } from "@/features/onboarding/steps";
 import { ImageManager } from "@/features/images/image-manager";
 import { CompanyForm } from "@/features/company/company-form";
+import { AiDraftAlternatives } from "@/features/ai-draft/ai-draft-alternatives";
 import { AiDraftBox } from "@/features/listings/ai-draft-box";
 import { ListingEditor } from "@/features/listings/listing-editor";
 
@@ -65,7 +66,10 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
         {s4.draft || manual ? (
           cats.ok ? <ListingEditor listing={s4.draft} categories={cats.data.filter((x) => !x.prohibited)} mode="onboarding" defaultLanguage={session.preferredLanguage} /> : <Alert tone="danger">{cats.error}</Alert>
         ) : (
-          <AiDraftBox mode="onboarding" defaultLanguage={session.preferredLanguage} />
+          <>
+            <AiDraftBox mode="onboarding" defaultLanguage={session.preferredLanguage} />
+            <AiDraftAlternatives mode="onboarding" defaultLanguage={session.preferredLanguage} />
+          </>
         )}
         {s4.draft && draftImages?.ok ? <ImageManager listingId={s4.draft.id} initialImages={draftImages.data} /> : null}
         {!s4.draft && !manual ? <Link href="/onboarding?manual=1" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-700 underline">I prefer to fill in a form</Link> : null}

@@ -8,6 +8,60 @@ import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 
 import type { StartCaptureInput, UnlockResult } from "@cnote/leadgen";
 import { sendOtp, startUnlock, verifyOtp } from "./otp";
 
+/**
+ * Every user-visible string of the dialog. Optional `labels` prop (partial) lets an app pass a translated set; the
+ * defaults are English. `{phone}`, `{channel}`, `{n}` and `{code}` are placeholders filled by the dialog.
+ */
+export interface UnlockLabels {
+  close: string;
+  intro: string;
+  sentTo: string;
+  mobileNumber: string;
+  mobileHint: string;
+  sendBy: string;
+  sms: string;
+  whatsapp: string;
+  consentMatching: string;
+  followUp: string;
+  sendCode: string;
+  sending: string;
+  codeSentStatus: string;
+  sixDigitCode: string;
+  devCode: string;
+  verify: string;
+  verifying: string;
+  resendIn: string;
+  resend: string;
+  changeNumber: string;
+  canResend: string;
+}
+
+export const DEFAULT_UNLOCK_LABELS: UnlockLabels = {
+  close: "Close",
+  intro: "Verify your mobile number to continue. We share your requirement with up to 3 matched suppliers, never your number with everyone.",
+  sentTo: "We sent a 6-digit code to {phone}.",
+  mobileNumber: "Mobile number",
+  mobileHint: "10-digit Indian mobile number",
+  sendBy: "Send the code by",
+  sms: "SMS",
+  whatsapp: "WhatsApp",
+  consentMatching: "I agree to share my requirement and mobile number with the matched suppliers so they can reply.",
+  followUp: "Optional: remind me about this requirement if I do not finish.",
+  sendCode: "Send code on {channel}",
+  sending: "Sending…",
+  codeSentStatus: "Code sent by {channel}. Enter the 6 digits.",
+  sixDigitCode: "6-digit code",
+  devCode: "Dev code: {code}",
+  verify: "Verify and continue",
+  verifying: "Verifying…",
+  resendIn: "Resend code in {n}s",
+  resend: "Resend code",
+  changeNumber: "Change number",
+  canResend: "You can request a new code now.",
+};
+
+const fmt = (t: string, v: Record<string, string | number>) => t.replace(/\{(\w+)\}/g, (m, k: string) => (k in v ? String(v[k]) : m));
+
 export type UnlockParams = Omit<StartCaptureInput, "followUpConsent">;
 type Channel = "sms" | "whatsapp";
 
@@ -23,11 +77,15 @@ export interface UnlockDialogProps {
   humanSlot?: ReactNode;
   /** Returns the current bot-check token, passed through to the server actions as `humanToken`. */
   getHumanToken?: () => string | undefined;
+  /** Translated strings (partial; missing keys fall back to English). */
+  labels?: Partial<UnlockLabels>;
 }
 
 const RESEND_SECONDS = 30;
 
-export function UnlockDialog({ open, onClose, captureId, visitorId, heading, onUnlocked, humanSlot, getHumanToken }: UnlockDialogProps) {
+export function UnlockDialog({ open, onClose, captureId, visitorId, heading, onUnlocked, humanSlot, getHumanToken, labels }: UnlockDialogProps) {
+  const L = { ...DEFAULT_UNLOCK_LABELS, ...labels };
+  const chLabel = (c: Channel) => (c === "sms" ? L.sms : L.whatsapp);
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef<Element | null>(null);
   const uid = useId();
@@ -84,7 +142,7 @@ export function UnlockDialog({ open, onClose, captureId, visitorId, heading, onU
     setCode("");
     setLeft(r.data.resendAfterSeconds || RESEND_SECONDS);
     setDevCode(r.data.devCode);
-    setStatus(`Code sent by ${r.data.channel === "whatsapp" ? "WhatsApp" : "SMS"}. Enter the 6 digits.`);
+    setStatus(fmt(L.codeSentStatus, { channel: chLabel(r.data.channel as Channel) }));
   }
 
   async function verify() {
@@ -102,8 +160,8 @@ export function UnlockDialog({ open, onClose, captureId, visitorId, heading, onU
   }
 
   useEffect(() => {
-    if (step === "otp" && left === 0) setStatus("You can request a new code now.");
-  }, [left, step]);
+    if (step === "otp" && left === 0) setStatus(L.canResend);
+  }, [left, step, L.canResend]);
 
   const titleId = `${uid}-title`;
   const descId = `${uid}-desc`;
@@ -120,14 +178,12 @@ export function UnlockDialog({ open, onClose, captureId, visitorId, heading, onU
           <h2 id={titleId} className="text-lg font-bold leading-snug">
             {heading}
           </h2>
-          <button type="button" onClick={() => ref.current?.close()} className="-m-2 inline-flex size-11 items-center justify-center rounded-lg text-muted hover:bg-canvas" aria-label="Close">
+          <button type="button" onClick={() => ref.current?.close()} className="-m-2 inline-flex size-11 items-center justify-center rounded-lg text-muted hover:bg-canvas" aria-label={L.close}>
             <span aria-hidden>×</span>
           </button>
         </div>
         <p id={descId} className="text-sm text-muted">
-          {step === "phone"
-            ? "Verify your mobile number to continue. We share your requirement with up to 3 matched suppliers, never your number with everyone."
-            : `We sent a 6-digit code to ${phone}.`}
+          {step === "phone" ? L.intro : fmt(L.sentTo, { phone })}
         </p>
 
         {step === "phone" ? (
@@ -138,16 +194,16 @@ export function UnlockDialog({ open, onClose, captureId, visitorId, heading, onU
               void send();
             }}
           >
-            <Field label="Mobile number" htmlFor={`${uid}-phone`} hint="10-digit Indian mobile number" error={fieldErrors.phone}>
+            <Field label={L.mobileNumber} htmlFor={`${uid}-phone`} hint={L.mobileHint} error={fieldErrors.phone}>
               <Input id={`${uid}-phone`} name="phone" type="tel" inputMode="tel" autoComplete="tel-national" required value={phone} onChange={(e) => setPhone(e.target.value)} className="h-11" />
             </Field>
             <fieldset className="flex flex-col gap-1.5">
-              <legend className="text-sm font-medium">Send the code by</legend>
+              <legend className="text-sm font-medium">{L.sendBy}</legend>
               <div className="flex gap-4">
                 {(["sms", "whatsapp"] as const).map((c) => (
                   <label key={c} className="inline-flex min-h-11 items-center gap-2 text-sm">
                     <input type="radio" name={`${uid}-channel`} value={c} checked={channel === c} onChange={() => setChannel(c)} className="size-4" />
-                    {c === "sms" ? "SMS" : "WhatsApp"}
+                    {chLabel(c)}
                   </label>
                 ))}
               </div>
@@ -155,17 +211,17 @@ export function UnlockDialog({ open, onClose, captureId, visitorId, heading, onU
             <div className="flex flex-col gap-1">
               <label className="flex items-start gap-2 text-sm">
                 <input type="checkbox" checked={matching} onChange={(e) => setMatching(e.target.checked)} required aria-describedby={fieldErrors.consent_matching ? `${uid}-cm-err` : undefined} className="mt-0.5 size-5 shrink-0" />
-                <span>I agree to share my requirement and mobile number with the matched suppliers so they can reply.</span>
+                <span>{L.consentMatching}</span>
               </label>
               {fieldErrors.consent_matching ? <p id={`${uid}-cm-err`} className="text-xs text-danger">{fieldErrors.consent_matching}</p> : null}
               <label className="flex items-start gap-2 text-sm">
                 <input type="checkbox" checked={followUp} onChange={(e) => setFollowUp(e.target.checked)} className="mt-0.5 size-5 shrink-0" />
-                <span>Optional: remind me about this requirement if I do not finish.</span>
+                <span>{L.followUp}</span>
               </label>
             </div>
             {humanSlot}
             <Button type="submit" size="lg" disabled={busy}>
-              {busy ? "Sending…" : `Send code on ${channel === "sms" ? "SMS" : "WhatsApp"}`}
+              {busy ? L.sending : fmt(L.sendCode, { channel: chLabel(channel) })}
             </Button>
           </form>
         ) : (
@@ -176,21 +232,21 @@ export function UnlockDialog({ open, onClose, captureId, visitorId, heading, onU
               void verify();
             }}
           >
-            <Field label="6-digit code" htmlFor={`${uid}-code`} hint={devCode ? `Dev code: ${devCode}` : undefined}>
+            <Field label={L.sixDigitCode} htmlFor={`${uid}-code`} hint={devCode ? fmt(L.devCode, { code: devCode }) : undefined}>
               <Input
                 id={`${uid}-code`} name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6}
                 required autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} className="h-12 text-center text-xl tracking-[0.4em]"
               />
             </Field>
             <Button type="submit" size="lg" disabled={busy || code.length !== 6}>
-              {busy ? "Verifying…" : "Verify and continue"}
+              {busy ? L.verifying : L.verify}
             </Button>
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
               <Button type="button" variant="ghost" disabled={busy || left > 0} onClick={() => void send()}>
-                {left > 0 ? `Resend code in ${left}s` : "Resend code"}
+                {left > 0 ? fmt(L.resendIn, { n: left }) : L.resend}
               </Button>
               <button type="button" className="min-h-11 px-2 text-brand-700 hover:underline" onClick={() => { setStep("phone"); setError(null); }}>
-                Change number
+                {L.changeNumber}
               </button>
             </div>
           </form>
@@ -210,13 +266,14 @@ export interface UseUnlockOptions {
   onUnlocked: (result: UnlockResult) => void;
   humanSlot?: ReactNode;
   getHumanToken?: () => string | undefined;
+  labels?: Partial<UnlockLabels>;
 }
 
 /**
  * `const { start, dialog } = useUnlock({...})`; render `{dialog}` once and call `start(params, heading)` from a click
  * handler. Signed-in buyers with a verified phone complete immediately without any dialog.
  */
-export function useUnlock({ visitorId, onUnlocked, humanSlot, getHumanToken }: UseUnlockOptions) {
+export function useUnlock({ visitorId, onUnlocked, humanSlot, getHumanToken, labels }: UseUnlockOptions) {
   const [state, setState] = useState<{ captureId: string; heading: string } | null>(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -239,7 +296,7 @@ export function useUnlock({ visitorId, onUnlocked, humanSlot, getHumanToken }: U
   const dialog = state ? (
     <UnlockDialog
       open={open} onClose={() => setOpen(false)} captureId={state.captureId} visitorId={visitorId} heading={state.heading}
-      onUnlocked={onUnlocked} humanSlot={humanSlot} getHumanToken={getHumanToken}
+      onUnlocked={onUnlocked} humanSlot={humanSlot} getHumanToken={getHumanToken} labels={labels}
     />
   ) : null;
   return { start, dialog, pending, error };

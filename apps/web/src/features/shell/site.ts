@@ -9,54 +9,49 @@ export const SELLER_APP_URL = process.env.SELLER_APP_URL ?? "http://localhost:30
 export const PINCODE_COOKIE = "cnote_pincode";
 
 export interface NavItem {
-  label: string;
+  /** Key under messages `shell.nav` (label) and `<key>Desc` (description). */
+  key: string;
   href: string;
-  description?: string;
   soon?: boolean;
 }
 export interface NavGroup {
-  label: string;
+  /** Key under messages `shell.nav` for the group label. */
+  key: string;
   items: NavItem[];
 }
 
-/** Header/mobile navigation. "Coming soon" entries are not in the ADRs yet (DESIGN.md). */
+/** Header/mobile navigation (labels live in messages/*.json). "Coming soon" entries are not in the ADRs yet (DESIGN.md). */
 export const NAV: NavGroup[] = [
   {
-    label: "Products",
+    key: "products",
     items: [
-      { label: "All products", href: "/search?tab=products", description: "Search listings from verified suppliers" },
-      { label: "Shop by category", href: "/categories", description: "Packaging, apparel, industrial and more" },
-      { label: "New arrivals", href: "/?rail=new#popular", description: "Recently listed products" },
-      { label: "Post your requirement", href: "/rfq/new", description: "Get quotes from up to 3 suppliers" },
+      { key: "allProducts", href: "/search?tab=products" },
+      { key: "shopByCategory", href: "/categories" },
+      { key: "newArrivals", href: "/?rail=new#popular" },
+      { key: "postRequirement", href: "/rfq/new" },
     ],
   },
   {
-    label: "Manufacturers",
+    key: "manufacturers",
     items: [
-      { label: "All manufacturers", href: "/manufacturers", description: "Trust-ranked suppliers across India" },
-      { label: "Request quotes", href: "/rfq/new", description: "Describe what you need once" },
+      { key: "allManufacturers", href: "/manufacturers" },
+      { key: "requestQuotes", href: "/rfq/new" },
     ],
   },
   {
-    label: "Templates & Design",
+    key: "templates",
     items: [
-      { label: "Templates & Design", href: "/coming-soon/templates-design", description: "Logos, packaging and print templates", soon: true },
-      { label: "AI Design", href: "/coming-soon/ai-design", description: "Design custom packaging with AI", soon: true },
+      { key: "templates", href: "/coming-soon/templates-design", soon: true },
+      { key: "aiDesign", href: "/coming-soon/ai-design", soon: true },
     ],
   },
   {
-    label: "AI Tools",
+    key: "aiTools",
     items: [
-      { label: "AI Search", href: "/search?tab=ai", description: "Ask for what you need in plain words" },
-      { label: "More AI tools", href: "/coming-soon/ai-tools", description: "Quote comparison, sourcing assistant", soon: true },
+      { key: "aiSearch", href: "/search?tab=ai" },
+      { key: "moreAiTools", href: "/coming-soon/ai-tools", soon: true },
     ],
   },
-  {
-    label: "Business Services",
-    items: [{ label: "Business Services", href: "/coming-soon/business-services", description: "Logistics, compliance and finance partners", soon: true }],
-  },
-  {
-    label: "Resources",
-    items: [{ label: "Guides & resources", href: "/coming-soon/resources", description: "Sourcing guides for MSMEs", soon: true }],
-  },
+  { key: "services", items: [{ key: "services", href: "/coming-soon/business-services", soon: true }] },
+  { key: "resources", items: [{ key: "guides", href: "/coming-soon/resources", soon: true }] },
 ];

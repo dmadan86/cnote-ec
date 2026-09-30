@@ -4,7 +4,7 @@ import { cn } from "../cn";
 import { Avatar } from "./avatar";
 import { Money } from "./money";
 import type { LinkComponent } from "./link";
-import { TrustBadge } from "./badge";
+import { TrustBadge, type TrustLabels } from "./badge";
 import { WishlistButton, type WishlistToggleResult } from "./wishlist-button";
 
 /**
@@ -27,6 +27,7 @@ export function ProductCard({
   rating,
   linkComponent,
   className,
+  labels,
 }: {
   id: string;
   href: string;
@@ -47,6 +48,8 @@ export function ProductCard({
   rating?: ReactNode;
   linkComponent?: LinkComponent;
   className?: string;
+  /** Translated strings (defaults are English). `minOrder` uses the `{value}` placeholder. */
+  labels?: { priceOnRequest?: string; minOrder?: string; trust?: TrustLabels };
 }) {
   const A = linkComponent ?? "a";
   return (
@@ -67,14 +70,14 @@ export function ProductCard({
         {pricePaise != null ? (
           <Money paise={pricePaise} unit={priceUnit} className="text-base" />
         ) : (
-          <span className="text-sm font-semibold text-muted">Price on request</span>
+          <span className="text-sm font-semibold text-muted">{labels?.priceOnRequest ?? "Price on request"}</span>
         )}
-        {moqText ? <p className="text-xs text-muted">Min. order: {moqText}</p> : null}
+        {moqText ? <p className="text-xs text-muted">{(labels?.minOrder ?? "Min. order: {value}").replace("{value}", moqText)}</p> : null}
         {seller ? (
           <div className="mt-1.5 flex flex-col gap-1 border-t border-line pt-2">
             <p className="truncate text-xs text-ink">{seller.name}</p>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <TrustBadge tier={seller.tier} badgeActive={seller.badgeActive} />
+              <TrustBadge tier={seller.tier} badgeActive={seller.badgeActive} labels={labels?.trust} />
               {seller.city ? (
                 <span className="inline-flex items-center gap-0.5 text-xs text-muted">
                   <MapPin className="size-3" aria-hidden /> {seller.city}
@@ -100,6 +103,7 @@ export function SellerCard({
   trustScore,
   linkComponent,
   className,
+  labels,
 }: {
   href: string;
   name: string;
@@ -110,6 +114,8 @@ export function SellerCard({
   trustScore?: number;
   linkComponent?: LinkComponent;
   className?: string;
+  /** Translated strings (defaults are English). `trustScore` uses the `{score}` placeholder. */
+  labels?: { trustScore?: string; trust?: TrustLabels };
 }) {
   const A = linkComponent ?? "a";
   const place = [city, state].filter(Boolean).join(", ");
@@ -128,8 +134,8 @@ export function SellerCard({
           </p>
         ) : null}
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <TrustBadge tier={tier} badgeActive={badgeActive} />
-          {trustScore != null ? <span className="text-xs text-muted">Trust score {trustScore}/100</span> : null}
+          <TrustBadge tier={tier} badgeActive={badgeActive} labels={labels?.trust} />
+          {trustScore != null ? <span className="text-xs text-muted">{(labels?.trustScore ?? "Trust score {score}/100").replace("{score}", String(trustScore))}</span> : null}
         </div>
       </div>
     </li>
