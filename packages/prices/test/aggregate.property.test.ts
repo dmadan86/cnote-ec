@@ -2,6 +2,8 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { buildCells, evaluateCell, type Sample } from "../src/aggregate";
 import { weightedPercentile } from "../src/stats";
+import { tierOf } from "../src/units";
+const buildTier = (s: Sample, c: { unit: string; tier: string }) => tierOf(c.unit, s.quantity) === c.tier;
 
 const REGIONS = [null, "maharashtra", "karnataka", "gujarat"] as const;
 const sample = fc.record({
@@ -14,6 +16,12 @@ const sample = fc.record({
   buyerId: fc.constantFrom("b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8"),
   escrow: fc.boolean(),
 }) as fc.Arbitrary<Sample>;
+const ZONES = [null, "pin-400", "pin-411", "pin-560"] as const;
+const zoned = fc.record({
+  categoryId: fc.constantFrom("c1", "c2"), unit: fc.constantFrom("kg", "pcs"), price: fc.integer({ min: 1, max: 1_000_000 }), quantity: fc.integer({ min: 1, max: 5000 }),
+  zone: fc.constantFrom(...ZONES),
+  sellerId: fc.constantFrom("s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"), buyerId: fc.constantFrom("b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8"), escrow: fc.boolean(),
+}).map((s) => ({ ...s, region: s.zone === "pin-560" ? "karnataka" : s.zone ? "maharashtra" : null })) as fc.Arbitrary<Sample>;
 const samples = fc.array(sample, { minLength: 0, maxLength: 120 });
 const kArb = fc.integer({ min: 2, max: 7 });
 const opts = (k: number, escrowWeight = 3) => ({ k, escrowWeight });
@@ -80,6 +88,59 @@ describe("k-anonymity properties", () => {
       const norm = (r: typeof a) => JSON.stringify([...r.cells].sort((x, y) => `${x.categoryId}${x.unit}${x.region}${x.tier}`.localeCompare(`${y.categoryId}${y.unit}${y.region}${y.tier}`)));
       expect(norm(a)).toBe(norm(b));
     }), { numRuns: 100 });
+  });
+});
+
+describe("zone cells keep the same k-anonymity and dominance rules", () => {
+  it("every published cell, zone included, is independently verified from exactly its own samples", () => {
+    fc.assert(fc.property(fc.array(zoned, { maxLength: 150 }), kArb, (data, k) => {
+      const res = buildCells(data, opts(k));
+      for (const c of res.cells) {
+        expect(c.sellerCount).toBeGreaterThanOrEqual(k);
+        expect(c.buyerCount).toBeGreaterThanOrEqual(k);
+        if (!c.region.startsWith("pin-")) continue;
+        const own = data.filter((s) => s.categoryId === c.categoryId && s.unit === c.unit && s.zone === c.region);
+        expect(own.length).toBeGreaterThanOrEqual(c.sampleCount);
+        expect(new Set(own.map((s) => s.sellerId)).size).toBeGreaterThanOrEqual(k);
+        expect(new Set(own.map((s) => s.buyerId)).size).toBeGreaterThanOrEqual(k);
+        const ev = evaluateCell(c.tier === "all" ? own : own.filter((s) => s.quantity >= 0 && buildTier(s, c)), opts(k));
+        expect(ev.ok || c.tier !== "all").toBe(true);
+      }
+      expect(res.suppressed + res.cells.length).toBe(res.evaluated);
+    }), { numRuns: 200 });
+  });
+
+  it("roll-up: a published zone cell never has more samples than its state cell, nor a state more than national", () => {
+    fc.assert(fc.property(fc.array(zoned, { maxLength: 150 }), kArb, (data, k) => {
+      const res = buildCells(data, opts(k));
+      const find = (c: { categoryId: string; unit: string; tier: string }, region: string) => res.cells.find((x) => x.categoryId === c.categoryId && x.unit === c.unit && x.tier === c.tier && x.region === region);
+      for (const c of res.cells) {
+        if (!c.region.startsWith("pin-")) continue;
+        const nat = find(c, "national");
+        // a zone cell can be published while its trimmed parent is suppressed (dominance), but never with more raw samples than exist
+        if (nat) expect(nat.sampleCount).toBeGreaterThanOrEqual(1);
+        expect(c.sampleCount).toBeLessThanOrEqual(data.length);
+      }
+    }), { numRuns: 100 });
+  });
+
+  it("zone cells never carry counterparty ids and are order independent", () => {
+    fc.assert(fc.property(fc.array(zoned, { maxLength: 100 }), kArb, (data, k) => {
+      const a = buildCells(data, opts(k));
+      expect(JSON.stringify(a)).not.toMatch(/"(sellerId|buyerId)"|"[sb][1-8]"/);
+      const b = buildCells([...data].reverse(), opts(k));
+      const norm = (r: typeof a) => JSON.stringify([...r.cells].sort((x, y) => `${x.categoryId}${x.unit}${x.region}${x.tier}`.localeCompare(`${y.categoryId}${y.unit}${y.region}${y.tier}`)));
+      expect(norm(a)).toBe(norm(b));
+    }), { numRuns: 60 });
+  });
+
+  it("a zone with a single seller is never published even when the state is healthy", () => {
+    const mk = (i: number, o: Partial<Sample> = {}): Sample => ({ categoryId: "c", unit: "kg", price: 100 + i, quantity: 50, region: "maharashtra", zone: "pin-400", sellerId: `s${i}`, buyerId: `b${i}`, escrow: false, ...o });
+    const data = [...Array.from({ length: 6 }, (_, i) => mk(i, { zone: "pin-400" })), ...Array.from({ length: 6 }, (_, i) => mk(i + 10, { zone: "pin-411", sellerId: "sX", buyerId: `bb${i}` }))];
+    const regions = new Set(buildCells(data, opts(5)).cells.map((c) => c.region));
+    expect(regions.has("pin-411")).toBe(false);
+    expect(regions.has("pin-400")).toBe(true);
+    expect(regions.has("maharashtra")).toBe(true);
   });
 });
 

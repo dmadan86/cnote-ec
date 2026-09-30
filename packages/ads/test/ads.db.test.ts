@@ -445,7 +445,17 @@ describe("clicks", () => {
 
   it("tampered, garbage and expired tokens", async () => {
     const t = await token();
-    expect(await click(t.replace(/.$/, (c) => (c === "A" ? "B" : "A")))).toEqual({ status: "invalid_token" });
+    // tamper a character in the middle of the signature (always changes the bytes)
+    const [b, sig] = t.split(".");
+    const mid = Math.floor(sig!.length / 2);
+    const flip = (c: string) => (c === "A" ? "B" : "A");
+    expect(await click(`${b}.${sig!.slice(0, mid)}${flip(sig![mid]!)}${sig!.slice(mid + 1)}`)).toEqual({ status: "invalid_token" });
+    // a non-canonical spelling of the SAME signature bytes (padding bits of the last char) is rejected too
+    const AB = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const last = sig!.at(-1)!;
+    const alias = AB[AB.indexOf(last) ^ 1]!;
+    expect(Buffer.from(sig!.slice(0, -1) + alias, "base64url").equals(Buffer.from(sig!, "base64url"))).toBe(true);
+    expect(await click(`${b}.${sig!.slice(0, -1)}${alias}`)).toEqual({ status: "invalid_token" });
     expect(await click("nope")).toEqual({ status: "invalid_token" });
     expect(await click(t, { now: new Date(Date.now() + 60 * 60_000) })).toMatchObject({ status: "expired", listingId: fx.l1 });
     const gone = ads.signClickToken({ t: "x", c: crypto.randomUUID(), g: "g", l: fx.l1, s: fx.seller, f: "search", n: 1, p: 500, q: null, i: Date.now() });

@@ -1,0 +1,12 @@
+# Grafana file provisioning (mount at /etc/grafana/provisioning/dashboards/cnote.yaml).
+# Dashboards live in ./dashboards (mount at /var/lib/grafana/dashboards/cnote).
+# Datasources: datasources.json (convert to YAML or import through the API). Alerting: alerting/rules.json + routing.json
+# are in Grafana's file-provisioning format (JSON is accepted under /etc/grafana/provisioning/alerting/).
+apiVersion: 1
+providers:
+  - name: cnote
+    folder: cnote
+    type: file
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards/cnote

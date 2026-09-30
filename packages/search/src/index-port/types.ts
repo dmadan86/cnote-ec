@@ -5,6 +5,8 @@ import type { NormalisedQuery } from "../normalise";
 
 export interface SearchIndexQuery extends NormalisedQuery {
   embedding?: number[];
+  /** Extra lexical-only query strings (transliteration / cross-script lexicon). Never used for the embedding. */
+  variants?: string[];
   categoryId?: string | null;
   limit: number;
   /** Opaque cursor from a previous result's nextCursor (OpenSearch only; Postgres ignores it). */

@@ -47,7 +47,7 @@ export async function recordRepayment(tx: Tx, loanId: string, r: RepaymentInput)
   const loan = await tx.creditLoan.update({ where: { id: loanId }, data: { repaidPaise: { increment: BigInt(r.amountPaise) } } });
   const outstanding = outstandingOf(loan);
   await emit(tx, "CreditRepaid", { type: "credit_loan", id: loanId }, { loanId, amountPaise: r.amountPaise, outstandingPaise: outstanding });
-  if (outstanding === 0 && loan.status !== "repaid" && loan.status !== "written_off") {
+  if (outstanding === 0 && loan.status !== "repaid" && loan.status !== "written_off" && loan.status !== "cancelled") {
     await tx.creditLoan.update({ where: { id: loanId }, data: { status: "repaid", dpd: 0, closedAt: r.paidAt } });
     await tx.creditAssignment.updateMany({ where: { loanId, status: { in: ["active", "released"] } }, data: { status: "settled" } });
     await emit(tx, "CreditClosed", { type: "credit_loan", id: loanId }, { loanId, businessId: loan.businessId, status: "repaid" });
@@ -55,9 +55,26 @@ export async function recordRepayment(tx: Tx, loanId: string, r: RepaymentInput)
   return true;
 }
 
+/**
+ * Cancellation of a disbursed loan (borrower cooling-off exit, or the partner cancelling): the mirror closes as `cancelled`, the
+ * application is closed, the assignment cancelled and CreditCancelled emitted. Idempotent: false when the loan is not open.
+ */
+export async function recordCancellation(tx: Tx, loanId: string, i: { reason: "cooling_off" | "partner"; at: Date; exitAmountPaise?: number | null }): Promise<boolean> {
+  const done = await tx.creditLoan.updateMany({
+    where: { id: loanId, status: { in: ["active", "overdue"] } },
+    data: { status: "cancelled", dpd: 0, closedAt: i.at, cancelReason: i.reason, exitAmountPaise: i.exitAmountPaise == null ? null : BigInt(i.exitAmountPaise) },
+  });
+  if (done.count === 0) return false;
+  const loan = await tx.creditLoan.findUniqueOrThrow({ where: { id: loanId } });
+  await tx.creditApplication.update({ where: { id: loan.applicationId }, data: { status: "cancelled", reason: i.reason === "cooling_off" ? "cooling_off_exit" : "cancelled_by_partner", closedAt: i.at } });
+  await tx.creditAssignment.updateMany({ where: { loanId, status: { in: ["active", "released"] } }, data: { status: "cancelled" } });
+  await emit(tx, "CreditCancelled", { type: "credit_loan", id: loanId }, { loanId, applicationId: loan.applicationId, businessId: loan.businessId, reason: i.reason });
+  return true;
+}
+
 export async function recordWriteOff(tx: Tx, loanId: string, at: Date): Promise<void> {
   const loan = await tx.creditLoan.findUnique({ where: { id: loanId } });
-  if (!loan || loan.status === "repaid" || loan.status === "written_off") return;
+  if (!loan || loan.status === "repaid" || loan.status === "written_off" || loan.status === "cancelled") return;
   await tx.creditLoan.update({ where: { id: loanId }, data: { status: "written_off", writtenOffPaise: BigInt(outstandingOf(loan)), closedAt: at } });
   await tx.creditAssignment.updateMany({ where: { loanId, status: { in: ["active", "released"] } }, data: { status: "cancelled" } });
   await emit(tx, "CreditClosed", { type: "credit_loan", id: loanId }, { loanId, businessId: loan.businessId, status: "written_off" });
@@ -65,7 +82,7 @@ export async function recordWriteOff(tx: Tx, loanId: string, at: Date): Promise<
 
 /** Apply a DPD value; emits CreditOverdue when it crosses into a higher bucket (1, 30, 60, 90). */
 export async function applyDpd(tx: Tx, loan: CreditLoan, dpd: number): Promise<boolean> {
-  if (loan.status === "repaid" || loan.status === "written_off") return false;
+  if (loan.status === "repaid" || loan.status === "written_off" || loan.status === "cancelled") return false;
   const next = Math.max(loan.dpd, dpd);
   if (next === loan.dpd && loan.status === (next > 0 ? "overdue" : "active")) return false;
   const bucket = bucketOf(next);
@@ -173,7 +190,7 @@ export async function syncEscrowAssignment(loanId: string): Promise<"synced" | "
   const a = await prisma.creditAssignment.findFirst({ where: { loanId } });
   const loan = a ? await prisma.creditLoan.findUnique({ where: { id: loanId } }) : null;
   if (!a || !loan || !a.escrowId) return "none";
-  const open = (a.status === "active" || a.status === "released") && loan.status !== "repaid" && loan.status !== "written_off";
+  const open = (a.status === "active" || a.status === "released") && loan.status !== "repaid" && loan.status !== "written_off" && loan.status !== "cancelled";
   try {
     await ports().assignEscrowProceeds({ escrowId: a.escrowId, assignmentId: a.id, partner: a.partner, partnerLoanRef: loan.partnerLoanRef, duePaise: open ? outstandingOf(loan) : 0 });
     return "synced";

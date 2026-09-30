@@ -32,6 +32,13 @@ const quoteSchema = (t: Awaited<ReturnType<typeof getTranslations>>) =>
     leadTimeDays: z.number().int(t("wholeDays")).min(0).nullable().refine((v) => v === null || Number.isFinite(v), t("enterWholeDays")),
     validUntil: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, t("chooseDate")),
     notes: z.string().max(1000, t("notesMax")),
+    moq: z.number(t("moqPositive")).int(t("moqPositive")).positive(t("moqPositive")).nullable(),
+    deliveryTerms: z.enum(enquiry.DELIVERY_TERMS).nullable(),
+    deliveryNote: z.string().max(300),
+    deliveryCharge: z.number(t("chargeInvalid")).min(0, t("chargeInvalid")).nullable(),
+    paymentTerms: z.enum(enquiry.PAYMENT_TERMS).nullable(),
+    paymentNote: z.string().max(300),
+    gstIncluded: z.boolean().nullable(),
   });
 
 export async function sendQuoteAction(_prev: ConvResult | null, fd: FormData): Promise<ConvResult> {
@@ -46,6 +53,13 @@ export async function sendQuoteAction(_prev: ConvResult | null, fd: FormData): P
       leadTimeDays: numOrNull(fd, "leadTimeDays"),
       validUntil: str(fd, "validUntil"),
       notes: str(fd, "notes"),
+      moq: numOrNull(fd, "moq"),
+      deliveryTerms: str(fd, "deliveryTerms") || null,
+      deliveryNote: str(fd, "deliveryNote"),
+      deliveryCharge: numOrNull(fd, "deliveryCharge"),
+      paymentTerms: str(fd, "paymentTerms") || null,
+      paymentNote: str(fd, "paymentNote"),
+      gstIncluded: str(fd, "gstIncluded") === "included" ? true : str(fd, "gstIncluded") === "extra" ? false : null,
     });
     await enquiry.sendQuote(actorOf(session), z.string().min(1).parse(conversationId), {
       pricePaise: rupeesToPaise(q.price),
@@ -54,6 +68,14 @@ export async function sendQuoteAction(_prev: ConvResult | null, fd: FormData): P
       leadTimeDays: q.leadTimeDays,
       notes: q.notes || null,
       validUntil: q.validUntil ? new Date(`${q.validUntil}T23:59:59+05:30`).toISOString() : null,
+      moq: q.moq,
+      moqUnit: q.moq != null ? q.unit : null,
+      deliveryTerms: q.deliveryTerms,
+      deliveryNote: q.deliveryNote || null,
+      deliveryChargePaise: q.deliveryCharge != null ? rupeesToPaise(q.deliveryCharge) : null,
+      paymentTerms: q.paymentTerms,
+      paymentNote: q.paymentNote || null,
+      gstIncluded: q.gstIncluded,
     });
     logEvent("seller.quote_sent", { businessId: session.business.id, conversationId });
     revalidatePath(`/conversations/${conversationId}`);

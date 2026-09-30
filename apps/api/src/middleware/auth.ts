@@ -5,9 +5,10 @@ import type { Context, MiddlewareHandler } from "hono";
 import { config } from "../env";
 import { ApiError } from "../lib/errors";
 import type { AppEnv } from "../types";
+import { clientIp as ipFromHeaders } from "@cnote/security/client-ip";
 
 function clientIp(c: Context): string | null {
-  const fwd = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+  const fwd = ipFromHeaders(c.req.raw.headers); // spoof-safe: never the client-controlled first X-Forwarded-For entry
   if (fwd) return fwd;
   try {
     return getConnInfo(c).remote.address ?? null;

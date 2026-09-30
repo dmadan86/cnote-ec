@@ -65,9 +65,9 @@ describe("order state machine: applyConfirm", () => {
 
 describe("availableActions", () => {
   it("mirrors the rules", () => {
-    expect(availableActions(fresh(), "buyer")).toEqual({ confirm: true, moves: ["cancelled"] });
+    expect(availableActions(fresh(), "buyer")).toEqual({ confirm: true, moves: ["cancelled"], fulfilment: [] });
     expect(availableActions(applyConfirm(fresh(), "buyer", T), "buyer").confirm).toBe(false);
-    expect(availableActions(at("confirmed"), "seller")).toEqual({ confirm: false, moves: ["dispatched", "cancelled"] });
+    expect(availableActions(at("confirmed"), "seller")).toEqual({ confirm: false, moves: ["dispatched", "cancelled"], fulfilment: ["packed"] });
     expect(availableActions(at("dispatched"), "buyer").moves).toEqual(["delivered"]);
     expect(availableActions(at("delivered"), "seller").moves).toEqual([]);
   });

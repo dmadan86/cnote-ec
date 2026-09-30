@@ -3,7 +3,7 @@
 import { DomainError } from "@cnote/core";
 import type { LenderInfo } from "../types";
 import { hmacHex, verifySigned } from "./events";
-import type { CreditPartner, PartnerAcceptResult, PartnerApplicationRequest, PartnerDisbursement, PartnerEvent, PartnerOffer, PartnerRepayment, PartnerSubmitResult } from "./types";
+import type { CreditPartner, PartnerAcceptResult, PartnerApplicationRequest, PartnerCancelResult, PartnerDisbursement, PartnerEvent, PartnerOffer, PartnerRepayment, PartnerSubmitResult } from "./types";
 
 export const mockSecret = (): string => process.env.CREDIT_WEBHOOK_SECRET || "mock-credit-webhook-secret";
 export const MOCK_LENDER: LenderInfo = {
@@ -45,6 +45,11 @@ export class MockPartner implements CreditPartner {
 
   async getDisbursementStatus(): Promise<PartnerDisbursement> { return { status: "pending" }; }
   async listRepayments(): Promise<PartnerRepayment[]> { return []; }
+
+  /** Stateless and idempotent (the caller enforces the window). A reference starting with "fail:" is refused, for tests. */
+  async cancel(loanRef: string, _reason: string): Promise<PartnerCancelResult> {
+    return loanRef && !loanRef.startsWith("fail:") ? { status: "cancelled" } : { status: "failed", reason: "unknown_loan" };
+  }
 
   verifyWebhook(raw: Uint8Array, headers: Headers): PartnerEvent | null { return verifySigned(mockSecret(), raw, headers); }
 

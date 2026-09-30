@@ -8,7 +8,13 @@ function useAuthLabels(): AuthLabels {
   return Object.fromEntries(Object.keys(DEFAULT_AUTH_LABELS).map((k) => [k, t.raw(k) as string])) as unknown as AuthLabels;
 }
 
-export const LocalizedSignInForm = (p: AuthFormProps) => <SignInForm {...p} labels={useAuthLabels()} />;
-export const LocalizedSignUpForm = (p: AuthFormProps) => <SignUpForm {...p} labels={useAuthLabels()} />;
-export const LocalizedForgotPasswordForm = (p: AuthFormProps) => <ForgotPasswordForm {...p} labels={useAuthLabels()} />;
-export const LocalizedResetPasswordForm = (p: AuthFormProps & { token: string }) => <ResetPasswordForm {...p} labels={useAuthLabels()} />;
+/** Translator for stable error keys from `errors.*` (undefined when the key has no translation). */
+function useErrorTranslator(): (key: string) => string | undefined {
+  const t = useTranslations("errors");
+  return (key) => (t.has(key) ? t(key) : undefined);
+}
+
+export const LocalizedSignInForm = (p: AuthFormProps) => <SignInForm {...p} labels={useAuthLabels()} translateError={useErrorTranslator()} />;
+export const LocalizedSignUpForm = (p: AuthFormProps) => <SignUpForm {...p} labels={useAuthLabels()} translateError={useErrorTranslator()} />;
+export const LocalizedForgotPasswordForm = (p: AuthFormProps) => <ForgotPasswordForm {...p} labels={useAuthLabels()} translateError={useErrorTranslator()} />;
+export const LocalizedResetPasswordForm = (p: AuthFormProps & { token: string }) => <ResetPasswordForm {...p} labels={useAuthLabels()} translateError={useErrorTranslator()} />;

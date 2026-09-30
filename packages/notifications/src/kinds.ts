@@ -4,27 +4,10 @@
 // fallback. Never build message strings in the sending path.
 import type { DomainEvent, DomainEventType } from "@cnote/core";
 import { BADGE_THRESHOLD } from "@cnote/identity";
-import { defineTemplates, type TemplateDefinition, type TemplateVariable } from "@cnote/templates";
-import type { Directory } from "./recipients";
-import type { NotificationCategory, NotificationKind, Recipient } from "./types";
-
-const v = (name: string, description: string, example: string): TemplateVariable => ({ name, description, example });
-const RECIPIENT_NAME = v("recipientName", "Recipient's name (may be empty)", "Asha");
-const HREF = v("href", "Absolute link to the relevant page", "https://example.com/leads");
-
-const inr = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-
-async function membersOf(dir: Directory, businessId: string, opts?: { ownersOnly?: boolean }) {
-  return dir.businessMembers(businessId, opts);
-}
-
-function fan(personIds: string[], base: Omit<Recipient, "personId">): Recipient[] {
-  return [...new Set(personIds)].map((personId) => ({ ...base, personId }));
-}
-
-function kind<E extends DomainEventType>(k: NotificationKind<E>): NotificationKind {
-  return k as unknown as NotificationKind;
-}
+import { defineTemplates, type TemplateDefinition } from "@cnote/templates";
+import { fan, HREF, inr, kind, membersOf, RECIPIENT_NAME, v } from "./kind-helpers";
+import { PHASE23_KINDS } from "./kinds-phase23";
+import type { NotificationCategory, NotificationKind } from "./types";
 
 export const KINDS: NotificationKind[] = [
   kind({
@@ -352,6 +335,7 @@ export const KINDS: NotificationKind[] = [
       return fan(await membersOf(dir, sellerBusinessId), { businessId: sellerBusinessId, vars: { outcome }, href: "/leads" });
     },
   }),
+  ...PHASE23_KINDS,
 ];
 
 const KEY_INDEX = new Map(KINDS.map((k) => [k.key, k]));
@@ -370,6 +354,7 @@ export function templateDefinitions(): TemplateDefinition[] {
     channels: k.defaults.email ? ["in_app", "email"] : ["in_app"],
     variables: k.variables,
     defaults: { in_app: k.defaults.in_app, ...(k.defaults.email ? { email: k.defaults.email } : {}) },
+    ...(k.localized ? { localized: k.localized } : {}),
   }));
 }
 

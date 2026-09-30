@@ -43,6 +43,10 @@ describe("suspension", () => {
     await expect(a2a.suspend({ kind: "mandate", targetId: w.bmd.id, reason: "no", by: staff })).rejects.toMatchObject({ code: "validation" });
     await expect(a2a.suspend({ kind: "mandate", targetId: "11111111-1111-4111-8111-111111111111", reason: "abuse pattern", by: staff })).rejects.toMatchObject({ code: "not_found" });
     const s1 = await a2a.suspend({ kind: "mandate", targetId: w.bmd.id, reason: "abusive pricing pattern", by: staff });
+    const susp = await prisma.domainEvent.findMany({ where: { type: "AgentMandateSuspended", aggregateId: w.bmd.id } });
+    expect(susp).toHaveLength(1);
+    expect(susp[0]!.payload).toMatchObject({ mandateId: w.bmd.id, side: "buyer", scope: "mandate" });
+    expect(JSON.stringify(susp[0]!.payload)).not.toContain("abusive"); // the reason stays in the admin trail
     expect(s1).toMatchObject({ kind: "mandate", businessId: w.b.businessId, liftedAt: null });
     expect((await a2a.suspend({ kind: "mandate", targetId: w.bmd.id, reason: "abusive pricing pattern", by: staff })).id).toBe(s1.id); // idempotent
     expect((await a2a.getMandate(w.b.businessId, w.bmd.id))!.status).toBe("suspended");

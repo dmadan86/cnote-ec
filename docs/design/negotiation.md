@@ -77,8 +77,12 @@ Surfaces:
 
 ## Known gaps
 
-- `Quote` has no MOQ or shipping-terms column, so the buyer table shows "Quantity quoted" and terms are read from the notes; approved drafts fold shipping terms into the notes.
-- Enquiry exposes no `listSellerQuotes`, so quote history is assembled from `listSellerLeads` + `getConversation` (last 10 accepted leads). `sendQuote` / `sendMessage` return nothing, so the new quote id is found by diffing `getConversation` before and after.
+- Closed: `Quote` now has optional structured terms (MOQ, delivery terms + charge, payment terms, GST included), `sendQuote` returns `{ quoteId }`, and enquiry exposes `getQuote` / `listSellerQuotes`. Approved drafts send shipping/MOQ/GST as fields; the comparison reads structured terms and only falls back to notes extraction for older quotes. `deliveryChargePaise` is the total for the quoted quantity.
+- Structured delivery/payment terms are enum-ish strings (`ex_works|fob|door_delivery|buyer_pickup|other`; `advance|on_delivery|net_7|net_15|net_30|escrow|other`) plus a free-text note; a door delivery with no stated charge stays "unknown" in the landed price (never guessed).
 - The seller/buyer bounds compare the quoted per-unit price (before freight and GST), not the landed price.
 - Server-action error text (DomainError messages) is English.
 - WhatsApp approval: `approveDraftFromChannel(draftId, sellerPersonId, decision)` is exported; wiring a template/button in `@cnote/whatsapp` is not done here.
+
+## Structured quote terms: Mobbin references
+
+Consulted before changing the seller quote form (Mobbin, web): [Zoho CRM "Create Quote"](https://mobbin.com/screens/b3a32722-ca59-45b8-aea2-0eedb7e29231) keeps a separate "Terms and Conditions" block under the line items (adopted: core price/quantity fields stay on top, terms sit in their own block); [Etsy "Pricing & Shipping"](https://mobbin.com/screens/58e1b5e4-ce74-42e2-b402-aeb880b1b163) groups shipping inputs in one section (adopted the grouping); [Xero "New Bill"](https://mobbin.com/screens/77bd911b-7f1a-4ebb-9351-c5b8671548ec) hides secondary detail behind small controls (adopted a collapsed disclosure so the form stays compact on mobile). Changed: terms are a native `<details>` (keyboard operable) and every field is optional.

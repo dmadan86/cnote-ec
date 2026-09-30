@@ -24,8 +24,17 @@ export function decodeCursor(c: string | null | undefined): number {
 const filters = (q: SearchIndexQuery) => (q.categoryId ? [{ term: { categoryId: q.categoryId } }] : []);
 const SOURCE = ["listingId", "sellerBusinessId"];
 
+const LEXICAL_FIELDS = ["title^3", "categoryName^1.5", "description"];
+const multiMatch = (query: string, extra: object = {}) => ({
+  multi_match: { query, type: "best_fields", fields: LEXICAL_FIELDS, fuzziness: "AUTO", prefix_length: 1, minimum_should_match: "2<70%", ...extra },
+});
+/** Transliteration/lexicon variants count for less than what the buyer typed. */
+export const VARIANT_BOOST = 0.6;
+
 export function buildLexicalRequest(q: SearchIndexQuery, opts: { facets?: boolean } = {}) {
   const from = decodeCursor(q.cursor);
+  const variants = q.variants ?? [];
+  const main = multiMatch(q.text);
   return {
     size: q.limit,
     from,
@@ -33,19 +42,9 @@ export function buildLexicalRequest(q: SearchIndexQuery, opts: { facets?: boolea
     query: {
       bool: {
         filter: filters(q),
-        must: [
-          {
-            multi_match: {
-              query: q.text,
-              type: "best_fields",
-              fields: ["title^3", "categoryName^1.5", "description"],
-              fuzziness: "AUTO",
-              prefix_length: 1,
-              minimum_should_match: "2<70%",
-            },
-          },
-        ],
-        should: [{ match: { "title.shingles": { query: q.text, boost: 2 } } }],
+        // with variants the original OR any variant must match; without them the request shape is unchanged
+        must: [variants.length ? { bool: { should: [main, ...variants.map((v) => multiMatch(v, { boost: VARIANT_BOOST }))], minimum_should_match: 1 } } : main],
+        should: [{ match: { "title.shingles": { query: q.text, boost: 2 } } }, ...variants.map((v) => ({ match: { "title.shingles": { query: v, boost: 2 * VARIANT_BOOST } } }))],
       },
     },
     ...(opts.facets ? { aggs: buildAggs() } : {}),

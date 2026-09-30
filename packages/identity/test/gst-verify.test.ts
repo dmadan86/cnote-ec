@@ -526,7 +526,7 @@ describe("directory lookups honour DPDP", () => {
   it("contact: erased => null; phone only with counterparty_sharing consent unless self", async () => {
     const p = await prisma.person.create({ data: { email: `dc-${randomUUID()}@example.test`, phone: `+9160${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}`, name: "Dee" } });
     personIds.push(p.id);
-    expect(await getPersonContact(p.id)).toEqual({ email: p.email, phone: null, name: "Dee" });
+    expect(await getPersonContact(p.id)).toEqual({ email: p.email, phone: null, name: "Dee", locale: "en" });
     expect((await getPersonContact(p.id, { self: true }))?.phone).toBe(p.phone);
     await setConsent(p.id, "counterparty_sharing", true, "web");
     expect((await getPersonContact(p.id))?.phone).toBe(p.phone);

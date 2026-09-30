@@ -15,6 +15,7 @@ import { mergeSponsored } from "@cnote/ads";
 import { loadSponsoredForResults } from "@/features/ads/slots";
 import { SponsoredBlock, SponsoredCard } from "@/features/ads/sponsored";
 import { loadOffers } from "@/features/promotions/data";
+import { SearchTools } from "@/features/search/search-tools";
 
 // Free-text search results are a dynamic, unbounded URL space: crawlable (follow) but never indexed. The curated,
 // indexable equivalents are the category pages (/c/<slug>) and keyword landing pages (/s/<category>/<keyword>).
@@ -46,6 +47,7 @@ export default async function SearchPage(props: PageProps<"/[locale]/search">) {
   const q = firstParam(sp.q);
   const category = firstParam(sp.category);
   const tab = firstParam(sp.tab) || "products";
+  const viaPhoto = firstParam(sp.via) === "photo" && !!q;
   const isSellers = tab === "manufacturers";
 
   const tabs = [
@@ -140,7 +142,8 @@ export default async function SearchPage(props: PageProps<"/[locale]/search">) {
           </p>
         ) : null}
       </div>
-      <form action={localizePath("/search", locale)} method="get" role="search" className="mt-4 flex gap-2">
+      {viaPhoto ? <PhotoQuery q={q} tab={tab} category={category} locale={locale} /> : null}
+      <form action={localizePath("/search", locale)} method="get" role="search" className="mt-4 flex flex-wrap gap-2">
         <input type="hidden" name="tab" value={tab} />
         {category ? <input type="hidden" name="category" value={category} /> : null}
         <label htmlFor="search-q" className="sr-only">
@@ -152,8 +155,9 @@ export default async function SearchPage(props: PageProps<"/[locale]/search">) {
           type="search"
           defaultValue={q}
           placeholder={t("phAi")}
-          className="h-11 w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink placeholder:text-muted focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+          className="h-11 min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 text-sm text-ink placeholder:text-muted focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
         />
+        <SearchTools inputId="search-q" />
         <button type="submit" className={buttonClasses("primary", "md", "h-11 rounded-lg px-5")}>
           {t("submit")}
         </button>
@@ -171,6 +175,27 @@ export default async function SearchPage(props: PageProps<"/[locale]/search">) {
       </p>
       <div className="mt-6">{body}</div>
     </Container>
+  );
+}
+
+/**
+ * "Results for photo: <derived query>" with an edit affordance. A plain GET form, so it works without JS: editing the words
+ * re-runs an ordinary text search (via=photo is dropped once the words are the buyer's own).
+ */
+async function PhotoQuery({ q, tab, category, locale }: { q: string; tab: string; category: string; locale: Locale }) {
+  const t = await getTranslations({ locale, namespace: "search" });
+  return (
+    <section aria-labelledby="photo-q-title" className="mt-4 rounded-lg border border-brand-100 bg-brand-50 p-3">
+      <h2 id="photo-q-title" className="text-sm font-semibold text-brand-900">{t("photoResultsFor", { q })}</h2>
+      <p className="mt-1 text-sm text-brand-900">{t("photoNote")}</p>
+      <form action={localizePath("/search", locale)} method="get" className="mt-2 flex gap-2">
+        <input type="hidden" name="tab" value={tab} />
+        {category ? <input type="hidden" name="category" value={category} /> : null}
+        <label htmlFor="photo-q" className="sr-only">{t("photoEditLabel")}</label>
+        <input id="photo-q" name="q" type="search" defaultValue={q} className="h-11 min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 text-sm text-ink focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" />
+        <button type="submit" className={buttonClasses("outline-brand", "md", "h-11 rounded-lg px-4")}>{t("photoEditSubmit")}</button>
+      </form>
+    </section>
   );
 }
 

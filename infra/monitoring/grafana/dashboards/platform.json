@@ -1,0 +1,494 @@
+{
+  "uid": "cnote-platform",
+  "title": "Platform: queues, outbox, errors",
+  "description": "Outbox lag, DLQs, job health, Sentry links.",
+  "tags": [
+    "cnote"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "refresh": "5m",
+  "timezone": "Asia/Kolkata",
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 28,
+      "type": "stat",
+      "title": "Outbox backlog (unpublished events)",
+      "description": "Rows the relay has not yet published. Sustained growth = worker down or Redis unreachable.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT count(*) AS unpublished, COALESCE(EXTRACT(EPOCH FROM (now()-min(occurred_at))),0) AS oldest_seconds FROM domain_events WHERE published_at IS NULL"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1000
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 29,
+      "type": "gauge",
+      "title": "Outbox lag (oldest unpublished, seconds)",
+      "description": "Alert at 300 s.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT COALESCE(EXTRACT(EPOCH FROM (now()-min(occurred_at))),0) AS oldest_seconds FROM domain_events WHERE published_at IS NULL"
+        }
+      ],
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 300
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 30,
+      "type": "stat",
+      "title": "Seconds since metrics job last wrote",
+      "description": "metrics.refresh-recent runs every 15 minutes.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT EXTRACT(EPOCH FROM (now()-max(computed_at))) AS seconds_since_metrics_job FROM metric_daily"
+        }
+      ],
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 3600
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Domain events per hour",
+      "description": "A flat line during business hours means the app tier stopped emitting.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT date_trunc('hour', occurred_at) AS time, count(*) AS events FROM domain_events WHERE $__timeFilter(occurred_at) GROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "Outbox relay delay (avg seconds)",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT date_trunc('hour', occurred_at) AS time, avg(EXTRACT(EPOCH FROM (published_at-occurred_at))) AS relay_delay_seconds FROM domain_events WHERE published_at IS NOT NULL AND $__timeFilter(occurred_at) GROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 33,
+      "type": "table",
+      "title": "Dead-letter queue depth (per topic)",
+      "description": "Redis XLEN cnote:q:<topic>:dlq. Topic list = JobTopics declared in packages/*/src at time of writing; add new topics here. Replay from admin.",
+      "datasource": {
+        "type": "redis-datasource",
+        "uid": "cnote-redis"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "cnote-redis"
+          },
+          "type": "command",
+          "command": "xlen",
+          "keyName": "cnote:q:notification.deliver:dlq",
+          "query": "",
+          "streaming": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "cnote-redis"
+          },
+          "type": "command",
+          "command": "xlen",
+          "keyName": "cnote:q:email.send:dlq",
+          "query": "",
+          "streaming": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "cnote-redis"
+          },
+          "type": "command",
+          "command": "xlen",
+          "keyName": "cnote:q:whatsapp.inbound:dlq",
+          "query": "",
+          "streaming": false
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "cnote-redis"
+          },
+          "type": "command",
+          "command": "xlen",
+          "keyName": "cnote:q:ondc.inbound:dlq",
+          "query": "",
+          "streaming": false
+        },
+        {
+          "refId": "E",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "cnote-redis"
+          },
+          "type": "command",
+          "command": "xlen",
+          "keyName": "cnote:q:ondc.callback:dlq",
+          "query": "",
+          "streaming": false
+        },
+        {
+          "refId": "F",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "cnote-redis"
+          },
+          "type": "command",
+          "command": "xlen",
+          "keyName": "cnote:q:disputes.brief:dlq",
+          "query": "",
+          "streaming": false
+        },
+        {
+          "refId": "G",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "cnote-redis"
+          },
+          "type": "command",
+          "command": "xlen",
+          "keyName": "cnote:q:disputes.collect:dlq",
+          "query": "",
+          "streaming": false
+        },
+        {
+          "refId": "H",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "cnote-redis"
+          },
+          "type": "command",
+          "command": "xlen",
+          "keyName": "cnote:q:catalogue.transcribe:dlq",
+          "query": "",
+          "streaming": false
+        },
+        {
+          "refId": "I",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "cnote-redis"
+          },
+          "type": "command",
+          "command": "xlen",
+          "keyName": "cnote:q:quality.analyse:dlq",
+          "query": "",
+          "streaming": false
+        },
+        {
+          "refId": "J",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "cnote-redis"
+          },
+          "type": "command",
+          "command": "xlen",
+          "keyName": "cnote:q:domain.verify:dlq",
+          "query": "",
+          "streaming": false
+        },
+        {
+          "refId": "K",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "cnote-redis"
+          },
+          "type": "command",
+          "command": "xlen",
+          "keyName": "cnote:q:bulk.import:dlq",
+          "query": "",
+          "streaming": false
+        },
+        {
+          "refId": "L",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "cnote-redis"
+          },
+          "type": "command",
+          "command": "xlen",
+          "keyName": "cnote:q:bulk.export:dlq",
+          "query": "",
+          "streaming": false
+        },
+        {
+          "refId": "M",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "cnote-redis"
+          },
+          "type": "command",
+          "command": "xlen",
+          "keyName": "cnote:q:bulk.validate:dlq",
+          "query": "",
+          "streaming": false
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 34,
+      "type": "stat",
+      "title": "Event stream length",
+      "description": "XLEN of the domain event stream (EVENT_STREAM in packages/core/src/events). Trimmed approximately; a rapidly growing value means consumers are behind.",
+      "datasource": {
+        "type": "redis-datasource",
+        "uid": "cnote-redis"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "cnote-redis"
+          },
+          "type": "command",
+          "command": "xlen",
+          "keyName": "cnote:events",
+          "query": "",
+          "streaming": false
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 6,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 35,
+      "type": "text",
+      "title": "Errors and traces (Sentry)",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [],
+      "gridPos": {
+        "x": 18,
+        "y": 13,
+        "w": 6,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Sentry (ADR-039), PII-scrubbed.\n\n- [Issues, last 24h, unresolved](https://sentry.io/organizations/CHANGE-ME/issues/?query=is%3Aunresolved&statsPeriod=24h)\n- [Error rate by app](https://sentry.io/organizations/CHANGE-ME/discover/results/?field=app&field=count%28%29&query=event.type%3Aerror&statsPeriod=24h)\n- [Worker issues](https://sentry.io/organizations/CHANGE-ME/issues/?query=is%3Aunresolved+app%3Aworker)\n\nReplace `CHANGE-ME` with the org slug (or the self-hosted Sentry URL)."
+      }
+    }
+  ]
+}

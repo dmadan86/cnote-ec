@@ -7,7 +7,7 @@ vi.mock("@cnote/identity", () => ({
 }));
 
 import { worker } from "../src/worker";
-import { availableActions, confirmOrder, getOrder, listOrders, markOrderEscrowed, recordExternalOrder, rolesFor, transitionOrder, type ExternalOrderInput } from "../src";
+import { getOrderParties, availableActions, confirmOrder, getOrder, listOrders, markOrderEscrowed, recordExternalOrder, rolesFor, transitionOrder, type ExternalOrderInput } from "../src";
 
 const tag = `ext-${Date.now()}`;
 const bizIds: string[] = [];
@@ -109,5 +109,17 @@ describe("markOrderEscrowed (EscrowFunded)", () => {
     orderIds.push(o2.id);
     await worker.handlers!.EscrowFunded!({ id: 1, type: "EscrowFunded", version: 1, aggregateType: "escrow", aggregateId: "e", occurredAt: new Date().toISOString(), payload: { escrowId: "e", orderId: o2.id, amountPaise: 1, partnerRef: "p" } });
     expect((await prisma.order.findUniqueOrThrow({ where: { id: o2.id } })).settlement).toBe("escrow");
+  });
+});
+
+describe("getOrderParties (system read for notifiers)", () => {
+  it("returns both businesses; null for unknown or malformed ids", async () => {
+    const seller = await party("s5");
+    const network = await party("n5");
+    const { orderId } = await recordExternalOrder(input(seller.businessId), network.businessId);
+    orderIds.push(orderId);
+    expect(await getOrderParties(orderId)).toEqual({ buyerBusinessId: network.businessId, sellerBusinessId: seller.businessId });
+    expect(await getOrderParties(randomUUID())).toBeNull();
+    expect(await getOrderParties("nope")).toBeNull();
   });
 });

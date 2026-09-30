@@ -38,6 +38,44 @@
     "saving": "Saving…",
     "cancel": "Cancel order",
     "cancelling": "Cancelling…",
-    "invalidAction": "That action is not valid."
+    "invalidAction": "That action is not valid.",
+    "fulfilment": {
+      "heading": "Delivery progress",
+      "stepsLabel": "Delivery steps",
+      "step": {
+        "packed": "Packed",
+        "dispatched": "Dispatched",
+        "in_transit": "In transit",
+        "out_for_delivery": "Out for delivery",
+        "delivered": "Delivered"
+      },
+      "state": {
+        "done": "Done",
+        "current": "Current step",
+        "upcoming": "Not yet"
+      },
+      "updates": "Updates",
+      "noUpdates": "No delivery updates yet.",
+      "stage": {
+        "packed": "Packed",
+        "in_transit": "In transit",
+        "out_for_delivery": "Out for delivery",
+        "delivery_attempted": "Delivery attempted"
+      },
+      "trackingBoth": "Courier {courier}, tracking number {ref}",
+      "trackingCourier": "Courier {courier}",
+      "trackingRef": "Tracking number {ref}",
+      "intro": "Keep the buyer updated. These steps do not change the order status or any payment.",
+      "recordHeading": "Record the next step",
+      "stageLabel": "Step",
+      "note": "Note for the buyer (optional)",
+      "courier": "Courier (optional)",
+      "awb": "Tracking number / AWB (optional)",
+      "save": "Save update",
+      "saving": "Saving…",
+      "saved": "Update saved.",
+      "needDispatch": "Mark the order dispatched to record transit steps.",
+      "invalidStage": "That step is not valid."
+    }
   }
 }

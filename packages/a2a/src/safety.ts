@@ -1,5 +1,5 @@
 // Safety rails (ADR-020): suspension, per-business and per-key rate limits, anomaly flags. Nothing here reveals the other side's bounds.
-import { DomainError, rateLimit } from "@cnote/core";
+import { DomainError, emit, rateLimit } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { createHash } from "node:crypto";
 import { json, limits, logActivity } from "./common";
@@ -71,6 +71,9 @@ export async function suspend(input: { kind: SuspensionKind; targetId: string; r
       const m = await tx.agentMandate.update({ where: { id: input.targetId }, data: { status: "suspended", version: { increment: 1 }, autoAccept: false } });
       await tx.agentMandateChange.create({ data: { mandateId: m.id, businessId: m.businessId, version: m.version, action: "suspended", actorKind: "admin", snapshot: json({ reason }) } });
       await logActivity({ principalBusinessId: m.businessId, principalSide: m.side, action: "mandate_suspended", mandateId: m.id, summary: `Support suspended the mandate "${m.name}".`, details: { reason } }, tx);
+      await emit(tx, "AgentMandateSuspended", { type: "agent_mandate", id: m.id }, { businessId: m.businessId, mandateId: m.id, side: m.side, scope: "mandate" });
+    } else if (businessId) {
+      await emit(tx, "AgentMandateSuspended", { type: "business", id: businessId }, { businessId, mandateId: null, side: null, scope: "business" });
     }
     return s;
   });

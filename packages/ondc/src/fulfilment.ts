@@ -49,3 +49,43 @@ export async function onOrderStatusChanged(p: { orderId: string; to: string }, c
   }, cfg);
   return true;
 }
+
+/**
+ * Seller-recorded fulfilment sub-stages -> Beckn fulfilment states. `in_transit` is the same Beckn state as pickup
+ * (retail has no separate In-transit code), `delivery_attempted` has no Beckn state of its own (the buyer app keeps
+ * showing Out-for-delivery until Order-delivered or an RTO/cancel), so neither pushes anything the status handler
+ * has not already sent.
+ */
+export const STAGE_MAP: Record<string, { state: FulfilmentState; order: OndcOrderStatus } | undefined> = {
+  packed: { state: "Packed", order: "accepted" },
+  in_transit: { state: "Order-picked-up", order: "in_progress" },
+  out_for_delivery: { state: "Out-for-delivery", order: "in_progress" },
+};
+
+/**
+ * Event handler for OrderFulfilmentUpdated. Queues an unsolicited on_status for a mirrored ONDC order. Idempotent per
+ * (ONDC order, state): repeated or lower states are dropped and the deterministic message_id dedupes redelivery.
+ * Orders not yet accepted on the network (`created`) are skipped: the status handler pushes Packed on acceptance.
+ */
+export async function onOrderFulfilmentUpdated(p: { orderId: string; stage: string }, cfg: OndcConfig = loadConfig()): Promise<boolean> {
+  if (!cfg.enabled || (await isKilled())) return false;
+  const m = STAGE_MAP[p.stage];
+  if (!m) return false;
+  const o = await prisma.ondcOrder.findFirst({ where: { internalOrderId: p.orderId } });
+  if (!o) return false;
+  const cur = o.status as OndcOrderStatus;
+  if (cur === "created" || cur === "cancelled" || cur === "completed") return false;
+  if (FULFILMENT_STATES.indexOf(o.fulfilmentState as FulfilmentState) >= FULFILMENT_STATES.indexOf(m.state)) return false;
+  const target: OndcOrderStatus = RANK[cur] >= RANK[m.order] ? cur : m.order;
+  const res = await prisma.ondcOrder.updateMany({
+    where: { id: o.id, status: { in: ["accepted", "in_progress"] }, OR: [{ fulfilmentState: null }, { fulfilmentState: { notIn: FULFILMENT_STATES.slice(FULFILMENT_STATES.indexOf(m.state)) as string[] } }] },
+    data: { status: target, fulfilmentState: m.state },
+  });
+  if (res.count === 0) return false;
+  const next = await prisma.ondcOrder.findUniqueOrThrow({ where: { id: o.id } });
+  await queueCallback({
+    inbound: (next.payload as { context: BecknContext }).context, action: "on_status", messageId: detMessageId(next.id, "fulfilment", m.state, target),
+    message: { order: orderToBeckn(next) },
+  }, cfg);
+  return true;
+}

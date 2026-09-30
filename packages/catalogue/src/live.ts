@@ -18,7 +18,8 @@ import { canonicalText } from "./validate";
 const PUBLISHER = "publisher";
 const BATCH = 100;
 
-export type PublishOutcome = "published" | "not_due" | "skipped";
+/** "in_progress": another worker holds the version row lock and is publishing it right now (callers should not retry). */
+export type PublishOutcome = "published" | "not_due" | "skipped" | "in_progress";
 
 interface SellerSnap {
   name: string;
@@ -159,7 +160,7 @@ export async function publishVersion(versionId: string, now = new Date()): Promi
   const outcome = await prisma.$transaction(async (tx) => {
     // one publisher wins; a concurrent worker skips instead of double-emitting
     const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM listing_versions WHERE id = ${v.id}::uuid AND status = 'approved' FOR UPDATE SKIP LOCKED`;
-    if (!locked.length) return "skipped" as const;
+    if (!locked.length) return "in_progress" as const;
     const fresh = await tx.listing.findUniqueOrThrow({ where: { id: v.listingId }, select: { status: true, liveVersionId: true } });
     if (fresh.status === "archived") return "skipped" as const;
     await writeLive(proj); // LIVE commit first: if the authoring commit below fails, a retry re-projects the same version

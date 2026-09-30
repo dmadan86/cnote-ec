@@ -1,5 +1,5 @@
 import { withSentryConfig } from "@sentry/nextjs/config";
-import { staticHeaderList } from "@cnote/security";
+import { securityHeaders, staticHeaderList } from "@cnote/security";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
@@ -10,6 +10,11 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 // Security + caching headers shared by every route. Public pages are ISR (Next adds s-maxage + stale-while-revalidate);
 // the rules below add the private/no-store guarantee for account areas and long-lived caching for static assets.
 const PRIVATE_AREAS = ["/account", "/onboarding", "/buyer", "/rfq", "/conversations", "/wishlist", "/compare", "/signin", "/signup", "/forgot-password", "/reset-password"];
+
+const ADS_ON = ["1", "true", "yes"].includes((process.env.ADS_ENABLED ?? "").toLowerCase());
+const SEARCH_CACHE = ADS_ON ? "private, no-store, max-age=0" : "public, s-maxage=60, stale-while-revalidate=300";
+// Voice search (microphone) and search-by-photo (camera) live on the search page only (search-v2); everywhere else stays off.
+const SEARCH_PERMISSIONS = { key: "Permissions-Policy", value: securityHeaders({ app: "web", microphone: true, camera: true })["Permissions-Policy"]! };
 
 const nextConfig: NextConfig = {
   // Auth realm is baked in at build time: this app only ever accepts its own sessions/cookies.
@@ -45,8 +50,9 @@ const nextConfig: NextConfig = {
       })),
       // Search and supplier listings render per query but contain nothing personal (per-user bits are client islands): a
       // short shared-cache window makes repeated queries CDN hits while Redis serves the rest.
-      { source: "/search", headers: [{ key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=300" }] },
-      { source: "/:locale(hi|kn|ta|te|mr|gu|bn)/search", headers: [{ key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=300" }] },
+      // With sponsored slots on, results carry per-visitor ads (frequency caps, buyer pincode): never share them via a CDN.
+      { source: "/search", headers: [{ key: "Cache-Control", value: SEARCH_CACHE }, SEARCH_PERMISSIONS] },
+      { source: "/:locale(hi|kn|ta|te|mr|gu|bn)/search", headers: [{ key: "Cache-Control", value: SEARCH_CACHE }, SEARCH_PERMISSIONS] },
       { source: "/:locale(hi|kn|ta|te|mr|gu|bn)/manufacturers", headers: [{ key: "Cache-Control", value: "public, s-maxage=120, stale-while-revalidate=600" }] },
       { source: "/manufacturers", headers: [{ key: "Cache-Control", value: "public, s-maxage=120, stale-while-revalidate=600" }] },
       // Generated social cards are pure functions of the listing: a day at the shared cache, a week stale-while-revalidate.

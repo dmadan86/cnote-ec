@@ -28,6 +28,7 @@ export const worker: ModuleWorker = {
     EscrowLenderRepaid: async (e) => void (await recordAssignmentSettlement({ assignmentId: e.payload.assignmentId, amountPaise: e.payload.amountPaise, reference: e.payload.payoutId })),
     CreditDisbursed: async (e) => void (await syncEscrowAssignment(e.payload.loanId)),
     CreditRepaid: async (e) => void (await syncEscrowAssignment(e.payload.loanId)),
+    CreditCancelled: async (e) => void (await syncEscrowAssignment(e.payload.loanId)),
     CreditClosed: async (e) => void (await syncEscrowAssignment(e.payload.loanId)),
   },
   jobs: [

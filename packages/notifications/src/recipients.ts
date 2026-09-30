@@ -23,6 +23,39 @@ export interface Contact {
   email: string | null;
   phone: string | null;
   name: string | null;
+  /** preferred language; content falls back to English when absent or untranslated */
+  locale?: string;
+}
+
+export interface OrderParties {
+  buyerBusinessId: string;
+  sellerBusinessId: string;
+}
+export interface NegotiationParties {
+  buyerBusinessId: string;
+  sellerBusinessId: string;
+  /** businesses whose human confirmation is still missing on an accepted negotiation (default: both) */
+  awaitingConfirmation?: string[];
+  /** the business whose HUMAN must reply to the latest offer; null/undefined when that side's agent answers itself */
+  awaitingReplyBusinessId?: string | null;
+}
+
+/**
+ * Lookups the events of Phase 2/3 modules do not carry (escrow/dispute events name an order id, not the parties).
+ * The owning modules do not export an actor-free getter yet, and notifications may not query their tables, so the
+ * worker wires these once with `setPartyResolvers` (see docs/design/notifications-phase23.md). Until wired, the
+ * affected kinds resolve no recipients (they degrade to silence, never to a wrong recipient).
+ */
+export interface PartyResolvers {
+  orderParties?(orderId: string): Promise<OrderParties | null>;
+  ondcOrderSeller?(ondcOrderId: string): Promise<string | null>;
+  creditApplicationBusiness?(applicationId: string): Promise<string | null>;
+  negotiationParties?(negotiationId: string): Promise<NegotiationParties | null>;
+}
+
+let resolvers: PartyResolvers = {};
+export function setPartyResolvers(r: PartyResolvers): void {
+  resolvers = { ...r };
 }
 
 export interface Directory {
@@ -36,6 +69,11 @@ export interface Directory {
   comment(commentId: string): Promise<{ authorPersonId: string; moderationNote: string | null } | null>;
   /** null when the person is unknown or erased (DPDP) */
   contact(personId: string): Promise<Contact | null>;
+  /** Phase 2/3 party lookups (optional; see PartyResolvers) */
+  orderParties?(orderId: string): Promise<OrderParties | null>;
+  ondcOrderSeller?(ondcOrderId: string): Promise<string | null>;
+  creditApplicationBusiness?(applicationId: string): Promise<string | null>;
+  negotiationParties?(negotiationId: string): Promise<NegotiationParties | null>;
 }
 
 export const prismaDirectory: Directory = {
@@ -63,5 +101,17 @@ export const prismaDirectory: Directory = {
   },
   async contact(personId) {
     return getPersonContact(personId, { self: true }); // notifications go to the person themselves
+  },
+  async orderParties(orderId) {
+    return (await resolvers.orderParties?.(orderId)) ?? null;
+  },
+  async ondcOrderSeller(id) {
+    return (await resolvers.ondcOrderSeller?.(id)) ?? null;
+  },
+  async creditApplicationBusiness(id) {
+    return (await resolvers.creditApplicationBusiness?.(id)) ?? null;
+  },
+  async negotiationParties(id) {
+    return (await resolvers.negotiationParties?.(id)) ?? null;
   },
 };

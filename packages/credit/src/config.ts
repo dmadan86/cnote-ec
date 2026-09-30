@@ -24,6 +24,8 @@ export interface CreditConfig {
   offerTtlHours: number;
   /** RBI digital lending guidelines: borrower may exit without penalty in this window (days) */
   coolingOffDays: number;
+  /** cooling-off exit: refund the processing/other fees too (default off: fees are kept, only principal + pro-rata interest is owed on top) */
+  coolingOffWaivesFees: boolean;
   /** late payment charge disclosed in the KFS (bps per month on overdue amount) */
   lateFeeBpsPerMonth: number;
   /** first-loss default guarantee cap, bps of the originated book (partner negotiated) */
@@ -39,6 +41,7 @@ export const creditConfig = (env: NodeJS.ProcessEnv = process.env): CreditConfig
   minAmountPaise: int(env.CREDIT_MIN_AMOUNT_PAISE, 500_000),
   offerTtlHours: Math.max(1, int(env.CREDIT_OFFER_TTL_HOURS, 48)),
   coolingOffDays: int(env.CREDIT_COOLING_OFF_DAYS, 3),
+  coolingOffWaivesFees: /^(1|true|yes|on)$/i.test(env.CREDIT_COOLING_OFF_WAIVES_FEES ?? ""),
   lateFeeBpsPerMonth: int(env.CREDIT_LATE_FEE_BPS_PER_MONTH, 200),
   fldgCapBps: Math.min(10_000, int(env.CREDIT_FLDG_CAP_BPS, 500)),
   gnpaTargetBps: int(env.CREDIT_GNPA_TARGET_BPS, 200),

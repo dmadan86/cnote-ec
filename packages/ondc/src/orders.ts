@@ -108,12 +108,15 @@ async function finishReceive<T extends OrderRow & { bapId: string; transactionId
 export interface OndcOrderView {
   id: string; transactionId: string; bapId: string; status: OndcOrderStatus; totalPaise: number; currency: string;
   lines: { itemId: string; name: string; count: number; unitPaise: number }[]; cancelReason: string | null; internalOrderId: string | null; createdAt: string;
+  /** last Beckn fulfilment state known/pushed (Packed, Order-picked-up, Out-for-delivery, Order-delivered, Cancelled), null before any */
+  fulfilmentState: string | null;
 }
 
-const view = (o: { id: string; transactionId: string; bapId: string; status: string; totalPaise: bigint; currency: string; items: unknown; cancelReason: string | null; internalOrderId: string | null; createdAt: Date }): OndcOrderView => ({
+const view = (o: { id: string; transactionId: string; bapId: string; status: string; totalPaise: bigint; currency: string; items: unknown; cancelReason: string | null; internalOrderId: string | null; createdAt: Date; fulfilmentState?: string | null }): OndcOrderView => ({
   id: o.id, transactionId: o.transactionId, bapId: o.bapId, status: o.status as OndcOrderStatus, totalPaise: Number(o.totalPaise), currency: o.currency,
   lines: ((o.items as { lines?: QuoteLine[] } | null)?.lines ?? []).map((l) => ({ itemId: l.itemId, name: l.name, count: l.count, unitPaise: l.unitPaise })),
   cancelReason: o.cancelReason, internalOrderId: o.internalOrderId, createdAt: o.createdAt.toISOString(),
+  fulfilmentState: o.fulfilmentState ?? null,
 });
 
 export async function listSellerOrders(sellerBusinessId: string, opts: { status?: OndcOrderStatus; limit?: number } = {}): Promise<OndcOrderView[]> {
@@ -157,4 +160,10 @@ export async function rejectOrder(sellerBusinessId: string, id: string, reasonId
   await mirrorDecision("rejected", next.internalOrderId, sellerBusinessId);
   await queueCallback({ inbound: contextOf(next.payload), action: "on_cancel", messageId: newMessageId(), message: { order: orderToBeckn(next) } }, cfg);
   return view(next);
+}
+
+/** System read for notifiers: the seller business behind an ONDC order. */
+export async function getOndcOrderSeller(ondcOrderId: string): Promise<string | null> {
+  if (!UUID.test(ondcOrderId)) return null;
+  return (await prisma.ondcOrder.findUnique({ where: { id: ondcOrderId }, select: { sellerBusinessId: true } }))?.sellerBusinessId ?? null;
 }

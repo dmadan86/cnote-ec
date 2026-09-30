@@ -111,8 +111,34 @@
         "enterWholeDays": "पूरे दिन लिखें।",
         "chooseDate": "सही तारीख़ चुनें।",
         "notesMax": "नोट 1,000 अक्षरों से कम रखें।",
-        "dealValue": "डील की वैल्यू रुपये में लिखें।"
-      }
+        "dealValue": "डील की वैल्यू रुपये में लिखें।",
+        "moqPositive": "न्यूनतम ऑर्डर 0 से ज़्यादा पूर्ण संख्या होनी चाहिए।",
+        "chargeInvalid": "डिलीवरी शुल्क रुपये में लिखें (0 या ज़्यादा)।"
+      },
+      "moq": "न्यूनतम ऑर्डर मात्रा",
+      "deliveryTerms": "डिलीवरी शर्तें",
+      "deliveryCharge": "डिलीवरी शुल्क (₹, कुल)",
+      "deliveryNote": "डिलीवरी नोट",
+      "paymentTerms": "भुगतान शर्तें",
+      "paymentNote": "भुगतान नोट",
+      "gst": "जीएसटी",
+      "notStated": "नहीं बताया",
+      "gstIncluded": "कीमत में शामिल",
+      "gstExtra": "ऊपर से अतिरिक्त",
+      "termsToggle": "डिलीवरी, भुगतान और जीएसटी की शर्तें जोड़ें (वैकल्पिक)",
+      "termsHint": "साफ शर्तों पर ज़्यादा जवाब मिलते हैं और आपके कोट की तुलना आसान होती है।",
+      "delivery_ex_works": "एक्स-वर्क्स (खरीदार आपसे उठाता है)",
+      "delivery_fob": "FOB",
+      "delivery_door_delivery": "दरवाज़े तक डिलीवरी",
+      "delivery_buyer_pickup": "खरीदार खुद उठाएगा",
+      "delivery_other": "अन्य",
+      "payment_advance": "अग्रिम भुगतान",
+      "payment_on_delivery": "डिलीवरी पर भुगतान",
+      "payment_net_7": "7 दिन में भुगतान",
+      "payment_net_15": "15 दिन में भुगतान",
+      "payment_net_30": "30 दिन में भुगतान",
+      "payment_escrow": "एस्क्रो",
+      "payment_other": "अन्य"
     }
   }
 }

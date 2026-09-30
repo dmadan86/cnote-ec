@@ -306,3 +306,37 @@ export async function listIssues(opts: { status?: string; limit?: number } = {},
     createdAt: r.createdAt.toISOString(), description: r.description.slice(0, 300),
   }));
 }
+
+/** What a seller sees of a network issue against their order: no complainant contact (payload is never exposed). */
+export interface SellerIssueView extends Omit<IssueView, "description"> {
+  description: string;
+  issueType: string;
+  expectedResponseAt: string;
+  resolvedAt: string | null;
+  cascadedAt: string | null;
+  resolution: { shortDesc: string; longDesc: string; action: ResolutionAction; refundAmount: string | null } | null;
+}
+
+const sellerView = (r: Awaited<ReturnType<typeof prisma.ondcIssue.findFirstOrThrow>>, now: Date): SellerIssueView => {
+  const reso = stateOf(r).resolution;
+  return {
+    id: r.id, issueId: r.issueId, bapId: r.bapId, ondcOrderId: r.ondcOrderId, category: r.category, subCategory: r.subCategory, status: r.status, respondentAction: r.respondentAction,
+    disputeId: r.disputeId, needsManual: r.needsManual, overdue: ACTIVE.includes(r.status) && r.expectedResolutionAt < now, expectedResolutionAt: r.expectedResolutionAt.toISOString(),
+    createdAt: r.createdAt.toISOString(), description: r.description.slice(0, 1000), issueType: r.issueType, expectedResponseAt: r.expectedResponseAt.toISOString(),
+    resolvedAt: r.resolvedAt?.toISOString() ?? null, cascadedAt: r.cascadedAt?.toISOString() ?? null,
+    resolution: reso ? { shortDesc: reso.short_desc, longDesc: reso.long_desc, action: reso.action_triggered, refundAmount: reso.refund_amount ?? null } : null,
+  };
+};
+
+/** Network issues raised against this seller's ONDC orders, newest first. Read-only: resolution runs through the dispute (ADR-013) or staff. */
+export async function listSellerIssues(sellerBusinessId: string, opts: { limit?: number } = {}, now: Date = new Date()): Promise<SellerIssueView[]> {
+  const rows = await prisma.ondcIssue.findMany({ where: { sellerBusinessId }, orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: Math.min(100, opts.limit ?? 50) });
+  return rows.map((r) => sellerView(r, now));
+}
+
+/** One issue, only if it belongs to this seller (anything else is indistinguishable from missing). */
+export async function getSellerIssue(sellerBusinessId: string, id: string, now: Date = new Date()): Promise<SellerIssueView | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const r = await prisma.ondcIssue.findFirst({ where: { id, sellerBusinessId } });
+  return r ? sellerView(r, now) : null;
+}

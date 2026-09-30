@@ -7,6 +7,8 @@ export const NEGOTIATION_KEYS = [
   "counterHeading", "counterQuoted", "counterPrice", "counterLead", "counterNote", "counterWhy", "counterNotSent", "counterSend", "counterSending", "counterDiscard",
   "counterSentBadge", "counterSentNote", "lowConfidence", "assistantHeading", "assistantEmpty", "actorAssistant", "actorYou", "log_quotes_normalised",
   "log_counter_proposed", "log_counter_sent", "log_counter_discarded", "log_counter_bounds_rejected", "error", "scrollHint", "regionLabel",
+  "colMoq", "colDeliveryTerms", "colPayment", "delivery_ex_works", "delivery_fob", "delivery_door_delivery", "delivery_buyer_pickup", "delivery_other",
+  "payment_advance", "payment_on_delivery", "payment_net_7", "payment_net_15", "payment_net_30", "payment_escrow", "payment_other",
 ] as const;
 export type NegotiationLabels = Record<(typeof NEGOTIATION_KEYS)[number], string>;
 

@@ -2,7 +2,7 @@ import { queueConsumer, type ModuleWorker } from "@cnote/core";
 import { publishAllCatalogs } from "./catalog";
 import { isEnabled } from "./config";
 import { purgeOldMessages } from "./admin";
-import { onOrderStatusChanged } from "./fulfilment";
+import { onOrderFulfilmentUpdated, onOrderStatusChanged } from "./fulfilment";
 import { escalateOverdueIssues, onDisputeEscalated, onDisputeResolved, purgeIssuePayloads } from "./igm";
 import { deliverCallback } from "./outbound";
 import { processInbound } from "./processor";
@@ -17,6 +17,7 @@ export const worker: ModuleWorker = {
   handlers: {
     // ADR-021: platform order progress -> unsolicited on_status; dispute progress -> on_issue_status (all idempotent, flag/kill-switch aware)
     OrderStatusChanged: async (e) => void (await onOrderStatusChanged(e.payload)),
+    OrderFulfilmentUpdated: async (e) => void (await onOrderFulfilmentUpdated(e.payload)),
     DisputeEscalated: async (e) => void (await onDisputeEscalated(e.payload)),
     DisputeResolved: async (e) => void (await onDisputeResolved(e.payload)),
   },

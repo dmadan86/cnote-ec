@@ -42,6 +42,12 @@ export default async function OndcOrdersPage() {
                   </div>
                   <div className="flex items-center gap-3"><Money paise={o.totalPaise} /><Badge tone={TONE[o.status]}>{t(`status.${o.status}`)}</Badge></div>
                 </div>
+                {o.status !== "created" && o.status !== "cancelled" ? (
+                  <p className="flex flex-wrap items-center gap-2 text-sm text-ink">
+                    {o.fulfilmentState ? t("fulfilment", { state: t(`fulfilmentState.${o.fulfilmentState}` as "fulfilmentState.Packed") }) : t("fulfilmentNone")}
+                    {o.internalOrderId ? <Link href={`/orders/${o.internalOrderId}`} className="font-medium text-brand-700 underline">{t("openOrder")}</Link> : null}
+                  </p>
+                ) : null}
                 {o.status === "created" ? <OrderDecision orderId={o.id} /> : null}
               </CardBody></Card>
             </li>

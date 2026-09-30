@@ -7,6 +7,7 @@ import { bnplAction } from "./actions";
 export interface BnplLabels {
   consent: string; tenor: string; tenorOptions: { value: number; label: string }[]; apply: string; noAuto: string; error: string;
   acknowledge: string; accept: string; decline: string; simulate: string;
+  exitConfirm: string; exitSubmit: string;
 }
 
 function Status({ state, error }: { state: ActionResult | null; error: string }) {
@@ -71,6 +72,26 @@ export function BnplSimulateForm({ orderId, applicationId, label, error }: { ord
       <input type="hidden" name="intent" value="simulate" />
       <Status state={state} error={error} />
       <div><Button type="submit" variant="outline" disabled={pending} className="min-h-11">{label}</Button></div>
+    </form>
+  );
+}
+
+/** Cooling-off exit (RBI): the exact amount is shown above; exit needs its own explicit confirmation of that amount. */
+export function BnplExitForm({ orderId, loanId, payablePaise, labels }: { orderId: string; loanId: string; payablePaise: number; labels: BnplLabels }) {
+  const [state, action, pending] = useActionState<ActionResult | null, FormData>(bnplAction, null);
+  const id = useId();
+  return (
+    <form action={action} className="flex flex-col gap-3" aria-busy={pending}>
+      <input type="hidden" name="orderId" value={orderId} />
+      <input type="hidden" name="loanId" value={loanId} />
+      <input type="hidden" name="expectedPayablePaise" value={payablePaise} />
+      <input type="hidden" name="intent" value="exit" />
+      <Status state={state} error={labels.error} />
+      <label htmlFor={`${id}-exit`} className="flex min-h-11 items-start gap-2 text-sm text-ink">
+        <input id={`${id}-exit`} type="checkbox" name="confirmExit" required className="mt-1 size-5" />
+        <span>{labels.exitConfirm}</span>
+      </label>
+      <div><Button type="submit" variant="outline" disabled={pending} className="min-h-11">{labels.exitSubmit}</Button></div>
     </form>
   );
 }

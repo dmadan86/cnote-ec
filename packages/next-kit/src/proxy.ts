@@ -9,6 +9,7 @@ import { refreshSession, type AuthTokens } from "@cnote/identity";
 import { NextResponse, type NextRequest } from "next/server";
 import { clearAuthCookies, jwtExp, setAuthCookies } from "./cookies";
 import { realmAuth, realmCookies } from "./realm";
+import { clientIp } from "@cnote/security/client-ip";
 
 export interface AuthProxyOptions {
   /** Paths that require a session; unauthenticated requests redirect to signInPath?next=… */
@@ -33,7 +34,7 @@ export function createAuthProxy(opts: AuthProxyOptions): (req: NextRequest) => P
     if (stale && refresh) {
       try {
         rotated = await refreshSession(refresh, {
-          ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip")?.trim() || null,
+          ip: clientIp(req.headers),
           userAgent: req.headers.get("user-agent"),
           ...realmAuth(),
         });

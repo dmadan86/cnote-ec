@@ -1,7 +1,7 @@
 // Default ports built on other modules' PUBLIC exports only. Where a module lacks the exact read we need, the adapter uses
 // the closest public function and the gap is listed in docs/design/credit.md ("Requests for other modules").
 import { disputeRecordForBusiness } from "@cnote/disputes";
-import { feeBreakdown, fundEscrowFromLender, getEscrowDetail, listEscrows, setEscrowLenderAssignment } from "@cnote/escrow";
+import { escrowHistoryForBusiness, feeBreakdown, fundEscrowFromLender, getEscrowDetail, listEscrowsForBusiness, setEscrowLenderAssignment } from "@cnote/escrow";
 import { getGstEvidence, getTrustProfiles } from "@cnote/identity";
 import { setDefaultPorts, type CreditPorts } from "./ports";
 import type { EscrowFacts } from "./types";
@@ -25,31 +25,22 @@ export const defaultPorts: CreditPorts = {
     const p = (await getTrustProfiles([businessId])).get(businessId);
     return { trustScore: p?.trustScore ?? 0, badgeActive: p?.badgeActive ?? false };
   },
-  async escrowHistory(businessId) {
-    // NOTE: listEscrows is a global newest-first page (max 200); a per-business history read is requested from @cnote/escrow.
-    const rows = (await listEscrows({ limit: 200 })).filter((e) => e.buyerBusinessId === businessId || e.sellerBusinessId === businessId);
-    const released = rows.filter((e) => e.status === "released");
-    let clean = 0;
-    for (const e of released.slice(0, 30)) {
-      const d = await getEscrowDetail(e.id);
-      if (d && d.freezes.length === 0) clean += 1;
-    }
-    const sample = Math.min(released.length, 30);
-    return {
-      completed: released.length,
-      completedPaise: released.reduce((a, e) => a + e.amountPaise, 0),
-      // unsampled older releases are assumed clean in proportion to the sample
-      clean: sample === 0 ? 0 : Math.round((clean / sample) * released.length),
-      refunded: rows.filter((e) => e.status === "refunded").length,
-    };
-  },
+  // per-business aggregates from @cnote/escrow (counted in SQL over every escrow, not a sampled page)
+  escrowHistory: (businessId) => escrowHistoryForBusiness(businessId),
   disputes: (businessId) => disputeRecordForBusiness(businessId),
   async escrowFacts(escrowId) {
     const d = await getEscrowDetail(escrowId);
     return d ? factsOf(d) : null;
   },
   async fundedEscrowsForSeller(businessId) {
-    return (await listEscrows({ status: "funded", limit: 200 })).filter((e) => e.sellerBusinessId === businessId).map(factsOf);
+    const out: EscrowFacts[] = [];
+    let cursor: string | null = null;
+    do {
+      const page = await listEscrowsForBusiness(businessId, { role: "seller", status: "funded", cursor, limit: 100 });
+      out.push(...page.items.map(factsOf));
+      cursor = page.nextCursor;
+    } while (cursor && out.length < 500);
+    return out;
   },
   sellerNetPaise: (amountPaise) => feeBreakdown(amountPaise).netPaise,
   async fundEscrowFromLender(escrowId, amountPaise, ref) {

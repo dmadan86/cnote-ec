@@ -109,7 +109,7 @@ The worker observes `OrderStatusChanged`. For a platform order with an ONDC mirr
 | completed | Order-delivered | Completed |
 | cancelled (unless already cancelled through the inbox) | Cancelled | Cancelled |
 
-`recorded` is not pushed; inbox accept/reject already sent their own callback and the handler skips them. Idempotent per (order, state): the `message_id` is a deterministic uuid of (order, fulfilment state, order state) and outbound rows are unique on it; states never move backwards. `OndcOrder.fulfilmentState` also feeds `on_status` replies to buyer `status` calls (`fulfillments[].state.descriptor.code`). Out-for-delivery has no platform trigger yet (enquiry has no such status); it is in `FULFILMENT_STATES` for when a logistics signal exists.
+`recorded` is not pushed; inbox accept/reject already sent their own callback and the handler skips them. Idempotent per (order, state): the `message_id` is a deterministic uuid of (order, fulfilment state, order state) and outbound rows are unique on it; states never move backwards. `OndcOrder.fulfilmentState` also feeds `on_status` replies to buyer `status` calls (`fulfillments[].state.descriptor.code`). Out-for-delivery and in-transit now have a platform trigger: the seller records fulfilment sub-stages on the order (packed, in_transit, out_for_delivery, delivery_attempted; `OrderFulfilmentUpdated`, they never change the main order status, so escrow is unaffected). The worker maps them with `onOrderFulfilmentUpdated`: packed -> Packed, in_transit -> Order-picked-up (retail has no separate In-transit code, so it dedupes against the dispatch push), out_for_delivery -> Out-for-delivery; delivery_attempted has no Beckn state and pushes nothing. Same rules as the status push: idempotent per (order, state), never backwards, skipped for orders still `created`/cancelled/completed, kill-switch aware. Seller UI: `(portal)/ondc/orders` shows the Beckn fulfilment state per order and links to the platform order where the seller records the steps.
 
 ### IGM (issue and grievance management)
 
@@ -154,7 +154,7 @@ The admin ONDC page shows automatic checks (keys present, registry encryption ke
 
 ## Still needs ONDC certification / decisions
 
-B2B domain code and city codes (defaults are the retail domain `ONDC:RET10`); error-code sheet reconciliation (including IGM errors); IGM sub-category codes and the `resolution_provider` shape against the current IGM spec (this build follows IGM 1.0 field names; IGM 2.0 differs); the gateway registry type (`BG`) and header handling against the staging gateway; the log-verification suites; logistics-driven fulfilment states (Out-for-delivery, In-transit) once a logistics signal exists; GST in quotes; legal review of seller terms (they must now describe network grievance handling instead of "outside the network").
+B2B domain code and city codes (defaults are the retail domain `ONDC:RET10`); error-code sheet reconciliation (including IGM errors); IGM sub-category codes and the `resolution_provider` shape against the current IGM spec (this build follows IGM 1.0 field names; IGM 2.0 differs); the gateway registry type (`BG`) and header handling against the staging gateway; the log-verification suites; seller-recorded fulfilment states are manual (no courier integration or webhooks yet), and `delivery_attempted` / RTO / Undeliverable have no Beckn mapping; GST in quotes; legal review of the seller terms (`TERMS_VERSION` 2026-10-v1 now describes network grievance handling through IGM and disputes, replacing "handled outside the network"; sellers who accepted the earlier version must re-accept to reconnect).
 
 ## Configuration
 
@@ -172,7 +172,14 @@ B2B domain code and city codes (defaults are the retail domain `ONDC:RET10`); er
 8. Retention for `OndcOrder.payload` registered with compliance; alerts on failed callbacks and dead-lettered `ondc.*` topics.
 9. Pilot with a handful of verified (tier >= 1) sellers; `ONDC_ENABLED=true` on api + worker in staging first; measure incremental GMV and dispute load for two quarters before evaluating buyer-side participation (ADR-021).
 
+### Seller network issues
+
+`(portal)/ondc/issues` lists issues raised against the seller's ONDC orders (`listSellerIssues`: category, status, response/resolution TTLs, overdue flag, manual-handling flag) and `issues/[id]` shows the detail: what the buyer reported, deadlines, the resolution (action, refund amount) and a link to `(portal)/disputes/[id]` when a dispute is open. The complainant contact (`payload`) is never exposed. It is read-only: the seller responds and adds evidence in the dispute; manual-fallback issues are resolved by staff.
+
 ## Design research (Mobbin)
+
+- Delivery tracking: [Urban Outfitters "Track your package"](https://mobbin.com/screens/640f7618-77c5-44f4-abdb-2f7f3e413fad) (Shipped / On its way / Out for delivery / Delivered stepper, courier tracking number, "Latest update" history) and [adidas order status](https://mobbin.com/screens/fcff9285-bb90-4bee-aae9-547cbcf6b26d) (three-step header with the carrier in order details). Adopted: a step list with the state written out as text, a tracking line (courier + AWB) and a newest-first update history, on the buyer and seller order pages.
+- Issue lists: [Zendesk ticket list](https://mobbin.com/screens/6d092d6c-e458-4351-9bf5-d88a8d095750) and [Sentry issues](https://mobbin.com/screens/cbeb79af-db33-40f6-ad1b-06ab18062309). Adopted: one card per issue with a status badge, age and deadline, and a details link.
 
 - Channel connect card with status badge, explicit enable/disable and a settings-style layout: [Klaviyo Shopify integration](https://mobbin.com/screens/076861ae-6e40-4888-890a-58bb816b10cf), [Canny Slack integration](https://mobbin.com/screens/13cb3b15-e24a-4550-8719-62bc12ebf5cc), [Gemini connected apps toggles](https://mobbin.com/screens/e90f55bd-da8b-4882-b8ab-591857e2b74c). Adopted: status badge plus a single primary connect/disconnect action, terms shown before connecting, per-item toggle list.
 - Incoming orders inbox: [Shopify orders list](https://mobbin.com/screens/909c6cdb-f0a1-4183-ab1c-b64f3f2c9aa2), [Midday inbox](https://mobbin.com/screens/bb6dcd6c-9b61-4382-a0d8-401ce16b6247). Adopted: a compact card per order with amount and status badge, with the decision (accept/reject) inline on rows that need it.

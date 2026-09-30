@@ -42,7 +42,7 @@ export async function NegotiationAssist({ enquiryId, actor, locale: given }: { e
           {cmp.needsReview ? <Alert tone="warning">{t.reviewNote}</Alert> : null}
           <p className="text-xs text-muted sm:hidden">{t.scrollHint}</p>
           <div role="region" aria-label={t.regionLabel} tabIndex={0} className="overflow-x-auto rounded-lg border border-line focus-visible:outline-2 focus-visible:outline-brand-600">
-            <table className="w-full min-w-[46rem] border-collapse text-left text-sm">
+            <table className="w-full min-w-[64rem] border-collapse text-left text-sm">
               <caption className="sr-only">{t.tableCaption}</caption>
               <thead className="bg-canvas text-xs text-muted">
                 <tr>
@@ -52,6 +52,9 @@ export async function NegotiationAssist({ enquiryId, actor, locale: given }: { e
                   <th scope="col" className="p-3 font-medium">{t.colGst}</th>
                   <th scope="col" className="p-3 font-medium">{t.colLanded}</th>
                   <th scope="col" className="p-3 font-medium">{t.colQty}</th>
+                  <th scope="col" className="p-3 font-medium">{t.colMoq}</th>
+                  <th scope="col" className="p-3 font-medium">{t.colDeliveryTerms}</th>
+                  <th scope="col" className="p-3 font-medium">{t.colPayment}</th>
                   <th scope="col" className="p-3 font-medium">{t.colLead}</th>
                   <th scope="col" className="p-3 font-medium">{t.colValid}</th>
                 </tr>
@@ -77,6 +80,9 @@ export async function NegotiationAssist({ enquiryId, actor, locale: given }: { e
                       {!r.landedComplete ? <span className="mt-1 block text-xs text-muted">{fmt(t.incomplete, { what: what(r, t) })}</span> : null}
                     </td>
                     <td className="p-3">{r.quantity} {r.unit}</td>
+                    <td className="p-3">{r.moq == null ? t.notStated : `${r.moq} ${r.moqUnit ?? r.unit}`}</td>
+                    <td className="p-3">{deliveryTerms(r, t)}</td>
+                    <td className="p-3">{paymentTerms(r, t)}</td>
                     <td className="p-3">{r.leadTimeDays == null ? t.notStated : fmt(t.days, { n: r.leadTimeDays })}</td>
                     <td className="p-3">{r.expired ? <Badge tone="danger">{t.expired}</Badge> : r.validUntil ?? t.notStated}</td>
                   </tr>
@@ -142,6 +148,15 @@ function gst(r: ComparisonRow, t: NegotiationLabels): string {
   if (r.gstIncluded === true) return t.gstIncluded;
   if (r.gstIncluded === false) return r.gstPercent != null ? fmt(t.gstExtra, { pct: r.gstPercent }) : t.gstExtraUnknown;
   return t.gstUnknown;
+}
+function deliveryTerms(r: ComparisonRow, t: NegotiationLabels): string {
+  if (!r.deliveryTerms) return t.notStated;
+  return [t[`delivery_${r.deliveryTerms}`], r.deliveryNote].filter(Boolean).join(" · ");
+}
+/** Structured code (translated) when the seller gave one, else the free text read from an older quote's notes. */
+function paymentTerms(r: ComparisonRow, t: NegotiationLabels): string {
+  if (r.paymentTermsCode) return [t[`payment_${r.paymentTermsCode}`], r.paymentNote].filter(Boolean).join(" · ");
+  return r.paymentTerms ?? t.notStated;
 }
 function what(r: ComparisonRow, t: NegotiationLabels): string {
   const d = r.assumptions.includes("delivery_unknown"), g = r.assumptions.includes("gst_unknown");

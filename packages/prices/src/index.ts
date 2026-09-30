@@ -7,7 +7,8 @@ export {
 export { runBenchmarks, toSamples, periodOf, type RunResult } from "./run";
 export { buildCells, evaluateCell, type Sample, type CellDraft, type AggregateOptions, type AggregateResult, type SuppressReason } from "./aggregate";
 export { normaliseUnit, normaliseFact, tierOf, TIERS, type NormalUnit, type Tier } from "./units";
-export { stateFromPincode, stateSlug, regionLabel, REGION_SLUGS } from "./regions";
+export { stateFromPincode, zoneFromPincode, stateSlug, regionLabel, isZone, ZONE_PREFIX, REGION_SLUGS } from "./regions";
+export { PIN_PREFIX_STATE } from "./regions-data";
 export { weightedPercentile, quantilesOf, trimOutliers, interpolated, type Weighted, type Quantiles } from "./stats";
 export {
   getPublicBenchmark, getSellerCompetitiveness, hasPriceIntelPlan, resolveCell, positionOf, trendOf, PRICE_INTEL_PLAN_FEATURE, FLAT_TREND_BPS,

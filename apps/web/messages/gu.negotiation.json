@@ -69,6 +69,21 @@
     "log_counter_bounds_rejected": "તમારી મર્યાદાઓની બહારનું એક સૂચન દૂર કર્યું.",
     "error": "કંઈક ખોટું થયું. કૃપા કરીને ફરી પ્રયાસ કરો.",
     "scrollHint": "બધા કૉલમ જોવા માટે કોષ્ટકને બાજુમાં ખસેડો.",
-    "regionLabel": "સરખામણી કોષ્ટક, ખસેડી શકાય છે"
+    "regionLabel": "સરખામણી કોષ્ટક, ખસેડી શકાય છે",
+    "colMoq": "ન્યૂનતમ ઓર્ડર જથ્થો",
+    "colDeliveryTerms": "ડિલિવરીની શરતો",
+    "colPayment": "ચુકવણીની શરતો",
+    "delivery_ex_works": "એક્સ-વર્ક્સ (ખરીદદાર તમારી પાસેથી લે છે)",
+    "delivery_fob": "FOB",
+    "delivery_door_delivery": "દરવાજે ડિલિવરી",
+    "delivery_buyer_pickup": "ખરીદદાર જાતે લેશે",
+    "delivery_other": "અન્ય",
+    "payment_advance": "અગાઉથી ચુકવણી",
+    "payment_on_delivery": "ડિલિવરી વખતે ચુકવણી",
+    "payment_net_7": "7 દિવસમાં ચુકવણી",
+    "payment_net_15": "15 દિવસમાં ચુકવણી",
+    "payment_net_30": "30 દિવસમાં ચુકવણી",
+    "payment_escrow": "એસ્ક્રો",
+    "payment_other": "અન્ય"
   }
 }

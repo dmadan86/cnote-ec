@@ -6,7 +6,7 @@ export interface CreditPurgeResult { loans: number; repayments: number; applicat
 
 export async function purgeClosedCreditData(before: Date): Promise<CreditPurgeResult> {
   return prisma.$transaction(async (tx) => {
-    const loans = await tx.creditLoan.findMany({ where: { status: { in: ["repaid", "written_off"] }, closedAt: { lt: before } }, select: { id: true, applicationId: true } });
+    const loans = await tx.creditLoan.findMany({ where: { status: { in: ["repaid", "written_off", "cancelled"] }, closedAt: { lt: before } }, select: { id: true, applicationId: true } });
     const loanIds = loans.map((l) => l.id);
     const terminal = await tx.creditApplication.findMany({
       where: { OR: [{ id: { in: loans.map((l) => l.applicationId) } }, { status: { in: ["rejected", "declined", "expired", "failed", "cancelled"] }, closedAt: { lt: before } }] }, select: { id: true },

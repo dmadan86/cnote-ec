@@ -36,13 +36,10 @@ export type VerifiedToken = { ok: true; payload: ClickTokenPayload; expired: boo
 export function verifyClickToken(token: string, ttlMinutes: number, now = Date.now()): VerifiedToken {
   const [body, sig, extra] = token.split(".");
   if (!body || !sig || extra !== undefined) return { ok: false };
-  const want = sign(body);
-  let got: Buffer;
-  try {
-    got = Buffer.from(sig, "base64url");
-  } catch {
-    return { ok: false };
-  }
+  // Compare the canonical base64url STRING, not decoded bytes: the last character carries unused padding bits, so
+  // decoding would accept several spellings of one signature (a malleable token that could dodge click dedupe).
+  const want = Buffer.from(b64(sign(body)));
+  const got = Buffer.from(sig);
   if (got.length !== want.length || !timingSafeEqual(got, want)) return { ok: false };
   try {
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as ClickTokenPayload;

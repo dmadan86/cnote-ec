@@ -23,7 +23,7 @@ export default async function OndcPage() {
   const live = isEnabled();
   return (
     <div className="space-y-6">
-      <PageHeader title={t("title")} description={t("description")} actions={<Link href="/ondc/orders" className={buttonClasses("outline", "md", "min-h-11")}>{t("ordersButton")}</Link>} />
+      <PageHeader title={t("title")} description={t("description")} actions={<div className="flex flex-wrap gap-2"><Link href="/ondc/orders" className={buttonClasses("outline", "md", "min-h-11")}>{t("ordersButton")}</Link><Link href="/ondc/issues" className={buttonClasses("outline", "md", "min-h-11")}>{t("issuesButton")}</Link></div>} />
       {!live ? <Alert tone="info">{t("notLive")}</Alert> : null}
       {!state.ok ? <Alert tone="danger">{state.error}</Alert> : (
         <Card>

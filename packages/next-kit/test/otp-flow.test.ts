@@ -131,7 +131,7 @@ describe("verifyOtp", () => {
     h.currentSession.mockResolvedValue({ personId: "p", phoneVerified: false });
     h.verifyPhoneOtp.mockResolvedValue({ verified: false });
     const r = await verifyOtp("c", "98", "1", consent);
-    expect(r).toEqual({ ok: false, error: expect.stringMatching(/incorrect or has expired/) });
+    expect(r).toEqual({ ok: false, error: expect.stringMatching(/incorrect or has expired/), errorKey: "auth.codeIncorrectExpired" });
     expect(h.markVerified).not.toHaveBeenCalled();
     expect(h.completeUnlock).not.toHaveBeenCalled();
   });

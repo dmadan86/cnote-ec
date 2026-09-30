@@ -10,6 +10,7 @@ import { formatDateTime, formatDate } from "@/lib/format";
 import { load } from "@/lib/safe";
 import { enquiry } from "@/lib/services";
 import { DealReportForm, MessageForm, QuoteForm } from "@/features/conversations/forms";
+import { QuoteTerms } from "@/features/conversations/quote-terms";
 import { QuoteAssistPanel } from "@/features/negotiation/quote-assist-panel";
 import { el } from "@/features/billing/rich-value";
 
@@ -73,6 +74,7 @@ export default async function ConversationPage({ params }: PageProps<"/conversat
                   {t.rich("quoteFor", { price: el(<Money paise={q.pricePaise} unit={q.unit} />), quantity: q.quantity, unit: q.unit })}
                   {q.leadTimeDays != null ? `, ${t("quoteDelivery", { days: q.leadTimeDays })}` : ""}
                   {q.validUntil ? `, ${t("quoteValid", { date: formatDate(q.validUntil, locale) })}` : ""}
+                  <QuoteTerms q={q} />
                   {q.notes ? <p className="mt-1 text-muted">{q.notes}</p> : null}
                   <p className="mt-1 text-xs text-muted">{t("quoteSentAt", { when: formatDateTime(q.createdAt, locale) })}</p>
                 </li>

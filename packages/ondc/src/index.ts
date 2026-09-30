@@ -17,16 +17,16 @@ export {
 export { providerFor, allProviders, catalogForIntent, publishCatalog, publishAllCatalogs, type PublishResult } from "./catalog";
 export { receiveInbound, verifyGateway, MAX_BODY_BYTES, type InboundResult } from "./inbound";
 export { handleOnSubscribe, siteVerification } from "./subscribe";
-export { listSellerOrders, acceptOrder, rejectOrder, type OndcOrderView, type OndcOrderStatus } from "./orders";
+export { listSellerOrders, acceptOrder, rejectOrder, getOndcOrderSeller, type OndcOrderView, type OndcOrderStatus } from "./orders";
 export { adminOverview, listMessages, listFailedCallbacks, replayCallback, purgeOldMessages, purgeOndcOrderPayloads, redactBody, type AdminOverview, type MessageLogRow } from "./admin";
 export { worker } from "./worker";
 export { enquiryOrderSink, wireOndcOrderSink } from "./enquiry-sink";
 // ADR-021 live participation
 export { isKilled, getKillSwitch, setKillSwitch, resumePending, CERT_ITEMS, getCertState, setCertItem, type KillSwitchState, type CertItemId } from "./killswitch";
-export { onOrderStatusChanged, FULFILMENT_MAP, FULFILMENT_STATES, type FulfilmentState } from "./fulfilment";
+export { onOrderStatusChanged, onOrderFulfilmentUpdated, STAGE_MAP, FULFILMENT_MAP, FULFILMENT_STATES, type FulfilmentState } from "./fulfilment";
 export {
   handleIssue, handleIssueStatus, onDisputeEscalated, onDisputeResolved, resolveIssueManually, escalateOverdueIssues, purgeIssuePayloads, listIssues, disputeTypeFor, parseIsoDuration,
-  detMessageId, type IssueView, type ManualResolution, type ResolutionAction,
+  detMessageId, listSellerIssues, getSellerIssue, type SellerIssueView, type IssueView, type ManualResolution, type ResolutionAction,
 } from "./igm";
 export { ondcEvaluation, type OndcEvaluation } from "./evaluation";
 export { readiness, type Readiness, type ReadinessItem } from "./readiness";

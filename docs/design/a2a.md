@@ -81,8 +81,8 @@ A failure (for example the seller has no credits) leaves the negotiation `agreed
 ## Known gaps
 
 - `enquiry.acceptLead` takes an `Actor` only: there is no way to mark the credit spend as agent-initiated, so the wallet shows a normal lead accept.
-- `Quote` has no MOQ, delivery-terms or payment-terms column: the agreed terms are folded into `notes` (as in ADR-014). There is no public `getQuote`, so a quote is found by scanning `getConversation` for the marker.
-- `createEnquiry` returns the matches but there is no public "matches for enquiry" read for a seller agent: seller agents are started from the buyer's run (`getBuyerEnquiry`) or by an API caller who holds a `matchId`.
+- Closed: the agreed offer's free-text delivery/payment terms are mapped onto the structured `Quote` fields (unrecognised text becomes `other` + note); the `[a2a:<id>]` notes marker is no longer written (old markers are still recognised), and a quote sent but not yet linked is recovered by matching the seller's own quote for that match (`listSellerQuotes`). `getQuote` validates the stored `quoteId`.
+- The enquiry public API now has `getSellerLead` (seller-side match read) and `getBuyerEnquiry` (matches); no separate "matches for enquiry" function was added.
 - Notification templates for "needs your confirmation", "agreed" and "suspended" are not registered: the in-app lists and activity log are the surface today. Wire the `Agent*` events into `@cnote/notifications` when its templates are added.
 - The seller quoting strategy is price-only (quantity is clamped, lead time never below the price book). Multi-listing bundles, freight negotiation and payment-term trade-offs are not modelled.
 - Golden-set evals do not apply (no model in the loop); add them when a model-backed strategy is introduced (ADR-008).

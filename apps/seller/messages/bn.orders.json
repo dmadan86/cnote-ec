@@ -41,6 +41,44 @@
     "invalidAction": "এই কাজটি বৈধ নয়।",
     "_meta": {
       "review": "machine-drafted; needs native review"
+    },
+    "fulfilment": {
+      "heading": "ডেলিভারির অগ্রগতি",
+      "stepsLabel": "ডেলিভারির ধাপ",
+      "step": {
+        "packed": "প্যাক হয়েছে",
+        "dispatched": "ডিসপ্যাচ হয়েছে",
+        "in_transit": "পথে আছে",
+        "out_for_delivery": "ডেলিভারির জন্য বেরিয়েছে",
+        "delivered": "ডেলিভারি হয়েছে"
+      },
+      "state": {
+        "done": "সম্পন্ন",
+        "current": "বর্তমান ধাপ",
+        "upcoming": "এখনও নয়"
+      },
+      "updates": "আপডেট",
+      "noUpdates": "এখনও কোনও ডেলিভারি আপডেট নেই।",
+      "stage": {
+        "packed": "প্যাক হয়েছে",
+        "in_transit": "পথে আছে",
+        "out_for_delivery": "ডেলিভারির জন্য বেরিয়েছে",
+        "delivery_attempted": "ডেলিভারির চেষ্টা হয়েছে"
+      },
+      "trackingBoth": "কুরিয়ার {courier}, ট্র্যাকিং নম্বর {ref}",
+      "trackingCourier": "কুরিয়ার {courier}",
+      "trackingRef": "ট্র্যাকিং নম্বর {ref}",
+      "intro": "ক্রেতাকে আপডেট রাখুন। এই ধাপগুলো অর্ডারের অবস্থা বা কোনও পেমেন্ট বদলায় না।",
+      "recordHeading": "পরের ধাপ নথিভুক্ত করুন",
+      "stageLabel": "ধাপ",
+      "note": "ক্রেতার জন্য নোট (ঐচ্ছিক)",
+      "courier": "কুরিয়ার (ঐচ্ছিক)",
+      "awb": "ট্র্যাকিং নম্বর / AWB (ঐচ্ছিক)",
+      "save": "আপডেট সংরক্ষণ করুন",
+      "saving": "সংরক্ষণ হচ্ছে…",
+      "saved": "আপডেট সংরক্ষিত হয়েছে।",
+      "needDispatch": "পথের ধাপ নথিভুক্ত করতে আগে অর্ডার ডিসপ্যাচ হয়েছে বলে চিহ্নিত করুন।",
+      "invalidStage": "এই ধাপটি বৈধ নয়।"
     }
   }
 }

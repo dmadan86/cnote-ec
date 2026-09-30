@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { actorOf } from "@cnote/next-kit";
-import { getCreditOverview, TENORS, type ApplicationView, type LoanView, type ScoreView } from "@cnote/credit";
+import { getCreditOverview, TENORS, type ApplicationView, type CoolingOffQuote, type LoanView, type ScoreView } from "@cnote/credit";
 import { Alert, Badge, Card, CardBody, CardHeader, CardTitle, EmptyState, Money, PageHeader, type BadgeTone } from "@cnote/ui";
-import { ApplyForm, AcceptForm, ConsentForm, SimulateForm } from "@/features/credit/forms";
+import { ApplyForm, AcceptForm, ConsentForm, ExitLoanForm, SimulateForm } from "@/features/credit/forms";
 import { KfsCard } from "@/features/credit/kfs-card";
 import { currentLocale } from "@/i18n/request";
 import { requireSeller } from "@/lib/auth";
@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Credit" };
 export const dynamic = "force-dynamic";
 
 const APP_TONE: Record<string, BadgeTone> = { offered: "brand", accepted: "brand", disbursed: "success", rejected: "neutral", declined: "neutral", expired: "neutral", failed: "danger", cancelled: "neutral", submitted: "warning" };
-const LOAN_TONE: Record<string, BadgeTone> = { active: "success", overdue: "danger", repaid: "neutral", written_off: "neutral" };
+const LOAN_TONE: Record<string, BadgeTone> = { active: "success", overdue: "danger", repaid: "neutral", written_off: "neutral", cancelled: "neutral" };
 const short = (id: string) => id.slice(0, 8);
 
 export default async function CreditPage() {
@@ -101,7 +101,7 @@ export default async function CreditPage() {
 
       <section aria-labelledby="loans-h" className="space-y-3">
         <h2 id="loans-h" className="text-lg font-semibold text-ink">{t("loans.heading")}</h2>
-        {o.loans.length === 0 ? <EmptyState title={t("loans.empty")} /> : <ul className="grid gap-3">{o.loans.map((l) => <LoanRow key={l.id} l={l} t={t} date={date} />)}</ul>}
+        {o.loans.length === 0 ? <EmptyState title={t("loans.empty")} /> : <ul className="grid gap-3">{o.loans.map((l) => <LoanRow key={l.id} l={l} q={o.exitQuotes[l.id]} t={t} date={date} />)}</ul>}
       </section>
     </div>
   );
@@ -162,7 +162,7 @@ function OfferApplication({ a, t, date, lender }: { a: ApplicationView; t: T; da
   );
 }
 
-function LoanRow({ l, t, date }: { l: LoanView; t: T; date: (iso: string) => string }) {
+function LoanRow({ l, q, t, date }: { l: LoanView; q?: CoolingOffQuote; t: T; date: (iso: string) => string }) {
   return (
     <li>
       <Card>
@@ -180,8 +180,34 @@ function LoanRow({ l, t, date }: { l: LoanView; t: T; date: (iso: string) => str
             <div><dt className="text-muted">{t("loans.outstanding")}</dt><dd className="font-medium"><Money paise={l.outstandingPaise} /></dd></div>
             <div><dt className="text-muted">{t("loans.due", { date: date(l.dueAt) })}</dt></div>
           </dl>
+          {l.status === "cancelled" ? (
+            <div className="rounded-card border border-line p-3">
+              <p>{l.cancelReason === "cooling_off" ? t("loans.cancelledExit") : t("loans.cancelledPartner")}</p>
+              {l.exitAmountPaise !== null ? <p className="mt-1"><span className="text-muted">{t("loans.exitOwed")}: </span><span className="font-medium"><Money paise={l.exitAmountPaise} /></span></p> : null}
+            </div>
+          ) : null}
+          {q ? <ExitPanel q={q} l={l} t={t} date={date} /> : null}
         </CardBody>
       </Card>
     </li>
+  );
+}
+
+/** Cooling-off exit offer (RBI): exact amount first, then a separate explicit confirmation. */
+function ExitPanel({ q, l, t, date }: { q: CoolingOffQuote; l: LoanView; t: T; date: (iso: string) => string }) {
+  return (
+    <section aria-label={t("exit.heading")} className="rounded-card border border-line p-4">
+      <h3 className="font-semibold text-ink">{t("exit.heading")}</h3>
+      <p className="mt-1 text-muted">{t("exit.intro", { date: date(q.windowEndsAt) })}</p>
+      <dl className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+        <div><dt className="text-muted">{t("exit.principal")}</dt><dd className="font-medium"><Money paise={q.principalPaise} /></dd></div>
+        <div><dt className="text-muted">{t("exit.interest", { days: q.interestDays })}</dt><dd className="font-medium"><Money paise={q.interestPaise} /></dd></div>
+        <div><dt className="text-muted">{q.feesWaived ? t("exit.feesWaived") : t("exit.fees")}</dt><dd className="font-medium"><Money paise={q.feesPaise} /></dd></div>
+        {q.repaidPaise > 0 ? <div><dt className="text-muted">{t("loans.repaid")}</dt><dd className="font-medium"><Money paise={q.repaidPaise} /></dd></div> : null}
+        <div><dt className="text-muted">{t("exit.total")}</dt><dd className="font-semibold text-ink"><Money paise={q.payablePaise} /></dd></div>
+      </dl>
+      <p className="mt-3 text-muted">{t(l.product === "bnpl" ? "exit.note_bnpl" : "exit.note_invoice_financing")}</p>
+      <div className="mt-3"><ExitLoanForm loanId={l.id} payablePaise={q.payablePaise} lender={q.lenderName} /></div>
+    </section>
   );
 }

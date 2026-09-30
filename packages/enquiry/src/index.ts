@@ -16,3 +16,5 @@ export * from "./orders";
 export * from "./retention";
 export * from "./reachability";
 export * from "./benchmarks";
+export * from "./quotes";
+export * from "./fulfilment";

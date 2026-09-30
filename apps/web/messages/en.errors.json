@@ -1,0 +1,166 @@
+{
+  "errors": {
+    "common": {
+      "fixFields": "Please fix the highlighted fields."
+    },
+    "auth": {
+      "notSignedIn": "Not signed in.",
+      "signInExpired": "Your sign-in expired. Please sign in again.",
+      "pleaseSignIn": "Please sign in again.",
+      "sessionExpired": "Session expired. Please sign in again.",
+      "invalidCredentials": "Invalid email or password",
+      "emailExists": "An account with this email already exists. Try signing in.",
+      "resetInvalid": "This reset link is invalid or has expired.",
+      "codeIncorrectExpired": "That code is incorrect or has expired.",
+      "codeIncorrectUsed": "That code is incorrect or has already been used.",
+      "tooManyAttempts": "Too many incorrect attempts. Request a new code.",
+      "accountUnavailable": "This account is no longer available.",
+      "accountDeleted": "This account has been deleted.",
+      "googleFailed": "Google sign-in failed. Please try again.",
+      "googleUnverified": "Your Google account email is not verified.",
+      "mfaAlreadyOn": "Two-factor authentication is already enabled.",
+      "humanCheck": "We couldn't verify that you're human. Please retry the check and submit again.",
+      "phoneInvalid": "Enter a valid phone number with country code.",
+      "phoneTaken": "This phone number is already linked to another account.",
+      "verifyPhoneFirst": "Verify your mobile number first."
+    },
+    "kyc": {
+      "ownerOnly": "Only the business owner (authorised signatory) can complete KYC.",
+      "sessionNotFound": "KYC session not found.",
+      "gstinFirst": "Verify your GSTIN first (Tier 1) before starting KYC.",
+      "alreadyVerified": "This business is already KYC verified.",
+      "expired": "This KYC session has expired. Start again.",
+      "notAccepting": "This KYC session is no longer accepting documents."
+    },
+    "gst": {
+      "addFirst": "Add a GSTIN first.",
+      "taken": "This GSTIN is already registered to another business.",
+      "panMismatch": "PAN must match characters 3–12 of the GSTIN."
+    },
+    "company": {
+      "ownerOnly": "Only a business owner can change company details."
+    },
+    "listings": {
+      "notYours": "Not your listing",
+      "archivedEdit": "Archived listings cannot be edited",
+      "archivedSubmit": "Archived listings cannot be submitted",
+      "noChanges": "Nothing has changed since the live version",
+      "imageNotFound": "Image not found",
+      "tooManyUploads": "Too many uploads. Please try again in a while.",
+      "tooManyVoice": "Too many voice notes. Please try again in a while.",
+      "voiceSilent": "We could not hear anything in that recording. Please try again, closer to the microphone.",
+      "tooManyDrafts": "Too many photo drafts. Please try again in a while.",
+      "describeLength": "Describe your product in 3-5000 characters",
+      "categoryProhibited": "This category is not allowed on the marketplace."
+    },
+    "conversations": {
+      "notFound": "Conversation not found",
+      "closed": "This conversation is closed.",
+      "tooFast": "You are sending messages too fast. Wait a moment."
+    },
+    "quotes": {
+      "sellerOnly": "Only the seller can send a quote.",
+      "acceptFirst": "Accept the lead before drafting a quote.",
+      "assistDisabled": "Quote assist is not enabled.",
+      "tooManyDrafts": "Too many draft requests. Try again later.",
+      "draftNotFound": "Draft not found",
+      "draftHandled": "This draft was already handled.",
+      "draftSent": "This draft was already sent.",
+      "notFound": "Quote not found",
+      "setLimits": "Set a target price, a maximum price or a delivery limit first.",
+      "noCounterFits": "No counter fits your limits for this quote. Adjust your maximum price or negotiate by message."
+    },
+    "leads": {
+      "windowPassed": "The 2-hour response window for this lead has passed.",
+      "requirementClosed": "This requirement is no longer open.",
+      "cannotDecline": "This lead can no longer be declined.",
+      "refundWindowPassed": "The 72-hour refund window for this lead has passed.",
+      "buyerStillNeeds": "The buyer confirmed they still need this. Please contact them again.",
+      "onlyAcceptedReport": "Only accepted leads can be reported.",
+      "notFound": "Lead not found",
+      "requirementNotFound": "Requirement not found",
+      "postLimit": "You have posted many requirements this hour. Please try again a little later.",
+      "pickOne": "Pick at least one seller.",
+      "notOpenForPicking": "This requirement is not open for picking."
+    },
+    "credits": {
+      "insufficient": "Not enough lead credits. Top up on the pricing page to accept this lead."
+    },
+    "orders": {
+      "notFound": "Order not found",
+      "onlyAccepted": "Only accepted leads can become orders.",
+      "needItem": "An order needs at least one item.",
+      "quantity": "Quantity must be a whole number above 0.",
+      "inrOnly": "Only INR orders are supported."
+    },
+    "billing": {
+      "samePlan": "You are already on this plan.",
+      "paidFromCheckout": "Paid plans start from checkout.",
+      "noPlanToCancel": "You have no paid plan to cancel.",
+      "planNotFound": "Plan not found",
+      "packNotFound": "Credit pack not found",
+      "addPhone": "Add a phone number to your account to pay.",
+      "freePlan": "The free plan needs no payment.",
+      "couponsUnavailable": "Coupons are not available right now.",
+      "nothingToPay": "Nothing to pay after the discount.",
+      "paymentOrderNotFound": "Payment order not found",
+      "paymentNotFound": "Payment not found",
+      "invoiceNotFound": "Invoice not found",
+      "adWalletLow": "Not enough ad wallet balance",
+      "refundExceeds": "Refund exceeds the amount paid",
+      "onlyPaidRefund": "Only paid orders can be refunded"
+    },
+    "reviews": {
+      "ownProduct": "You can't review your own product.",
+      "alreadyReviewed": "You've already reviewed this product. Refresh to edit your review.",
+      "sellerReplyOnly": "Only the seller can reply to this review.",
+      "sellerAnswerOnly": "Only the seller can reply to a question.",
+      "questionGone": "That question no longer exists.",
+      "tooManyActions": "Too many actions. Please slow down.",
+      "productUnavailable": "This product is not available."
+    },
+    "disputes": {
+      "notFound": "Dispute not found",
+      "alreadyOpen": "There is already an open dispute for this order.",
+      "describe": "Describe the problem in at least 10 characters (or attach a voice note).",
+      "claimTooHigh": "The amount you claim cannot exceed the value of the order.",
+      "evidenceClosed": "Evidence can no longer be added: the case is already being reviewed.",
+      "evidenceLimit": "You have reached the evidence limit for this case.",
+      "fileTooBig": "Each file must be 8 MB or smaller.",
+      "fileEmpty": "The file is empty.",
+      "messageLength": "Write a message of up to 2000 characters.",
+      "otherPartyRespond": "Only the other party can respond to a dispute you opened.",
+      "openerWithdraw": "Only the party that opened the dispute can withdraw it.",
+      "voiceConsent": "Please consent to us storing and transcribing your voice note (DPDP).",
+      "appealDecidedOnly": "Only a decided dispute can be appealed.",
+      "alreadyAppealed": "You have already appealed this decision.",
+      "appealReason": "Explain why you are appealing (10 to 2000 characters)."
+    },
+    "escrow": {
+      "notFound": "Escrow not found",
+      "frozenDispute": "Escrow is frozen while a dispute is open.",
+      "releaseFunded": "Only a funded escrow can be released.",
+      "notDispatched": "The seller has not dispatched this order yet.",
+      "noFunds": "No funds are held for this escrow.",
+      "amountExceeds": "Amount exceeds the funds held in escrow.",
+      "unavailable": "Escrow is not available yet."
+    },
+    "lending": {
+      "consentApply": "Consent to credit underwriting is required before you can apply.",
+      "consent": "Consent to credit underwriting is required.",
+      "choosePeriod": "Choose one of the offered repayment periods.",
+      "activeApplication": "There is already an active credit application for this order.",
+      "partnerDown": "Our lending partner is unavailable right now. Please try again later.",
+      "offerNotFound": "Offer not found.",
+      "confirmKfs": "Please confirm that you have read the Key Fact Statement.",
+      "termsChanged": "The terms have changed. Please review the Key Fact Statement again.",
+      "offerClosed": "This offer is no longer open.",
+      "offerExpired": "This offer has expired.",
+      "unavailable": "Credit is not available yet."
+    },
+    "wishlist": {
+      "tooFast": "You're saving items too quickly. Please wait a minute and try again.",
+      "nameTaken": "You already have a list with that name"
+    }
+  }
+}

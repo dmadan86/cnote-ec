@@ -1,4 +1,5 @@
 import { prisma, type CreditApplication, type CreditLoan, type CreditOffer } from "@cnote/db";
+import { DAY_MS, creditConfig } from "./config";
 import { getCreditPartner } from "./partner";
 import type { ApplicationStatus, ApplicationView, Kfs, LoanStatus, LoanView, OfferView, Product } from "./types";
 
@@ -9,7 +10,9 @@ export const toOfferView = (o: CreditOffer): OfferView => ({
   interestPaise: num(o.interestPaise), totalRepayablePaise: num(o.totalRepayablePaise), kfs: o.kfs as unknown as Kfs, status: o.status, expiresAt: o.expiresAt.toISOString(),
 });
 
-export const outstandingOf = (l: Pick<CreditLoan, "totalRepayablePaise" | "repaidPaise">): number => Math.max(0, num(l.totalRepayablePaise) - num(l.repaidPaise));
+/** What is still owed to the lender; a cancelled (cooling-off) loan owes nothing to the mirror: the exit amount is settled by the borrower with the lender. */
+export const outstandingOf = (l: Pick<CreditLoan, "totalRepayablePaise" | "repaidPaise"> & { status?: string }): number =>
+  l.status === "cancelled" ? 0 : Math.max(0, num(l.totalRepayablePaise) - num(l.repaidPaise));
 
 export function toLoanView(l: CreditLoan, repayments: { amountPaise: bigint; source: string; paidAt: Date }[] = []): LoanView {
   return {
@@ -17,6 +20,7 @@ export function toLoanView(l: CreditLoan, repayments: { amountPaise: bigint; sou
     principalPaise: num(l.principalPaise), aprBps: l.aprBps, tenorDays: l.tenorDays, totalRepayablePaise: num(l.totalRepayablePaise), repaidPaise: num(l.repaidPaise),
     outstandingPaise: outstandingOf(l), status: l.status as LoanStatus, dpd: l.dpd, disbursedAt: l.disbursedAt.toISOString(), dueAt: l.dueAt.toISOString(),
     closedAt: l.closedAt?.toISOString() ?? null,
+    coolingOffEndsAt: new Date(l.disbursedAt.getTime() + creditConfig().coolingOffDays * DAY_MS).toISOString(), exitAmountPaise: l.exitAmountPaise === null ? null : num(l.exitAmountPaise), cancelReason: l.cancelReason,
     repayments: repayments.map((r) => ({ amountPaise: num(r.amountPaise), source: r.source, paidAt: r.paidAt.toISOString() })),
   };
 }

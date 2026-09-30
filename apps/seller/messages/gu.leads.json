@@ -111,8 +111,34 @@
         "enterWholeDays": "પૂરા દિવસ લખો.",
         "chooseDate": "માન્ય તારીખ પસંદ કરો.",
         "notesMax": "નોંધ 1,000 અક્ષરથી ઓછી રાખો.",
-        "dealValue": "સોદાની કિંમત રૂપિયામાં લખો."
-      }
+        "dealValue": "સોદાની કિંમત રૂપિયામાં લખો.",
+        "moqPositive": "ન્યૂનતમ ઓર્ડર 0 થી વધુ પૂર્ણ સંખ્યા હોવો જોઈએ.",
+        "chargeInvalid": "ડિલિવરી ચાર્જ રૂપિયામાં લખો (0 કે વધુ)."
+      },
+      "moq": "ન્યૂનતમ ઓર્ડર જથ્થો",
+      "deliveryTerms": "ડિલિવરીની શરતો",
+      "deliveryCharge": "ડિલિવરી ચાર્જ (₹, કુલ)",
+      "deliveryNote": "ડિલિવરી નોંધ",
+      "paymentTerms": "ચુકવણીની શરતો",
+      "paymentNote": "ચુકવણી નોંધ",
+      "gst": "જીએસટી",
+      "notStated": "જણાવ્યું નથી",
+      "gstIncluded": "ભાવમાં સામેલ",
+      "gstExtra": "ઉપરથી વધારાનું",
+      "termsToggle": "ડિલિવરી, ચુકવણી અને જીએસટીની શરતો ઉમેરો (વૈકલ્પિક)",
+      "termsHint": "સ્પષ્ટ શરતોથી વધુ જવાબ મળે છે અને તમારા ક્વોટની સરખામણી સરળ બને છે.",
+      "delivery_ex_works": "એક્સ-વર્ક્સ (ખરીદદાર તમારી પાસેથી લે છે)",
+      "delivery_fob": "FOB",
+      "delivery_door_delivery": "દરવાજે ડિલિવરી",
+      "delivery_buyer_pickup": "ખરીદદાર જાતે લેશે",
+      "delivery_other": "અન્ય",
+      "payment_advance": "અગાઉથી ચુકવણી",
+      "payment_on_delivery": "ડિલિવરી વખતે ચુકવણી",
+      "payment_net_7": "7 દિવસમાં ચુકવણી",
+      "payment_net_15": "15 દિવસમાં ચુકવણી",
+      "payment_net_30": "30 દિવસમાં ચુકવણી",
+      "payment_escrow": "એસ્ક્રો",
+      "payment_other": "અન્ય"
     },
     "_meta": {
       "review": "machine-drafted; needs native review"

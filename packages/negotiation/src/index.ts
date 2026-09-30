@@ -16,3 +16,4 @@ export {
   type PriceTier, type BuyerBoundsInput, type BoundsResult, type Landed,
 } from "./bounds";
 export { worker, DRAFT_TOPIC } from "./worker";
+export { hasStructuredTerms, structuredComparisonTerms, mapShippingTerms, mapPaymentTerms, type StructuredTerms } from "./terms";

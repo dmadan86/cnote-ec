@@ -1,0 +1,30 @@
+{
+  "orderTracking": {
+    "heading": "Delivery progress",
+    "stepsLabel": "Delivery steps",
+    "step": {
+      "packed": "Packed",
+      "dispatched": "Dispatched",
+      "in_transit": "In transit",
+      "out_for_delivery": "Out for delivery",
+      "delivered": "Delivered"
+    },
+    "state": {
+      "done": "Done",
+      "current": "Current step",
+      "upcoming": "Not yet"
+    },
+    "updates": "Updates",
+    "noUpdates": "No delivery updates yet.",
+    "stage": {
+      "packed": "Packed",
+      "in_transit": "In transit",
+      "out_for_delivery": "Out for delivery",
+      "delivery_attempted": "Delivery attempted"
+    },
+    "trackingBoth": "Courier {courier}, tracking number {ref}",
+    "trackingCourier": "Courier {courier}",
+    "trackingRef": "Tracking number {ref}",
+    "intro": "Your seller updates this as the goods move. It does not change the order status or any payment."
+  }
+}

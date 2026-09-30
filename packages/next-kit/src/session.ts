@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { appRealm, realmAuth, realmCookies } from "./realm";
+import { clientIp } from "@cnote/security/client-ip";
 
 export type SessionWithBusiness = Session & { business: NonNullable<Session["business"]> };
 
@@ -39,6 +40,6 @@ export function actorOf(s: SessionWithBusiness): { personId: string; businessId:
  */
 export async function requestContext(): Promise<AuthContext & { ip: string | null; userAgent: string | null }> {
   const h = await headers();
-  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip")?.trim() || null;
+  const ip = clientIp(h);
   return { ip, userAgent: h.get("user-agent"), ...realmAuth() };
 }

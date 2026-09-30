@@ -1,0 +1,311 @@
+{
+  "uid": "cnote-trust",
+  "title": "Trust: leads, refunds, response",
+  "description": "ADR-002/003 trust metrics.",
+  "tags": [
+    "cnote"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "refresh": "5m",
+  "timezone": "Asia/Kolkata",
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Lead to conversation",
+      "description": "metric_daily.lead_to_conversation_rate; cohort-anchored, recent days keep changing until the window matures (docs/design/metrics.md).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"lead_to_conversation_rate\" FROM metric_daily WHERE metric='lead_to_conversation_rate' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Auto-refund rate (<10%)",
+      "description": "metric_daily.auto_refund_rate; cohort-anchored, recent days keep changing until the window matures (docs/design/metrics.md).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"auto_refund_rate\" FROM metric_daily WHERE metric='auto_refund_rate' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Median lead response, minutes (SLO 120)",
+      "description": "metric_daily.median_lead_response_minutes; cohort-anchored, recent days keep changing until the window matures (docs/design/metrics.md).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"median_lead_response_minutes\" FROM metric_daily WHERE metric='median_lead_response_minutes' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Leads per enquiry (fan-out cap)",
+      "description": "metric_daily.leads_per_enquiry; cohort-anchored, recent days keep changing until the window matures (docs/design/metrics.md).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"leads_per_enquiry\" FROM metric_daily WHERE metric='leads_per_enquiry' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "False-badge proxy (<0.5%)",
+      "description": "metric_daily.false_badge_proxy; cohort-anchored, recent days keep changing until the window matures (docs/design/metrics.md).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"false_badge_proxy\" FROM metric_daily WHERE metric='false_badge_proxy' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Enquiries held for review",
+      "description": "metric_daily.enquiry_review_hold_rate; cohort-anchored, recent days keep changing until the window matures (docs/design/metrics.md).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, value AS \"enquiry_review_hold_rate\" FROM metric_daily WHERE metric='enquiry_review_hold_rate' AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Volumes: enquiries, leads accepted, credits consumed/refunded",
+      "description": "Context for the rates. Credit refunds must follow the 72h auto-refund promise.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, metric, value FROM metric_daily WHERE metric IN ('leads_accepted','credits_consumed','credits_refunded','enquiries_created') AND dimension='' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Auto-refund rate by category",
+      "description": "Category breakdown (dimension 'category:<slug>').",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cnote-pg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cnote-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, dimension AS category, value FROM metric_daily WHERE metric='auto_refund_rate' AND dimension<>'' AND $__timeFilter(day) ORDER BY day"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    }
+  ]
+}

@@ -18,7 +18,7 @@ describe("runBenchmarks", () => {
     const res = await runBenchmarks({ trigger: "manual", k: 5 });
     expect(res!.cells).toBeGreaterThan(0);
     const cells = await cellsOf(cat.id);
-    expect(cells.map((c) => `${c.region}/${c.tier}`).sort()).toEqual(["maharashtra/all", "maharashtra/t1", "national/all", "national/t1"]);
+    expect(cells.map((c) => `${c.region}/${c.tier}`).sort()).toEqual(["maharashtra/all", "maharashtra/t1", "national/all", "national/t1", "pin-400/all", "pin-400/t1"]);
     const c = cells.find((x) => x.region === "national" && x.tier === "all")!;
     expect(c).toMatchObject({ unit: "kg", sampleCount: 6, escrowCount: 2, quoteCount: 4, sellerCount: 6, buyerCount: 6, k: 5, status: "published" });
     expect(Number(c.p25Paise)).toBeLessThanOrEqual(Number(c.p50Paise));
@@ -100,6 +100,38 @@ describe("runBenchmarks", () => {
   });
 });
 
+describe("pincode zone cells and roll-up (zone -> state -> national)", () => {
+  it("publishes a zone cell only when the zone itself has k sellers and buyers; the state cell still covers the thin zone", async () => {
+    const cat = await mkCategory("zones");
+    // Mumbai zone (400) has 6 independent parties; Pune zone (411) only 3 more: state Maharashtra reaches 9, Pune zone stays below k
+    await seedQualifying(cat.id, 6, 1000, { quantity: 50, pincode: "400001" });
+    const [pb, ps] = [await mkParty(3, false), await mkParty(3, true)];
+    for (let i = 0; i < 3; i++) await mkQuote({ categoryId: cat.id, buyer: pb[i]!, seller: ps[i]!, price: 1100, quantity: 50, pincode: "411001" });
+    await runBenchmarks({ trigger: "manual", k: 5 });
+    const regions = [...new Set((await cellsOf(cat.id)).map((c) => c.region))].sort();
+    expect(regions).toEqual(["maharashtra", "national", "pin-400"]);
+    const pune = await getPublicBenchmark({ categoryId: cat.id, quantity: 60, unit: "kg", pincode: "411001" });
+    expect(pune!.scope).toMatchObject({ region: "maharashtra", regionLabel: "Maharashtra", rolledUp: true, volume: "band" });
+    expect(pune!.sampleCount).toBe(9);
+    const mumbai = await getPublicBenchmark({ categoryId: cat.id, quantity: 60, unit: "kg", pincode: "400099" });
+    expect(mumbai!.scope).toMatchObject({ region: "pin-400", rolledUp: false });
+    // unmapped / APS pincode falls back to national
+    const aps = await getPublicBenchmark({ categoryId: cat.id, quantity: 60, unit: "kg", pincode: "900001" });
+    expect(aps!.scope).toMatchObject({ region: "national", rolledUp: false });
+  });
+
+  it("a zone cell dominated by one seller is suppressed and falls back to the state cell", async () => {
+    const cat = await mkCategory("zone-dominance");
+    await seedQualifying(cat.id, 10, 1000, { quantity: 50, pincode: "560001" }); // Bengaluru zone, healthy
+    const [pb, ps] = [await mkParty(8, false), await mkParty(1, true)];
+    for (let i = 0; i < 8; i++) await mkQuote({ categoryId: cat.id, buyer: pb[i]!, seller: ps[0]!, price: 1005, quantity: 50, pincode: "570001" }); // Mysuru zone, one seller
+    await runBenchmarks({ trigger: "manual", k: 5 });
+    expect(new Set((await cellsOf(cat.id)).map((c) => c.region))).not.toContain("pin-570");
+    const r = await getPublicBenchmark({ categoryId: cat.id, quantity: 60, unit: "kg", pincode: "570001" });
+    expect(r!.scope.region).toBe("karnataka");
+  });
+});
+
 describe("public lookup and roll-up", () => {
   it("returns the state band, rolls up to national, converts units, hides everything with the flag off", async () => {
     const cat = await mkCategory("lookup");
@@ -110,7 +142,7 @@ describe("public lookup and roll-up", () => {
     await runBenchmarks({ trigger: "manual", k: 5 });
 
     const mh = await getPublicBenchmark({ categoryId: cat.id, quantity: 60, unit: "kg", pincode: "400050" });
-    expect(mh).toMatchObject({ indicative: true, unit: "kg", scope: { region: "maharashtra", volume: "band", rolledUp: false }, sampleCount: 6 });
+    expect(mh).toMatchObject({ indicative: true, unit: "kg", scope: { region: "pin-400", regionLabel: "PIN 400xxx", volume: "band", rolledUp: false }, sampleCount: 6 });
     expect(mh!.p25Paise).toBeLessThanOrEqual(mh!.medianPaise);
     expect(mh!.medianPaise).toBeLessThanOrEqual(mh!.p75Paise);
     expect(Object.keys(mh!).sort()).toEqual(["indicative", "medianPaise", "p25Paise", "p75Paise", "period", "sampleCount", "scope", "trendBps", "unit"]);
@@ -120,6 +152,8 @@ describe("public lookup and roll-up", () => {
     // different volume band with no data rolls up to all volumes
     const big = await getPublicBenchmark({ categoryId: cat.id, quantity: 5000, unit: "kg", state: "Maharashtra" });
     expect(big!.scope).toMatchObject({ region: "maharashtra", volume: "all", rolledUp: true });
+    const bigZone = await getPublicBenchmark({ categoryId: cat.id, quantity: 5000, unit: "kg", pincode: "400001" });
+    expect(bigZone!.scope).toMatchObject({ region: "pin-400", volume: "all", rolledUp: true });
     // unit conversion: per-kg -> per-tonne
     const tonne = await getPublicBenchmark({ categoryId: cat.id, quantity: 1, unit: "tonne", pincode: "400001" });
     expect(tonne!.unit).toBe("tonne");
@@ -155,7 +189,7 @@ describe("admin controls", () => {
     await seedQualifying(cat.id, 6, 900);
     await runBenchmarks({ trigger: "manual", k: 5 });
     const cells = await listCells({ categoryId: cat.id, status: "published" });
-    expect(cells.length).toBe(4);
+    expect(cells.length).toBe(6);
     expect(cells[0]!.categoryName).toContain("admin");
     const target = cells.find((c) => c.region === "national" && c.tier === "all")!;
     await expect(unpublishCell(target.id, null, "x")).rejects.toMatchObject({ code: "validation" });
@@ -166,13 +200,13 @@ describe("admin controls", () => {
     expect(after.find((c) => c.id === target.id)).toMatchObject({ status: "unpublished", unpublishedReason: "suspected manipulation" });
     expect(await getPublicBenchmark({ categoryId: cat.id, unit: "kg" })).toBeNull(); // the only coarse cell is down
     const hit = await getPublicBenchmark({ categoryId: cat.id, unit: "kg", pincode: "400001" });
-    expect(hit!.scope.region).toBe("maharashtra");
+    expect(hit!.scope.region).toBe("pin-400");
     const s = await adminSummary();
     expect(s.unpublishedCells).toBeGreaterThan(0);
     expect(s.latest?.status).toBe("completed");
     await republishCell(target.id);
     await expect(republishCell(target.id)).rejects.toMatchObject({ code: "not_found" });
-    expect((await listCells({ categoryId: cat.id, status: "published" })).length).toBe(4);
+    expect((await listCells({ categoryId: cat.id, status: "published" })).length).toBe(6);
   });
 
   it("k config is bounded and drives runs", async () => {

@@ -16,6 +16,10 @@ export {
   staffRefundEscrow, staffReleaseEscrow, runAutoRelease, expireUnfunded,
   type EscrowDetail, type EscrowOffer, type EscrowRow, type EscrowView, type FeeQuote,
 } from "./escrow";
+export {
+  escrowHistoryForBusiness, listEscrowsForBusiness,
+  type EscrowHistory, type EscrowPage, type EscrowRole,
+} from "./reads";
 export { handleEscrowWebhook, simulateMockFunding, type WebhookResult } from "./webhook";
 export { processPayouts } from "./payouts";
 export { listIssues, reconcile, resolveIssue, type IssueRow, type ReconcileResult } from "./reconcile";

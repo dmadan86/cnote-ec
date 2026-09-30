@@ -7,6 +7,7 @@ import { z } from "zod";
 import { locationBoost, rrfFuse, toCandidates, trustFactor } from "./fusion";
 import { getSearchIndex, type SearchFacets } from "./index-port";
 import { normaliseQuery } from "./normalise";
+import { expandQuery } from "./translit/variants";
 import { remoteSearch, searchFallbackEnabled, searchTransport, sharedSearchServiceClient } from "./remote";
 import type { SearchHit } from "./index";
 
@@ -40,7 +41,8 @@ export async function searchListingsLocal(opts: SearchOpts): Promise<SearchResul
   const started = Date.now();
   const { q, categorySlug, limit, cursor } = optsSchema.parse(opts);
   const nq = normaliseQuery(q);
-  const key = `search:q:v3:${createHash("sha1").update(JSON.stringify([getSearchIndex().backend, nq, categorySlug ?? null, limit, cursor ?? null])).digest("hex")}`;
+  const translit = translitEnabled();
+  const key = `search:q:v4:${createHash("sha1").update(JSON.stringify([getSearchIndex().backend, nq, categorySlug ?? null, limit, cursor ?? null, translit])).digest("hex")}`;
   // Cached per NORMALISED query (so "boxes for cosmetics in India" and "boxes cosmetics" share one entry): 2 min fresh +
   // 10 min stale-while-revalidate. Entries are tagged with every listing/seller they contain, so a moderation/archive/trust
   // event purges exactly the results that show it (hard); new publications refresh the `search` tag softly.
@@ -49,13 +51,16 @@ export async function searchListingsLocal(opts: SearchOpts): Promise<SearchResul
     key,
     (v: Page) => [cacheTags.search, ...(categorySlug ? [cacheTags.category(categorySlug)] : []), ...v.hits.flatMap((h) => [cacheTags.listing(h.listing.id), cacheTags.seller(h.seller.businessId)])],
     120,
-    () => run(nq, categorySlug, limit, cursor),
+    () => run(nq, categorySlug, limit, cursor, translit),
     { staleSeconds: 600, softTags: [cacheTags.search] },
   );
   return { hits: page.hits, tookMs: Date.now() - started, ...(page.nextCursor ? { nextCursor: page.nextCursor } : {}), ...(page.facets ? { facets: page.facets } : {}) };
 }
 
-async function run(nq: ReturnType<typeof normaliseQuery>, categorySlug: string | undefined, limit: number, cursor: string | undefined): Promise<Page> {
+/** SEARCH_TRANSLIT=off is a kill switch (and the eval baseline): cross-script variants are skipped, everything else is identical. */
+export const translitEnabled = () => process.env.SEARCH_TRANSLIT !== "off";
+
+async function run(nq: ReturnType<typeof normaliseQuery>, categorySlug: string | undefined, limit: number, cursor: string | undefined, translit: boolean): Promise<Page> {
   const empty: Page = { hits: [], nextCursor: null };
   let categoryId: string | null = null;
   let categoryName = "";
@@ -74,7 +79,9 @@ async function run(nq: ReturnType<typeof normaliseQuery>, categorySlug: string |
   } catch {
     embedding = undefined; // embedding outage degrades to lexical-only rather than failing search
   }
-  const res = await getSearchIndex().search({ text, location: nq.location, embedding, categoryId, limit: Math.max(30, limit * 3), cursor });
+  // Cross-script recall (ADR-004): transliteration + lexicon variants join the LEXICAL query only; embedding stays on `text`.
+  const variants = translit ? expandQuery(text) : [];
+  const res = await getSearchIndex().search({ text, location: nq.location, embedding, categoryId, limit: Math.max(30, limit * 3), cursor, ...(variants.length ? { variants } : {}) });
   const cands = toCandidates(res.hits);
   if (!cands.length) return { hits: [], nextCursor: null, facets: res.facets };
 

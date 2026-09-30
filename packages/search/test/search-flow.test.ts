@@ -118,7 +118,7 @@ describe("searchListings", () => {
     setSearchIndexForTests(fake({ backend: "postgres" }));
     await searchListings({ q: "boxes" });
     expect(new Set(calls.map((c) => c.key)).size).toBe(4);
-    expect(calls[0]!.key).toMatch(/^search:q:v3:[0-9a-f]{40}$/);
+    expect(calls[0]!.key).toMatch(/^search:q:v4:[0-9a-f]{40}$/);
   });
   it("cache tags include search, category, and every listing+seller shown", async () => {
     searchFn.mockResolvedValue({ hits: [hit("a", "s-hi")], nextCursor: null });

@@ -6,6 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
+    "./errors": "./src/error-catalogue.ts",
+    "./mfa-labels": "./src/mfa-labels.ts",
     "./proxy": "./src/proxy.ts",
     "./security": "./src/security.ts"
   },

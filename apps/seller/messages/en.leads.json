@@ -111,8 +111,34 @@
         "enterWholeDays": "Enter whole days.",
         "chooseDate": "Choose a valid date.",
         "notesMax": "Keep notes under 1,000 characters.",
-        "dealValue": "Enter the deal value in rupees."
-      }
+        "dealValue": "Enter the deal value in rupees.",
+        "moqPositive": "Minimum order must be a whole number above 0.",
+        "chargeInvalid": "Enter the delivery charge in rupees (0 or more)."
+      },
+      "moq": "Minimum order quantity",
+      "deliveryTerms": "Delivery terms",
+      "deliveryCharge": "Delivery charge (₹, total)",
+      "deliveryNote": "Delivery note",
+      "paymentTerms": "Payment terms",
+      "paymentNote": "Payment note",
+      "gst": "GST",
+      "notStated": "Not stated",
+      "gstIncluded": "Included in the price",
+      "gstExtra": "Extra on top",
+      "termsToggle": "Add delivery, payment and GST terms (optional)",
+      "termsHint": "Clear terms get more replies and make your quote easy to compare.",
+      "delivery_ex_works": "Ex-works (buyer collects from you)",
+      "delivery_fob": "FOB",
+      "delivery_door_delivery": "Door delivery",
+      "delivery_buyer_pickup": "Buyer pickup",
+      "delivery_other": "Other",
+      "payment_advance": "Advance payment",
+      "payment_on_delivery": "Pay on delivery",
+      "payment_net_7": "Net 7 days",
+      "payment_net_15": "Net 15 days",
+      "payment_net_30": "Net 30 days",
+      "payment_escrow": "Escrow",
+      "payment_other": "Other"
     }
   }
 }

@@ -9,11 +9,8 @@ export const LANGUAGES = [
   { code: "bn", label: "Bengali", native: "বাংলা" },
 ] as const;
 
-export const STATES = [
-  "Andhra Pradesh", "Assam", "Bihar", "Chhattisgarh", "Delhi", "Goa", "Gujarat", "Haryana", "Himachal Pradesh",
-  "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Odisha", "Punjab", "Rajasthan",
-  "Tamil Nadu", "Telangana", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Other",
-] as const;
+/** Indian state names as stored (English). Labels are translated through the `states` namespace; see lib/states.ts. */
+export { STATE_NAMES as STATES } from "./states";
 
 export const UNITS = ["pcs", "kg", "meter", "set", "ton", "box", "litre", "pair"] as const;
 

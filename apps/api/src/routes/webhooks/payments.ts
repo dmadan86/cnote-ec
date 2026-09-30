@@ -5,9 +5,10 @@ import { rateLimit } from "@cnote/core";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { AppEnv } from "../../types";
+import { clientIp } from "@cnote/security/client-ip";
 
 const MAX_BODY_BYTES = 256_000;
-const ip = (c: Context): string => c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+const ip = (c: Context): string => clientIp(c.req.raw.headers) ?? "unknown";
 
 export const paymentsWebhook = new Hono<AppEnv>();
 

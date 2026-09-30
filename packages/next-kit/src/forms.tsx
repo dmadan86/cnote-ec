@@ -3,6 +3,7 @@ import { Alert, Button, buttonClasses, Card, CardBody, Field, Input } from "@cno
 import Link from "next/link";
 import { useActionState, type ReactNode } from "react";
 import type { ActionResult } from "./action-result";
+import { localizeError } from "./error-catalogue";
 import { forgotPasswordAction, resetPasswordAction, signInAction, signUpAction } from "./actions";
 import { TurnstileWidget } from "./turnstile-client";
 
@@ -70,11 +71,13 @@ export interface AuthFormProps {
   paths?: { signIn?: string; signUp?: string; forgot?: string };
   /** Hide sign-up link (admin app). */
   allowSignUp?: boolean;
+  /** Looks up the translation of a stable error key (see error-catalogue.ts); unknown keys fall back to the English message. */
+  translateError?: (key: string) => string | undefined;
 }
 
 type State = ActionResult | null;
 const fieldError = (s: State, name: string) => (s && !s.ok ? s.fieldErrors?.[name] : undefined);
-const formError = (s: State) => (s && !s.ok && !s.fieldErrors ? s.error : undefined);
+const formError = (s: State, tr?: AuthFormProps["translateError"]) => (s && !s.ok && !s.fieldErrors ? (tr ? localizeError(s, tr) : s.error) : undefined);
 
 const withNext = (path: string, next?: string) => (next ? `${path}?next=${encodeURIComponent(next)}` : path);
 
@@ -113,11 +116,11 @@ const Divider = ({ label }: { label: string }) => (
   </div>
 );
 
-export function SignInForm({ next, googleEnabled, paths, allowSignUp = true, labels }: AuthFormProps) {
+export function SignInForm({ next, googleEnabled, paths, allowSignUp = true, labels, translateError }: AuthFormProps) {
   const L = { ...DEFAULT_AUTH_LABELS, ...labels };
   const [state, action, pending] = useActionState<State, FormData>(signInAction, null);
   return (
-    <Shell error={formError(state)}>
+    <Shell error={formError(state, translateError)}>
       {googleEnabled ? (
         <>
           <GoogleButton next={next} label={L.google} />
@@ -146,11 +149,11 @@ export function SignInForm({ next, googleEnabled, paths, allowSignUp = true, lab
   );
 }
 
-export function SignUpForm({ next, googleEnabled, paths, labels }: AuthFormProps) {
+export function SignUpForm({ next, googleEnabled, paths, labels, translateError }: AuthFormProps) {
   const L = { ...DEFAULT_AUTH_LABELS, ...labels };
   const [state, action, pending] = useActionState<State, FormData>(signUpAction, null);
   return (
-    <Shell error={formError(state)}>
+    <Shell error={formError(state, translateError)}>
       {googleEnabled ? (
         <>
           <GoogleButton next={next} label={L.google} />
@@ -189,11 +192,11 @@ export function SignUpForm({ next, googleEnabled, paths, labels }: AuthFormProps
   );
 }
 
-export function ForgotPasswordForm({ paths, labels }: AuthFormProps) {
+export function ForgotPasswordForm({ paths, labels, translateError }: AuthFormProps) {
   const L = { ...DEFAULT_AUTH_LABELS, ...labels };
   const [state, action, pending] = useActionState<State, FormData>(forgotPasswordAction, null);
   return (
-    <Shell error={formError(state)}>
+    <Shell error={formError(state, translateError)}>
       {state?.ok ? (
         <Alert tone="success">{L.forgotSent}</Alert>
       ) : (
@@ -211,11 +214,11 @@ export function ForgotPasswordForm({ paths, labels }: AuthFormProps) {
   );
 }
 
-export function ResetPasswordForm({ token, paths, labels }: AuthFormProps & { token: string }) {
+export function ResetPasswordForm({ token, paths, labels, translateError }: AuthFormProps & { token: string }) {
   const L = { ...DEFAULT_AUTH_LABELS, ...labels };
   const [state, action, pending] = useActionState<State, FormData>(resetPasswordAction, null);
   return (
-    <Shell error={formError(state)}>
+    <Shell error={formError(state, translateError)}>
       <form action={action} className="flex flex-col gap-4" noValidate>
         <input type="hidden" name="token" value={token} />
         <input type="hidden" name="redirectTo" value={`${paths?.signIn ?? "/signin"}?reset=1`} />

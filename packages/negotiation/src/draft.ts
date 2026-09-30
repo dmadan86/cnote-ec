@@ -8,6 +8,7 @@ import * as identity from "@cnote/identity";
 import { z } from "zod";
 import { checkSellerQuote, editStats, type DraftFields } from "./bounds";
 import { NIL_UUID, dateOnly, isQuoteAssistEnabled, isUuid, json, logAgentAction, type Actor } from "./common";
+import { mapShippingTerms } from "./terms";
 import { getPriceBookEntry, selectPriceBookForRfq } from "./pricebook";
 
 export interface QuoteDraftView {
@@ -47,11 +48,8 @@ const addDays = (from: Date, days: number) => new Date(from.getTime() + days * 8
 /** The seller's recent quotes through enquiry's public reads (auxiliary context: failures degrade to "no history"). */
 async function quoteHistory(sellerBusinessId: string): Promise<ai.DraftQuoteInput["history"]> {
   try {
-    const leads = (await enquiry.listSellerLeads(sellerBusinessId)).filter((l) => l.status === "accepted" && l.conversationId).slice(0, 10);
-    const actor = { personId: NIL_UUID, businessId: sellerBusinessId };
-    const quotes = (await Promise.all(leads.map((l) => enquiry.getConversation(actor, l.conversationId!)))).flatMap((c) => c?.quotes ?? []);
-    quotes.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return { quotesSent: quotes.length, recent: quotes.slice(0, 10).map((q) => ({ pricePaise: q.pricePaise, quantity: q.quantity, unit: q.unit, leadTimeDays: q.leadTimeDays })) };
+    const { items } = await enquiry.listSellerQuotes({ personId: NIL_UUID, businessId: sellerBusinessId }, { limit: 10 });
+    return { quotesSent: items.length, recent: items.map((q) => ({ pricePaise: q.pricePaise, quantity: q.quantity, unit: q.unit, leadTimeDays: q.leadTimeDays })) };
   } catch {
     return { quotesSent: 0, recent: [] };
   }
@@ -200,19 +198,20 @@ export async function approveDraft(actor: Actor, draftId: string, edits: DraftEd
   const claim = await prisma.quoteDraft.updateMany({ where: { id: d.id, status: "pending" }, data: { status: "approved", decidedByPersonId: actor.personId, decidedVia: via, decidedAt: new Date() } });
   if (claim.count === 0) throw new DomainError("conflict", "This draft was already handled.");
 
-  const before = new Set(((await enquiry.getConversation(actor, d.conversationId))?.quotes ?? []).map((q) => q.id));
-  const notes = [final.shippingTerms && !(final.notes ?? "").includes(final.shippingTerms) ? final.shippingTerms : null, final.notes].filter(Boolean).join("\n") || null;
+  // ADR-014 follow-up: shipping/MOQ/GST go into the structured quote fields, not folded into the notes.
+  const shipping = mapShippingTerms(final.shippingTerms);
+  let quoteId: string;
   try {
-    await enquiry.sendQuote(actor, d.conversationId, {
-      pricePaise: final.pricePaise, quantity: final.quantity, unit: final.unit, leadTimeDays: final.leadTimeDays, notes,
+    ({ quoteId } = await enquiry.sendQuote(actor, d.conversationId, {
+      pricePaise: final.pricePaise, quantity: final.quantity, unit: final.unit, leadTimeDays: final.leadTimeDays, notes: final.notes,
       validUntil: final.validUntil ? new Date(`${final.validUntil}T23:59:59+05:30`).toISOString() : null,
-    });
+      moq: d.moq, moqUnit: d.moq != null ? final.unit : null, deliveryTerms: shipping.deliveryTerms, deliveryNote: shipping.deliveryNote,
+      gstIncluded: book ? book.gstIncluded : null,
+    }));
   } catch (err) {
     await prisma.quoteDraft.updateMany({ where: { id: d.id, status: "approved", quoteId: null }, data: { status: "pending", decidedByPersonId: null, decidedVia: null, decidedAt: null } });
     throw err;
   }
-  const after = (await enquiry.getConversation(actor, d.conversationId))?.quotes ?? [];
-  const quoteId = (after.filter((q) => !before.has(q.id)).at(-1) ?? after.at(-1))?.id ?? null;
 
   const row = await prisma.$transaction(async (tx) => {
     const u = await tx.quoteDraft.update({
@@ -223,7 +222,7 @@ export async function approveDraft(actor: Actor, draftId: string, edits: DraftEd
         validUntil: final.validUntil ? new Date(final.validUntil) : null, notes: final.notes,
       },
     });
-    if (quoteId) await emit(tx, "QuoteDraftApproved", { type: "match", id: d.matchId }, { draftId: d.id, matchId: d.matchId, quoteId, sellerBusinessId: actor.businessId, edited });
+    await emit(tx, "QuoteDraftApproved", { type: "match", id: d.matchId }, { draftId: d.id, matchId: d.matchId, quoteId, sellerBusinessId: actor.businessId, edited });
     await tx.leadQuoteTiming.updateMany({ where: { conversationId: d.conversationId, assisted: false, firstQuoteAt: null }, data: { assisted: true } });
     await logAgentAction({
       principalBusinessId: actor.businessId, principalRole: "seller", action: "draft_approved", subjectType: "quote_draft", subjectId: d.id, enquiryId: d.enquiryId,

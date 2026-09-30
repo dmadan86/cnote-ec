@@ -10,13 +10,15 @@ export interface NormalisedQuery {
 const FILLERS = [
   "suppliers in", "supplier in", "manufacturers in", "manufacturer in", "looking for", "ke liye", "ke lie", "ke liy",
   "chahiye", "chahie", "chahiya", "chaiye", "wala", "wali", "wale", "mujhe", "hume", "humein", "need", "want", "please", "pls", "plz",
+  // Devanagari (Hindi/Marathi) fillers, so "मुझे कपास चाहिए" searches for "कपास"
+  "के लिए", "चाहिए", "चाहिये", "चहिए", "मुझे", "हमें", "कृपया", "वाला", "वाली", "वाले", "पाहिजे", "हवे", "का", "की", "के", "में", "से", "को",
 ];
 // "in <words>" at the end: up to 2 words. Generic tails are not places and must stay in the query.
 const NOT_A_PLACE = new Set(["bulk", "stock", "quantity", "wholesale", "large", "small", "all", "general", "demand", "wholesales", "retail", "different", "various"]);
 const COUNTRY = new Set(["india", "bharat"]);
-const LOC_RE = /(?<![\p{L}\p{N}])(?:in|near|at|from)\s+([\p{L}]+(?:\s[\p{L}]+)?)\s*$/u;
-const WORD = "(?<![\\p{L}\\p{N}])";
-const WORD_END = "(?![\\p{L}\\p{N}])";
+const LOC_RE = /(?<![\p{L}\p{M}\p{N}])(?:in|near|at|from)\s+([\p{L}\p{M}]+(?:\s[\p{L}\p{M}]+)?)\s*$/u;
+const WORD = "(?<![\\p{L}\\p{M}\\p{N}])"; // \p{M}: Indic vowel signs are marks, not letters
+const WORD_END = "(?![\\p{L}\\p{M}\\p{N}])";
 const FILLER_RE = new RegExp(`${WORD}(?:${FILLERS.map((f) => f.replace(/ /g, "\\s+")).join("|")})${WORD_END}`, "gu");
 
 export function normaliseQuery(raw: string): NormalisedQuery {
@@ -32,6 +34,6 @@ export function normaliseQuery(raw: string): NormalisedQuery {
       s = s.slice(0, m.index).trim();
     }
   }
-  const cleaned = s.replace(FILLER_RE, " ").replace(/[^\p{L}\p{N}\s\-+&/.']/gu, " ").replace(/\s+/g, " ").trim();
+  const cleaned = s.replace(FILLER_RE, " ").replace(/[^\p{L}\p{M}\p{N}\s\-+&/.']/gu, " ").replace(/\s+/g, " ").trim();
   return { text: cleaned || s, location };
 }

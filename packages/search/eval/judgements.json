@@ -1,0 +1,1197 @@
+{
+ "_doc": "Relevance judgement set for @cnote/search (ADR-009). Graded 3=ideal, 2=relevant, 1=related, absent=0. Listings are identified by stable PRODUCT-LINE slugs: the slug of the first title of each template in apps/worker/src/seed.ts (see `catalogue`: slug -> category + title variants). The eval maps a returned listing to its slug by exact (case-insensitive) title. This set is written against the DUMMY seed data; real catalogue data will replace it, at which point re-judge queries from real search logs and keep the file format.",
+ "catalogue": {
+  "custom-packaging-boxes": {
+   "category": "packaging-printing",
+   "titles": [
+    "Custom Packaging Boxes",
+    "Printed Corrugated Boxes"
+   ]
+  },
+  "paper-shopping-bags": {
+   "category": "packaging-printing",
+   "titles": [
+    "Paper Shopping Bags",
+    "Kraft Paper Carry Bags"
+   ]
+  },
+  "poly-mailer-bags": {
+   "category": "packaging-printing",
+   "titles": [
+    "Poly Mailer Bags",
+    "Courier Bags with Tamper Seal"
+   ]
+  },
+  "bopp-packaging-tape-48mm": {
+   "category": "packaging-printing",
+   "titles": [
+    "BOPP Packaging Tape 48mm",
+    "Brown Carton Sealing Tape"
+   ]
+  },
+  "glass-jars-with-lids": {
+   "category": "packaging-printing",
+   "titles": [
+    "Glass Jars with Lids",
+    "Airtight Glass Storage Jars"
+   ]
+  },
+  "hdpe-plastic-pallets": {
+   "category": "packaging-printing",
+   "titles": [
+    "HDPE Plastic Pallets",
+    "Heavy Duty Pallets"
+   ]
+  },
+  "plain-cotton-t-shirts": {
+   "category": "apparel-textiles",
+   "titles": [
+    "Plain Cotton T-Shirts",
+    "Round Neck Cotton T-Shirts"
+   ]
+  },
+  "polo-t-shirts-with-collar": {
+   "category": "apparel-textiles",
+   "titles": [
+    "Polo T-Shirts with Collar",
+    "Corporate Polo T-Shirts"
+   ]
+  },
+  "cotton-fabric": {
+   "category": "apparel-textiles",
+   "titles": [
+    "Cotton Fabric",
+    "Poplin Cotton Fabric"
+   ]
+  },
+  "denim-fabric-10-oz": {
+   "category": "apparel-textiles",
+   "titles": [
+    "Denim Fabric 10 oz",
+    "Stretch Denim Fabric"
+   ]
+  },
+  "cotton-bath-towels": {
+   "category": "apparel-textiles",
+   "titles": [
+    "Cotton Bath Towels",
+    "Terry Cotton Towels"
+   ]
+  },
+  "corporate-uniform-shirts": {
+   "category": "apparel-textiles",
+   "titles": [
+    "Corporate Uniform Shirts",
+    "Formal Uniform Shirts"
+   ]
+  },
+  "fleece-hoodies": {
+   "category": "apparel-textiles",
+   "titles": [
+    "Fleece Hoodies",
+    "Printed Hooded Sweatshirts"
+   ]
+  },
+  "hand-block-printed-fabric": {
+   "category": "apparel-textiles",
+   "titles": [
+    "Hand Block Printed Fabric",
+    "Jaipuri Print Cotton"
+   ]
+  },
+  "spiral-notebooks-a5": {
+   "category": "office-stationery",
+   "titles": [
+    "Spiral Notebooks A5",
+    "Ruled Spiral Notebooks"
+   ]
+  },
+  "ball-pens-pack": {
+   "category": "office-stationery",
+   "titles": [
+    "Ball Pens Pack",
+    "Blue Ball Point Pens"
+   ]
+  },
+  "a4-copier-paper-75-gsm": {
+   "category": "office-stationery",
+   "titles": [
+    "A4 Copier Paper 75 GSM",
+    "Multipurpose A4 Paper"
+   ]
+  },
+  "box-file-folders": {
+   "category": "office-stationery",
+   "titles": [
+    "Box File Folders",
+    "Lever Arch Files"
+   ]
+  },
+  "whiteboard-markers": {
+   "category": "office-stationery",
+   "titles": [
+    "Whiteboard Markers",
+    "Dry Erase Markers"
+   ]
+  },
+  "metal-desk-organisers": {
+   "category": "office-stationery",
+   "titles": [
+    "Metal Desk Organisers",
+    "Mesh Desk Organizer"
+   ]
+  },
+  "stainless-steel-bottles": {
+   "category": "home-kitchen",
+   "titles": [
+    "Stainless Steel Bottles",
+    "Insulated Steel Water Bottles"
+   ]
+  },
+  "ceramic-coffee-mugs": {
+   "category": "home-kitchen",
+   "titles": [
+    "Ceramic Coffee Mugs",
+    "White Ceramic Mugs"
+   ]
+  },
+  "stainless-steel-cookware-set": {
+   "category": "home-kitchen",
+   "titles": [
+    "Stainless Steel Cookware Set",
+    "Triply Cookware Set"
+   ]
+  },
+  "non-stick-kadhai": {
+   "category": "home-kitchen",
+   "titles": [
+    "Non-Stick Kadhai",
+    "Aluminium Non-stick Kadai"
+   ]
+  },
+  "cotton-bedsheets-double": {
+   "category": "home-kitchen",
+   "titles": [
+    "Cotton Bedsheets Double",
+    "Printed Double Bedsheets"
+   ]
+  },
+  "steel-lunch-boxes": {
+   "category": "home-kitchen",
+   "titles": [
+    "Steel Lunch Boxes",
+    "3-Tier Tiffin Boxes"
+   ]
+  },
+  "bluetooth-earphones": {
+   "category": "electronics-accessories",
+   "titles": [
+    "Bluetooth Earphones",
+    "Wireless Neckband Earphones"
+   ]
+  },
+  "usb-c-charging-cables": {
+   "category": "electronics-accessories",
+   "titles": [
+    "USB-C Charging Cables",
+    "Fast Charging USB Cable"
+   ]
+  },
+  "led-bulbs-9w": {
+   "category": "electronics-accessories",
+   "titles": [
+    "LED Bulbs 9W",
+    "B22 LED Bulbs"
+   ]
+  },
+  "power-banks-10000mah": {
+   "category": "electronics-accessories",
+   "titles": [
+    "Power Banks 10000mAh",
+    "Slim Power Banks"
+   ]
+  },
+  "extension-boards-4-socket": {
+   "category": "electronics-accessories",
+   "titles": [
+    "Extension Boards 4 Socket",
+    "Surge Protected Extension Board"
+   ]
+  },
+  "corporate-gift-sets": {
+   "category": "gifts-promotions",
+   "titles": [
+    "Corporate Gift Sets",
+    "Branded Executive Gift Set"
+   ]
+  },
+  "brass-table-decor-showpiece": {
+   "category": "gifts-promotions",
+   "titles": [
+    "Brass Table Decor Showpiece",
+    "Handcrafted Brass Decor"
+   ]
+  },
+  "customised-laptop-backpacks": {
+   "category": "gifts-promotions",
+   "titles": [
+    "Customised Laptop Backpacks",
+    "Branded Office Backpacks"
+   ]
+  },
+  "logo-printed-coffee-mugs": {
+   "category": "gifts-promotions",
+   "titles": [
+    "Logo Printed Coffee Mugs",
+    "Promotional Mugs"
+   ]
+  },
+  "festive-gift-hampers": {
+   "category": "gifts-promotions",
+   "titles": [
+    "Festive Gift Hampers",
+    "Diwali Gift Hampers"
+   ]
+  },
+  "leather-diaries": {
+   "category": "gifts-promotions",
+   "titles": [
+    "Leather Diaries",
+    "PU Leather Executive Diary"
+   ]
+  },
+  "office-chairs": {
+   "category": "furniture-fixtures",
+   "titles": [
+    "Office Chairs",
+    "Ergonomic Mesh Office Chair"
+   ]
+  },
+  "office-desks": {
+   "category": "furniture-fixtures",
+   "titles": [
+    "Office Desks",
+    "Modular Workstation Desk"
+   ]
+  },
+  "steel-almirah": {
+   "category": "furniture-fixtures",
+   "titles": [
+    "Steel Almirah",
+    "Two-Door Steel Cupboard"
+   ]
+  },
+  "stackable-visitor-chairs": {
+   "category": "furniture-fixtures",
+   "titles": [
+    "Stackable Visitor Chairs",
+    "Plastic Stackable Chairs"
+   ]
+  },
+  "heavy-duty-storage-racks": {
+   "category": "furniture-fixtures",
+   "titles": [
+    "Heavy Duty Storage Racks",
+    "Slotted Angle Racks"
+   ]
+  },
+  "herbal-hand-wash-5l": {
+   "category": "health-personal-care",
+   "titles": [
+    "Herbal Hand Wash 5L",
+    "Liquid Hand Wash Can"
+   ]
+  },
+  "3-ply-face-masks": {
+   "category": "health-personal-care",
+   "titles": [
+    "3-Ply Face Masks",
+    "Disposable Face Masks"
+   ]
+  },
+  "hand-sanitizer-500ml": {
+   "category": "health-personal-care",
+   "titles": [
+    "Hand Sanitizer 500ml",
+    "Alcohol Hand Sanitizer"
+   ]
+  },
+  "herbal-bathing-soap": {
+   "category": "health-personal-care",
+   "titles": [
+    "Herbal Bathing Soap",
+    "Neem Soap Bar"
+   ]
+  },
+  "ms-pipes": {
+   "category": "industrial-raw-materials",
+   "titles": [
+    "MS Pipes",
+    "Mild Steel Round Pipes"
+   ]
+  },
+  "stainless-steel-sheets-304": {
+   "category": "industrial-raw-materials",
+   "titles": [
+    "Stainless Steel Sheets 304",
+    "SS 304 Sheets"
+   ]
+  },
+  "hdpe-granules": {
+   "category": "industrial-raw-materials",
+   "titles": [
+    "HDPE Granules",
+    "Virgin HDPE Granules"
+   ]
+  },
+  "copper-wire-rods": {
+   "category": "industrial-raw-materials",
+   "titles": [
+    "Copper Wire Rods",
+    "Electrolytic Copper Wire"
+   ]
+  },
+  "aluminium-ingots": {
+   "category": "industrial-raw-materials",
+   "titles": [
+    "Aluminium Ingots",
+    "Primary Aluminium Ingots"
+   ]
+  },
+  "ms-angles": {
+   "category": "industrial-raw-materials",
+   "titles": [
+    "MS Angles",
+    "Mild Steel Angle Bars"
+   ]
+  },
+  "basmati-rice": {
+   "category": "agriculture-food-products",
+   "titles": [
+    "Basmati Rice",
+    "1121 Steam Basmati Rice"
+   ]
+  },
+  "turmeric-powder": {
+   "category": "agriculture-food-products",
+   "titles": [
+    "Turmeric Powder",
+    "Salem Turmeric Powder"
+   ]
+  },
+  "cashew-kernels-w320": {
+   "category": "agriculture-food-products",
+   "titles": [
+    "Cashew Kernels W320",
+    "Raw Cashew Kernels"
+   ]
+  },
+  "ctc-tea": {
+   "category": "agriculture-food-products",
+   "titles": [
+    "CTC Tea",
+    "Assam CTC Tea"
+   ]
+  },
+  "groundnut-oil": {
+   "category": "agriculture-food-products",
+   "titles": [
+    "Groundnut Oil",
+    "Cold Pressed Groundnut Oil"
+   ]
+  },
+  "vitrified-floor-tiles": {
+   "category": "building-construction",
+   "titles": [
+    "Vitrified Floor Tiles",
+    "Glazed Vitrified Tiles 2x2"
+   ]
+  },
+  "ppc-cement": {
+   "category": "building-construction",
+   "titles": [
+    "PPC Cement",
+    "Portland Pozzolana Cement"
+   ]
+  },
+  "tmt-steel-bars": {
+   "category": "building-construction",
+   "titles": [
+    "TMT Steel Bars",
+    "Fe 500D TMT Bars"
+   ]
+  },
+  "wall-putty-20kg": {
+   "category": "building-construction",
+   "titles": [
+    "Wall Putty 20kg",
+    "White Cement Wall Putty"
+   ]
+  },
+  "exterior-emulsion-paint-20l": {
+   "category": "building-construction",
+   "titles": [
+    "Exterior Emulsion Paint 20L",
+    "Weatherproof Exterior Paint"
+   ]
+  },
+  "kota-stone-slabs": {
+   "category": "building-construction",
+   "titles": [
+    "Kota Stone Slabs",
+    "Natural Kota Stone"
+   ]
+  },
+  "safety-helmets": {
+   "category": "industrial-mro-safety",
+   "titles": [
+    "Safety Helmets",
+    "Industrial Safety Helmet"
+   ]
+  },
+  "work-gloves": {
+   "category": "industrial-mro-safety",
+   "titles": [
+    "Work Gloves",
+    "Cotton Knitted Gloves"
+   ]
+  },
+  "safety-shoes": {
+   "category": "industrial-mro-safety",
+   "titles": [
+    "Safety Shoes",
+    "Steel Toe Safety Shoes"
+   ]
+  },
+  "hex-bolts-and-nuts": {
+   "category": "industrial-mro-safety",
+   "titles": [
+    "Hex Bolts and Nuts",
+    "Assorted MS Fasteners"
+   ]
+  },
+  "ball-bearings-6204": {
+   "category": "industrial-mro-safety",
+   "titles": [
+    "Ball Bearings 6204",
+    "Deep Groove Ball Bearing"
+   ]
+  },
+  "reflective-safety-jackets": {
+   "category": "industrial-mro-safety",
+   "titles": [
+    "Reflective Safety Jackets",
+    "Hi-Vis Vests"
+   ]
+  }
+ },
+ "queries": [
+  {
+   "id": "q001",
+   "lang": "en",
+   "query": "cotton t-shirts",
+   "relevant": {
+    "plain-cotton-t-shirts": 3,
+    "polo-t-shirts-with-collar": 2,
+    "corporate-uniform-shirts": 1,
+    "fleece-hoodies": 1
+   }
+  },
+  {
+   "id": "q002",
+   "lang": "en",
+   "query": "corrugated boxes for shipping",
+   "relevant": {
+    "custom-packaging-boxes": 3,
+    "bopp-packaging-tape-48mm": 1,
+    "poly-mailer-bags": 1
+   }
+  },
+  {
+   "id": "q003",
+   "lang": "en",
+   "query": "kraft paper bags",
+   "relevant": {
+    "paper-shopping-bags": 3,
+    "poly-mailer-bags": 1
+   }
+  },
+  {
+   "id": "q004",
+   "lang": "en",
+   "query": "stainless steel bottle",
+   "relevant": {
+    "stainless-steel-bottles": 3,
+    "steel-lunch-boxes": 1,
+    "stainless-steel-cookware-set": 1
+   }
+  },
+  {
+   "id": "q005",
+   "lang": "en",
+   "query": "basmati rice bulk",
+   "relevant": {
+    "basmati-rice": 3
+   }
+  },
+  {
+   "id": "q006",
+   "lang": "en",
+   "query": "led bulb",
+   "relevant": {
+    "led-bulbs-9w": 3
+   }
+  },
+  {
+   "id": "q007",
+   "lang": "en",
+   "query": "safety helmet",
+   "relevant": {
+    "safety-helmets": 3,
+    "reflective-safety-jackets": 1,
+    "safety-shoes": 1,
+    "work-gloves": 1
+   }
+  },
+  {
+   "id": "q008",
+   "lang": "en",
+   "query": "office chair",
+   "relevant": {
+    "office-chairs": 3,
+    "stackable-visitor-chairs": 2,
+    "office-desks": 1
+   }
+  },
+  {
+   "id": "q009",
+   "lang": "en",
+   "query": "cement bags",
+   "relevant": {
+    "ppc-cement": 3,
+    "wall-putty-20kg": 1
+   }
+  },
+  {
+   "id": "q010",
+   "lang": "en",
+   "query": "hand sanitizer",
+   "relevant": {
+    "hand-sanitizer-500ml": 3,
+    "herbal-hand-wash-5l": 2
+   }
+  },
+  {
+   "id": "q011",
+   "lang": "en",
+   "query": "copper wire",
+   "relevant": {
+    "copper-wire-rods": 3
+   }
+  },
+  {
+   "id": "q012",
+   "lang": "en",
+   "query": "steel pipes",
+   "relevant": {
+    "ms-pipes": 3,
+    "stainless-steel-sheets-304": 1,
+    "tmt-steel-bars": 1
+   }
+  },
+  {
+   "id": "q013",
+   "lang": "en",
+   "query": "denim fabric",
+   "relevant": {
+    "denim-fabric-10-oz": 3,
+    "cotton-fabric": 2,
+    "hand-block-printed-fabric": 1
+   }
+  },
+  {
+   "id": "q014",
+   "lang": "en",
+   "query": "corporate gift sets",
+   "relevant": {
+    "corporate-gift-sets": 3,
+    "festive-gift-hampers": 2,
+    "logo-printed-coffee-mugs": 1,
+    "leather-diaries": 1,
+    "customised-laptop-backpacks": 1
+   }
+  },
+  {
+   "id": "q015",
+   "lang": "en",
+   "query": "usb cable fast charging",
+   "relevant": {
+    "usb-c-charging-cables": 3,
+    "power-banks-10000mah": 1
+   }
+  },
+  {
+   "id": "q016",
+   "lang": "en",
+   "query": "power bank",
+   "relevant": {
+    "power-banks-10000mah": 3,
+    "usb-c-charging-cables": 1
+   }
+  },
+  {
+   "id": "q017",
+   "lang": "en",
+   "query": "ball pens",
+   "relevant": {
+    "ball-pens-pack": 3,
+    "whiteboard-markers": 1
+   }
+  },
+  {
+   "id": "q018",
+   "lang": "en",
+   "query": "turmeric powder",
+   "relevant": {
+    "turmeric-powder": 3
+   }
+  },
+  {
+   "id": "q019",
+   "lang": "en",
+   "query": "vitrified tiles",
+   "relevant": {
+    "vitrified-floor-tiles": 3,
+    "kota-stone-slabs": 2
+   }
+  },
+  {
+   "id": "q020",
+   "lang": "en",
+   "query": "ball bearings",
+   "relevant": {
+    "ball-bearings-6204": 3,
+    "hex-bolts-and-nuts": 1
+   }
+  },
+  {
+   "id": "q021",
+   "lang": "en",
+   "query": "exterior paint",
+   "relevant": {
+    "exterior-emulsion-paint-20l": 3,
+    "wall-putty-20kg": 2
+   }
+  },
+  {
+   "id": "q022",
+   "lang": "en",
+   "query": "cashew nuts",
+   "relevant": {
+    "cashew-kernels-w320": 3
+   }
+  },
+  {
+   "id": "q023",
+   "lang": "en",
+   "query": "notebooks",
+   "relevant": {
+    "spiral-notebooks-a5": 3,
+    "leather-diaries": 1
+   }
+  },
+  {
+   "id": "q024",
+   "lang": "en",
+   "query": "face mask",
+   "relevant": {
+    "3-ply-face-masks": 3,
+    "hand-sanitizer-500ml": 1
+   }
+  },
+  {
+   "id": "q025",
+   "lang": "en",
+   "query": "hdpe",
+   "relevant": {
+    "hdpe-granules": 3,
+    "hdpe-plastic-pallets": 2
+   }
+  },
+  {
+   "id": "q026",
+   "lang": "hinglish",
+   "query": "kapda",
+   "relevant": {
+    "cotton-fabric": 3,
+    "denim-fabric-10-oz": 2,
+    "hand-block-printed-fabric": 2
+   }
+  },
+  {
+   "id": "q027",
+   "lang": "hinglish",
+   "query": "chawal",
+   "relevant": {
+    "basmati-rice": 3
+   }
+  },
+  {
+   "id": "q028",
+   "lang": "hinglish",
+   "query": "haldi powder",
+   "relevant": {
+    "turmeric-powder": 3
+   }
+  },
+  {
+   "id": "q029",
+   "lang": "hinglish",
+   "query": "lohe ke pipe",
+   "relevant": {
+    "ms-pipes": 3,
+    "ms-angles": 1,
+    "tmt-steel-bars": 1
+   }
+  },
+  {
+   "id": "q030",
+   "lang": "hinglish",
+   "query": "dabba packing",
+   "relevant": {
+    "custom-packaging-boxes": 3,
+    "steel-lunch-boxes": 1,
+    "glass-jars-with-lids": 1
+   }
+  },
+  {
+   "id": "q031",
+   "lang": "hinglish",
+   "query": "thaila kraft paper",
+   "relevant": {
+    "paper-shopping-bags": 3,
+    "poly-mailer-bags": 2
+   }
+  },
+  {
+   "id": "q032",
+   "lang": "hinglish",
+   "query": "tel groundnut",
+   "relevant": {
+    "groundnut-oil": 3
+   }
+  },
+  {
+   "id": "q033",
+   "lang": "hinglish",
+   "query": "chai ctc",
+   "relevant": {
+    "ctc-tea": 3
+   }
+  },
+  {
+   "id": "q034",
+   "lang": "hinglish",
+   "query": "kaju",
+   "relevant": {
+    "cashew-kernels-w320": 3
+   }
+  },
+  {
+   "id": "q035",
+   "lang": "hinglish",
+   "query": "sasta t shirt",
+   "relevant": {
+    "plain-cotton-t-shirts": 3,
+    "polo-t-shirts-with-collar": 2
+   }
+  },
+  {
+   "id": "q036",
+   "lang": "hinglish",
+   "query": "safety joota",
+   "relevant": {
+    "safety-shoes": 3,
+    "safety-helmets": 1
+   }
+  },
+  {
+   "id": "q037",
+   "lang": "hinglish",
+   "query": "bijli ka bulb",
+   "relevant": {
+    "led-bulbs-9w": 3,
+    "extension-boards-4-socket": 1
+   }
+  },
+  {
+   "id": "q038",
+   "lang": "hinglish",
+   "query": "cement chahiye",
+   "relevant": {
+    "ppc-cement": 3
+   }
+  },
+  {
+   "id": "q039",
+   "lang": "hinglish",
+   "query": "kursi office ke liye",
+   "relevant": {
+    "office-chairs": 3,
+    "stackable-visitor-chairs": 2
+   }
+  },
+  {
+   "id": "q040",
+   "lang": "hinglish",
+   "query": "tiffin dabba",
+   "relevant": {
+    "steel-lunch-boxes": 3
+   }
+  },
+  {
+   "id": "q041",
+   "lang": "hinglish",
+   "query": "kadai non stick",
+   "relevant": {
+    "non-stick-kadhai": 3,
+    "stainless-steel-cookware-set": 1
+   }
+  },
+  {
+   "id": "q042",
+   "lang": "hinglish",
+   "query": "sabun herbal",
+   "relevant": {
+    "herbal-bathing-soap": 3,
+    "herbal-hand-wash-5l": 1
+   }
+  },
+  {
+   "id": "q043",
+   "lang": "hinglish",
+   "query": "dastane",
+   "relevant": {
+    "work-gloves": 3
+   }
+  },
+  {
+   "id": "q044",
+   "lang": "hinglish",
+   "query": "sariya tmt",
+   "relevant": {
+    "tmt-steel-bars": 3
+   }
+  },
+  {
+   "id": "q045",
+   "lang": "hinglish",
+   "query": "tohfa corporate",
+   "relevant": {
+    "corporate-gift-sets": 3,
+    "festive-gift-hampers": 2
+   }
+  },
+  {
+   "id": "q046",
+   "lang": "hi",
+   "query": "कपास का कपड़ा",
+   "relevant": {
+    "cotton-fabric": 3,
+    "denim-fabric-10-oz": 2,
+    "hand-block-printed-fabric": 2
+   }
+  },
+  {
+   "id": "q047",
+   "lang": "hi",
+   "query": "चावल",
+   "relevant": {
+    "basmati-rice": 3
+   }
+  },
+  {
+   "id": "q048",
+   "lang": "hi",
+   "query": "हल्दी पाउडर",
+   "relevant": {
+    "turmeric-powder": 3
+   }
+  },
+  {
+   "id": "q049",
+   "lang": "hi",
+   "query": "स्टील की बोतल",
+   "relevant": {
+    "stainless-steel-bottles": 3,
+    "steel-lunch-boxes": 1
+   }
+  },
+  {
+   "id": "q050",
+   "lang": "hi",
+   "query": "सीमेंट",
+   "relevant": {
+    "ppc-cement": 3
+   }
+  },
+  {
+   "id": "q051",
+   "lang": "hi",
+   "query": "हेलमेट",
+   "relevant": {
+    "safety-helmets": 3
+   }
+  },
+  {
+   "id": "q052",
+   "lang": "hi",
+   "query": "काजू",
+   "relevant": {
+    "cashew-kernels-w320": 3
+   }
+  },
+  {
+   "id": "q053",
+   "lang": "hi",
+   "query": "चाय",
+   "relevant": {
+    "ctc-tea": 3
+   }
+  },
+  {
+   "id": "q054",
+   "lang": "hi",
+   "query": "कुर्सी",
+   "relevant": {
+    "office-chairs": 3,
+    "stackable-visitor-chairs": 2
+   }
+  },
+  {
+   "id": "q055",
+   "lang": "hi",
+   "query": "टाइल्स",
+   "relevant": {
+    "vitrified-floor-tiles": 3,
+    "kota-stone-slabs": 1
+   }
+  },
+  {
+   "id": "q056",
+   "lang": "hi",
+   "query": "तौलिया",
+   "relevant": {
+    "cotton-bath-towels": 3
+   }
+  },
+  {
+   "id": "q057",
+   "lang": "hi",
+   "query": "नोटबुक",
+   "relevant": {
+    "spiral-notebooks-a5": 3
+   }
+  },
+  {
+   "id": "q058",
+   "lang": "hi",
+   "query": "मास्क",
+   "relevant": {
+    "3-ply-face-masks": 3
+   }
+  },
+  {
+   "id": "q059",
+   "lang": "hi",
+   "query": "बल्ब",
+   "relevant": {
+    "led-bulbs-9w": 3
+   }
+  },
+  {
+   "id": "q060",
+   "lang": "kn",
+   "query": "ಬಟ್ಟೆ",
+   "relevant": {
+    "cotton-fabric": 3,
+    "denim-fabric-10-oz": 2,
+    "hand-block-printed-fabric": 2
+   }
+  },
+  {
+   "id": "q061",
+   "lang": "kn",
+   "query": "ಸಿಮೆಂಟ್",
+   "relevant": {
+    "ppc-cement": 3
+   }
+  },
+  {
+   "id": "q062",
+   "lang": "kn",
+   "query": "ಹತ್ತಿ ಬಟ್ಟೆ",
+   "relevant": {
+    "cotton-fabric": 3,
+    "denim-fabric-10-oz": 2,
+    "hand-block-printed-fabric": 2
+   }
+  },
+  {
+   "id": "q063",
+   "lang": "ta",
+   "query": "சிமெண்ட்",
+   "relevant": {
+    "ppc-cement": 3
+   }
+  },
+  {
+   "id": "q064",
+   "lang": "ta",
+   "query": "அரிசி",
+   "relevant": {
+    "basmati-rice": 3
+   }
+  },
+  {
+   "id": "q065",
+   "lang": "ta",
+   "query": "துணி",
+   "relevant": {
+    "cotton-fabric": 3,
+    "denim-fabric-10-oz": 2,
+    "hand-block-printed-fabric": 2
+   }
+  },
+  {
+   "id": "q066",
+   "lang": "te",
+   "query": "బియ్యం",
+   "relevant": {
+    "basmati-rice": 3
+   }
+  },
+  {
+   "id": "q067",
+   "lang": "te",
+   "query": "పసుపు",
+   "relevant": {
+    "turmeric-powder": 3
+   }
+  },
+  {
+   "id": "q068",
+   "lang": "te",
+   "query": "సిమెంట్",
+   "relevant": {
+    "ppc-cement": 3
+   }
+  },
+  {
+   "id": "q069",
+   "lang": "gu",
+   "query": "કાપડ",
+   "relevant": {
+    "cotton-fabric": 3,
+    "denim-fabric-10-oz": 2,
+    "hand-block-printed-fabric": 2
+   }
+  },
+  {
+   "id": "q070",
+   "lang": "gu",
+   "query": "ચા",
+   "relevant": {
+    "ctc-tea": 3
+   }
+  },
+  {
+   "id": "q071",
+   "lang": "gu",
+   "query": "હળદર",
+   "relevant": {
+    "turmeric-powder": 3
+   }
+  },
+  {
+   "id": "q072",
+   "lang": "bn",
+   "query": "চাল",
+   "relevant": {
+    "basmati-rice": 3
+   }
+  },
+  {
+   "id": "q073",
+   "lang": "bn",
+   "query": "হলুদ",
+   "relevant": {
+    "turmeric-powder": 3
+   }
+  },
+  {
+   "id": "q074",
+   "lang": "bn",
+   "query": "কাপড়",
+   "relevant": {
+    "cotton-fabric": 3,
+    "denim-fabric-10-oz": 2,
+    "hand-block-printed-fabric": 2
+   }
+  },
+  {
+   "id": "q075",
+   "lang": "mr",
+   "query": "तांदूळ",
+   "relevant": {
+    "basmati-rice": 3
+   }
+  },
+  {
+   "id": "q076",
+   "lang": "mr",
+   "query": "कापड",
+   "relevant": {
+    "cotton-fabric": 3,
+    "denim-fabric-10-oz": 2,
+    "hand-block-printed-fabric": 2
+   }
+  },
+  {
+   "id": "q077",
+   "lang": "mr",
+   "query": "हळद",
+   "relevant": {
+    "turmeric-powder": 3
+   }
+  },
+  {
+   "id": "q078",
+   "lang": "mixed",
+   "query": "cotton कपड़ा",
+   "relevant": {
+    "cotton-fabric": 3,
+    "denim-fabric-10-oz": 2,
+    "hand-block-printed-fabric": 2
+   }
+  },
+  {
+   "id": "q079",
+   "lang": "mixed",
+   "query": "steel बोतल",
+   "relevant": {
+    "stainless-steel-bottles": 3,
+    "steel-lunch-boxes": 1
+   }
+  },
+  {
+   "id": "q080",
+   "lang": "mixed",
+   "query": "office कुर्सी",
+   "relevant": {
+    "office-chairs": 3,
+    "stackable-visitor-chairs": 2
+   }
+  }
+ ]
+}

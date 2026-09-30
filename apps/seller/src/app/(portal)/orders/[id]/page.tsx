@@ -11,6 +11,7 @@ import { load } from "@/lib/safe";
 import { enquiry } from "@/lib/services";
 import { DispatchPhotosPanel } from "@/features/quality/dispatch-photos";
 import { EscrowPanel } from "@/features/escrow/escrow-panel";
+import { FulfilmentPanel } from "@/features/orders/fulfilment-panel";
 import { OrderActions } from "@/features/orders/order-actions";
 import { OrderStatusBadge } from "@/features/orders/status";
 
@@ -57,6 +58,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
       </Card>
       <EscrowPanel actor={actorOf(session)} orderId={o.id} />
       <OrderActions orderId={o.id} actions={o.actions} />
+      <FulfilmentPanel actor={actorOf(session)} order={o} />
       <DispatchPhotosPanel actor={actorOf(session)} orderId={o.id} />
     </div>
   );

@@ -14,6 +14,7 @@ import { ListingCard } from "@/features/search/cards";
 import { loadRatings, loadSeller, loadSellerIndex, loadSellerListings } from "@/features/search/data";
 import { getUiLabels } from "@/features/search/labels";
 import { loadOffers } from "@/features/promotions/data";
+import { stateLabel } from "@/features/identity/states";
 
 // Static + ISR like product pages: top sellers prerendered, the rest on first request; purged by seller:<id> / seller-listings:<id>.
 export const revalidate = 300;
@@ -48,7 +49,7 @@ export default async function ManufacturerPage(props: PageProps<"/[locale]/manuf
   if (!seller) notFound();
   const listings = await loadSellerListings(id);
   const [ratings, offers] = await Promise.all([loadRatings(listings.map((l) => l.id)), loadOffers(listings.map((l) => l.id))]);
-  const place = [seller.city, seller.state].filter(Boolean).join(", ");
+  const place = [seller.city, await stateLabelFor(locale, seller.state)].filter(Boolean).join(", ");
 
   return (
     <Container className="py-6 lg:py-8">
@@ -99,4 +100,10 @@ export default async function ManufacturerPage(props: PageProps<"/[locale]/manuf
       </section>
     </Container>
   );
+}
+
+/** Translated state label for a stored English state name (falls back to the stored value). */
+async function stateLabelFor(locale: string, name: string | null | undefined): Promise<string> {
+  const ts = await getTranslations({ locale, namespace: "states" });
+  return stateLabel(name, (code) => (ts.has(code) ? ts(code) : undefined));
 }

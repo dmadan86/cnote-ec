@@ -45,14 +45,17 @@ export function absoluteUrl(app: NotificationApp, href: string): string {
 const isUniqueViolation = (err: unknown) => typeof err === "object" && err !== null && (err as { code?: string }).code === "P2002";
 
 /** Handle one (kind, recipient) pair. Idempotent per (person, kind, event). */
-export async function notifyRecipient(kind: NotificationKind, event: DomainEvent, r: Recipient): Promise<{ created: boolean; queued: ExtraChannel[] }> {
+export async function notifyRecipient(kind: NotificationKind, event: DomainEvent, r: Recipient, dir: Directory = prismaDirectory): Promise<{ created: boolean; queued: ExtraChannel[] }> {
   const app = r.app ?? kind.app;
   const enabled = await channelsFor(r.personId, kind.category);
   const vars = { ...r.vars, href: r.href };
   let created = false;
 
   if (enabled.in_app && (await isChannelEnabled(kind.key, "in_app"))) {
-    const text = await renderText(kind.key, "in_app", vars);
+    // in the person's preferred language (ADR-004); templates fall back to English per key
+    // a failed lookup must never block the notification: fall back to English
+    const locale = (await dir.contact(r.personId).catch(() => null))?.locale;
+    const text = await renderText(kind.key, "in_app", vars, { locale });
     try {
       await prisma.notification.create({
         data: {
@@ -94,7 +97,7 @@ export async function notifyForEvent(event: DomainEvent, dir: Directory = prisma
       if (seen.has(r.personId)) continue;
       seen.add(r.personId);
       try {
-        await notifyRecipient(kind, event, r);
+        await notifyRecipient(kind, event, r, dir);
       } catch (err) {
         errors.push(err);
       }
@@ -119,11 +122,12 @@ export async function deliverJob(job: NotificationDeliverJob, dir: Directory = p
       template: kind.key,
       to: { email: contact.email, personId: job.personId, name: contact.name },
       vars,
+      locale: contact.locale,
       dedupeKey: `${kind.key}:${job.eventId}:${job.personId}`,
     });
     return;
   }
   if (!contact.phone) return;
-  const text = await renderText(kind.key, job.channel, vars);
+  const text = await renderText(kind.key, job.channel, vars, { locale: contact.locale });
   await getChannelAdapter(job.channel).send({ personId: job.personId, to: contact.phone, text: text.body, kind: kind.key });
 }

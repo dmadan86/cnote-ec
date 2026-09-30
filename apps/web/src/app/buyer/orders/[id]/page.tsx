@@ -4,6 +4,7 @@ import { Alert, Card, CardBody, CardTitle, Container, Money, PageHeader } from "
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { TrackingTimeline } from "@/features/orders/tracking-timeline";
 import { OrderActions } from "@/features/orders/order-actions";
 import { EscrowPanel } from "@/features/escrow/escrow-panel";
 import { OrderStatusBadge } from "@/features/orders/status";
@@ -40,6 +41,7 @@ export default async function BuyerOrderPage(props: { params: Promise<{ id: stri
             </dl>
           </CardBody>
         </Card>
+        <TrackingTimeline actor={actorOf(s)} order={o} />
         <EscrowPanel actor={actorOf(s)} order={o} />
         <OrderActions orderId={o.id} actions={o.actions} />
         <ReportProblem orderId={o.id} status={o.status} actor={actorOf(s)} />

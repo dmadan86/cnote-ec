@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./client-ip": "./src/client-ip.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

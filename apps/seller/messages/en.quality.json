@@ -38,6 +38,25 @@
       "addOne": "Add at least one photo.",
       "shareFailed": "We could not share your photos. Please try again.",
       "generic": "Something went wrong."
-    }
+    },
+    "video": {
+      "choose": "Add a short video",
+      "help": "Optional. Up to {seconds} seconds and {mb} MB. Your phone picks {min} to {max} still frames from it; only those frames are uploaded, never the video.",
+      "extracting": "Reading your video…",
+      "picked": "Picked {count} frames from your video. Check them, then share.",
+      "removeVideo": "Remove video frames",
+      "frameAlt": "Frame {n} from your video",
+      "selectedFrames": "Frames from your video",
+      "badge": "From video",
+      "sharedLabel": "Shared {when} · {count, plural, one {# frame} other {# frames}} from a video",
+      "errors": {
+        "format": "Choose a video file (MP4, MOV or WebM).",
+        "tooLarge": "That video is larger than {mb} MB.",
+        "tooLong": "That video is longer than {seconds} seconds.",
+        "unreadable": "We could not read that video on this device. Try photos instead.",
+        "noFrames": "We could not pick enough frames from that video. Try photos instead."
+      }
+    },
+    "videoIntroExtra": "You can also share a short video instead of photos."
   }
 }

@@ -1,10 +1,11 @@
 // Pure benchmark aggregation with strict k-anonymity (ADR-022, ADR-010). No I/O.
 //
-// A cell is (category, canonical unit, region|national, tier|all). EVERY cell is evaluated on its own samples, after
+// A cell is (category, canonical unit, pincode-zone|state|national, tier|all). EVERY cell is evaluated on its own samples, after
 // IQR outlier trimming, and published only if it has >= k distinct sellers AND >= k distinct buyers AND no seller
 // contributes more than half of the samples. Failing cells are suppressed; readers fall back to coarser published
-// cells (region -> national, tier -> all volumes), which are themselves evaluated with the same rules.
+// cells (zone -> state -> national, tier -> all volumes), which are themselves evaluated with the same rules.
 // Counterparty ids exist only on `Sample` and are reduced to counts here: cells never carry them.
+import { isZone } from "./regions";
 import { quantilesOf, trimOutliers, type Weighted } from "./stats";
 import { TIERS, tierOf, type Tier } from "./units";
 
@@ -18,6 +19,8 @@ export interface Sample {
   quantity: number;
   /** state slug, or null when the delivery area is unknown (counts towards national cells only) */
   region: string | null;
+  /** pincode zone key (`pin-560`, first three PIN digits) or null/omitted; a zone cell is evaluated on its own samples like any other */
+  zone?: string | null;
   sellerId: string;
   buyerId: string;
   escrow: boolean;
@@ -91,10 +94,10 @@ export function buildCells(samples: readonly Sample[], opts: AggregateOptions): 
   const categories = new Set<string>();
   for (const group of groups.values()) {
     const { categoryId, unit } = group[0]!;
-    const regions = ["national", ...new Set(group.flatMap((s) => (s.region ? [s.region] : [])))];
+    const regions = ["national", ...new Set(group.flatMap((s) => (s.region ? [s.region] : []))), ...new Set(group.flatMap((s) => (s.zone ? [s.zone] : [])))];
     const withTier = group.map((s) => ({ s, tier: tierOf(unit, s.quantity) }));
     for (const region of regions) {
-      const inRegion = region === "national" ? withTier : withTier.filter((x) => x.s.region === region);
+      const inRegion = region === "national" ? withTier : isZone(region) ? withTier.filter((x) => x.s.zone === region) : withTier.filter((x) => x.s.region === region);
       for (const tier of ["all", ...TIERS] as const) {
         const subset = (tier === "all" ? inRegion : inRegion.filter((x) => x.tier === tier)).map((x) => x.s);
         if (subset.length === 0) continue;

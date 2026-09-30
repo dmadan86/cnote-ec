@@ -3,7 +3,7 @@
 import { DomainError } from "@cnote/core";
 import { prisma, type Tx } from "@cnote/db";
 import { storeOffers } from "./applications";
-import { applyDpd, recordDisbursal, recordRepayment, recordWriteOff } from "./loans";
+import { applyDpd, recordCancellation, recordDisbursal, recordRepayment, recordWriteOff } from "./loans";
 import { assertMockAllowed, getCreditPartner, MockPartner, type PartnerEvent } from "./partner";
 import { ports } from "./ports";
 import type { Product } from "./types";
@@ -46,7 +46,9 @@ async function apply(tx: Tx, partnerName: string, e: PartnerEvent, after: After[
       if (!loan) return "ignored";
       if (e.type === "loan.repayment") return (await recordRepayment(tx, loan.id, { eventKey: e.eventId, amountPaise: e.amountPaise ?? 0, source: e.source ?? "borrower", paidAt: e.at })) ? "processed" : "ignored";
       if (e.type === "loan.overdue") return (await applyDpd(tx, loan, e.dpd ?? 1)) ? "processed" : "ignored";
+      if (e.type === "loan.cancelled") return (await recordCancellation(tx, loan.id, { reason: "partner", at: e.at, exitAmountPaise: e.amountPaise ?? null })) ? "processed" : "ignored";
       if (e.type === "loan.written_off") { await recordWriteOff(tx, loan.id, e.at); return "processed"; }
+      if (loan.status === "cancelled") return "ignored";
       // loan.closed: the partner says it is settled; reconcile our mirror to fully repaid
       const owed = Math.max(0, num(loan.totalRepayablePaise) - num(loan.repaidPaise));
       if (owed > 0) await recordRepayment(tx, loan.id, { eventKey: `close:${e.eventId}`, amountPaise: owed, source: "partner", paidAt: e.at });

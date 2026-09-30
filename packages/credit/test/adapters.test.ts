@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const m = vi.hoisted(() => ({
-  getGstEvidence: vi.fn(), getTrustProfiles: vi.fn(), listEscrows: vi.fn(), getEscrowDetail: vi.fn(), disputeRecordForBusiness: vi.fn(), fundEscrowFromLender: vi.fn(), setEscrowLenderAssignment: vi.fn(),
+  getGstEvidence: vi.fn(), getTrustProfiles: vi.fn(), escrowHistoryForBusiness: vi.fn(), listEscrowsForBusiness: vi.fn(), getEscrowDetail: vi.fn(), disputeRecordForBusiness: vi.fn(), fundEscrowFromLender: vi.fn(), setEscrowLenderAssignment: vi.fn(),
 }));
 vi.mock("@cnote/identity", async (orig) => ({ ...(await orig<object>()), getGstEvidence: m.getGstEvidence, getTrustProfiles: m.getTrustProfiles }));
-vi.mock("@cnote/escrow", async (orig) => ({ ...(await orig<object>()), listEscrows: m.listEscrows, getEscrowDetail: m.getEscrowDetail, fundEscrowFromLender: m.fundEscrowFromLender, setEscrowLenderAssignment: m.setEscrowLenderAssignment }));
+vi.mock("@cnote/escrow", async (orig) => ({ ...(await orig<object>()), escrowHistoryForBusiness: m.escrowHistoryForBusiness, listEscrowsForBusiness: m.listEscrowsForBusiness, getEscrowDetail: m.getEscrowDetail, fundEscrowFromLender: m.fundEscrowFromLender, setEscrowLenderAssignment: m.setEscrowLenderAssignment }));
 vi.mock("@cnote/disputes", async (orig) => ({ ...(await orig<object>()), disputeRecordForBusiness: m.disputeRecordForBusiness }));
 
 const { defaultPorts } = await import("../src/adapters");
@@ -32,16 +32,11 @@ describe("default ports over public exports", () => {
     m.getTrustProfiles.mockResolvedValueOnce(new Map());
     expect(await defaultPorts.trust("S")).toEqual({ trustScore: 0, badgeActive: false });
   });
-  it("escrow history: counts both roles, samples clean from freezes, scales", async () => {
-    m.listEscrows.mockResolvedValue([row({ id: "1" }), row({ id: "2", buyerBusinessId: "S", sellerBusinessId: "X", amountPaise: 500 }), row({ id: "3", status: "refunded" }), row({ id: "4", buyerBusinessId: "Y", sellerBusinessId: "Z" })]);
-    m.getEscrowDetail.mockImplementation(async (id: string) => ({ freezes: id === "1" ? [] : [{ disputeId: "d" }] }));
-    const h = await defaultPorts.escrowHistory("S");
-    expect(h).toEqual({ completed: 2, completedPaise: 1500, clean: 1, refunded: 1 });
-    m.listEscrows.mockResolvedValue([]);
-    expect(await defaultPorts.escrowHistory("S")).toEqual({ completed: 0, completedPaise: 0, clean: 0, refunded: 0 });
-    m.listEscrows.mockResolvedValue([row({})]);
-    m.getEscrowDetail.mockResolvedValue(null);
-    expect((await defaultPorts.escrowHistory("S")).clean).toBe(0);
+  it("escrow history: the exact per-business read from @cnote/escrow, no sampling", async () => {
+    m.escrowHistoryForBusiness.mockResolvedValue({ completed: 400, completedPaise: 9_000, clean: 398, refunded: 3 });
+    expect(await defaultPorts.escrowHistory("S")).toEqual({ completed: 400, completedPaise: 9_000, clean: 398, refunded: 3 });
+    expect(m.escrowHistoryForBusiness).toHaveBeenCalledWith("S");
+    expect(m.getEscrowDetail).not.toHaveBeenCalled();
   });
   it("disputes: the per-business record from @cnote/disputes (lost at fault, open either side)", async () => {
     m.disputeRecordForBusiness.mockResolvedValue({ lost: 2, open: 1 });
@@ -63,8 +58,10 @@ describe("default ports over public exports", () => {
     expect(await defaultPorts.escrowFacts("e1")).toMatchObject({ escrowId: "e1", sellerBusinessId: "S" });
     m.getEscrowDetail.mockResolvedValueOnce(null);
     expect(await defaultPorts.escrowFacts("e2")).toBeNull();
-    m.listEscrows.mockResolvedValueOnce([row({ id: "a", status: "funded" }), row({ id: "b", status: "funded", sellerBusinessId: "Q" })]);
-    expect((await defaultPorts.fundedEscrowsForSeller("S")).map((e) => e.escrowId)).toEqual(["a"]);
+    m.listEscrowsForBusiness.mockResolvedValueOnce({ items: [row({ id: "a", status: "funded" })], nextCursor: "c1" }).mockResolvedValueOnce({ items: [row({ id: "b", status: "funded" })], nextCursor: null });
+    expect((await defaultPorts.fundedEscrowsForSeller("S")).map((e) => e.escrowId)).toEqual(["a", "b"]);
+    expect(m.listEscrowsForBusiness).toHaveBeenNthCalledWith(1, "S", { role: "seller", status: "funded", cursor: null, limit: 100 });
+    expect(m.listEscrowsForBusiness).toHaveBeenNthCalledWith(2, "S", { role: "seller", status: "funded", cursor: "c1", limit: 100 });
     expect(defaultPorts.sellerNetPaise(1_000_000)).toBeLessThan(1_000_000);
     expect(await defaultPorts.fundEscrowFromLender("e", 1, "r")).toBe(false);
   });

@@ -5,7 +5,7 @@ import { prisma } from "@cnote/db";
 import { listPriceFacts, type PriceFact } from "@cnote/enquiry";
 import { buildCells, type Sample } from "./aggregate";
 import { WINDOW_DAYS, escrowWeight, getK, priceIntelEnabled } from "./config";
-import { stateFromPincode } from "./regions";
+import { stateFromPincode, zoneFromPincode } from "./regions";
 import { normaliseFact } from "./units";
 
 export const periodOf = (d: Date): string => d.toISOString().slice(0, 7);
@@ -43,7 +43,7 @@ export function toSamples(facts: readonly PriceFact[]): { samples: Sample[]; ski
     const n = normaliseFact(f.pricePaise, f.quantity, f.unit);
     if (!n) { skippedUnits++; continue; }
     samples.push({
-      categoryId: f.categoryId, unit: n.unit, price: n.price, quantity: n.quantity, region: stateFromPincode(f.deliveryPincode),
+      categoryId: f.categoryId, unit: n.unit, price: n.price, quantity: n.quantity, region: stateFromPincode(f.deliveryPincode), zone: zoneFromPincode(f.deliveryPincode),
       sellerId: f.sellerBusinessId, buyerId: f.buyerBusinessId, escrow: f.escrow,
     });
   }

@@ -1,0 +1,1234 @@
+{
+  "apiVersion": 1,
+  "groups": [
+    {
+      "orgId": 1,
+      "name": "cnote-trust",
+      "folder": "cnote",
+      "interval": "1m",
+      "rules": [
+        {
+          "uid": "cnote-alert-lead-to-conversation-rate",
+          "title": "Metric alert open: lead_to_conversation_rate",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "warning",
+            "route": "product-ops"
+          },
+          "annotations": {
+            "summary": "@cnote/metrics raised an open alert for lead_to_conversation_rate (value vs threshold in admin > Metrics).",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-trust-metrics"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT count(*)::float AS open FROM metric_alerts WHERE metric='lead_to_conversation_rate' AND resolved_at IS NULL",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "cnote-alert-conversation-to-deal-rate",
+          "title": "Metric alert open: conversation_to_deal_rate",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "warning",
+            "route": "product-ops"
+          },
+          "annotations": {
+            "summary": "@cnote/metrics raised an open alert for conversation_to_deal_rate (value vs threshold in admin > Metrics).",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-trust-metrics"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT count(*)::float AS open FROM metric_alerts WHERE metric='conversation_to_deal_rate' AND resolved_at IS NULL",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "cnote-alert-auto-refund-rate",
+          "title": "Metric alert open: auto_refund_rate",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "warning",
+            "route": "product-ops"
+          },
+          "annotations": {
+            "summary": "@cnote/metrics raised an open alert for auto_refund_rate (value vs threshold in admin > Metrics).",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-trust-metrics"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT count(*)::float AS open FROM metric_alerts WHERE metric='auto_refund_rate' AND resolved_at IS NULL",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "cnote-alert-false-badge-proxy",
+          "title": "Metric alert open: false_badge_proxy",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "warning",
+            "route": "product-ops"
+          },
+          "annotations": {
+            "summary": "@cnote/metrics raised an open alert for false_badge_proxy (value vs threshold in admin > Metrics).",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-trust-metrics"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT count(*)::float AS open FROM metric_alerts WHERE metric='false_badge_proxy' AND resolved_at IS NULL",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "cnote-alert-median-lead-response-minutes",
+          "title": "Metric alert open: median_lead_response_minutes",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "warning",
+            "route": "product-ops"
+          },
+          "annotations": {
+            "summary": "@cnote/metrics raised an open alert for median_lead_response_minutes (value vs threshold in admin > Metrics).",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-trust-metrics"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT count(*)::float AS open FROM metric_alerts WHERE metric='median_lead_response_minutes' AND resolved_at IS NULL",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "cnote-alert-time-to-first-listing-median-minutes",
+          "title": "Metric alert open: time_to_first_listing_median_minutes",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "warning",
+            "route": "product-ops"
+          },
+          "annotations": {
+            "summary": "@cnote/metrics raised an open alert for time_to_first_listing_median_minutes (value vs threshold in admin > Metrics).",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-seller-onboarding"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT count(*)::float AS open FROM metric_alerts WHERE metric='time_to_first_listing_median_minutes' AND resolved_at IS NULL",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "cnote-alert-onboarding-completion-rate",
+          "title": "Metric alert open: onboarding_completion_rate",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "warning",
+            "route": "product-ops"
+          },
+          "annotations": {
+            "summary": "@cnote/metrics raised an open alert for onboarding_completion_rate (value vs threshold in admin > Metrics).",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-seller-onboarding"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT count(*)::float AS open FROM metric_alerts WHERE metric='onboarding_completion_rate' AND resolved_at IS NULL",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "orgId": 1,
+      "name": "cnote-money",
+      "folder": "cnote",
+      "interval": "1m",
+      "rules": [
+        {
+          "uid": "cnote-alert-escrow-dispute-refund-rate",
+          "title": "Metric alert open: escrow_dispute_refund_rate",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "critical",
+            "route": "finance-ops"
+          },
+          "annotations": {
+            "summary": "@cnote/metrics raised an open alert for escrow_dispute_refund_rate (value vs threshold in admin > Metrics).",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-escrow-fraud"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT count(*)::float AS open FROM metric_alerts WHERE metric='escrow_dispute_refund_rate' AND resolved_at IS NULL",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "cnote-alert-escrow-payout-minutes",
+          "title": "Metric alert open: escrow_payout_minutes",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "critical",
+            "route": "finance-ops"
+          },
+          "annotations": {
+            "summary": "@cnote/metrics raised an open alert for escrow_payout_minutes (value vs threshold in admin > Metrics).",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-payout-latency"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT count(*)::float AS open FROM metric_alerts WHERE metric='escrow_payout_minutes' AND resolved_at IS NULL",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "cnote-alert-dispute-resolution-minutes",
+          "title": "Metric alert open: dispute_resolution_minutes",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "critical",
+            "route": "finance-ops"
+          },
+          "annotations": {
+            "summary": "@cnote/metrics raised an open alert for dispute_resolution_minutes (value vs threshold in admin > Metrics).",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-dispute-sla"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT count(*)::float AS open FROM metric_alerts WHERE metric='dispute_resolution_minutes' AND resolved_at IS NULL",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "cnote-alert-credit-npa-rate-proxy",
+          "title": "Metric alert open: credit_npa_rate_proxy",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "critical",
+            "route": "finance-ops"
+          },
+          "annotations": {
+            "summary": "@cnote/metrics raised an open alert for credit_npa_rate_proxy (value vs threshold in admin > Metrics).",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-credit-gnpa"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT count(*)::float AS open FROM metric_alerts WHERE metric='credit_npa_rate_proxy' AND resolved_at IS NULL",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "cnote-alert-credit-attached-order-share",
+          "title": "Metric alert open: credit_attached_order_share",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "critical",
+            "route": "finance-ops"
+          },
+          "annotations": {
+            "summary": "@cnote/metrics raised an open alert for credit_attached_order_share (value vs threshold in admin > Metrics).",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-credit-attach"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT count(*)::float AS open FROM metric_alerts WHERE metric='credit_attached_order_share' AND resolved_at IS NULL",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "cnote-payout-pending-old",
+          "title": "Escrow payout pending > 26 h",
+          "condition": "C",
+          "for": "15m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "critical",
+            "route": "finance-ops"
+          },
+          "annotations": {
+            "summary": "At least one seller payout is older than one business day (ADR-012).",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-payout-latency"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT count(*)::float AS n FROM escrow_payouts WHERE status='pending' AND kind='seller_payout' AND requested_at < now() - interval '26 hours'",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "cnote-recon-open",
+          "title": "Escrow reconciliation issue open > 24 h",
+          "condition": "C",
+          "for": "15m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "critical",
+            "route": "finance-ops"
+          },
+          "annotations": {
+            "summary": "Escrow ledger and partner statement disagree.",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-reconciliation"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT count(*)::float AS n FROM escrow_reconciliation_issues WHERE status='open' AND created_at < now() - interval '24 hours'",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "orgId": 1,
+      "name": "cnote-platform",
+      "folder": "cnote",
+      "interval": "1m",
+      "rules": [
+        {
+          "uid": "cnote-outbox-lag",
+          "title": "Outbox relay lag > 5 min",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "critical",
+            "route": "platform-oncall"
+          },
+          "annotations": {
+            "summary": "Domain events are not being relayed; async flows (matching side-effects, notifications, metrics) are stalled.",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-outbox-lag"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT COALESCE(EXTRACT(EPOCH FROM (now()-min(occurred_at))),0)::float AS s FROM domain_events WHERE published_at IS NULL",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        300
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "cnote-metrics-stale",
+          "title": "Metrics job stale > 1 h",
+          "condition": "C",
+          "for": "10m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "warning",
+            "route": "platform-oncall"
+          },
+          "annotations": {
+            "summary": "metrics.refresh-recent has not written for an hour; the worker may be down.",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-metrics-stale"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-pg",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "grafana-postgresql-datasource",
+                  "uid": "cnote-pg"
+                },
+                "format": "table",
+                "rawQuery": true,
+                "editorMode": "code",
+                "rawSql": "SELECT COALESCE(EXTRACT(EPOCH FROM (now()-max(computed_at))),0)::float AS s FROM metric_daily",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        3600
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "cnote-dlq-notification-deliver",
+          "title": "Dead letters in notification.deliver queue",
+          "condition": "C",
+          "for": "10m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "warning",
+            "route": "platform-oncall"
+          },
+          "annotations": {
+            "summary": "Jobs exhausted retries. Inspect and replay in admin.",
+            "runbook_url": "https://github.com/CHANGE-ME/cnote/blob/main/docs/ops/monitoring.md#runbook-dlq"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cnote-redis",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "redis-datasource",
+                  "uid": "cnote-redis"
+                },
+                "type": "command",
+                "command": "xlen",
+                "keyName": "cnote:q:notification.deliver:dlq",
+                "streaming": false
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

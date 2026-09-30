@@ -5,7 +5,7 @@ import { getCategoryBySlug, listSellerListings } from "@cnote/catalogue";
 import { getTrustProfiles } from "@cnote/identity";
 import { prisma, type PriceBenchmark } from "@cnote/db";
 import { priceIntelEnabled } from "./config";
-import { regionLabel, stateFromPincode, stateSlug } from "./regions";
+import { regionLabel, stateFromPincode, stateSlug, zoneFromPincode } from "./regions";
 import { normaliseUnit, tierOf } from "./units";
 
 export interface BenchmarkQuery {
@@ -41,7 +41,7 @@ async function categoryIdOf(q: BenchmarkQuery): Promise<string | null> {
   return (await getCategoryBySlug(q.categorySlug))?.id ?? null;
 }
 
-/** region -> national, band -> all volumes: the first published cell wins. */
+/** pincode zone -> state -> national, volume band -> all volumes: the first published cell wins. */
 export async function resolveCell(q: BenchmarkQuery): Promise<Resolved | null> {
   const categoryId = await categoryIdOf(q);
   if (!categoryId) return null;
@@ -56,14 +56,15 @@ export async function resolveCell(q: BenchmarkQuery): Promise<Resolved | null> {
   }
   const period = (await prisma.priceBenchmark.findFirst({ where: { categoryId, unit, status: "published" }, orderBy: [{ period: "desc" }], select: { period: true } }))?.period;
   if (!period) return null;
-  const region = stateFromPincode(q.pincode) ?? stateSlug(q.state);
+  const zone = zoneFromPincode(q.pincode);
+  const state = stateFromPincode(q.pincode) ?? stateSlug(q.state);
   const qty = q.quantity && q.quantity > 0 ? q.quantity * (requested?.factor ?? 1) : null;
   const tier = qty ? tierOf(unit, qty) : null;
+  // Most specific published cell wins, geography narrowing zone -> state -> national inside each volume choice (band before all volumes).
+  const geos = [...(zone ? [zone] : []), ...(state ? [state] : []), "national"];
+  const wantGeo = geos[0]!;
   const tries: [string, string, boolean][] = [];
-  if (region && tier) tries.push([region, tier, false]);
-  if (tier) tries.push(["national", tier, !!region]);
-  if (region) tries.push([region, "all", !!tier]);
-  tries.push(["national", "all", !!(region || tier)]);
+  for (const t of [...(tier ? [tier] : []), "all"]) for (const g of geos) tries.push([g, t, g !== wantGeo || t !== (tier ?? "all")]);
   for (const [r, t, rolledUp] of tries) {
     const cell = await prisma.priceBenchmark.findFirst({ where: { categoryId, unit, period, region: r, tier: t, status: "published" } });
     if (!cell) continue;

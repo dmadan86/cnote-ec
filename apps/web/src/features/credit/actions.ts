@@ -1,11 +1,11 @@
 "use server";
 // Buyer BNPL actions (ADR-019). Each re-checks the session. Consent is an explicit checkbox; acceptance is a separate
 // explicit step that carries the KFS acknowledgement.
-import { acceptOffer, actorHasCreditConsent, applyForFinancing, declineOffer, grantCreditConsent, simulateMockDisbursal } from "@cnote/credit";
+import { acceptOffer, actorHasCreditConsent, applyForFinancing, cancelLoanInCoolingOff, declineOffer, grantCreditConsent, simulateMockDisbursal } from "@cnote/credit";
 import { actorOf, requireBusiness, runAction, type ActionResult } from "@cnote/next-kit";
 import { revalidatePath } from "next/cache";
 
-const INTENTS = ["apply", "accept", "decline", "simulate"] as const;
+const INTENTS = ["apply", "accept", "decline", "simulate", "exit"] as const;
 
 export async function bnplAction(_prev: ActionResult | null, f: FormData): Promise<ActionResult> {
   const orderId = String(f.get("orderId") ?? "");
@@ -22,6 +22,8 @@ export async function bnplAction(_prev: ActionResult | null, f: FormData): Promi
       await applyForFinancing(actor, { product: "bnpl", escrowId: String(f.get("escrowId") ?? ""), tenorDays: Number(f.get("tenorDays") ?? 30) });
     } else if (intent === "accept") {
       await acceptOffer(actor, { offerId: String(f.get("offerId") ?? ""), acknowledgedKfs: f.get("acknowledge") === "on", kfsVersion: String(f.get("kfsVersion") ?? "") });
+    } else if (intent === "exit") {
+      await cancelLoanInCoolingOff(actor, { loanId: String(f.get("loanId") ?? ""), confirmExit: f.get("confirmExit") === "on", expectedPayablePaise: Number(f.get("expectedPayablePaise") ?? -1) });
     } else if (intent === "decline") await declineOffer(actor, String(f.get("offerId") ?? ""));
     else await simulateMockDisbursal(String(f.get("applicationId") ?? ""));
     revalidatePath(`/buyer/orders/${orderId}`);

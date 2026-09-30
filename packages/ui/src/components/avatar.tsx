@@ -1,6 +1,6 @@
 import { cn } from "../cn";
 
-const palette = ["bg-brand-100 text-brand-700", "bg-accent-100 text-accent-600", "bg-green-100 text-green-700", "bg-sky-100 text-sky-700", "bg-rose-100 text-rose-700", "bg-amber-100 text-amber-700"];
+const palette = ["bg-brand-100 text-brand-700", "bg-accent-100 text-accent-800", "bg-green-100 text-green-700", "bg-sky-100 text-sky-700", "bg-rose-100 text-rose-700", "bg-amber-100 text-amber-700"];
 
 function hash(s: string) {
   let h = 0;

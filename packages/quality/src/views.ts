@@ -3,7 +3,7 @@ import type { InspectionCheck, InspectionResult } from "@cnote/ai";
 import type { AdvisoryEvidence, CheckResultView, QualityCheckView } from "./types";
 
 export const ADVISORY_DISCLAIMER =
-  "Automated, advisory analysis of seller-shared photos. It is not a pass/fail decision and does not verify what was actually shipped.";
+  "Automated, advisory analysis of seller-shared photos (or frames taken from a short seller video). It is not a pass/fail decision and does not verify what was actually shipped.";
 
 interface Parts { results: Map<string, CheckResultView[]>; media: Map<string, string[]> }
 
@@ -28,7 +28,7 @@ export async function loadParts(checkIds: string[]): Promise<Parts> {
 export function toCheckView(c: QualityCheck, parts: Parts): QualityCheckView {
   return {
     id: c.id, orderId: c.orderId, sellerBusinessId: c.sellerBusinessId, categorySlug: c.categorySlug, status: c.status,
-    verdict: c.verdict, confidence: c.confidence, needsReview: c.needsReview, results: parts.results.get(c.id) ?? [], mediaIds: parts.media.get(c.id) ?? [],
+    verdict: c.verdict, confidence: c.confidence, needsReview: c.needsReview, results: parts.results.get(c.id) ?? [], mediaIds: parts.media.get(c.id) ?? [], source: c.source === "video" ? "video" : "photos",
     createdAt: c.createdAt.toISOString(), completedAt: c.completedAt?.toISOString() ?? null, advisory: true,
   };
 }
@@ -66,7 +66,7 @@ export async function listChecksForOrder(orderId: string): Promise<AdvisoryEvide
   return rows.map((r) => ({
     checkId: r.id, orderId: r.orderId, sellerBusinessId: r.sellerBusinessId, categorySlug: r.categorySlug,
     verdict: (r.verdict ?? "inconclusive") as InspectionResult, confidence: r.confidence ?? 0, needsReview: r.needsReview,
-    results: parts.results.get(r.id) ?? [], photoCount: photos.get(r.id) ?? 0, completedAt: (r.completedAt ?? r.createdAt).toISOString(),
+    results: parts.results.get(r.id) ?? [], photoCount: photos.get(r.id) ?? 0, source: r.source === "video" ? "video" : "photos", completedAt: (r.completedAt ?? r.createdAt).toISOString(),
     advisory: true, disclaimer: ADVISORY_DISCLAIMER,
   }));
 }

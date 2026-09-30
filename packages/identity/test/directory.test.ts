@@ -71,7 +71,7 @@ describe("business membership", () => {
 describe("getPersonContact", () => {
   it("withholds the phone from other parties unless counterparty_sharing is granted", async () => {
     const p = await person({ phone: phone(), name: "Asha" });
-    expect(await getPersonContact(p.id)).toEqual({ email: p.email, phone: null, name: "Asha" });
+    expect(await getPersonContact(p.id)).toEqual({ email: p.email, phone: null, name: "Asha", locale: "en" });
     await setConsent(p.id, "counterparty_sharing", true, "web");
     expect((await getPersonContact(p.id))?.phone).toBe(p.phone);
   });
@@ -79,6 +79,8 @@ describe("getPersonContact", () => {
   it("always includes the phone for messages to the person themselves", async () => {
     const p = await person({ phone: phone() });
     expect((await getPersonContact(p.id, { self: true }))?.phone).toBe(p.phone);
+    await prisma.person.update({ where: { id: p.id }, data: { preferredLanguage: "hi" } });
+    expect((await getPersonContact(p.id, { self: true }))?.locale).toBe("hi"); // notifications render in it
   });
 
   it("returns null for unknown or erased persons", async () => {

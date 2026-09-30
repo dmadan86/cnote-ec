@@ -2,6 +2,8 @@ import "server-only";
 import { attributeEnquiry, getSponsoredSlots, isAdsEnabled, type SponsoredSlot } from "@cnote/ads";
 import { cookies } from "next/headers";
 import { safe } from "@/features/search/data";
+import { buyerLocation } from "@/features/search/geo";
+import { PINCODE_COOKIE } from "@/features/shell/site";
 
 export const VISITOR_COOKIE = "cnote_vid";
 export const AD_CLICK_COOKIE = "cnote_ad_click";
@@ -10,8 +12,10 @@ export const AD_CLICK_COOKIE = "cnote_ad_click";
 export async function loadSponsoredForResults(o: { query: string; categoryId?: string | null; surface: "search" | "category"; organicListingIds: string[] }): Promise<SponsoredSlot[]> {
   if (!isAdsEnabled()) return [];
   return safe("ads.getSponsoredSlots", async () => {
-    const visitorId = (await cookies()).get(VISITOR_COOKIE)?.value ?? null;
-    return getSponsoredSlots({ ...o, visitorId });
+    const jar = await cookies();
+    const visitorId = jar.get(VISITOR_COOKIE)?.value ?? null;
+    // "Deliver to" pincode -> geo-targeted campaigns (ads geoOk); unknown location matches only unrestricted campaigns
+    return getSponsoredSlots({ ...o, visitorId, ...buyerLocation(jar.get(PINCODE_COOKIE)?.value) });
   }, [] as SponsoredSlot[]);
 }
 

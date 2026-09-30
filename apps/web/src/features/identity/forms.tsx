@@ -1,22 +1,26 @@
 "use client";
 import type { ActionResult } from "@cnote/next-kit";
 import { Alert, Button, Field, Input, Select } from "@cnote/ui";
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import {
   createBuyerBusinessAction, deleteAccountAction, requestOtpAction, saveConsentsAction, updateProfileAction, verifyOtpAction,
 } from "./actions";
-import { INDIAN_STATES, LANGUAGES } from "./states";
+import { INDIAN_STATES, LANGUAGES, stateLabel } from "./states";
 
 type State = ActionResult | null;
 const fe = (s: { ok: boolean; fieldErrors?: Record<string, string> } | null, k: string) => (s && !s.ok ? s.fieldErrors?.[k] : undefined);
 
 function Result({ state, success }: { state: State; success?: string }) {
+  const te = useTranslations("errors");
   if (!state) return null;
   if (state.ok) return success ? <Alert tone="success">{success}</Alert> : null;
-  return state.fieldErrors ? null : <Alert tone="danger">{state.error}</Alert>;
+  // Known DomainError messages carry a stable key (packages/next-kit error-catalogue); unknown ones stay English.
+  return state.fieldErrors ? null : <Alert tone="danger">{state.errorKey && te.has(state.errorKey) ? te(state.errorKey) : state.error}</Alert>;
 }
 
 export function OnboardingForm({ next }: { next: string }) {
+  const ts = useTranslations("states");
   const [state, action, pending] = useActionState<State, FormData>(createBuyerBusinessAction, null);
   return (
     <form action={action} className="flex flex-col gap-4" noValidate>
@@ -36,7 +40,7 @@ export function OnboardingForm({ next }: { next: string }) {
       <Field label="State" htmlFor="state" error={fe(state, "state")}>
         <Select id="state" name="state" defaultValue="" required>
           <option value="" disabled>Select state</option>
-          {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+          {INDIAN_STATES.map((s) => <option key={s} value={s}>{stateLabel(s, (c) => (ts.has(c) ? ts(c) : undefined))}</option>)}
         </Select>
       </Field>
       <Button type="submit" size="lg" disabled={pending}>{pending ? "Saving…" : "Continue"}</Button>

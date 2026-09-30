@@ -41,6 +41,44 @@
     "invalidAction": "આ ક્રિયા યોગ્ય નથી.",
     "_meta": {
       "review": "machine-drafted; needs native review"
+    },
+    "fulfilment": {
+      "heading": "ડિલિવરીની પ્રગતિ",
+      "stepsLabel": "ડિલિવરીના તબક્કા",
+      "step": {
+        "packed": "પેક થયું",
+        "dispatched": "ડિસ્પેચ થયું",
+        "in_transit": "રસ્તામાં",
+        "out_for_delivery": "ડિલિવરી માટે નીકળ્યું",
+        "delivered": "ડિલિવર થયું"
+      },
+      "state": {
+        "done": "પૂર્ણ",
+        "current": "હાલનો તબક્કો",
+        "upcoming": "હજુ નહીં"
+      },
+      "updates": "અપડેટ",
+      "noUpdates": "હજુ કોઈ ડિલિવરી અપડેટ નથી.",
+      "stage": {
+        "packed": "પેક થયું",
+        "in_transit": "રસ્તામાં",
+        "out_for_delivery": "ડિલિવરી માટે નીકળ્યું",
+        "delivery_attempted": "ડિલિવરીનો પ્રયાસ થયો"
+      },
+      "trackingBoth": "કુરિયર {courier}, ટ્રેકિંગ નંબર {ref}",
+      "trackingCourier": "કુરિયર {courier}",
+      "trackingRef": "ટ્રેકિંગ નંબર {ref}",
+      "intro": "ખરીદદારને અપડેટ રાખો. આ તબક્કાઓથી ઓર્ડરની સ્થિતિ કે કોઈ ચુકવણી બદલાતી નથી.",
+      "recordHeading": "આગલો તબક્કો નોંધો",
+      "stageLabel": "તબક્કો",
+      "note": "ખરીદદાર માટે નોંધ (વૈકલ્પિક)",
+      "courier": "કુરિયર (વૈકલ્પિક)",
+      "awb": "ટ્રેકિંગ નંબર / AWB (વૈકલ્પિક)",
+      "save": "અપડેટ સાચવો",
+      "saving": "સાચવી રહ્યા છીએ…",
+      "saved": "અપડેટ સાચવાયું.",
+      "needDispatch": "ટ્રાન્ઝિટના તબક્કા નોંધવા માટે પહેલાં ઓર્ડરને ડિસ્પેચ થયેલો માર્ક કરો.",
+      "invalidStage": "આ તબક્કો માન્ય નથી."
     }
   }
 }

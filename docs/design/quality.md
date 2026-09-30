@@ -28,7 +28,7 @@ Status: pilot, behind `QUALITY_CHECKS_ENABLED` (default off). Package `@cnote/qu
 
 ## Scope decisions
 
-- **Photos only.** Video is not accepted in the pilot: frame extraction needs ffmpeg or a decoder we do not ship, and photos already cover count/label/spec. A later step can extract frames and feed them through the same path.
+- **Short video via client-side frames.** The seller may pick a clip (at most 30 s, 25 MB; MP4/MOV/WebM). Their browser decodes it (HTMLVideoElement), draws 3 to 6 evenly spaced frames (one per ~5 s, at slice midpoints) to a canvas, re-encodes them as JPEG and uploads them as ordinary photos through the same validated, EXIF-stripping path with `source=video`. The server never receives or stores video and needs no ffmpeg. `QualityCheck.source` (`photos` | `video`) labels the check: the seller panel shows a "From video" badge and disputes get `source` on the advisory evidence (the disclaimer mentions frames from a short seller video). Photo and video are mutually exclusive in one submission, 3 to 6 frames for video and 1 to 4 photos otherwise. The vision capability accepts at most 4 images, so for more than 4 frames all are stored and shown while the model sees 4 evenly spaced ones (first and last kept). Limitation: a browser that cannot decode the format gets an error pointing to photos; frames are not verified to come from one video.
 - **No buyer-web panel.** The buyer sees nothing yet; disputes consume `listChecksForOrder(orderId)` through their own port. A buyer "Seller shared dispatch photos" panel would need 8-locale strings and a WCAG pass and is left for a follow-up.
 - **Category comes from the enquiry** (orders carry no listing link); listing attributes are a best-effort title match in that category.
 
@@ -37,6 +37,8 @@ Status: pilot, behind `QUALITY_CHECKS_ENABLED` (default off). Package `@cnote/qu
 - Airbnb, "Uploading photos" flow: a clear "Add photos" empty state, thumbnail grid with per-photo remove, count-based guidance ("you'll need N photos"). Adopted: thumbnail grid with a labelled remove button and max-photo guidance. https://mobbin.com/flows/11086575-f2e6-4943-8d94-476fb86aa6b1
 - Selfridges, "Your photos": each photo labelled by what it must show (front, back, serial number). Adopted: the order-derived checklist (quantity, labelling, product as ordered) shown before upload. https://mobbin.com/screens/ee0d1218-8fdc-4adf-9703-d98772c24c89
 - OKX, "Verify your address": bullet requirements above the dropzone, supported types and size limit, and a reassurance line about how the data is used. Adopted: requirement list, type/size limits, privacy line ("location removed, private, deleted after 6 months"). https://mobbin.com/screens/46c2e051-6a3e-48ec-b1a0-d9f9f4464daa
+
+- Video/photo upload flow: [Airbnb "Uploading photos"](https://mobbin.com/flows/11086575-f2e6-4943-8d94-476fb86aa6b1) pattern reused for the frame grid; the order-tracking references for the same wave are in `docs/design/ondc.md`.
 
 ## Env
 

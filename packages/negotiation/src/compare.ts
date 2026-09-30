@@ -6,6 +6,7 @@ import { prisma, type CounterProposal } from "@cnote/db";
 import * as enquiry from "@cnote/enquiry";
 import { z } from "zod";
 import { buyerBoundsProblems, checkBuyerCounter, fallbackCounter, landedPerUnit, rankQuotes, type BuyerBoundsInput, type Landed } from "./bounds";
+import { hasStructuredTerms, structuredComparisonTerms } from "./terms";
 import { isQuoteAssistEnabled, isUuid, json, logAgentAction, num, type Actor } from "./common";
 
 const requireEnabled = () => { if (!isQuoteAssistEnabled()) throw new DomainError("conflict", "Quote assist is not enabled."); };
@@ -82,7 +83,17 @@ export interface ComparisonRow {
   deliveryIncluded: boolean | null;
   gstPercent: number | null;
   gstIncluded: boolean | null;
+  /** Free text for old quotes (read from the notes); for structured quotes this equals `paymentTermsCode`. */
   paymentTerms: string | null;
+  /** Structured seller terms (enquiry.Quote); null on old quotes. */
+  moq: number | null;
+  moqUnit: string | null;
+  deliveryTerms: enquiry.DeliveryTerms | null;
+  deliveryNote: string | null;
+  paymentTermsCode: enquiry.PaymentTerms | null;
+  paymentNote: string | null;
+  /** True when the terms above come from the seller's structured fields rather than the notes. */
+  structured: boolean;
   landedPaise: number;
   landedComplete: boolean;
   assumptions: Landed["assumptions"];
@@ -125,7 +136,7 @@ export async function compareQuotes(actor: Actor, enquiryId: string): Promise<Co
   const ids = latest.map((x) => x.q.id);
   let terms = new Map((await prisma.quoteTerms.findMany({ where: { quoteId: { in: ids } } })).map((t) => [t.quoteId, t]));
   let needsReview = false;
-  const missing = latest.filter((x) => !terms.has(x.q.id));
+  const missing = latest.filter((x) => !hasStructuredTerms(x.q) && !terms.has(x.q.id)); // structured quotes need no extraction
   if (missing.length) {
     const out = await ai.normaliseQuotes(
       { quotes: missing.map((x) => ({ quoteId: x.q.id, pricePaise: x.q.pricePaise, quantity: x.q.quantity, unit: x.q.unit, notes: x.q.notes })) },
@@ -151,17 +162,22 @@ export async function compareQuotes(actor: Actor, enquiryId: string): Promise<Co
   const counters = await prisma.counterProposal.findMany({ where: { enquiryId, buyerBusinessId: actor.businessId, status: { in: ["proposed", "sent"] } }, orderBy: { createdAt: "desc" } });
   const today = new Date().toISOString().slice(0, 10);
   const rows: ComparisonRow[] = latest.map(({ q, m, conversationId, earlier }) => {
-    const t = terms.get(q.id);
-    const landed = landedPerUnit({
-      pricePaise: q.pricePaise, quantity: q.quantity, deliveryChargePaise: num(t?.deliveryChargePaise), deliveryIncluded: t?.deliveryIncluded ?? null,
-      gstPercent: t?.gstPercent ?? null, gstIncluded: t?.gstIncluded ?? null,
-    });
+    const structured = hasStructuredTerms(q);
+    const st = structured ? structuredComparisonTerms(q) : null;
+    const t = structured ? null : terms.get(q.id);
+    const charge = st ? st.deliveryChargePaise : num(t?.deliveryChargePaise);
+    const deliveryIncluded = st ? st.deliveryIncluded : (t?.deliveryIncluded ?? null);
+    const gstPercent = t?.gstPercent ?? null;
+    const gstIncluded = st ? st.gstIncluded : (t?.gstIncluded ?? null);
+    const landed = landedPerUnit({ pricePaise: q.pricePaise, quantity: q.quantity, deliveryChargePaise: charge, deliveryIncluded, gstPercent, gstIncluded });
     const c = counters.find((x) => x.quoteId === q.id);
     return {
       quoteId: q.id, matchId: m.id, conversationId, sellerBusinessId: m.sellerBusinessId, sellerName: m.sellerName, verificationTier: m.seller?.verificationTier ?? 0,
       badgeActive: m.seller?.badgeActive ?? false, trustScore: m.seller?.trustScore ?? 0, pricePaise: q.pricePaise, quantity: q.quantity, unit: q.unit, leadTimeDays: q.leadTimeDays,
-      validUntil: q.validUntil, expired: !!q.validUntil && q.validUntil < today, notes: q.notes, deliveryChargePaise: num(t?.deliveryChargePaise), deliveryIncluded: t?.deliveryIncluded ?? null,
-      gstPercent: t?.gstPercent ?? null, gstIncluded: t?.gstIncluded ?? null, paymentTerms: t?.paymentTerms ?? null, landedPaise: landed.landedPaise, landedComplete: landed.complete,
+      validUntil: q.validUntil, expired: !!q.validUntil && q.validUntil < today, notes: q.notes, deliveryChargePaise: charge, deliveryIncluded,
+      gstPercent, gstIncluded, paymentTerms: st ? st.paymentTerms : (t?.paymentTerms ?? null),
+      moq: q.moq, moqUnit: q.moqUnit, deliveryTerms: q.deliveryTerms, deliveryNote: q.deliveryNote, paymentTermsCode: q.paymentTerms, paymentNote: q.paymentNote, structured,
+      landedPaise: landed.landedPaise, landedComplete: landed.complete,
       assumptions: landed.assumptions, badges: [], earlierQuotes: earlier, counter: c ? toCounterView(c) : null,
     };
   });
@@ -282,8 +298,7 @@ export async function sendCounterOffer(actor: Actor, proposalId: string, edits: 
 
   const claim = await prisma.counterProposal.updateMany({ where: { id: p.id, status: "proposed" }, data: { status: "sent", sentByPersonId: actor.personId, sentAt: new Date() } });
   if (claim.count === 0) throw new DomainError("conflict", "This counter was already handled.");
-  const conv = await enquiry.getConversation(actor, p.conversationId);
-  const unit = conv?.quotes.find((q) => q.id === p.quoteId)?.unit ?? "unit";
+  const unit = (await enquiry.getQuote(actor, p.quoteId))?.unit ?? "unit";
   try {
     await enquiry.sendMessage(actor, p.conversationId, composeCounterMessage({ note, quotedPricePaise: Number(p.quotedPricePaise), pricePaise, unit, leadTimeDays }));
   } catch (err) {

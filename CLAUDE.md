@@ -48,6 +48,7 @@ pnpm worker                                # outbox relay + handlers + jobs (nee
 pnpm db:test:prepare                                 # once: create/migrate isolated cnote_test + cnote_live_test
 pnpm typecheck | pnpm lint | pnpm test | pnpm build   # all workspaces
 pnpm test:coverage                                   # per-package coverage thresholds (vitest.shared.ts)
+pnpm test:e2e:build && pnpm test:a11y && pnpm test:e2e   # Playwright UI tests (axe WCAG 2.2 AA + journeys); see docs/guides/testing.md
 pnpm --filter @cnote/enquiry test                    # one package
 # app package names: @cnote/web, @cnote/seller-app, @cnote/admin-app, @cnote/studio-app, @cnote/api, @cnote/worker
 # (@cnote/admin is the RBAC package, not the admin app; a --filter that matches nothing exits 0 silently)
@@ -119,6 +120,8 @@ Prefer `@cnote/ui` primitives, which carry the correct ARIA, over hand-rolled wi
 **Bharat-native UX (ADR-004).** Build for vernacular and Hinglish-first, low bandwidth and mobile first. Seller onboarding is WhatsApp-first; the web is the tertiary path. Search must handle mixed-script and transliterated queries.
 
 **Auth (identity).** Sign-in is by email/password or Google OAuth (PKCE). A short-lived HS256 JWT access token (`cnote_at`, 15 min) is paired with an opaque rotating refresh token (`cnote_rt`, 30 days). Only the refresh token's hash is stored, in `AuthSession`, and reusing an old refresh token revokes the session. Redis caches session revocation and holds the rate limits for sign-in, sign-up, reset and OTP. Refresh happens in `apps/web/src/proxy.ts`, because Server Components can't set cookies. Phone OTP is T0 *verification* (ADR-003), not login. Back-office access is granted only through `StaffMember` rows (see `packages/admin`), never through env vars or plan.
+
+**Client IP:** never parse `X-Forwarded-For` yourself; use `clientIp()` from `@cnote/security` (the first XFF entry is client-controlled). **HMAC tokens:** compare the canonical base64url signature string, not decoded bytes.
 
 **Tests** never touch dev data: `vitest.setup.ts` points Postgres at `<db>_test` / `<live_db>_test` and Redis at logical DB 1 (override with `TEST_DATABASE_URL`, `TEST_LIVE_DATABASE_URL`, `TEST_REDIS_URL`; CI sets them to its ephemeral services). Use unique ids/emails per test anyway, since packages run in parallel.
 

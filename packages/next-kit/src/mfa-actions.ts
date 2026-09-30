@@ -26,7 +26,7 @@ export async function mfaChallengeAction(_prev: ActionResult | null, formData: F
   });
   if (!r.ok) return r;
   const next = await completeMfaChallenge();
-  if (next === null) return { ok: false, error: "Your sign-in expired. Please sign in again." };
+  if (next === null) return { ok: false, error: "Your sign-in expired. Please sign in again.", errorKey: "auth.signInExpired" };
   redirect(safeNext(next));
 }
 

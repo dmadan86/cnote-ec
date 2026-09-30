@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { useLocale, useTranslations } from "next-intl";
-import { Camera, CircleHelp, CircleCheck, TriangleAlert } from "lucide-react";
+import { Camera, CircleHelp, CircleCheck, TriangleAlert, Video } from "lucide-react";
 import { Badge, Card, CardBody, CardHeader, CardTitle } from "@cnote/ui";
 import { getSubmissionContext, listSellerChecks, type CheckResultView, type QualityActor, type QualityCheckView } from "@cnote/quality";
 import { isLocale } from "@/i18n/config";
@@ -32,7 +32,10 @@ function CheckCard({ c }: { c: QualityCheckView }) {
   return (
     <li className="space-y-2 rounded-md border border-line p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium">{t("sharedLabel", { when: formatDateTime(c.createdAt, locale), count: c.mediaIds.length })}</p>
+        <p className="text-sm font-medium">
+          {c.source === "video" ? t("video.sharedLabel", { when: formatDateTime(c.createdAt, locale), count: c.mediaIds.length }) : t("sharedLabel", { when: formatDateTime(c.createdAt, locale), count: c.mediaIds.length })}
+          {c.source === "video" ? <> <Badge tone="neutral"><Video className="mr-1 inline size-3.5" aria-hidden />{t("video.badge")}</Badge></> : null}
+        </p>
         <Badge tone={c.status === "completed" ? "success" : c.status === "failed" ? "danger" : "neutral"}>
           {c.status === "completed" ? t("analysed") : c.status === "failed" ? t("failed") : t("analysing")}
         </Badge>
@@ -70,7 +73,7 @@ export async function DispatchPhotosPanel({ actor, orderId }: { actor: QualityAc
       <CardHeader><CardTitle><Camera className="mr-2 inline size-5" aria-hidden />{t("title")}</CardTitle></CardHeader>
       <CardBody className="space-y-4">
         <p className="text-sm text-muted">
-          {t("intro")}
+          {t("intro")} {t("videoIntroExtra")}
         </p>
         <div>
           <h3 className="text-sm font-semibold">{t("checklist")}</h3>
@@ -78,7 +81,7 @@ export async function DispatchPhotosPanel({ actor, orderId }: { actor: QualityAc
             {ctx.checklist.map((i) => <li key={i.check}><span className="font-medium">{i.label}.</span> <span className="text-muted">{i.expected}</span></li>)}
           </ul>
         </div>
-        {ctx.eligible ? <PhotoUpload orderId={orderId} maxPhotos={ctx.maxPhotos} /> : <p className="text-sm text-muted" role="status">{ctx.reason === "limit_reached" ? t("limitReached") : t("onlyBeforeDispatch")}</p>}
+        {ctx.eligible ? <PhotoUpload orderId={orderId} maxPhotos={ctx.maxPhotos} video={ctx.video} /> : <p className="text-sm text-muted" role="status">{ctx.reason === "limit_reached" ? t("limitReached") : t("onlyBeforeDispatch")}</p>}
         {busy ? <PendingRefresh /> : null}
         {checks.length ? <ul className="space-y-3">{checks.map((c) => <CheckCard key={c.id} c={c} />)}</ul> : null}
       </CardBody>

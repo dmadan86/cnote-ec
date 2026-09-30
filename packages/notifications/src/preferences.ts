@@ -6,10 +6,10 @@ import { CATEGORIES, CHANNELS, type NotificationCategory, type NotificationChann
 
 export const CATEGORY_META: Record<NotificationCategory, { label: string; description: string }> = {
   leads: { label: "Leads and requirements", description: "New leads, accepted requirements and review of your enquiries." },
-  messages: { label: "Messages and quotes", description: "Conversation messages and quotes from the other party." },
+  messages: { label: "Messages and quotes", description: "Conversation messages, quotes, disputes, agent negotiations and delivery updates." },
   reviews: { label: "Reviews and questions", description: "Moderation results and new reviews on your products." },
   listings: { label: "Listings and verification", description: "Listing and image moderation, verification and trust updates." },
-  billing: { label: "Billing and credits", description: "Credits, plans and payments." },
+  billing: { label: "Billing and credits", description: "Credits, plans, payments, escrow, financing and ad campaign/wallet alerts." },
   security: { label: "Security", description: "Sign-in and account security alerts." },
   marketing: { label: "Offers and product news", description: "Tips, offers and announcements." },
 };

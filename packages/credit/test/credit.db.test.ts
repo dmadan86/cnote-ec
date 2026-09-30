@@ -421,7 +421,10 @@ describe("escrow assignment sync (payout-first contract)", () => {
     await acceptAll(actor, app.id);
     await simulateMockDisbursal(app.id);
     const [loan] = await listLoans(actor);
-    const { syncEscrowAssignment, worker } = await import("../src/index");
+    const { syncEscrowAssignment, worker, getCreditApplicationBusiness } = await import("../src/index");
+    expect(await getCreditApplicationBusiness(app.id)).toBe(actor.businessId);
+    expect(await getCreditApplicationBusiness(uid())).toBeNull();
+    expect(await getCreditApplicationBusiness("nope")).toBeNull();
     expect(await syncEscrowAssignment(loan!.id)).toBe("synced");
     expect(assigned.at(-1)).toMatchObject({ escrowId: escrow.escrowId, duePaise: loan!.outstandingPaise });
     // escrow paid the lender from the release and reported it: the handler records the repayment and re-syncs

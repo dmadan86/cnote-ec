@@ -1,0 +1,30 @@
+{
+  "orderTracking": {
+    "heading": "डिलिव्हरीची प्रगती",
+    "stepsLabel": "डिलिव्हरीचे टप्पे",
+    "step": {
+      "packed": "पॅक झाले",
+      "dispatched": "डिस्पॅच झाले",
+      "in_transit": "वाटेत",
+      "out_for_delivery": "डिलिव्हरीसाठी निघाले",
+      "delivered": "डिलिव्हर झाले"
+    },
+    "state": {
+      "done": "पूर्ण",
+      "current": "सध्याचा टप्पा",
+      "upcoming": "अजून नाही"
+    },
+    "updates": "अपडेट",
+    "noUpdates": "अजून कोणतेही डिलिव्हरी अपडेट नाही.",
+    "stage": {
+      "packed": "पॅक झाले",
+      "in_transit": "वाटेत",
+      "out_for_delivery": "डिलिव्हरीसाठी निघाले",
+      "delivery_attempted": "डिलिव्हरीचा प्रयत्न झाला"
+    },
+    "trackingBoth": "कुरिअर {courier}, ट्रॅकिंग क्रमांक {ref}",
+    "trackingCourier": "कुरिअर {courier}",
+    "trackingRef": "ट्रॅकिंग क्रमांक {ref}",
+    "intro": "माल पुढे जाताना विक्रेता हे अपडेट करतो. यामुळे ऑर्डरची स्थिती किंवा कोणतेही पेमेंट बदलत नाही."
+  }
+}
