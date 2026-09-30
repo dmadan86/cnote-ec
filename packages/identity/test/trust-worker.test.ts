@@ -63,3 +63,25 @@ it("an upheld offer-honour report lowers trust once; a dismissed one is ignored"
   await prisma.domainEvent.deleteMany({ where: { aggregateId: businessId } });
   await redis.del(`trust:ev:${id}`);
 });
+
+it("a dispute resolved against a business counts as lost once; no-fault outcomes are ignored", async () => {
+  const person = await prisma.person.create({ data: { email: `t-${randomUUID()}@example.test` } });
+  people.push(person.id);
+  const { businessId } = await createBusiness(person.id, { name: "Dispute Mfg", isSeller: true });
+  ids.push(businessId);
+  await redis.del(`trust:${businessId}`);
+  await recomputeTrust(businessId);
+  const before = (await prisma.business.findUniqueOrThrow({ where: { id: businessId } })).trustScore;
+  const base = { version: 1, aggregateType: "Dispute", aggregateId: "d", occurredAt: new Date().toISOString(), type: "DisputeResolved" } as const;
+  const payload = { disputeId: "d", orderId: "o", outcome: "buyer_favour", refundPaise: 100, releasePaise: 0, decidedBy: "staff" } as const;
+  const noFault = Math.floor(Math.random() * 1e12);
+  await trustHandlers.DisputeResolved!({ ...base, id: noFault, payload: { ...payload, outcome: "withdrawn", faultBusinessId: null } });
+  expect(await redis.hget(`trust:${businessId}`, "disputesLost")).toBeNull();
+  const ev = { ...base, id: noFault + 1, payload: { ...payload, faultBusinessId: businessId } };
+  await trustHandlers.DisputeResolved!(ev);
+  await trustHandlers.DisputeResolved!(ev);
+  expect(await redis.hget(`trust:${businessId}`, "disputesLost")).toBe("1");
+  expect((await prisma.business.findUniqueOrThrow({ where: { id: businessId } })).trustScore).toBeLessThan(before);
+  await prisma.domainEvent.deleteMany({ where: { aggregateId: businessId } });
+  await redis.del(`trust:ev:${noFault + 1}`);
+});

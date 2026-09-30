@@ -13,6 +13,9 @@ import { purgeReadNotifications } from "@cnote/notifications";
 import { purgeRejectedUgc } from "@cnote/reviews";
 import * as whatsapp from "@cnote/whatsapp";
 import { purgeStaleEmptyWishlists } from "@cnote/wishlist";
+import { purgeResolvedDisputeEvidence } from "@cnote/disputes";
+import { purgeOldMessages, purgeOndcOrderPayloads } from "@cnote/ondc";
+import { purgeOldQualityMedia } from "@cnote/quality";
 import { numFromEnv } from "./config";
 
 const DAY = 86_400_000;
@@ -97,6 +100,30 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     description: "KYC document images 90 days after the session is decided (or expired); masked fields, verdicts and checks are kept as the verification record.",
     legalBasis: "DPDP s.8(7) storage limitation; ADR-003 verification evidence is retained in minimised form",
     run: (before, { dryRun }) => purgeKycDocuments(before, { dryRun }),
+  },
+  {
+    name: "disputes.evidence_after_resolution", module: "disputes", envKey: "DISPUTE_EVIDENCE", defaultDays: 1095, supportsDryRun: false,
+    description: "Dispute evidence files and statements after the dispute is resolved or withdrawn; decisions and the AI brief summary are kept.",
+    legalBasis: "DPDP s.8(7); 3 years covers the limitation period for contract claims (Limitation Act art. 55) pending counsel review (ADR-013)",
+    run: async (before, { dryRun }) => (dryRun ? 0 : purgeResolvedDisputeEvidence(before)),
+  },
+  {
+    name: "quality.dispatch_photos", module: "quality", envKey: "QUALITY_MEDIA", defaultDays: 180, supportsDryRun: true,
+    description: "Pre-dispatch quality-check photos; verdicts, per-check results and staff labels are kept as advisory evidence.",
+    legalBasis: "DPDP s.8(7); advisory evidence for disputes raised within the escrow and dispute windows (ADR-015)",
+    run: (before, { dryRun }) => purgeOldQualityMedia(before, { dryRun }),
+  },
+  {
+    name: "ondc.protocol_messages", module: "ondc", envKey: "ONDC_MESSAGES", defaultDays: 90, supportsDryRun: false,
+    description: "Raw inbound/outbound ONDC protocol messages (may carry network buyer contact details).",
+    legalBasis: "DPDP s.8(7); protocol logs kept only for troubleshooting and callback replay (ADR-017)",
+    run: async (before, { dryRun }) => (dryRun ? 0 : purgeOldMessages(0, before)),
+  },
+  {
+    name: "ondc.order_buyer_contact", module: "ondc", envKey: "ONDC_ORDER_PAYLOADS", defaultDays: 365, supportsDryRun: true,
+    description: "Network buyer billing/delivery contact and payment blocks in finished ONDC orders; context, items and totals are kept.",
+    legalBasis: "DPDP s.8(7); order records themselves are kept for tax/accounting (ADR-017)",
+    run: (before, { dryRun }) => purgeOndcOrderPayloads(before, { dryRun }),
   },
   {
     name: "leadgen.abandoned_captures_90d", module: "leadgen", envKey: "ABANDONED_CAPTURES", defaultDays: 90, supportsDryRun: true,

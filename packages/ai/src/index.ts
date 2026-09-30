@@ -14,7 +14,7 @@ export type Lang = "en" | "hi" | "kn" | "ta" | "te" | "mr" | "gu" | "bn";
 
 /** Links a decision to the thing it's about, for audit + the review queue. */
 export interface Subject {
-  type: "enquiry" | "listing" | "business" | "message" | "voice_note";
+  type: "enquiry" | "listing" | "business" | "message" | "voice_note" | "order" | "dispute" | "quote";
   id: string;
 }
 
@@ -179,7 +179,7 @@ export async function resolveReview(id: string, outcome: "approved" | "rejected"
 
 // ---- Additions (non-breaking) ----
 export { redactPii, redactDeep } from "./redact";
-export { REVIEW_THRESHOLDS, purgeOldDecisionInputs } from "./decisions";
+export { REVIEW_THRESHOLDS, purgeOldDecisionInputs, getDecisionMeta } from "./decisions";
 export { EMBEDDER_VERSION, embedText } from "./embedder";
 export { getSpeechToText, setSpeechToTextForTests, MockSpeechToText, SarvamSpeechToText, MOCK_TRANSCRIPT_PREFIX, MAX_AUDIO_BYTES, MAX_AUDIO_MS, AUDIO_EXT, assertAudio, type SarvamOptions } from "./speech";
 export { MAX_VISION_IMAGES, VISION_MAX_LONG_EDGE, VISION_MIMES } from "./vision";
@@ -205,3 +205,6 @@ export const worker: ModuleWorker = {
 
 export * from "./getters";
 export * from "./document";
+export * from "./inspection";
+export * from "./disputes";
+export * from "./quotes";

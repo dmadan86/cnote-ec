@@ -14,6 +14,8 @@ const PRIVATE_AREAS = ["/account", "/onboarding", "/buyer", "/rfq", "/conversati
 const nextConfig: NextConfig = {
   // Auth realm is baked in at build time: this app only ever accepts its own sessions/cookies.
   env: { CNOTE_AUTH_REALM: "web" },
+  // Dispute evidence (photos, voice notes; 8 MB per file, ADR-013) is posted through server actions; the default is 1 MB.
+  experimental: { serverActions: { bodySizeLimit: "20mb" } },
   // Workspace packages ship TypeScript source.
   transpilePackages: ["@cnote/escrow", "@cnote/quality", "@cnote/disputes", "@cnote/negotiation", "@cnote/verticals", "@cnote/ondc", "@cnote/ads", "@cnote/promotions", "@cnote/compliance", "@cnote/metrics", "@cnote/whatsapp", "@cnote/storefront", "@cnote/domains", "@cnote/security", "@cnote/leadgen", "@cnote/templates", "@cnote/email", "@cnote/notifications", "@cnote/developer", "@cnote/observability", "@cnote/media", "@cnote/wishlist", "@cnote/reviews", "@cnote/next-kit", "@cnote/ui", "@cnote/core", "@cnote/ai", "@cnote/identity", "@cnote/catalogue", "@cnote/billing", "@cnote/enquiry", "@cnote/search"],
   serverExternalPackages: ["pdf-lib", "@cnote/live-db", "juice", "sanitize-html", "mustache", "@cnote/db", "@prisma/client", "@prisma/adapter-pg", "pg", "ioredis"],

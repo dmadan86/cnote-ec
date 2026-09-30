@@ -180,7 +180,9 @@ async function transition(sellerBusinessId: string, campaignId: string, from: st
   const c = await ownedCampaign(sellerBusinessId, campaignId);
   if (!from.includes(c.status)) throw new DomainError("conflict", `Cannot change a ${c.status} campaign this way`);
   await prisma.$transaction(async (tx) => {
-    await tx.adCampaign.update({ where: { id: campaignId }, data: { status: to, haltReason: null } });
+    // compare-and-set: the sweep (or staff) may have moved the campaign since we read it
+    const r = await tx.adCampaign.updateMany({ where: { id: campaignId, status: c.status }, data: { status: to, haltReason: null } });
+    if (r.count === 0) throw new DomainError("conflict", "The campaign changed just now. Refresh and try again.");
     await emit(tx, "AdCampaignStatusChanged", { type: "ad_campaign", id: campaignId }, { campaignId, sellerBusinessId, from: c.status, to, cause: "seller" });
   });
   await invalidateSnapshot();

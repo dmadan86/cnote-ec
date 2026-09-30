@@ -1,1 +1,113 @@
 // Owned by @cnote/quality. ADR-015 CV pre-dispatch quality checks (category-gated, advisory evidence for disputes). Flag QUALITY_CHECKS_ENABLED.
+// No relations to foreign models (orderId / sellerBusinessId are plain ids). Media bytes live in the PRIVATE bucket under quality/.
+
+enum QualityStatus {
+  pending
+  analysing
+  completed
+  failed
+
+  @@map("quality_status")
+}
+
+/// consistent | inconsistent | inconclusive. ADVISORY evidence only (ADR-015): never gates dispatch, payment or a dispute outcome.
+enum QualityOutcome {
+  consistent
+  inconsistent
+  inconclusive
+
+  @@map("quality_outcome")
+}
+
+model QualityCheck {
+  id                String         @id @default(uuid()) @db.Uuid
+  orderId           String         @map("order_id") @db.Uuid
+  sellerBusinessId  String         @map("seller_business_id") @db.Uuid
+  submittedByPersonId String       @map("submitted_by_person_id") @db.Uuid
+  categorySlug      String         @map("category_slug")
+  status            QualityStatus  @default(pending)
+  verdict           QualityOutcome?
+  confidence        Float?
+  /// true when confidence fell below the review threshold (ai ReviewItem enqueued)
+  needsReview       Boolean        @default(false) @map("needs_review")
+  promptVersion     String?        @map("prompt_version")
+  modelId           String?        @map("model_id")
+  /// ai_decisions.id (audit of the model call; no bytes stored)
+  decisionId        String?        @map("decision_id") @db.Uuid
+  /// checklist snapshot derived from order/quote/listing at submission time: { quantity, unit, requirement, attributes }
+  expectedSpec      Json           @default("{}") @map("expected_spec")
+  failureReason     String?        @map("failure_reason")
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  completedAt       DateTime?      @map("completed_at") @db.Timestamptz
+
+  @@index([orderId, createdAt])
+  @@index([status, createdAt])
+  @@index([categorySlug, status])
+  @@map("quality_checks")
+}
+
+/// Private-bucket photos (EXIF/GPS stripped). Video is not accepted in the pilot (see docs/design/quality.md).
+model QualityCheckMedia {
+  id        String    @id @default(uuid()) @db.Uuid
+  checkId   String    @map("check_id") @db.Uuid
+  key       String    @unique
+  sha256    String
+  mimeType  String    @map("mime_type")
+  width     Int
+  height    Int
+  bytes     Int
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  /// set by purgeOldQualityMedia (DPDP retention); the row stays for audit, the object is deleted
+  purgedAt  DateTime? @map("purged_at") @db.Timestamptz
+
+  @@unique([checkId, sha256])
+  @@index([createdAt])
+  @@map("quality_check_media")
+}
+
+model QualityCheckResult {
+  id         String         @id @default(uuid()) @db.Uuid
+  checkId    String         @map("check_id") @db.Uuid
+  /// quantity | labelling | spec
+  check      String
+  result     QualityOutcome
+  confidence Float
+  note       String         @default("")
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([checkId, check])
+  @@map("quality_check_results")
+}
+
+/// Staff ground truth for one result (the golden set for the accuracy gate).
+model QualityLabel {
+  id           String         @id @default(uuid()) @db.Uuid
+  resultId     String         @unique @map("result_id") @db.Uuid
+  checkId      String         @map("check_id") @db.Uuid
+  check        String
+  categorySlug String         @map("category_slug")
+  /// what staff judge the truth to be
+  label        QualityOutcome
+  labelledBy   String         @map("labelled_by") @db.Uuid
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([categorySlug])
+  @@map("quality_labels")
+}
+
+/// Category allowlist. A row exists once a category has been enabled at least once; `enabled` is the live toggle.
+model QualityCategory {
+  categorySlug    String    @id @map("category_slug")
+  enabled         Boolean   @default(false)
+  /// accuracy and label count at the moment of the last enable (audit of why it was allowed)
+  accuracyAtEnable Float?   @map("accuracy_at_enable")
+  labelsAtEnable  Int?      @map("labels_at_enable")
+  /// true for the pilot category, which is seeded/enabled by ops without the gate
+  pilot           Boolean   @default(false)
+  updatedBy       String?   @map("updated_by") @db.Uuid
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("quality_categories")
+}

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 An AI-first B2B marketplace for Indian MSMEs, positioned against IndiaMART's broadcast-lead model. The working name is TBD; "BizKart" in the design reference is a placeholder. The source of truth for product and architecture decisions is `docs/adr/ADR-v0.1.md`. Read the relevant ADR before building a feature, and cite it (e.g. "per ADR-002") in PRs and non-obvious code.
 
-**Current phase: Phase 1** (trust-first lead marketplace, one vertical). Phase 2 items (escrow, disputes, quote agents, ONDC) and Phase 3 items (credit, agent-to-agent, price intel) are **not built yet**. Still, the data model must not block them (see Data model below). The Phase-1 vertical (ADR-011) is still undecided, so category-specific logic must be config and data, not hardcoded.
+**Current phase: Phase 1** (trust-first lead marketplace, one vertical). Phase 2 modules are **built but flagged off** (`@cnote/escrow`, `disputes`, `negotiation`, `quality`, `verticals`, `ondc`; flags in `.env.example`, status in `docs/adr/ADR-coverage.md`). Phase 3 items (credit, agent-to-agent, price intel) are not built yet, and the data model must not block them (see Data model below). The Phase-1 vertical (ADR-011) is still undecided, so category-specific logic must be config and data, not hardcoded.
 
 ## Stack and layout
 
@@ -51,6 +51,7 @@ pnpm --filter @cnote/enquiry test                    # one package
 pnpm --filter @cnote/enquiry exec vitest run test/matching.test.ts -t "cascades"   # one test
 
 pnpm db:new <snake_name>   # schema change → new migration (non-interactive; see below)
+bash scripts/migrate-lock.sh acquire|release <owner>   # serialise schema edits when several agents share a checkout
 pnpm db:check              # CI guard for raw-SQL objects
 pnpm check:boundaries   # ADR-006: declared deps, no cycles, model ownership
 ```

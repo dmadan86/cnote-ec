@@ -631,8 +631,9 @@ describe("messaging, quotes and deal reports", () => {
     await expect(sendQuote(buyer, cid, { pricePaise: 100, quantity: 1, unit: "pcs" })).rejects.toMatchObject({ code: "forbidden" });
     await expect(sendQuote(seller, cid, { pricePaise: 0, quantity: 1, unit: "pcs" })).rejects.toBeTruthy();
     await sendQuote(seller, cid, { pricePaise: 100, quantity: 2, unit: "pcs", leadTimeDays: 3, notes: " ok ", validUntil: "2026-12-31" });
-    await sendQuote(seller, cid, { pricePaise: 90, quantity: 2, unit: "pcs" });
+    const { quoteId } = await sendQuote(seller, cid, { pricePaise: 90, quantity: 2, unit: "pcs" });
     const q = (await getConversation(seller, cid))!.quotes;
+    expect(q[1]!.id).toBe(quoteId);
     expect(q.map((x) => x.pricePaise)).toEqual([100, 90]);
     expect(q[0]).toMatchObject({ leadTimeDays: 3, notes: "ok", validUntil: "2026-12-31" });
     expect(q[1]).toMatchObject({ leadTimeDays: null, notes: null, validUntil: null });

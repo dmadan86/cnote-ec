@@ -112,6 +112,21 @@ describe("runRetention", () => {
   });
 });
 
+describe("phase-2 policies (disputes, quality, ondc)", () => {
+  it("call the owning modules; modules without a dry-run report 0 on dry-run", async () => {
+    const byName = (n: string) => RETENTION_POLICIES.find((p) => p.name === n)!;
+    const ancient = new Date("2000-01-01T00:00:00Z");
+    for (const n of ["disputes.evidence_after_resolution", "quality.dispatch_photos", "ondc.protocol_messages", "ondc.order_buyer_contact"]) {
+      const p = byName(n);
+      expect(p, n).toBeDefined();
+      expect(await p.run(ancient, { dryRun: true })).toBe(0);
+      expect(await p.run(ancient, { dryRun: false })).toBe(0);
+    }
+    expect(byName("disputes.evidence_after_resolution").supportsDryRun).toBe(false);
+    expect(byName("quality.dispatch_photos").supportsDryRun).toBe(true);
+  });
+});
+
 describe("runDueRetention", () => {
   it("staggers: at most maxPerTick due policies, skips ones that ran within ~23h or when disabled", async () => {
     await prisma.retentionRun.deleteMany({ where: { policy: { in: RETENTION_POLICIES.map((p) => p.name) } } });

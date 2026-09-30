@@ -1,4 +1,5 @@
 import { cachedManyTagged, cachedTagged, cacheTags, DomainError, emit, invalidateTags } from "@cnote/core";
+import { createHash } from "node:crypto";
 import { prisma } from "@cnote/db";
 import { z } from "zod";
 import { getGstnProvider, isValidGstin, isValidUdyam, normaliseGstin } from "./gstin";
@@ -38,6 +39,20 @@ export async function createBusiness(personId: string, input: CreateBusinessInpu
     await bustSellerCaches(r.businessId);
     return r;
   });
+}
+
+/**
+ * A buyer-side system business for an external network (e.g. key "ondc" for ONDC network buyers, ADR-017). Network orders
+ * are booked to it so Order.buyerBusinessId stays non-null and every order event keeps its shape. Deterministic id from the
+ * key; no members, so nobody can sign in as it; never a seller. Idempotent.
+ */
+export async function ensureSystemBuyerBusiness(key: string, name: string): Promise<string> {
+  if (!/^[a-z0-9_-]{2,40}$/.test(key)) throw new DomainError("validation", "Invalid system business key.");
+  const h = createHash("sha256").update(`cnote:system-buyer:${key}`).digest("hex");
+  // RFC 4122 layout with version nibble 5 and variant 10xx, so it passes uuid validation everywhere.
+  const id = `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${((parseInt(h.slice(16, 18), 16) & 0x3f) | 0x80).toString(16)}${h.slice(18, 20)}-${h.slice(20, 32)}`;
+  await prisma.business.upsert({ where: { id }, create: { id, name: name.slice(0, 120), isSeller: false, isBuyer: true }, update: {} });
+  return id;
 }
 
 export async function updateProfile(personId: string, input: { name?: string; preferredLanguage?: string }): Promise<void> {

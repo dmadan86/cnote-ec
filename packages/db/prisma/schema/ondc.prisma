@@ -1,1 +1,90 @@
 // Owned by @cnote/ondc. ADR-017 ONDC seller-network-participant adapter (Beckn). Flag ONDC_ENABLED.
+// No relations to foreign models (businesses, listings, orders are referenced by plain uuid columns).
+// Private signing/encryption keys are NEVER stored here: they come from env / the secrets provider.
+
+/// A seller business that opted in to the ONDC channel (explicit terms acceptance).
+model OndcSeller {
+  id                 String    @id @default(uuid()) @db.Uuid
+  businessId         String    @unique @map("business_id") @db.Uuid
+  enabled            Boolean   @default(true)
+  termsVersion       String    @map("terms_version")
+  acceptedAt         DateTime  @map("accepted_at") @db.Timestamptz
+  acceptedByPersonId String?   @map("accepted_by_person_id") @db.Uuid
+  /// sha256 of the last published catalogue projection; a change triggers OndcCatalogPublished
+  lastPublishedHash  String?   @map("last_published_hash")
+  lastPublishedAt    DateTime? @map("last_published_at") @db.Timestamptz
+  publishedItems     Int       @default(0) @map("published_items")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("ondc_sellers")
+}
+
+/// Per-listing opt-in. Eligibility (live, approved, tier >= 1) is re-checked at every publish.
+model OndcListingOptIn {
+  id               String   @id @default(uuid()) @db.Uuid
+  listingId        String   @unique @map("listing_id") @db.Uuid
+  sellerBusinessId String   @map("seller_business_id") @db.Uuid
+  /// optional per-listing override of the mapped ONDC category id
+  ondcCategoryId   String?  @map("ondc_category_id")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([sellerBusinessId])
+  @@map("ondc_listing_opt_ins")
+}
+
+/// Inbound requests and outbound callbacks (one row per direction/action/transaction/message).
+/// The unique key makes inbound delivery idempotent; outbound rows are replayable from `body`.
+model OndcMessage {
+  id             String    @id @default(uuid()) @db.Uuid
+  /// "inbound" | "outbound"
+  direction      String
+  /// beckn action, e.g. "search", "on_search"
+  action         String
+  transactionId  String    @map("transaction_id")
+  messageId      String    @map("message_id")
+  counterpartyId String?   @map("counterparty_id")
+  counterpartyUri String?  @map("counterparty_uri")
+  /// inbound: received | processed | failed | rejected ; outbound: pending | sent | failed
+  status         String
+  httpStatus     Int?      @map("http_status")
+  error          String?
+  attempts       Int       @default(0)
+  /// full Beckn body (contains buyer contact for confirm/init: purged by retention, redacted in admin views)
+  body           Json
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([direction, action, transactionId, messageId])
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("ondc_messages")
+}
+
+/// An order received via /confirm. Idempotent by (transaction_id, message_id).
+model OndcOrder {
+  id               String    @id @default(uuid()) @db.Uuid
+  transactionId    String    @map("transaction_id")
+  messageId        String    @map("message_id")
+  bapId            String    @map("bap_id")
+  bapUri           String    @map("bap_uri")
+  sellerBusinessId String    @map("seller_business_id") @db.Uuid
+  /// "created" | "accepted" | "in_progress" | "completed" | "cancelled"
+  status           String    @default("created")
+  totalPaise       BigInt    @map("total_paise")
+  currency         String    @default("INR")
+  items            Json
+  /// the confirm body as received (full Beckn payload)
+  payload          Json
+  cancelReason     String?   @map("cancel_reason")
+  /// order created via the order sink (enquiry), when wired
+  internalOrderId  String?   @map("internal_order_id") @db.Uuid
+  receivedEmittedAt DateTime? @map("received_emitted_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([transactionId, messageId])
+  @@index([sellerBusinessId, createdAt])
+  @@index([transactionId])
+  @@map("ondc_orders")
+}

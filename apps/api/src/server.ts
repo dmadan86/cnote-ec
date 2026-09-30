@@ -4,6 +4,7 @@ import { assertIndiaResidency } from "@cnote/compliance";
 import { assertRequiredSecrets } from "@cnote/security";
 import { setCouponPort, couponPortFromModule } from "@cnote/billing";
 import { couponPort } from "@cnote/promotions";
+import { wireOndcOrderSink } from "@cnote/ondc";
 import * as Sentry from "@sentry/node";
 import { createApp } from "./app";
 import { config } from "./env";
@@ -12,6 +13,8 @@ assertRequiredSecrets("api");
 assertIndiaResidency();
 // Payment webhooks redeem coupons on fulfilment (billing may not import promotions, ADR-006).
 setCouponPort(couponPortFromModule(couponPort));
+// ONDC orders mirror into platform Orders (enquiry owns them, ADR-017).
+wireOndcOrderSink();
 Sentry.init(sentryOptions("api", "nodejs"));
 
 const app = createApp({ onServerError: (err, requestId) => void Sentry.captureException(err, { tags: { requestId } }) });

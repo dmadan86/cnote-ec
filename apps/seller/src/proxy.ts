@@ -4,7 +4,7 @@ import type { NextRequest, NextResponse } from "next/server";
 
 // Public: "/", /signin, /signup, /forgot-password, /reset-password, /mfa, static assets. Everything else needs a session.
 const authProxy = createAuthProxy({
-  protectedPrefixes: ["/onboarding", "/dashboard", "/leads", "/conversations", "/listings", "/billing", "/verification", "/settings", "/orders", "/reviews", "/appeals", "/notifications", "/storefront", "/offers", "/referrals", "/ads"],
+  protectedPrefixes: ["/onboarding", "/dashboard", "/leads", "/conversations", "/listings", "/billing", "/verification", "/settings", "/orders", "/reviews", "/appeals", "/notifications", "/storefront", "/offers", "/referrals", "/ads", "/ondc", "/price-book", "/disputes"],
   signInPath: "/signin",
 });
 

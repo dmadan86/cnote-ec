@@ -1,1 +1,182 @@
 // Owned by @cnote/negotiation. ADR-014 seller quote-assist agent + buyer comparison/counter assist. Flag QUOTE_ASSIST_ENABLED.
+// No Prisma relations to foreign models (ADR-006): business/person/listing/enquiry/match/conversation/quote ids are plain uuid
+// columns. Money is integer paise (BigInt); tier breaks live in JSON as integer paise numbers (safe: < 2^53).
+
+enum QuoteDraftStatus {
+  pending
+  approved
+  discarded
+
+  @@map("quote_draft_status")
+}
+
+enum CounterProposalStatus {
+  proposed
+  sent
+  discarded
+
+  @@map("counter_proposal_status")
+}
+
+/// Seller's private pricing rules per listing. floor_price_paise is PRIVATE: never shown to buyers, and the agent can never
+/// propose (or the seller approve through the agent) a price below it.
+model SellerPriceBook {
+  id               String   @id @default(uuid()) @db.Uuid
+  sellerBusinessId String   @map("seller_business_id") @db.Uuid
+  listingId        String   @map("listing_id") @db.Uuid
+  title            String
+  basePricePaise   BigInt   @map("base_price_paise") // per unit
+  unit             String
+  /// [{ "minQty": 500, "pricePaise": 4800 }, ...] ascending by minQty; price must fall as quantity rises
+  tiers            Json     @default("[]")
+  floorPricePaise  BigInt   @map("floor_price_paise") // per unit, private
+  moq              Int?
+  leadTimeDays     Int      @default(7) @map("lead_time_days")
+  deliveryTerms    String?  @map("delivery_terms")
+  gstPercent       Int?     @map("gst_percent")
+  gstIncluded      Boolean  @default(false) @map("gst_included")
+  validityDays     Int      @default(7) @map("validity_days")
+  /// true when seeded from the live listing and not yet edited by the seller
+  seeded           Boolean  @default(true)
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([sellerBusinessId, listingId])
+  @@index([sellerBusinessId, active])
+  @@map("seller_price_book")
+}
+
+/// The agent's proposed quote for an accepted lead. Becomes a real Quote only when the seller approves (then enquiry.sendQuote).
+model QuoteDraft {
+  id               String           @id @default(uuid()) @db.Uuid
+  matchId          String           @unique @map("match_id") @db.Uuid
+  enquiryId        String           @map("enquiry_id") @db.Uuid
+  conversationId   String           @map("conversation_id") @db.Uuid
+  sellerBusinessId String           @map("seller_business_id") @db.Uuid
+  priceBookId      String?          @map("price_book_id") @db.Uuid
+  status           QuoteDraftStatus @default(pending)
+  pricePaise       BigInt           @map("price_paise") // per unit
+  quantity         Int
+  unit             String
+  moq              Int?
+  leadTimeDays     Int?             @map("lead_time_days")
+  shippingTerms    String?          @map("shipping_terms")
+  validUntil       DateTime?        @map("valid_until") @db.Date
+  notes            String?
+  rationale        String
+  confidence       Float            @db.Real
+  needsReview      Boolean          @default(false) @map("needs_review")
+  /// { ok, floorPaise, violations[], rejectedModelPricePaise? }
+  boundsCheck      Json             @default("{}") @map("bounds_check")
+  /// the draft exactly as generated (for edit distance)
+  original         Json             @default("{}")
+  aiDecisionId     String?          @map("ai_decision_id") @db.Uuid
+  quoteId          String?          @map("quote_id") @db.Uuid
+  edited           Boolean          @default(false)
+  editedFields     Int              @default(0) @map("edited_fields")
+  priceDeltaPct    Float?           @map("price_delta_pct") @db.Real
+  notesEditDistance Int             @default(0) @map("notes_edit_distance")
+  decidedByPersonId String?         @map("decided_by_person_id") @db.Uuid
+  decidedVia       String?          @map("decided_via") // app | whatsapp
+  decidedAt        DateTime?        @map("decided_at") @db.Timestamptz
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([sellerBusinessId, status, createdAt])
+  @@map("quote_drafts")
+}
+
+/// Buyer-set bounds per enquiry. Applied server-side to every counter (per-unit QUOTED price, before freight/GST).
+model BuyerBounds {
+  id                 String   @id @default(uuid()) @db.Uuid
+  enquiryId          String   @unique @map("enquiry_id") @db.Uuid
+  buyerBusinessId    String   @map("buyer_business_id") @db.Uuid
+  targetPricePaise   BigInt?  @map("target_price_paise")
+  ceilingPricePaise  BigInt?  @map("ceiling_price_paise")
+  maxLeadTimeDays    Int?     @map("max_lead_time_days")
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([buyerBusinessId])
+  @@map("buyer_bounds")
+}
+
+/// Freight / GST / payment terms the comparison agent extracted from a quote's free-text notes (computed once per quote).
+model QuoteTerms {
+  quoteId             String   @id @map("quote_id") @db.Uuid
+  enquiryId           String   @map("enquiry_id") @db.Uuid
+  deliveryChargePaise BigInt?  @map("delivery_charge_paise") // total for the quoted quantity
+  deliveryIncluded    Boolean? @map("delivery_included")
+  gstPercent          Int?     @map("gst_percent")
+  gstIncluded         Boolean? @map("gst_included")
+  paymentTerms        String?  @map("payment_terms")
+  confidence          Float    @db.Real
+  aiDecisionId        String?  @map("ai_decision_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([enquiryId])
+  @@map("quote_terms")
+}
+
+/// A counter the agent proposed for the buyer. Nothing is sent until the buyer sends it explicitly.
+model CounterProposal {
+  id              String                @id @default(uuid()) @db.Uuid
+  enquiryId       String                @map("enquiry_id") @db.Uuid
+  quoteId         String                @map("quote_id") @db.Uuid
+  conversationId  String                @map("conversation_id") @db.Uuid
+  buyerBusinessId String                @map("buyer_business_id") @db.Uuid
+  sellerBusinessId String               @map("seller_business_id") @db.Uuid
+  status          CounterProposalStatus @default(proposed)
+  quotedPricePaise BigInt               @map("quoted_price_paise")
+  pricePaise      BigInt                @map("price_paise") // per unit
+  leadTimeDays    Int?                  @map("lead_time_days")
+  note            String
+  rationale       String
+  confidence      Float                 @db.Real
+  boundsSnapshot  Json                  @default("{}") @map("bounds_snapshot")
+  aiDecisionId    String?               @map("ai_decision_id") @db.Uuid
+  edited          Boolean               @default(false)
+  sentByPersonId  String?               @map("sent_by_person_id") @db.Uuid
+  sentAt          DateTime?             @map("sent_at") @db.Timestamptz
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([enquiryId, status])
+  @@index([buyerBusinessId, createdAt])
+  @@map("counter_proposals")
+}
+
+/// Append-only log of everything an agent did for a principal (visible to that principal in "What the assistant did").
+model AgentActionLog {
+  id                  String   @id @default(uuid()) @db.Uuid
+  principalBusinessId String   @map("principal_business_id") @db.Uuid
+  principalRole       String   @map("principal_role") // seller | buyer
+  /// draft_generated | draft_bounds_rejected | draft_approved | draft_discarded | draft_failed | quotes_normalised |
+  /// counter_proposed | counter_bounds_rejected | counter_sent | counter_discarded
+  action              String
+  subjectType         String   @map("subject_type") // match | enquiry | quote_draft | counter_proposal | quote
+  subjectId           String   @map("subject_id") @db.Uuid
+  enquiryId           String?  @map("enquiry_id") @db.Uuid
+  summary             String
+  details             Json     @default("{}")
+  actorPersonId       String?  @map("actor_person_id") @db.Uuid // null when the agent acted on its own (drafting/proposing)
+  aiDecisionId        String?  @map("ai_decision_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([principalBusinessId, createdAt])
+  @@index([enquiryId, createdAt])
+  @@map("agent_action_log")
+}
+
+/// Time-to-first-quote timing per accepted lead (from LeadAccepted / QuoteSent events) for the before/after metric.
+model LeadQuoteTiming {
+  matchId          String    @id @map("match_id") @db.Uuid
+  conversationId   String    @map("conversation_id") @db.Uuid
+  sellerBusinessId String    @map("seller_business_id") @db.Uuid
+  acceptedAt       DateTime  @map("accepted_at") @db.Timestamptz
+  firstQuoteAt     DateTime? @map("first_quote_at") @db.Timestamptz
+  /// the first quote came from an approved agent draft
+  assisted         Boolean   @default(false)
+
+  @@index([conversationId])
+  @@index([sellerBusinessId, acceptedAt])
+  @@map("lead_quote_timing")
+}

@@ -1,1 +1,181 @@
 // Owned by @cnote/escrow. ADR-012 escrow via RBI-authorised PA partner: milestones, double-entry immutable ledger, payouts, reconciliation. Flag ESCROW_ENABLED.
+
+// ---- Double-entry ledger (append-only: journals and lines are never updated or deleted; reversals are new journals) ----
+
+model LedgerAccount {
+  id        String   @id @default(uuid()) @db.Uuid
+  /// e.g. buyer_escrow:<orderId>, seller_payable:<businessId>, platform_fee, gst_output, partner_nodal
+  code      String   @unique
+  /// asset | liability | revenue | expense
+  kind      String
+  /// "debit" for assets/expenses, "credit" for liabilities/revenue: the side that increases the balance
+  normal    String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  lines LedgerLine[]
+
+  @@map("ledger_accounts")
+}
+
+model LedgerJournal {
+  id        String   @id @default(uuid()) @db.Uuid
+  /// Idempotency key: posting the same key twice is a no-op returning the first journal.
+  key       String   @unique
+  /// fund | release | refund | transfer | reversal | adjustment
+  kind      String
+  escrowId  String?  @map("escrow_id") @db.Uuid
+  memo      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  lines LedgerLine[]
+
+  @@index([escrowId])
+  @@map("ledger_journals")
+}
+
+model LedgerLine {
+  id          String   @id @default(uuid()) @db.Uuid
+  journalId   String   @map("journal_id") @db.Uuid
+  accountId   String   @map("account_id") @db.Uuid
+  debitPaise  BigInt   @default(0) @map("debit_paise")
+  creditPaise BigInt   @default(0) @map("credit_paise")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  journal LedgerJournal @relation(fields: [journalId], references: [id])
+  account LedgerAccount @relation(fields: [accountId], references: [id])
+
+  @@index([journalId])
+  @@index([accountId])
+  @@map("ledger_lines")
+}
+
+// ---- Escrow agreement (one per order) ----
+
+model EscrowAgreement {
+  id               String    @id @default(uuid()) @db.Uuid
+  /// enquiry Order id (plain uuid: no relation to another module's model)
+  orderId          String    @unique @map("order_id") @db.Uuid
+  buyerBusinessId  String    @map("buyer_business_id") @db.Uuid
+  sellerBusinessId String    @map("seller_business_id") @db.Uuid
+  /// created | awaiting_funding | funded | accepted | released | refunded | cancelled
+  status           String    @default("created")
+  amountPaise      BigInt    @map("amount_paise")
+  /// fee target on the full amount (charged to the seller at release; recomputed on the released portion)
+  feePaise         BigInt    @map("fee_paise")
+  partner          String
+  partnerRef       String?   @map("partner_ref")
+  checkoutUrl      String?   @map("checkout_url")
+  fundingExpiresAt DateTime? @map("funding_expires_at") @db.Timestamptz
+  fundedAt         DateTime? @map("funded_at") @db.Timestamptz
+  confirmedAt      DateTime? @map("confirmed_at") @db.Timestamptz
+  dispatchedAt     DateTime? @map("dispatched_at") @db.Timestamptz
+  deliveredAt      DateTime? @map("delivered_at") @db.Timestamptz
+  acceptedAt       DateTime? @map("accepted_at") @db.Timestamptz
+  autoReleaseAt    DateTime? @map("auto_release_at") @db.Timestamptz
+  releasedPaise    BigInt    @default(0) @map("released_paise")
+  refundedPaise    BigInt    @default(0) @map("refunded_paise")
+  feeChargedPaise  BigInt    @default(0) @map("fee_charged_paise")
+  feeInvoiceId     String?   @map("fee_invoice_id") @db.Uuid
+  /// denormalised overlay: true while any EscrowFreeze is unresolved
+  frozen           Boolean   @default(false)
+  closedAt         DateTime? @map("closed_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  freezes EscrowFreeze[]
+  payouts EscrowPayout[]
+
+  @@index([buyerBusinessId, createdAt])
+  @@index([sellerBusinessId, createdAt])
+  @@index([status, autoReleaseAt])
+  @@map("escrow_agreements")
+}
+
+/// Append-only milestone log (drives the timeline).
+model EscrowMilestone {
+  id        String   @id @default(uuid()) @db.Uuid
+  escrowId  String   @map("escrow_id") @db.Uuid
+  /// funded | confirmed | dispatched | delivered | accepted | released | refunded
+  milestone String
+  /// order_event | buyer | system | staff | dispute
+  source    String
+  at        DateTime @default(now()) @db.Timestamptz
+
+  @@unique([escrowId, milestone])
+  @@map("escrow_milestones")
+}
+
+model EscrowFreeze {
+  id         String    @id @default(uuid()) @db.Uuid
+  escrowId   String    @map("escrow_id") @db.Uuid
+  disputeId  String    @unique @map("dispute_id") @db.Uuid
+  openedAt   DateTime  @default(now()) @map("opened_at") @db.Timestamptz
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz
+
+  escrow EscrowAgreement @relation(fields: [escrowId], references: [id])
+
+  @@index([escrowId, resolvedAt])
+  @@map("escrow_freezes")
+}
+
+/// Money leaving the nodal account: seller payouts after release, buyer refunds.
+model EscrowPayout {
+  id          String    @id @default(uuid()) @db.Uuid
+  escrowId    String    @map("escrow_id") @db.Uuid
+  /// seller_payout | buyer_refund
+  kind        String
+  businessId  String    @map("business_id") @db.Uuid
+  amountPaise BigInt    @map("amount_paise")
+  /// pending | settled | failed
+  status      String    @default("pending")
+  partnerRef  String?   @map("partner_ref")
+  attempts    Int       @default(0)
+  lastError   String?   @map("last_error")
+  /// release/refund decision time (latency clock starts here)
+  requestedAt DateTime  @default(now()) @map("requested_at") @db.Timestamptz
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz
+  settledAt   DateTime? @map("settled_at") @db.Timestamptz
+  latencyMs   Int?      @map("latency_ms")
+
+  escrow EscrowAgreement @relation(fields: [escrowId], references: [id])
+
+  @@index([status, requestedAt])
+  @@index([escrowId])
+  @@map("escrow_payouts")
+}
+
+model EscrowWebhookEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  provider    String
+  eventId     String    @map("event_id")
+  type        String
+  payload     Json
+  outcome     String?
+  processedAt DateTime? @map("processed_at") @db.Timestamptz
+  receivedAt  DateTime  @default(now()) @map("received_at") @db.Timestamptz
+
+  @@unique([provider, eventId])
+  @@map("escrow_webhook_events")
+}
+
+model EscrowReconciliationIssue {
+  id             String    @id @default(uuid()) @db.Uuid
+  /// stable de-dup key so the job does not re-open the same mismatch every run
+  dedupeKey      String    @unique @map("dedupe_key")
+  escrowId       String?   @map("escrow_id") @db.Uuid
+  /// amount_mismatch | missing_in_ledger | missing_at_partner | funding_amount_mismatch | late_funding | balance_mismatch
+  kind           String
+  partnerRef     String?   @map("partner_ref")
+  expectedPaise  BigInt?   @map("expected_paise")
+  actualPaise    BigInt?   @map("actual_paise")
+  detail         String
+  /// open | resolved
+  status         String    @default("open")
+  resolvedBy     String?   @map("resolved_by") @db.Uuid
+  resolutionNote String?   @map("resolution_note")
+  resolvedAt     DateTime? @map("resolved_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([status, createdAt])
+  @@map("escrow_reconciliation_issues")
+}

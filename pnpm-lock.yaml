@@ -876,6 +876,9 @@ importers:
       '@cnote/db':
         specifier: workspace:*
         version: link:../db
+      '@cnote/disputes':
+        specifier: workspace:*
+        version: link:../disputes
       '@cnote/enquiry':
         specifier: workspace:*
         version: link:../enquiry
@@ -888,6 +891,12 @@ importers:
       '@cnote/notifications':
         specifier: workspace:*
         version: link:../notifications
+      '@cnote/ondc':
+        specifier: workspace:*
+        version: link:../ondc
+      '@cnote/quality':
+        specifier: workspace:*
+        version: link:../quality
       '@cnote/reviews':
         specifier: workspace:*
         version: link:../reviews

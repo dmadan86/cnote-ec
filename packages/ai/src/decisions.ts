@@ -4,7 +4,7 @@ import type { ProviderResult } from "./types";
 import type { AiResult, Subject } from "./index";
 
 /** Below these confidences an output goes to the human review queue (ADR-002, ADR-008). */
-export const REVIEW_THRESHOLDS = { intent: 0.55, extract: 0.5, extract_image: 0.6, transcribe: 0.6, moderate: 0.7, extract_document: 0.75 } as const;
+export const REVIEW_THRESHOLDS = { intent: 0.55, extract: 0.5, extract_image: 0.6, transcribe: 0.6, moderate: 0.7, extract_document: 0.75, inspect_dispatch: 0.6 } as const;
 export type Capability = keyof typeof REVIEW_THRESHOLDS;
 
 const json = (v: unknown) => v as Prisma.InputJsonValue;
@@ -94,4 +94,9 @@ export async function purgeOldDecisionInputs(now = new Date(), days = INPUT_RETE
   return prisma.$executeRaw`
     UPDATE ai_decisions SET input_redacted = '{"purged": true}'::jsonb
     WHERE created_at < ${cutoff} AND input_redacted <> '{"purged": true}'::jsonb`;
+}
+
+/** Who answered a logged decision (provider, model, prompt version), for modules that snapshot it next to their own rows. */
+export async function getDecisionMeta(decisionId: string): Promise<{ provider: string; modelId: string; promptVersion: string } | null> {
+  return prisma.aiDecision.findUnique({ where: { id: decisionId }, select: { provider: true, modelId: true, promptVersion: true } });
 }

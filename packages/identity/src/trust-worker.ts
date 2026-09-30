@@ -86,6 +86,12 @@ export const trustHandlers: EventHandlers = {
     if (!e.payload.upheld) return;
     await once(e.id, e.payload.sellerBusinessId, (p) => p.hincrby(counterKey(e.payload.sellerBusinessId), "offersBroken", 1));
   },
+  // ADR-013: a dispute decided against a business counts as a lost dispute (withdrawn/no-fault outcomes carry null).
+  async DisputeResolved(e) {
+    const fault = e.payload.faultBusinessId;
+    if (!fault) return;
+    await once(e.id, fault, (p) => p.hincrby(counterKey(fault), "disputesLost", 1));
+  },
   async BusinessVerified(e) {
     const dedupe = `trust:ev:${e.id}`;
     if ((await redis.set(dedupe, "1", "EX", 7 * 86400, "NX")) === null) return;

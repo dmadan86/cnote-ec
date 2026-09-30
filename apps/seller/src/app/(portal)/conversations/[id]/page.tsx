@@ -8,6 +8,7 @@ import { formatDateTime, formatDate } from "@/lib/format";
 import { load } from "@/lib/safe";
 import { enquiry } from "@/lib/services";
 import { DealReportForm, MessageForm, QuoteForm } from "@/features/conversations/forms";
+import { QuoteAssistPanel } from "@/features/negotiation/quote-assist-panel";
 
 export const metadata: Metadata = { title: "Conversation" };
 
@@ -51,6 +52,8 @@ export default async function ConversationPage({ params }: PageProps<"/conversat
           <MessageForm conversationId={c.id} />
         </CardBody>
       </Card>
+
+      <QuoteAssistPanel matchId={c.matchId} conversationId={c.id} sellerBusinessId={session.business.id} />
 
       <Card>
         <CardHeader><CardTitle>Send a quote</CardTitle></CardHeader>

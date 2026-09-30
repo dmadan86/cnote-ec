@@ -175,6 +175,17 @@ describe("seller campaign management", () => {
     await ads.endCampaign(fx.seller, campaignId);
     await expect(ads.updateCampaign(fx.seller, campaignId, { name: "late" })).rejects.toMatchObject({ code: "conflict" });
   });
+
+  it("status changes are compare-and-set: a stale read loses instead of overwriting (sweep vs seller race)", async () => {
+    const { campaignId } = await approvedCampaign();
+    await ads.endCampaign(fx.seller, campaignId);
+    const row = (await prisma.adCampaign.findUnique({ where: { id: campaignId } }))!;
+    // the seller's pause read the campaign while it was still approved; it has since been ended
+    const spy = vi.spyOn(prisma.adCampaign, "findUnique").mockResolvedValueOnce({ ...row, status: "approved" } as never);
+    await expect(ads.pauseCampaign(fx.seller, campaignId)).rejects.toMatchObject({ code: "conflict" });
+    spy.mockRestore();
+    expect((await prisma.adCampaign.findUnique({ where: { id: campaignId } }))!.status).toBe("ended");
+  });
 });
 
 describe("staff review", () => {
@@ -222,7 +233,8 @@ describe("staff review", () => {
   it("suspend is an immediate kill switch and can be undone; suspend by business; admin lists", async () => {
     await fund();
     const a = await approvedCampaign();
-    await ads.runEligibilitySweep(new Date(), { wait: true });
+    await ads.waitForBackgroundSweeps(); // rebuilds started by approval/top-up must not race the explicit sweep
+    expect(await ads.runEligibilitySweep(new Date(), { wait: true })).not.toBeNull();
     expect((await slots()).length).toBe(1);
     await ads.suspendCampaign(a.campaignId, crypto.randomUUID(), "complaints");
     expect(await ads.loadSnapshot()).toBeNull(); // snapshot dropped at once

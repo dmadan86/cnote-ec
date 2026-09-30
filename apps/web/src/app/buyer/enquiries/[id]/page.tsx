@@ -4,6 +4,7 @@ import { Alert, Card, CardBody, CardTitle, Container, IntentScore, Money, PageHe
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MatchedSellers } from "@/features/enquiry/matched-sellers";
+import { NegotiationAssist } from "@/features/negotiation/negotiation-assist";
 import { PickSellersForm } from "@/features/enquiry/pick-sellers-form";
 import { EnquiryStatusBadge } from "@/features/enquiry/status";
 
@@ -65,6 +66,8 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
             <MatchedSellers matches={e.matches} />
           </section>
         ) : null}
+
+        <NegotiationAssist enquiryId={e.id} actor={actorOf(s)} locale={s.preferredLanguage} />
 
         {canPick ? (
           <section className="flex flex-col gap-3">

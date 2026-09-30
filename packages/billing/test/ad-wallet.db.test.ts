@@ -165,16 +165,18 @@ describe("ad wallet (DB)", () => {
   });
 
   it("non-ad revenue sums paid non-ad orders in the window", async () => {
-    const from = new Date(Date.now() - 1000);
-    const mk = (purpose: string, amount: bigint, status: "paid" | "failed") =>
-      prisma.paymentOrder.create({ data: { businessId: biz, purpose, provider: "mock", amountPaise: amount, gstPaise: 0n, totalPaise: amount, status } });
-    const ids = [await mk("subscription", 1000n, "paid"), await mk("ad_topup", 5000n, "paid"), await mk("credit_pack", 700n, "failed")];
+    // A private window in 1990 (random minute) so parallel test files creating payment orders "now" never overlap it.
+    const from = new Date(Date.UTC(1990, 0, 1) + Math.floor(Math.random() * 500_000) * 60_000);
+    const to = new Date(from.getTime() + 60_000);
+    const at = new Date(from.getTime() + 1000);
+    const mk = (purpose: string, amount: bigint, status: "paid" | "failed" | "partially_refunded") =>
+      prisma.paymentOrder.create({ data: { businessId: biz, purpose, provider: "mock", amountPaise: amount, gstPaise: 0n, totalPaise: amount, status, createdAt: at } });
+    const ids = [await mk("subscription", 1000n, "paid"), await mk("ad_topup", 5000n, "paid"), await mk("credit_pack", 700n, "failed"), await mk("credit_pack", 300n, "partially_refunded")];
     try {
-      const sum = await getNonAdRevenuePaise(from, new Date(Date.now() + 60_000));
-      expect(sum).toBeGreaterThanOrEqual(1000);
-      const before = sum;
+      expect(await getNonAdRevenuePaise(from, to)).toBe(1300);
       await prisma.paymentOrder.update({ where: { id: ids[2]!.id }, data: { status: "paid" } });
-      expect(await getNonAdRevenuePaise(from, new Date(Date.now() + 60_000))).toBe(before + 700);
+      expect(await getNonAdRevenuePaise(from, to)).toBe(2000);
+      expect(await getNonAdRevenuePaise(to, new Date(to.getTime() + 60_000))).toBe(0);
     } finally {
       await prisma.paymentOrder.deleteMany({ where: { id: { in: ids.map((i) => i.id) } } });
     }

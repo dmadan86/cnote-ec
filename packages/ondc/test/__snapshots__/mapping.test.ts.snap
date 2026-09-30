@@ -1,0 +1,267 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`listing -> Beckn item (snapshot) > maps descriptor, price, MOQ as minimum, HSN and attribute tags 1`] = `
+{
+  "category_id": "Industrial",
+  "descriptor": {
+    "code": "HSN:7306",
+    "images": [
+      "https://img.example/p1.jpg",
+    ],
+    "long_desc": "Mild steel ERW pipe to IS 1239",
+    "name": "MS ERW pipe 2 inch",
+    "short_desc": "Mild steel ERW pipe to IS 1239",
+  },
+  "fulfillment_id": "F1",
+  "id": "22222222-2222-4222-8222-222222222222",
+  "location_id": "L1",
+  "matched": true,
+  "price": {
+    "currency": "INR",
+    "maximum_value": "84.50",
+    "value": "84.50",
+  },
+  "quantity": {
+    "minimum": {
+      "count": "50",
+    },
+    "unitized": {
+      "measure": {
+        "unit": "kg",
+        "value": "1",
+      },
+    },
+  },
+  "tags": [
+    {
+      "code": "b2b",
+      "list": [
+        {
+          "code": "hsn",
+          "value": "7306",
+        },
+        {
+          "code": "moq",
+          "value": "50",
+        },
+        {
+          "code": "moq_unit",
+          "value": "kg",
+        },
+        {
+          "code": "made_to_order",
+          "value": "true",
+        },
+        {
+          "code": "language",
+          "value": "en",
+        },
+      ],
+    },
+    {
+      "code": "attributes",
+      "list": [
+        {
+          "code": "grade",
+          "value": "IS 1239",
+        },
+        {
+          "code": "gsm",
+          "value": "3",
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`provider + catalog > publishes only eligible opted-in listings (snapshot) 1`] = `
+{
+  "bpp/descriptor": {
+    "name": "bpp.example.com",
+  },
+  "bpp/providers": [
+    {
+      "descriptor": {
+        "name": "Sharma Steels",
+      },
+      "fulfillments": [
+        {
+          "id": "F1",
+          "type": "Delivery",
+        },
+      ],
+      "id": "11111111-1111-4111-8111-111111111111",
+      "items": [
+        {
+          "category_id": "Industrial",
+          "descriptor": {
+            "code": "HSN:7306",
+            "images": [
+              "https://img.example/p1.jpg",
+            ],
+            "long_desc": "Mild steel ERW pipe to IS 1239",
+            "name": "MS ERW pipe 2 inch",
+            "short_desc": "Mild steel ERW pipe to IS 1239",
+          },
+          "fulfillment_id": "F1",
+          "id": "22222222-2222-4222-8222-222222222222",
+          "location_id": "L1",
+          "matched": true,
+          "price": {
+            "currency": "INR",
+            "maximum_value": "84.50",
+            "value": "84.50",
+          },
+          "quantity": {
+            "minimum": {
+              "count": "50",
+            },
+            "unitized": {
+              "measure": {
+                "unit": "kg",
+                "value": "1",
+              },
+            },
+          },
+          "tags": [
+            {
+              "code": "b2b",
+              "list": [
+                {
+                  "code": "hsn",
+                  "value": "7306",
+                },
+                {
+                  "code": "moq",
+                  "value": "50",
+                },
+                {
+                  "code": "moq_unit",
+                  "value": "kg",
+                },
+                {
+                  "code": "made_to_order",
+                  "value": "true",
+                },
+                {
+                  "code": "language",
+                  "value": "en",
+                },
+              ],
+            },
+            {
+              "code": "attributes",
+              "list": [
+                {
+                  "code": "grade",
+                  "value": "IS 1239",
+                },
+                {
+                  "code": "gsm",
+                  "value": "3",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          "category_id": "Textiles",
+          "descriptor": {
+            "code": "HSN:7306",
+            "images": [
+              "https://img.example/p1.jpg",
+            ],
+            "long_desc": "Mild steel ERW pipe to IS 1239",
+            "name": "Cotton yarn 30s",
+            "short_desc": "Mild steel ERW pipe to IS 1239",
+          },
+          "fulfillment_id": "F1",
+          "id": "33333333-3333-4333-8333-333333333333",
+          "location_id": "L1",
+          "matched": true,
+          "price": {
+            "currency": "INR",
+            "maximum_value": "250.00",
+            "value": "250.00",
+          },
+          "quantity": {
+            "minimum": {
+              "count": "10",
+            },
+            "unitized": {
+              "measure": {
+                "unit": "kg",
+                "value": "1",
+              },
+            },
+          },
+          "tags": [
+            {
+              "code": "b2b",
+              "list": [
+                {
+                  "code": "hsn",
+                  "value": "7306",
+                },
+                {
+                  "code": "moq",
+                  "value": "10",
+                },
+                {
+                  "code": "moq_unit",
+                  "value": "kg",
+                },
+                {
+                  "code": "made_to_order",
+                  "value": "true",
+                },
+                {
+                  "code": "language",
+                  "value": "en",
+                },
+              ],
+            },
+            {
+              "code": "attributes",
+              "list": [
+                {
+                  "code": "grade",
+                  "value": "IS 1239",
+                },
+                {
+                  "code": "gsm",
+                  "value": "3",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      "locations": [
+        {
+          "city": {
+            "name": "Jamshedpur",
+          },
+          "id": "L1",
+          "state": {
+            "name": "Jharkhand",
+          },
+        },
+      ],
+      "tags": [
+        {
+          "code": "verification",
+          "list": [
+            {
+              "code": "tier",
+              "value": "2",
+            },
+          ],
+        },
+      ],
+      "ttl": "P1D",
+    },
+  ],
+}
+`;

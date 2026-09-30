@@ -1,7 +1,19 @@
 # ADR coverage: what the code implements against ADR-000 to ADR-025
 
-**As of:** 30 Sep 2026, wave 5 (see "Wave 5 update"); wave-4 notes refer to HEAD `425e151` (wave 4: metrics, orders, boundary guard, Hindi UI, photo/voice listings, WhatsApp channel, DPDP compliance). A "Wave 4 update" note under each affected ADR supersedes the older gap text above it.
+**As of:** 30 Sep 2026, wave 6 (see "Wave 6 update", then "Wave 5 update"); wave-4 notes refer to HEAD `425e151` (wave 4: metrics, orders, boundary guard, Hindi UI, photo/voice listings, WhatsApp channel, DPDP compliance). A "Wave 4 update" note under each affected ADR supersedes the older gap text above it.
 **Method:** read `docs/adr/ADR-v0.1.md`, `ADR-024-025-proposed.md`, every `docs/design/*.md`, the package sources, the Prisma schemas and the event catalogue; then judged each ADR by what is actually in code. Evidence lists packages and files; gaps are stated against the ADR text.
+
+## Wave 6 update: Phase 2 built behind flags (supersedes the "Deferred" rows for ADR-012 to 017)
+
+All six Phase-2 ADRs now have working, tested modules. Each is OFF by default (`.env.example`) and needs a business/legal go-live decision, not more code, to switch on.
+
+- **ADR-012 escrow (`@cnote/escrow`, `ESCROW_ENABLED`):** milestone escrow on enquiry's `Order`, double-entry append-only ledger (balanced, idempotent journals; property-tested), PA partner port (mock; Razorpay Route / Cashfree adapters stubbed until credentials and contract), signed idempotent webhooks at `/webhooks/escrow/:partner`, fee 1.5% capped at ₹5,000 plus GST (seller pays at release; needs sign-off), auto-release 7 days after delivery, freeze during disputes, payouts, reconciliation with an admin issue queue. Orders flip to `settlement = "escrow"` on `EscrowFunded`. Metrics: dispute-refund rate (fraud proxy), payout latency.
+- **ADR-013 disputes (`@cnote/disputes`, `DISPUTES_ENABLED`):** structured intake (voice transcribed with consent), automatic evidence (order, quote, conversation, quality checks, escrow state), AI brief (`ai.briefDispute`, heuristic + Anthropic, logged, redacted), tiered auto-resolution with a 48h escalation window, adjudicator console (`adjudicator` role), appeals, SLA tracking, localized dispute policy page, trust-score impact, evidence retention (1,095 days, pending counsel).
+- **ADR-014 negotiation (`@cnote/negotiation`, `QUOTE_ASSIST_ENABLED`):** seller price book, AI quote drafts on lead acceptance (seller approves; floor enforced server-side twice), buyer quote comparison and counter proposals within buyer bounds (buyer sends explicitly), agent action log visible to both principals, metrics.
+- **ADR-015 quality (`@cnote/quality`, `QUALITY_CHECKS_ENABLED`):** pre-dispatch photo checks (`ai.inspectDispatch`), advisory only, one pilot category, >90% accuracy on ≥50 staff labels before a category is enabled, photos private and purged after 180 days. Video not supported yet.
+- **ADR-016 verticals (`@cnote/verticals`):** vertical playbooks, checklist, daily gate snapshots, server-enforced "every open vertical meets ≥200 verified sellers and positive net adds" rule with audited override. No vertical is chosen (ADR-011 still open).
+- **ADR-017 ONDC (`@cnote/ondc`, `ONDC_ENABLED`):** Beckn signing/verification (test vectors), on_subscribe and site verification, catalogue mapping with seller + listing opt-in, inbound search/select/init/confirm/status/cancel with signed async callbacks, seller inbox. Confirmed network orders become platform `Order`s (settlement `ondc`, booked to an "ONDC network buyer" system business); inbox accept/reject confirms/cancels them. Retention for protocol messages (90d) and buyer contact in finished orders (365d). Still open before ADR-021 go-live: ONDC certification of domain/error codes, gateway header verification, pushing post-acceptance status updates, IGM.
+- **Still open:** seller-app i18n; Phase 3 (ADR-019 to 023); native review of machine-drafted translations (escrow, disputes, negotiation); a11y e2e scans and browser checks of the new buyer screens.
 
 ## Wave 5 update (supersedes gap text below where it overlaps)
 

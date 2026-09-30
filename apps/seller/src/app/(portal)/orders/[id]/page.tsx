@@ -7,6 +7,8 @@ import { requireSeller } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { load } from "@/lib/safe";
 import { enquiry } from "@/lib/services";
+import { DispatchPhotosPanel } from "@/features/quality/dispatch-photos";
+import { EscrowPanel } from "@/features/escrow/escrow-panel";
 import { OrderActions } from "@/features/orders/order-actions";
 import { OrderStatusBadge } from "@/features/orders/status";
 
@@ -46,7 +48,9 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
           </dl>
         </CardBody>
       </Card>
+      <EscrowPanel actor={actorOf(session)} orderId={o.id} />
       <OrderActions orderId={o.id} actions={o.actions} />
+      <DispatchPhotosPanel actor={actorOf(session)} orderId={o.id} />
     </div>
   );
 }

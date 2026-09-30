@@ -103,7 +103,9 @@ async function sweep(now: Date): Promise<SweepResult> {
   const overdue = await prisma.adCampaign.findMany({ where: { status: { in: [...SERVING] }, endsAt: { lte: now } } });
   for (const c of overdue) {
     await prisma.$transaction(async (tx) => {
-      await tx.adCampaign.updateMany({ where: { id: c.id }, data: { status: "ended", haltReason: null } });
+      // compare-and-set: a concurrent seller/staff change since the read wins; skip this campaign
+      const r = await tx.adCampaign.updateMany({ where: { id: c.id, status: c.status }, data: { status: "ended", haltReason: null } });
+      if (r.count === 0) return;
       await emit(tx, "AdCampaignStatusChanged", { type: "ad_campaign", id: c.id }, { campaignId: c.id, sellerBusinessId: c.sellerBusinessId, from: c.status, to: "ended", cause: "schedule" });
     });
   }
@@ -200,7 +202,9 @@ async function sweep(now: Date): Promise<SweepResult> {
     const status = halt === "budget" ? "exhausted" : halt ? "approved" : "active";
     if (c.status !== status || c.haltReason !== halt) {
       await prisma.$transaction(async (tx) => {
-        await tx.adCampaign.updateMany({ where: { id: c.id }, data: { status, haltReason: halt } });
+        // compare-and-set on the status we read: never resurrect a campaign the seller ended/paused mid-sweep
+        const r = await tx.adCampaign.updateMany({ where: { id: c.id, status: c.status }, data: { status, haltReason: halt } });
+        if (r.count === 0) return;
         if (c.status !== status) {
           const cause = halt === "wallet" ? "wallet" : halt === "eligibility" ? "eligibility" : halt === "budget" ? "budget" : "schedule";
           await emit(tx, "AdCampaignStatusChanged", { type: "ad_campaign", id: c.id }, { campaignId: c.id, sellerBusinessId: c.sellerBusinessId, from: c.status, to: status, cause });

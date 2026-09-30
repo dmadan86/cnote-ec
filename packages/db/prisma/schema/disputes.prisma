@@ -1,1 +1,235 @@
 // Owned by @cnote/disputes. ADR-013 AI-mediated dispute resolution with human adjudication. Flag DISPUTES_ENABLED.
+// No Prisma relations to other modules' models: orderId / business ids / person ids are plain uuid columns (ADR-006).
+// Money is integer paise (BigInt). Decisions and evidence are append-only in spirit: a Dispute row moves through a
+// state machine; DisputeDecision is written once per dispute (unique) and never updated.
+
+enum DisputeType {
+  non_delivery
+  quality_mismatch
+  quantity_short
+  damaged
+  wrong_item
+  payment_issue
+  other
+
+  @@map("dispute_type")
+}
+
+enum DisputeStatus {
+  open // just opened; evidence being collected, counterparty response window running
+  evidence // response window closed or counterparty responded; brief job queued
+  brief_ready // AI brief written; routing decision pending (transient)
+  auto_resolved // low-value, high-confidence: auto decision PROPOSED, escalation window (48h) still open
+  awaiting_adjudication // needs a human adjudicator
+  resolved
+  withdrawn
+
+  @@map("dispute_status")
+}
+
+enum DisputeEvidenceKind {
+  statement
+  photo
+  document
+  voice
+  system
+
+  @@map("dispute_evidence_kind")
+}
+
+enum DisputeParty {
+  buyer
+  seller
+  system
+  staff
+
+  @@map("dispute_party")
+}
+
+enum DisputeOutcome {
+  buyer_favour
+  seller_favour
+  split
+  withdrawn
+
+  @@map("dispute_outcome")
+}
+
+enum DisputeAppealStatus {
+  open
+  upheld // original decision stands
+  modified // adjudicator changed the outcome (recorded; finance settles any correction)
+
+  @@map("dispute_appeal_status")
+}
+
+model Dispute {
+  id                 String        @id @default(uuid()) @db.Uuid
+  orderId            String        @map("order_id") @db.Uuid
+  openedByBusinessId String        @map("opened_by_business_id") @db.Uuid
+  openedByPersonId   String        @map("opened_by_person_id") @db.Uuid
+  againstBusinessId  String        @map("against_business_id") @db.Uuid
+  /// "buyer" | "seller": the opener's role on the order
+  openedByRole       String        @map("opened_by_role")
+  type               DisputeType
+  status             DisputeStatus @default(open)
+  description        String
+  language           String        @default("en")
+  /// what the opener claims (paise); null = not stated
+  amountPaise        BigInt?       @map("amount_paise")
+  /// amount the outcome can move: escrow held, else order total, else the claim (snapshot at open)
+  atStakePaise       BigInt        @default(0) @map("at_stake_paise")
+  /// Set to orderId while the dispute is active and NULL once closed: the unique index enforces one open dispute per order.
+  activeOrderId      String?       @unique @map("active_order_id") @db.Uuid
+  /// SLA: opened + 7 days
+  dueAt              DateTime      @map("due_at") @db.Timestamptz
+  /// counterparty response window (DISPUTES_RESPONSE_HOURS, default 72h)
+  responseDueAt      DateTime      @map("response_due_at") @db.Timestamptz
+  counterpartyRespondedAt DateTime? @map("counterparty_responded_at") @db.Timestamptz
+  briefQueuedAt      DateTime?     @map("brief_queued_at") @db.Timestamptz
+  briefReadyAt       DateTime?     @map("brief_ready_at") @db.Timestamptz
+  /// auto-resolution proposal (status auto_resolved): applied when escalationDeadline passes with no escalation
+  proposedOutcome    DisputeOutcome? @map("proposed_outcome")
+  proposedRefundPaise  BigInt?     @map("proposed_refund_paise")
+  proposedReleasePaise BigInt?     @map("proposed_release_paise")
+  proposedFaultBusinessId String?  @map("proposed_fault_business_id") @db.Uuid
+  escalationDeadline DateTime?     @map("escalation_deadline") @db.Timestamptz
+  escalatedAt        DateTime?     @map("escalated_at") @db.Timestamptz
+  escalatedByBusinessId String?    @map("escalated_by_business_id") @db.Uuid
+  resolvedAt         DateTime?     @map("resolved_at") @db.Timestamptz
+  withdrawnAt        DateTime?     @map("withdrawn_at") @db.Timestamptz
+  overdueFlaggedAt   DateTime?     @map("overdue_flagged_at") @db.Timestamptz
+  evidencePurgedAt   DateTime?     @map("evidence_purged_at") @db.Timestamptz
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  evidence  DisputeEvidence[]
+  briefs    DisputeBrief[]
+  decision  DisputeDecision?
+  messages  DisputeMessage[]
+  appeals   DisputeAppeal[]
+
+  @@index([orderId])
+  @@index([status, dueAt])
+  @@index([openedByBusinessId, createdAt])
+  @@index([againstBusinessId, createdAt])
+  @@index([resolvedAt])
+  @@map("disputes")
+}
+
+model DisputeEvidence {
+  id                  String              @id @default(uuid()) @db.Uuid
+  disputeId           String              @map("dispute_id") @db.Uuid
+  party               DisputeParty
+  submittedByBusinessId String?           @map("submitted_by_business_id") @db.Uuid
+  submittedByPersonId String?             @map("submitted_by_person_id") @db.Uuid
+  kind                DisputeEvidenceKind
+  /// statement text, a system summary, or a voice transcript (personal data: purged with the dispute, ADR-010)
+  text                String?
+  /// private media key under disputes/<disputeId>/ (photo | document | voice)
+  mediaKey            String?             @map("media_key")
+  mimeType            String?             @map("mime_type")
+  language            String?
+  /// "upload" for party evidence; "auto:order" | "auto:quote" | "auto:messages" | "auto:quality" | "auto:escrow" | "auto:invoice" for system evidence
+  source              String              @default("upload")
+  /// idempotency key for auto-collected evidence (unique per dispute when set)
+  sourceRef           String?             @map("source_ref")
+  purgedAt            DateTime?           @map("purged_at") @db.Timestamptz
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@unique([disputeId, sourceRef])
+  @@index([disputeId, createdAt])
+  @@map("dispute_evidence")
+}
+
+model DisputeBrief {
+  id                     String        @id @default(uuid()) @db.Uuid
+  disputeId              String        @map("dispute_id") @db.Uuid
+  version                Int
+  classifiedType         DisputeType   @map("classified_type")
+  summary                String
+  citedEvidenceIds       Json          @map("cited_evidence_ids")
+  specChecks             Json          @map("spec_checks")
+  specVerdict            String        @map("spec_verdict")
+  recommendedOutcome     DisputeOutcome @map("recommended_outcome")
+  recommendedRefundPaise BigInt        @map("recommended_refund_paise")
+  recommendedReleasePaise BigInt       @map("recommended_release_paise")
+  rationale              String
+  confidence             Float         @db.Real
+  autoResolvable         Boolean       @default(false) @map("auto_resolvable")
+  needsReview            Boolean       @default(false) @map("needs_review")
+  evidenceCount          Int           @map("evidence_count")
+  aiDecisionId           String?       @map("ai_decision_id") @db.Uuid
+  provider               String
+  modelId                String        @map("model_id")
+  promptVersion          String        @map("prompt_version")
+  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@unique([disputeId, version])
+  @@map("dispute_briefs")
+}
+
+model DisputeDecision {
+  id                  String         @id @default(uuid()) @db.Uuid
+  /// unique: a dispute is resolved once (idempotent resolve)
+  disputeId           String         @unique @map("dispute_id") @db.Uuid
+  outcome             DisputeOutcome
+  refundPaise         BigInt         @map("refund_paise")
+  releasePaise        BigInt         @map("release_paise")
+  faultBusinessId     String?        @map("fault_business_id") @db.Uuid
+  /// "auto" | "staff"
+  decidedBy           String         @map("decided_by")
+  decidedByStaffPersonId String?     @map("decided_by_staff_person_id") @db.Uuid
+  briefId             String?        @map("brief_id") @db.Uuid
+  /// true when the final outcome equals the brief's recommendation (eval signal)
+  followedRecommendation Boolean     @default(false) @map("followed_recommendation")
+  rationale           String
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@map("dispute_decisions")
+}
+
+/// Party <-> staff thread. Each message belongs to one party's thread (partyBusinessId); the other side never sees it.
+model DisputeMessage {
+  id              String       @id @default(uuid()) @db.Uuid
+  disputeId       String       @map("dispute_id") @db.Uuid
+  partyBusinessId String       @map("party_business_id") @db.Uuid
+  authorType      DisputeParty @map("author_type")
+  authorPersonId  String?      @map("author_person_id") @db.Uuid
+  body            String
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@index([disputeId, partyBusinessId, createdAt])
+  @@map("dispute_messages")
+}
+
+/// Post-decision appeal route (ADR-013 "published dispute policy and appeal route"). One appeal per party per dispute.
+model DisputeAppeal {
+  id               String              @id @default(uuid()) @db.Uuid
+  disputeId        String              @map("dispute_id") @db.Uuid
+  byBusinessId     String              @map("by_business_id") @db.Uuid
+  byPersonId       String              @map("by_person_id") @db.Uuid
+  reason           String
+  status           DisputeAppealStatus @default(open)
+  newOutcome       DisputeOutcome?     @map("new_outcome")
+  newRefundPaise   BigInt?             @map("new_refund_paise")
+  newReleasePaise  BigInt?             @map("new_release_paise")
+  decidedByStaffPersonId String?       @map("decided_by_staff_person_id") @db.Uuid
+  resolutionNote   String?             @map("resolution_note")
+  decidedAt        DateTime?           @map("decided_at") @db.Timestamptz
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@unique([disputeId, byBusinessId])
+  @@index([status, createdAt])
+  @@map("dispute_appeals")
+}

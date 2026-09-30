@@ -244,19 +244,29 @@ export async function resolveGstReview(id: string, decision: "approved" | "rejec
   if (rec.status !== "pending") throw new DomainError("conflict", "This review was already resolved.");
   const d = (rec.details ?? {}) as { gstin?: string; snapshot?: GstnRecord | null };
   const details = JSON.parse(JSON.stringify({ ...d, manualReview: { decision, staffId, note: note ?? null, at: new Date().toISOString() } })) as Prisma.InputJsonValue;
-  const claimed = await prisma.verificationRecord.updateMany({ where: { id, status: "pending" }, data: { details } });
-  if (claimed.count === 0) throw new DomainError("conflict", "This review was already resolved.");
+  // Atomic claim: the first decision writes its manualReview marker; any concurrent decision finds the marker and loses.
+  // (Filtering on status alone is not enough: status stays "pending" until applyPass/reject below.)
+  const claimed = await prisma.$executeRaw`
+    UPDATE verification_records SET details = ${JSON.stringify(details)}::jsonb
+    WHERE id = ${id}::uuid AND status = 'pending' AND NOT (details ? 'manualReview')`;
+  if (claimed === 0) throw new DomainError("conflict", "This review was already resolved.");
   if (decision === "rejected") {
     await prisma.verificationRecord.update({ where: { id }, data: { status: "failed" } });
     return { status: "failed" };
   }
-  if (!d.gstin) throw new DomainError("validation", "Review has no GSTIN to approve.");
+  // A failed approval releases the claim so staff can decide again (e.g. reject after a GSTIN clash).
+  const release = () => prisma.$executeRaw`UPDATE verification_records SET details = details - 'manualReview' WHERE id = ${id}::uuid AND status = 'pending'`;
+  if (!d.gstin) {
+    await release();
+    throw new DomainError("validation", "Review has no GSTIN to approve.");
+  }
   const now = new Date();
   try {
     const tier = await applyPass(rec.businessId, d.gstin, rec.provider, details, { gstStatus: d.snapshot?.status ?? "Active", gstLastCheckedAt: now }, now, id);
     await bustSellerCaches(rec.businessId);
     return { status: "passed", tier };
   } catch (err) {
+    await release();
     if ((err as { code?: string }).code === "P2002") throw new DomainError("conflict", "This GSTIN is already registered to another business.");
     throw err;
   }

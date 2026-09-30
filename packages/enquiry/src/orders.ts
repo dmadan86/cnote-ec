@@ -18,6 +18,8 @@ export type OrderMove = "dispatched" | "delivered" | "completed" | "cancelled";
 
 export interface OrderState {
   status: OrderStatus;
+  /** "ondc" orders have no signed-in buyer: the seller reports fulfilment (the network confirms delivery), ADR-017. */
+  settlement?: string;
   buyerConfirmedAt: Date | null;
   sellerConfirmedAt: Date | null;
 }
@@ -46,11 +48,17 @@ export function applyConfirm(s: OrderState, role: OrderRole, now: Date): OrderSt
   return next;
 }
 
+/** Roles allowed to make a move for this order; network (ONDC) orders let the seller report delivery/completion. */
+export function rolesFor(s: Pick<OrderState, "settlement">, to: OrderMove): OrderRole[] {
+  const roles = ORDER_MOVES[to].roles;
+  return s.settlement === "ondc" && !roles.includes("seller") ? [...roles, "seller"] : roles;
+}
+
 /** Applies an explicit move, enforcing role and source status. Throws DomainError otherwise. */
 export function applyMove(s: OrderState, role: OrderRole, to: OrderMove): OrderState {
   const rule = ORDER_MOVES[to] as { from: OrderStatus[]; roles: OrderRole[] } | undefined;
   if (!rule) throw new DomainError("validation", "Unknown order status.");
-  if (!rule.roles.includes(role)) {
+  if (!rolesFor(s, to).includes(role)) {
     throw new DomainError("forbidden", `Only the ${rule.roles.join(" or ")} can mark an order ${to}.`);
   }
   if (!rule.from.includes(s.status)) throw new DomainError("conflict", `An order that is ${s.status} cannot be marked ${to}.`);
@@ -63,9 +71,12 @@ export function applyMove(s: OrderState, role: OrderRole, to: OrderMove): OrderS
 
 export interface OrderView {
   id: string;
-  matchId: string;
-  enquiryId: string;
+  /** null for external (ONDC) orders, which have no lead/conversation */
+  matchId: string | null;
+  enquiryId: string | null;
   enquiryTitle: string;
+  /** set for external orders, e.g. "ondc:<id>" */
+  externalRef: string | null;
   quoteId: string | null;
   role: OrderRole;
   status: OrderStatus;
@@ -100,14 +111,14 @@ function roleOf(o: Pick<Order, "buyerBusinessId" | "sellerBusinessId">, actor: A
 
 export function availableActions(o: OrderState, role: OrderRole): OrderView["actions"] {
   const myConfirm = role === "buyer" ? o.buyerConfirmedAt : o.sellerConfirmedAt;
-  const moves = (Object.keys(ORDER_MOVES) as OrderMove[]).filter((m) => ORDER_MOVES[m].roles.includes(role) && ORDER_MOVES[m].from.includes(o.status));
+  const moves = (Object.keys(ORDER_MOVES) as OrderMove[]).filter((m) => rolesFor(o, m).includes(role) && ORDER_MOVES[m].from.includes(o.status));
   return { confirm: o.status === "recorded" && !myConfirm, moves };
 }
 
 async function toViews(rows: Order[], actor: Actor): Promise<OrderView[]> {
   if (rows.length === 0) return [];
   const [enquiries, profs] = await Promise.all([
-    prisma.enquiry.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.enquiryId))] } }, select: { id: true, title: true } }),
+    prisma.enquiry.findMany({ where: { id: { in: [...new Set(rows.flatMap((r) => (r.enquiryId ? [r.enquiryId] : [])))] } }, select: { id: true, title: true } }),
     profiles(rows.flatMap((r) => [r.buyerBusinessId, r.sellerBusinessId])),
   ]);
   const titles = new Map(enquiries.map((e) => [e.id, e.title]));
@@ -118,12 +129,13 @@ async function toViews(rows: Order[], actor: Actor): Promise<OrderView[]> {
       id: o.id,
       matchId: o.matchId,
       enquiryId: o.enquiryId,
-      enquiryTitle: titles.get(o.enquiryId) ?? "Requirement",
+      enquiryTitle: (o.enquiryId ? titles.get(o.enquiryId) : null) ?? (o.settlement === "ondc" ? "ONDC order" : "Requirement"),
+      externalRef: o.externalRef,
       quoteId: o.quoteId,
       role,
       status: o.status,
       settlement: o.settlement,
-      counterparty: { businessId: other, name: profs.get(other)?.name ?? (role === "buyer" ? "Seller" : "Buyer") },
+      counterparty: { businessId: other, name: (role === "seller" ? o.externalBuyerLabel : null) ?? profs.get(other)?.name ?? (role === "buyer" ? "Seller" : "Buyer") },
       pricePaise: o.pricePaise === null ? null : Number(o.pricePaise),
       quantity: o.quantity,
       unit: o.unit,
@@ -226,6 +238,74 @@ export async function recordOrderFromDeal(actor: Actor, matchId: string, input: 
   if (!m || !participant) throw new DomainError("not_found", "Conversation not found");
   const { order } = await prisma.$transaction((tx) => recordOrderTx(tx, matchId, input));
   return (await toViews([order], actor))[0]!;
+}
+
+// ---------------------------------------------------------------------------------------------
+// External (network) orders, ADR-017
+// ---------------------------------------------------------------------------------------------
+
+export interface ExternalOrderInput {
+  /** idempotency key, e.g. "ondc:<ondcOrderId>" */
+  externalRef: string;
+  source: "ondc";
+  ondcOrderId: string;
+  sellerBusinessId: string;
+  /** shown to the seller instead of the system business name */
+  buyerLabel: string | null;
+  bapId: string;
+  transactionId: string;
+  items: { listingId: string; quantity: number; unitPricePaise: number; unit: string | null }[];
+  totalPaise: number;
+  currency: "INR";
+}
+
+/**
+ * Books an order that arrived from a network (ONDC) with no lead or conversation. The buyer side is the network's system
+ * business (resolved by the caller, e.g. identity.ensureSystemBuyerBusiness("ondc", ...)) so events keep their shape. The
+ * network buyer already confirmed (ONDC /confirm); the seller confirms in the app. Idempotent on externalRef. No
+ * OrderRecorded event (its payload requires a match); the ONDC module emits OndcOrderReceived.
+ */
+export async function recordExternalOrder(input: ExternalOrderInput, buyerBusinessId: string): Promise<{ orderId: string; created: boolean }> {
+  if (!/^[a-z]+:[A-Za-z0-9._:-]{1,120}$/.test(input.externalRef)) throw new DomainError("validation", "Invalid external reference.");
+  if (!UUID.test(input.sellerBusinessId) || !UUID.test(buyerBusinessId)) throw new DomainError("validation", "Invalid business.");
+  if (input.currency !== "INR") throw new DomainError("validation", "Only INR orders are supported.");
+  if (!Number.isInteger(input.totalPaise) || input.totalPaise < 0) throw new DomainError("validation", "Amounts must be whole paise, 0 or more.");
+  if (input.items.length === 0) throw new DomainError("validation", "An order needs at least one item.");
+  for (const it of input.items) checkInput({ quantity: it.quantity, pricePaise: it.unitPricePaise, unit: it.unit });
+  const existing = await prisma.order.findUnique({ where: { externalRef: input.externalRef } });
+  if (existing) return { orderId: existing.id, created: false };
+  // One line => keep its unit price/quantity; several lines => only the total is meaningful.
+  const single = input.items.length === 1 ? input.items[0]! : null;
+  try {
+    const order = await prisma.order.create({
+      data: {
+        externalRef: input.externalRef,
+        externalBuyerLabel: input.buyerLabel?.slice(0, 120) ?? null,
+        buyerBusinessId,
+        sellerBusinessId: input.sellerBusinessId,
+        settlement: input.source,
+        pricePaise: single ? BigInt(single.unitPricePaise) : null,
+        quantity: single ? single.quantity : null,
+        unit: single?.unit ?? null,
+        totalPaise: BigInt(input.totalPaise),
+        buyerConfirmedAt: new Date(),
+      },
+    });
+    return { orderId: order.id, created: true };
+  } catch (e) {
+    if ((e as { code?: string }).code === "P2002") {
+      const again = await prisma.order.findUnique({ where: { externalRef: input.externalRef } });
+      if (again) return { orderId: again.id, created: false };
+    }
+    throw e;
+  }
+}
+
+/** EscrowFunded (ADR-012): the order is now settled through escrow. Idempotent; never overwrites a network settlement. */
+export async function markOrderEscrowed(orderId: string): Promise<boolean> {
+  if (!UUID.test(orderId)) return false;
+  const r = await prisma.order.updateMany({ where: { id: orderId, settlement: "off_platform" }, data: { settlement: "escrow" } });
+  return r.count > 0;
 }
 
 // ---------------------------------------------------------------------------------------------

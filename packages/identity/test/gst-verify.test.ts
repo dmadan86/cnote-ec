@@ -319,6 +319,9 @@ describe("manual GST review queue", () => {
     const other = await seller();
     await prisma.business.update({ where: { id: other.businessId }, data: { gstin: p.g } });
     await expect(resolveGstReview(p.item.id, "approved", "s")).rejects.toMatchObject({ code: "conflict", message: expect.stringContaining("already registered") });
+    // failed approvals release the claim: staff can still decide (reject) afterwards
+    expect(await resolveGstReview(p.item.id, "rejected", "s", "GSTIN belongs to another business")).toEqual({ status: "failed" });
+    expect(await resolveGstReview(noG.id, "rejected", "s")).toEqual({ status: "failed" });
   });
   it("approval passes the business to tier 1, snapshot status, emits BusinessVerified once", async () => {
     const { item, businessId } = await pending();

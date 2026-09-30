@@ -15,12 +15,17 @@ enum OrderStatus {
 
 model Order {
   id               String      @id @default(uuid()) @db.Uuid
-  matchId          String      @map("match_id") @db.Uuid
-  enquiryId        String      @map("enquiry_id") @db.Uuid
+  /// null for orders that arrive from an external network (ONDC, ADR-017) rather than from a matched lead
+  matchId          String?     @map("match_id") @db.Uuid
+  enquiryId        String?     @map("enquiry_id") @db.Uuid
   quoteId          String?     @map("quote_id") @db.Uuid
   buyerBusinessId  String      @map("buyer_business_id") @db.Uuid
   sellerBusinessId String      @map("seller_business_id") @db.Uuid
-  /// "off_platform" in Phase 1; "escrow" once ADR-012 lands
+  /// idempotency key for external orders, e.g. "ondc:<ondcOrderId>"
+  externalRef      String?     @unique @map("external_ref")
+  /// display label for an external buyer (network orders are booked to a per-network system business)
+  externalBuyerLabel String?   @map("external_buyer_label")
+  /// "off_platform" in Phase 1; "escrow" once funded through ADR-012; "ondc" for network orders
   settlement       String      @default("off_platform")
   status           OrderStatus @default(recorded)
   pricePaise       BigInt?     @map("price_paise") // per unit, from the quote when known

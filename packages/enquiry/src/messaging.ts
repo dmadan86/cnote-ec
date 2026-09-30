@@ -72,11 +72,11 @@ export async function sendQuote(
   actor: Actor,
   conversationId: string,
   quote: { pricePaise: number; quantity: number; unit: string; leadTimeDays?: number | null; notes?: string | null; validUntil?: string | null },
-): Promise<void> {
+): Promise<{ quoteId: string }> {
   const q = quoteSchema.parse(quote);
   const { role } = await requireParticipant(actor, conversationId);
   if (role !== "seller") throw new DomainError("forbidden", "Only the seller can send a quote.");
-  await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     const row = await tx.quote.create({
       data: {
         conversationId,
@@ -92,6 +92,7 @@ export async function sendQuote(
     await emit(tx, "QuoteSent", { type: "conversation", id: conversationId }, {
       quoteId: row.id, conversationId, sellerBusinessId: actor.businessId, pricePaise: q.pricePaise, quantity: q.quantity,
     });
+    return { quoteId: row.id };
   });
 }
 

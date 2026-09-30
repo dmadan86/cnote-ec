@@ -1,1 +1,107 @@
 // Owned by @cnote/verticals. ADR-016 vertical expansion playbook and gates.
+// Categories are referenced by slug (no relation to catalogue models); config is data, never hardcoded.
+
+enum VerticalStage {
+  candidate
+  pilot
+  open
+  paused
+
+  @@map("vertical_stage")
+}
+
+enum VerticalChecklistSection {
+  schema
+  classifiers
+  acquisition
+  languages
+  ops
+  compliance
+
+  @@map("vertical_checklist_section")
+}
+
+model Vertical {
+  id             String        @id @default(uuid()) @db.Uuid
+  slug           String        @unique
+  name           String
+  stage          VerticalStage @default(candidate)
+  /// root category slugs; descendants are included when gates are evaluated
+  categorySlugs  String[]      @map("category_slugs")
+  /// ordered language codes (first = primary onboarding/UX language)
+  languages      String[]
+  /// [{ label, city, district?, state?, industry }]
+  clusters       Json          @default("[]")
+  /// { minVerifiedSellers, minNetAdds30, minNetAdds90 }
+  gates          Json          @default("{}")
+  /// { prohibitedModelVersion?, intentModelVersion?, notes? }: pointers only, no training here
+  classifierConfig Json        @default("{}") @map("classifier_config")
+  /// catalogue category slug whose attributeSchema governs this vertical
+  attributeSchemaSlug String?  @map("attribute_schema_slug")
+  notes          String?
+  stageChangedAt DateTime      @default(now()) @map("stage_changed_at") @db.Timestamptz
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  checklist  VerticalChecklistItem[]
+  changes    VerticalStageChange[]
+  snapshots  VerticalMetricSnapshot[]
+
+  @@index([stage])
+  @@map("verticals")
+}
+
+model VerticalChecklistItem {
+  id          String                   @id @default(uuid()) @db.Uuid
+  verticalId  String                   @map("vertical_id") @db.Uuid
+  section     VerticalChecklistSection
+  title       String
+  done        Boolean                  @default(false)
+  owner       String?
+  evidenceUrl String?                  @map("evidence_url")
+  doneAt      DateTime?                @map("done_at") @db.Timestamptz
+  sortOrder   Int                      @default(0) @map("sort_order")
+  createdAt   DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  vertical Vertical @relation(fields: [verticalId], references: [id], onDelete: Cascade)
+
+  @@index([verticalId, section, sortOrder])
+  @@map("vertical_checklist_items")
+}
+
+/// Append-only log of stage transitions (including audited overrides).
+model VerticalStageChange {
+  id             String        @id @default(uuid()) @db.Uuid
+  verticalId     String        @map("vertical_id") @db.Uuid
+  fromStage      VerticalStage @map("from_stage")
+  toStage        VerticalStage @map("to_stage")
+  changedBy      String        @map("changed_by")
+  overridden     Boolean       @default(false)
+  overrideReason String?       @map("override_reason")
+  /** blocking verticals + gate results at decision time */
+  gateSnapshot   Json          @default("{}") @map("gate_snapshot")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  vertical Vertical @relation(fields: [verticalId], references: [id], onDelete: Cascade)
+
+  @@index([verticalId, createdAt])
+  @@map("vertical_stage_changes")
+}
+
+/// One row per vertical per IST day; source of net-add trends.
+model VerticalMetricSnapshot {
+  id              String   @id @default(uuid()) @db.Uuid
+  verticalId      String   @map("vertical_id") @db.Uuid
+  day             DateTime @db.Date
+  verifiedSellers Int      @map("verified_sellers")
+  netAdds30       Int?     @map("net_adds_30")
+  netAdds90       Int?     @map("net_adds_90")
+  meetsGates      Boolean  @map("meets_gates")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  vertical Vertical @relation(fields: [verticalId], references: [id], onDelete: Cascade)
+
+  @@unique([verticalId, day])
+  @@map("vertical_metric_snapshots")
+}

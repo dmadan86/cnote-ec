@@ -7,6 +7,12 @@ import { worker as ai } from "@cnote/ai";
 import { worker as billing, setCouponPort, couponPortFromModule } from "@cnote/billing";
 import { worker as promotions, couponPort } from "@cnote/promotions";
 import { worker as ads } from "@cnote/ads";
+import { worker as verticals } from "@cnote/verticals";
+import { worker as quality } from "@cnote/quality";
+import { worker as ondc, wireOndcOrderSink } from "@cnote/ondc";
+import { worker as escrow } from "@cnote/escrow";
+import { worker as negotiation } from "@cnote/negotiation";
+import { worker as disputes, wireDisputeAdapters } from "@cnote/disputes";
 import { worker as catalogue } from "@cnote/catalogue";
 import { consumeOnce, getJobQueue, relayOutbox, type JobTopic, type ModuleWorker } from "@cnote/core";
 import { worker as enquiry } from "@cnote/enquiry";
@@ -42,7 +48,9 @@ Sentry.init(sentryOptions("worker", "nodejs"));
 // identity can't import catalogue (cycle); the composition root supplies the GST HSN-alignment source.
 setListingHsnSource(getSellerListingHsns);
 
-const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, notifications, developer, email, cacheWorker, searchIndexer, leadgen, domains, storefront, bulk, metrics, compliance, whatsapp, promotions, ads];
+const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, notifications, developer, email, cacheWorker, searchIndexer, leadgen, domains, storefront, bulk, metrics, compliance, whatsapp, promotions, ads, verticals, quality, ondc, escrow, negotiation, disputes];
+wireDisputeAdapters();
+wireOndcOrderSink();
 setCouponPort(couponPortFromModule(couponPort));
 const consumer = `${hostname()}-${process.pid}`;
 let running = true;

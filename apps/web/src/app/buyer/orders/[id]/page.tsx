@@ -5,7 +5,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OrderActions } from "@/features/orders/order-actions";
+import { EscrowPanel } from "@/features/escrow/escrow-panel";
 import { OrderStatusBadge } from "@/features/orders/status";
+import { ReportProblem } from "@/features/disputes/report-problem";
 
 export const metadata: Metadata = { title: "Order" };
 const dt = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" });
@@ -38,7 +40,9 @@ export default async function BuyerOrderPage(props: { params: Promise<{ id: stri
             </dl>
           </CardBody>
         </Card>
+        <EscrowPanel actor={actorOf(s)} order={o} />
         <OrderActions orderId={o.id} actions={o.actions} />
+        <ReportProblem orderId={o.id} status={o.status} actor={actorOf(s)} />
       </div>
     </Container>
   );

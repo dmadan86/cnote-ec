@@ -1,0 +1,47 @@
+{
+  "escrow": {
+    "heading": "Payment protection (escrow)",
+    "intro": "Pay into escrow and our RBI-authorised payment partner holds the money until you accept delivery. If something goes wrong, you can open a dispute before the money is released.",
+    "optionalNote": "Escrow is optional. You can also settle directly with the seller.",
+    "nudge": "You have not completed an order with this seller before, so we strongly recommend paying through escrow.",
+    "feeDisclosure": "You pay only the order total of {amount}. The seller pays the escrow fee ({percent}% plus GST, capped at {cap}); it is never added to your bill.",
+    "statusLabel": "Escrow status",
+    "status": {
+      "created": "Waiting to start",
+      "awaiting_funding": "Waiting for your payment",
+      "funded": "Payment held safely",
+      "accepted": "Accepted",
+      "released": "Released to the seller",
+      "refunded": "Refunded to you",
+      "cancelled": "Closed without payment"
+    },
+    "milestonesHeading": "Progress",
+    "milestone": {
+      "funded": "Payment received",
+      "confirmed": "Order confirmed",
+      "dispatched": "Dispatched by the seller",
+      "delivered": "Delivered",
+      "accepted": "Accepted by you",
+      "released": "Released to the seller",
+      "refunded": "Refunded to you"
+    },
+    "milestoneDone": "Done",
+    "milestonePending": "Pending",
+    "heldLabel": "Held in escrow",
+    "fundedNote": "Your payment is held safely by our payment partner. The seller cannot access it yet.",
+    "autoRelease": "The money is released to the seller automatically on {date} unless you accept earlier or raise a dispute.",
+    "expires": "Pay before {date}",
+    "frozen": "A dispute is open. The money is frozen and will not be released until the dispute is resolved.",
+    "startEscrow": "Pay into escrow",
+    "payMock": "Pay into escrow (test checkout)",
+    "payMockHelp": "Test checkout only. No real money moves.",
+    "payLink": "Continue to secure payment",
+    "accept": "Accept delivery and release payment",
+    "acceptHelp": "Accept only after you have received the goods as agreed. This releases the money to the seller.",
+    "acceptWaiting": "You can accept delivery once the seller marks the order as dispatched.",
+    "releasedNote": "The payment has been released to the seller.",
+    "refundedNote": "The payment has been refunded to you.",
+    "cancelledNote": "This escrow was closed without any payment.",
+    "errorGeneric": "Something went wrong. Please try again."
+  }
+}

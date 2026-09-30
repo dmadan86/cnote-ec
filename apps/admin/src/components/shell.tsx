@@ -1,6 +1,6 @@
 import { type Privilege, type StaffView, hasPrivilege } from "@cnote/admin";
 import { signOutAction } from "@cnote/next-kit";
-import { Gift, Globe, Megaphone, MessageCircle, Tag, Ticket, Activity, BarChart3, Building2, CreditCard, FileClock, Filter, ImageIcon, KeyRound, LayoutDashboard, LayoutTemplate, ListChecks, LogOut, Mail, MessageSquareWarning, Scale, ScrollText, ShieldCheck, Store, UserCog, UserRound } from "lucide-react";
+import { Camera, Gavel, Landmark, Layers, Network, Gift, Globe, Megaphone, MessageCircle, Tag, Ticket, Activity, BarChart3, Building2, CreditCard, FileClock, Filter, ImageIcon, KeyRound, LayoutDashboard, LayoutTemplate, ListChecks, LogOut, Mail, MessageSquareWarning, Scale, ScrollText, ShieldCheck, Store, UserCog, UserRound } from "lucide-react";
 import { NavLink } from "./nav";
 
 const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Privilege }[] = [
@@ -26,6 +26,11 @@ const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Pri
   { href: "/domains", label: "Domains", icon: <Globe className="size-4" aria-hidden />, privilege: "storefronts.review" },
   { href: "/whatsapp", label: "WhatsApp", icon: <MessageCircle className="size-4" aria-hidden />, privilege: "businesses.read" },
   { href: "/payments", label: "Payments", icon: <CreditCard className="size-4" aria-hidden />, privilege: "payments.read" },
+  { href: "/escrow", label: "Escrow", icon: <Landmark className="size-4" aria-hidden />, privilege: "escrow.read" },
+  { href: "/disputes", label: "Disputes", icon: <Gavel className="size-4" aria-hidden />, privilege: "disputes.read" },
+  { href: "/quality", label: "Quality checks", icon: <Camera className="size-4" aria-hidden />, privilege: "quality.review" },
+  { href: "/verticals", label: "Verticals", icon: <Layers className="size-4" aria-hidden />, privilege: "verticals.manage" },
+  { href: "/ondc", label: "ONDC", icon: <Network className="size-4" aria-hidden />, privilege: "ondc.manage" },
   { href: "/businesses", label: "Businesses", icon: <Building2 className="size-4" aria-hidden />, privilege: "businesses.read" },
   { href: "/compliance", label: "Compliance", icon: <Scale className="size-4" aria-hidden />, privilege: "compliance.read" },
   { href: "/staff", label: "Staff", icon: <UserCog className="size-4" aria-hidden />, privilege: "staff.read" },
