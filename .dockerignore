@@ -13,6 +13,8 @@
 graphify-out
 docs
 deploy
+# the migrate image copies its entrypoint from here
+!deploy/docker/migrate.sh
 **/*.md
 !packages/**/README.md
 **/test-results
