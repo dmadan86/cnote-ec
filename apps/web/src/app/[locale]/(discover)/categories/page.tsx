@@ -36,11 +36,12 @@ export default async function CategoriesPage(props: PageProps<"/[locale]/categor
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {categories.map((c) => (
               <li key={c.id}>
-                <Link href={categoryPath(c.slug)} className="flex h-full min-h-16 items-center gap-3 rounded-card border border-line bg-surface p-4 transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-brand-600">
+                <Link href={categoryPath(c.slug)} className="flex h-full min-h-16 flex-col items-start gap-3 rounded-card border border-line bg-surface p-4 transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-brand-600 sm:flex-row sm:items-center">
                   <span className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
                     <CategoryIcon name={c.icon} className="size-6" />
                   </span>
-                  <span className="text-sm font-semibold text-ink">{c.name}</span>
+                  {/* Stacked on phones: beside a 48px icon a 2-up cell leaves ~46px for "Promotions" at 320px (WCAG 1.4.10). */}
+                  <span className="min-w-0 text-sm font-semibold text-ink [overflow-wrap:anywhere]">{c.name}</span>
                 </Link>
               </li>
             ))}
