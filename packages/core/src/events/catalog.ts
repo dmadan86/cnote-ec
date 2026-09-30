@@ -138,6 +138,9 @@ export interface DomainEventPayloads {
   PriceBenchmarkPublished:  { period: string; categories: number; cells: number; suppressedCells: number };
   // ONDC live (ADR-021): IGM issues mapped onto disputes
   OndcIssueReceived:        { issueId: string; ondcOrderId: string; disputeId: string | null };
+  // wave 8: fulfilment sub-stages (ONDC status push, buyer tracking) and credit cooling-off exits
+  OrderFulfilmentUpdated: { orderId: string; buyerBusinessId: string; sellerBusinessId: string; stage: "packed" | "in_transit" | "out_for_delivery" | "delivery_attempted"; note: string | null };
+  CreditCancelled:        { loanId: string; applicationId: string; businessId: string; reason: "cooling_off" | "partner" };
   // T2/T3 verification (ADR-003)
   KycSubmitted: { sessionId: string; businessId: string; provider: string };
   KycDecided: { sessionId: string; businessId: string; status: "approved" | "rejected" | "review"; decidedBy: string | null };
@@ -235,6 +238,8 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   KycSubmitted: 1,
   KycDecided: 1,
   AuditCompleted: 1,
+  OrderFulfilmentUpdated: 1,
+  CreditCancelled: 1,
   CreditScoreComputed: 1,
   CreditApplicationSubmitted: 1,
   CreditOfferReceived: 1,
