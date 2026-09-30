@@ -1,3 +1,5 @@
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import type { CatalogueLocale } from "./config";
 import en from "../../messages/en.json";
 
@@ -14,12 +16,70 @@ function merge(base: Json, over: Json): Json {
   return out;
 }
 
-/** Catalogue for a locale, deep-merged over English so a missing key never renders as a raw key. */
-export async function loadMessages(locale: CatalogueLocale): Promise<Messages> {
-  if (locale === "en") return en;
-  const mod = (await import(`../../messages/${locale}.json`)) as { default: Json };
-  return merge(en as unknown as Json, mod.default) as unknown as Messages;
+/**
+ * Namespaced catalogue files that sit next to `<locale>.json` as `<locale>.<namespace>.json` (e.g. en.ads.json).
+ * The bundler needs static import patterns, so files are found through the template import below; this list plus a
+ * best-effort directory scan (server only, `messages/` next to the app) decides which names to try. A file whose top
+ * level already has a `<namespace>` key is merged as-is; otherwise its content is placed under that namespace.
+ */
+const KNOWN_NAMESPACE_FILES = ["ads", "promotions", "reachability"];
+
+function discoverNamespaces(): string[] {
+  const found = new Set(KNOWN_NAMESPACE_FILES);
+  try {
+    for (const dir of [join(process.cwd(), "messages"), join(process.cwd(), "apps", "web", "messages")]) {
+      if (!existsSync(dir)) continue;
+      for (const f of readdirSync(dir)) {
+        const m = /^en\.([A-Za-z0-9_-]+)\.json$/.exec(f);
+        if (m) found.add(m[1]!);
+      }
+      break;
+    }
+  } catch {
+    /* no fs (edge/browser bundle): the known list is used */
+  }
+  return [...found].sort();
 }
+
+async function loadFile(locale: string, ns: string | null): Promise<Json | null> {
+  try {
+    const mod = (ns ? await import(`../../messages/${locale}.${ns}.json`) : await import(`../../messages/${locale}.json`)) as { default: Json };
+    const data = mod.default;
+    return ns && !(ns in data) ? { [ns]: data } : data;
+  } catch {
+    return null; // file does not exist for this locale
+  }
+}
+
+/** Every `<locale>.json` + `<locale>.<ns>.json` merged in a fixed order (base first, then namespaces alphabetically). */
+async function loadLocaleFiles(locale: string): Promise<Json> {
+  let out: Json = {};
+  const base = await loadFile(locale, null);
+  if (base) out = merge(out, base);
+  for (const ns of discoverNamespaces()) {
+    const part = await loadFile(locale, ns);
+    if (part) out = merge(out, part);
+  }
+  return out;
+}
+
+const cache = new Map<string, Promise<Messages>>();
+
+/** Catalogue for a locale, deep-merged per key over English so a missing key never renders as a raw key. */
+export function loadMessages(locale: CatalogueLocale): Promise<Messages> {
+  let hit = cache.get(locale);
+  if (!hit) {
+    hit = (async () => {
+      const english = await loadLocaleFiles("en");
+      return (locale === "en" ? english : merge(english, await loadLocaleFiles(locale))) as unknown as Messages;
+    })();
+    cache.set(locale, hit);
+  }
+  return hit;
+}
+
+/** Raw merged files of one locale, no English fallback (used by the parity tests). */
+export const loadLocaleCatalogue = loadLocaleFiles;
 
 /** Namespaces client components read (everything else stays server-side and out of the client payload). */
 export const CLIENT_NAMESPACES = ["shell", "search", "rails", "consent", "unlock", "leadgen", "ui", "lang", "errors", "cards", "auth", "rfq"] as const;

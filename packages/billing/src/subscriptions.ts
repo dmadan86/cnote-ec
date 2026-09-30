@@ -40,18 +40,27 @@ async function startPeriod(tx: Tx, businessId: string, planCode: string, opts: {
   return sub;
 }
 
-/** Starts a plan (payment is mocked in Phase 1), grants monthly credits (+90-day expiry). autoRenew always false. */
+/** Switches the business to `planCode` inside the caller's tx (payment already captured, or free). Used by checkout fulfilment. */
+export async function activatePlanTx(tx: Tx, businessId: string, planCode: string, opts: { allowSame?: boolean } = {}) {
+  await lockBusiness(tx, businessId);
+  const current = await tx.subscription.findFirst({ where: { businessId, status: "active", periodEnd: { gt: new Date() } } });
+  if (current && current.planCode === planCode && !opts.allowSame) throw new DomainError("conflict", "You are already on this plan.");
+  // Replacing a plan is a change, not churn: no SubscriptionCancelled event.
+  if (current) await tx.subscription.update({ where: { id: current.id }, data: { status: "cancelled", cancelledAt: new Date() } });
+  return startPeriod(tx, businessId, planCode, { grant: true });
+}
+
+/**
+ * Starts a plan without a payment step: the free plan, or (dev only, PAYMENTS_PROVIDER=mock) a paid plan.
+ * With a real gateway configured, paid plans must go through startCheckout (fulfilment calls activatePlanTx).
+ */
 export async function subscribe(businessId: string, planCode: string): Promise<SubscriptionView> {
   const plan = await getPlan(planCode);
-  const sub = await prisma.$transaction(async (tx) => {
-    await lockBusiness(tx, businessId);
-    const current = await tx.subscription.findFirst({ where: { businessId, status: "active", periodEnd: { gt: new Date() } } });
-    if (current && current.planCode === planCode) throw new DomainError("conflict", "You are already on this plan.");
-    // Replacing a plan is a change, not churn: no SubscriptionCancelled event.
-    if (current) await tx.subscription.update({ where: { id: current.id }, data: { status: "cancelled", cancelledAt: new Date() } });
-    if (plan.monthlyPricePaise > 0) console.info(`[billing] payment captured (mock) business=${businessId} plan=${planCode} amountPaise=${plan.monthlyPricePaise}`);
-    return startPeriod(tx, businessId, planCode, { grant: true });
-  });
+  const provider = process.env.PAYMENTS_PROVIDER || "mock";
+  if (plan.monthlyPricePaise > 0 && (provider !== "mock" || process.env.NODE_ENV === "production")) {
+    throw new DomainError("validation", "Paid plans start from checkout.");
+  }
+  const sub = await prisma.$transaction((tx) => activatePlanTx(tx, businessId, planCode));
   return toView(sub);
 }
 
@@ -69,7 +78,7 @@ export function proRataRefundPaise(pricePaise: number, periodStart: Date, period
  * credits by subscribing/cancelling); the monthly job re-grants at period end.
  */
 export async function cancelSubscriptionWithQuote(businessId: string): Promise<CancellationQuote> {
-  return prisma.$transaction(async (tx) => {
+  const quote = await prisma.$transaction(async (tx) => {
     await lockBusiness(tx, businessId);
     const now = new Date();
     const current = await tx.subscription.findFirst({ where: { businessId, status: "active", periodEnd: { gt: now } }, orderBy: { periodStart: "desc" } });
@@ -79,9 +88,14 @@ export async function cancelSubscriptionWithQuote(businessId: string): Promise<C
     await tx.subscription.update({ where: { id: current.id }, data: { status: "cancelled", cancelledAt: now } });
     await emit(tx, "SubscriptionCancelled", { type: "business", id: businessId }, { businessId, subscriptionId: current.id, planCode: current.planCode });
     await startPeriod(tx, businessId, "free", { grant: false, periodEnd: current.periodEnd });
-    console.info(`[billing] cancelled business=${businessId} plan=${current.planCode} refundPaise=${refundPaise} (mock refund)`);
     return { subscriptionId: current.id, planCode: current.planCode, refundPaise };
   });
+  // Annual plans: pro-rata money back through the payment provider (after the cancel committed; failures are logged for finance).
+  if (quote.refundPaise > 0) {
+    const { refundForCancellation } = await import("./payments");
+    await refundForCancellation(businessId, quote).catch((e) => console.error(`[billing] pro-rata refund failed business=${businessId}`, e));
+  }
+  return quote;
 }
 
 export async function cancelSubscription(businessId: string): Promise<void> {

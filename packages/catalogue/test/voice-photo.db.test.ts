@@ -37,6 +37,7 @@ afterAll(async () => {
   await prisma.aiDecision.deleteMany({ where: { OR: [{ subjectId: { in: ids } }, { subjectType: "listing", subjectId: { in: (await prisma.listing.findMany({ where: { sellerBusinessId: { in: biz } }, select: { id: true } })).map((l) => l.id) } }] } }).catch(() => {});
   await prisma.voiceNote.deleteMany({ where: { sellerBusinessId: { in: biz } } });
   await prisma.listingImage.deleteMany({ where: { sellerBusinessId: { in: biz } } });
+  await prisma.listingPriceHistory.deleteMany({ where: { listing: { sellerBusinessId: { in: biz } } } }).catch(() => {});
   await prisma.listing.deleteMany({ where: { sellerBusinessId: { in: biz } } });
   await prisma.business.deleteMany({ where: { id: { in: biz } } });
   await prisma.consent.deleteMany({ where: { personId: { in: people } } });

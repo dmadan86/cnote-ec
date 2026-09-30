@@ -28,6 +28,7 @@ export function ProductCard({
   linkComponent,
   className,
   labels,
+  offer,
 }: {
   id: string;
   href: string;
@@ -50,6 +51,12 @@ export function ProductCard({
   className?: string;
   /** Translated strings (defaults are English). `minOrder` uses the `{value}` placeholder. */
   labels?: { priceOnRequest?: string; minOrder?: string; trust?: TrustLabels };
+  /**
+   * Seller offer chip (ADR-025). `referencePaise` is the PLATFORM-computed lowest price of the last 30 days: pass it only when the
+   * server derived it (never a seller-typed "was" price). When set it is shown struck through with a screen-reader prefix.
+   * The chip is text, not colour alone, and is never styled as "Sponsored".
+   */
+  offer?: { label: string; referencePaise?: number | null; referenceLabel?: string; percentLabel?: string | null } | null;
 }) {
   const A = linkComponent ?? "a";
   return (
@@ -72,6 +79,20 @@ export function ProductCard({
         ) : (
           <span className="text-sm font-semibold text-muted">{labels?.priceOnRequest ?? "Price on request"}</span>
         )}
+        {offer ? (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="inline-flex items-center rounded-full border border-success/30 bg-green-50 px-2 py-0.5 text-xs font-semibold text-success">{offer.label}</span>
+            {offer.referencePaise != null ? (
+              <span className="text-xs text-muted">
+                <span className="sr-only">{offer.referenceLabel ?? "Lowest price in the last 30 days:"} </span>
+                <s>
+                  <Money paise={offer.referencePaise} className="[&_span]:font-normal [&_span]:text-muted" />
+                </s>
+                {offer.percentLabel ? <span className="ml-1 font-medium text-success">{offer.percentLabel}</span> : null}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         {moqText ? <p className="text-xs text-muted">{(labels?.minOrder ?? "Min. order: {value}").replace("{value}", moqText)}</p> : null}
         {seller ? (
           <div className="mt-1.5 flex flex-col gap-1 border-t border-line pt-2">

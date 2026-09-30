@@ -5,7 +5,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import en from "../messages/en.json";
 import hi from "../messages/hi.json";
-import { DEFAULT_LOCALE, isLocalizedPath, LOCALE_META, LOCALES, localizePath, PLANNED_LOCALES, splitLocale } from "@/i18n/config";
+import { DEFAULT_LOCALE, formatNumber, isLocalizedPath, LOCALE_META, LOCALES, localizePath, splitLocale, type Locale } from "@/i18n/config";
+import { loadLocaleCatalogue, loadMessages } from "@/i18n/messages";
 import { localizedAlternates, sitemapLanguages } from "@/lib/seo-i18n";
 
 let mockPath = "/hi/search";
@@ -25,55 +26,103 @@ const flatten = (o: Json, prefix = ""): Record<string, string> =>
     return typeof v === "string" ? { ...acc, [prefix + k]: v } : { ...acc, ...flatten(v, `${prefix}${k}.`) };
   }, {});
 
-const E = flatten(en as Json);
-const H = flatten(hi as Json);
+const MESSAGES_DIR = join(__dirname, "..", "messages");
 const placeholders = (m: string) => [...m.matchAll(/\{(\w+)(?=[,}])/g)].map((x) => x[1]!).sort();
-const DEVANAGARI = /[ऀ-ॿ]/;
-// Values that legitimately stay Latin in Hindi (product names, acronyms, numerals, brand words).
+const SCRIPT_RE: Record<string, RegExp> = {
+  devanagari: /[ऀ-ॿ]/,
+  kannada: /[ಀ-೿]/,
+  tamil: /[஀-௿]/,
+  telugu: /[ఀ-౿]/,
+  gujarati: /[઀-૿]/,
+  bengali: /[ঀ-৿]/,
+};
+// Values that legitimately stay Latin (product names, acronyms, numerals, brand words).
 const LATIN_OK = new Set(["unlock.sms", "unlock.whatsapp", "errors.notFoundCode"]);
+const TRANSLATED = LOCALES.filter((l) => l !== "en");
+const NEW_LOCALES = TRANSLATED.filter((l) => l !== "hi");
+
+// Namespaced catalogue files: en.json plus en.<ns>.json (ads, promotions, ...), every locale must mirror them.
+const suffixes = readdirSync(MESSAGES_DIR)
+  .map((f) => /^en(\.[\w-]+)?\.json$/.exec(f)?.[1] ?? (f === "en.json" ? "" : null))
+  .filter((x): x is string => x !== null)
+  .sort();
+
+const readFlat = (locale: string, suffix: string): Record<string, string> | null => {
+  try {
+    const raw = JSON.parse(readFileSync(join(MESSAGES_DIR, `${locale}${suffix}.json`), "utf8")) as Json;
+    const ns = suffix.slice(1);
+    return flatten(ns && !(ns in raw) ? { [ns]: raw } : raw);
+  } catch {
+    return null;
+  }
+};
+const allKeys = (locale: string) => Object.fromEntries(suffixes.flatMap((sfx) => Object.entries(readFlat(locale, sfx) ?? {})));
+const E = allKeys("en");
+const merged = async (locale: Locale) => (await loadLocaleCatalogue(locale)) as Json;
 
 describe("i18n: catalogues", () => {
-  it("hi.json has exactly the keys of en.json", () => {
-    const missing = Object.keys(E).filter((k) => !(k in H));
-    const extra = Object.keys(H).filter((k) => !(k in E));
-    expect({ missing, extra }).toEqual({ missing: [], extra: [] });
+  it("discovers namespaced files", () => {
+    expect(suffixes).toContain("");
   });
 
-  it("every message is a valid ICU message and placeholders match English", () => {
-    for (const [name, messages] of [["en", en], ["hi", hi]] as const) {
-      const errors: string[] = [];
-      const t = createTranslator({ locale: LOCALE_META[name].bcp47, messages: messages as never, onError: (e) => void errors.push(`${e.code}: ${e.message}`) });
-      for (const [key, msg] of Object.entries(name === "en" ? E : H)) {
-        const values = Object.fromEntries(placeholders(msg).map((p) => [p, p === "count" || p === "n" ? 3 : "X"]));
-        expect(() => (t as (k: string, v: unknown) => string)(key, values), key).not.toThrow();
-      }
-      expect(errors, name).toEqual([]);
+  it("hi has every file and every key of en (all namespaced files)", () => {
+    for (const sfx of suffixes) {
+      const en = readFlat("en", sfx)!;
+      const hi = readFlat("hi", sfx);
+      expect(hi, `hi${sfx}.json exists`).not.toBeNull();
+      expect({ missing: Object.keys(en).filter((k) => !(k in hi!)), extra: Object.keys(hi!).filter((k) => !(k in en)) }, `hi${sfx}`).toEqual({ missing: [], extra: [] });
     }
-    const mismatched = Object.keys(E).filter((k) => H[k] && placeholders(H[k]).join() !== placeholders(E[k]!).join());
+  });
+
+  it.each(NEW_LOCALES)("%s has every file and every key of en (all namespaced files)", (code) => {
+    for (const sfx of suffixes) {
+      const en = readFlat("en", sfx)!;
+      const cat = readFlat(code, sfx);
+      expect(cat, `${code}${sfx}.json exists`).not.toBeNull();
+      expect({ missing: Object.keys(en).filter((k) => !(k in cat!)), extra: Object.keys(cat!).filter((k) => !(k in en)) }, `${code}${sfx}`).toEqual({ missing: [], extra: [] });
+    }
+  });
+
+  it.each(LOCALES)("%s: every message is valid ICU (locale plural rules) and placeholders match English", async (code) => {
+    const cat = await merged(code);
+    const flat = flatten(cat);
+    const errors: string[] = [];
+    const t = createTranslator({ locale: LOCALE_META[code].bcp47, messages: cat as never, onError: (e) => void errors.push(`${e.code}: ${e.message}`) });
+    for (const [key, msg] of Object.entries(flat)) {
+      const values = Object.fromEntries(placeholders(msg).map((p) => [p, p === "count" || p === "n" ? 3 : "X"]));
+      expect(() => (t as (k: string, v: unknown) => string)(key, values), key).not.toThrow();
+    }
+    expect(errors, code).toEqual([]);
+    const mismatched = Object.keys(E).filter((k) => flat[k] && placeholders(flat[k]!).join() !== placeholders(E[k]!).join());
     expect(mismatched).toEqual([]);
   });
 
-  it("hi.json has no untranslated English left", () => {
+  it.each(TRANSLATED)("%s has no untranslated English left", (code) => {
+    const H = allKeys(code);
+    const script = SCRIPT_RE[LOCALE_META[code].script]!;
     const untranslated = Object.entries(H)
-      .filter(([k, v]) => !LATIN_OK.has(k) && !DEVANAGARI.test(v))
+      .filter(([k, v]) => !LATIN_OK.has(k) && !script.test(v))
       // Placeholders and punctuation don't count; short Latin tokens (acronyms, "SMS") are fine, sentences are not.
       .filter(([, v]) => v.replace(/\{[^}]*\}/g, " ").replace(/[^A-Za-z\s]/g, " ").trim().split(/\s+/).filter(Boolean).length > 1)
       .map(([k, v]) => `${k}: ${v}`);
     expect(untranslated).toEqual([]);
-    const identical = Object.entries(H).filter(([k, v]) => v === E[k] && v.length > 12);
+    const identical = Object.entries(H).filter(([k, v]) => v === E[k] && v.length > 12 && !LATIN_OK.has(k));
     expect(identical.map(([k]) => k)).toEqual([]);
   });
 
-  it("marks the Hindi catalogue as machine-drafted", () => {
-    expect((hi as Json)._meta).toMatch(/MACHINE-DRAFTED, NEEDS NATIVE REVIEW/);
+  it.each(TRANSLATED)("marks the %s catalogue as machine-drafted", (code) => {
+    const raw = JSON.parse(readFileSync(join(MESSAGES_DIR, `${code}.json`), "utf8")) as Json;
+    expect(raw._meta).toMatch(/MACHINE-DRAFTED, NEEDS NATIVE REVIEW/i);
   });
 
-  it("planned locales only contain keys that exist in English (they fall back to it)", async () => {
-    for (const code of PLANNED_LOCALES) {
-      const cat = (await import(`../messages/${code}.json`)).default as Json;
-      expect(Object.keys(flatten(cat)).filter((k) => !(k in E)), code).toEqual([]);
-      expect(String(cat._todo), code).toMatch(/TODO/);
-    }
+  it("falls back per key to English when a key is missing", async () => {
+    const all = flatten((await loadMessages("kn")) as unknown as Json);
+    expect(Object.keys(E).filter((k) => !(k in all))).toEqual([]);
+  });
+
+  it("merges namespaced files deterministically", async () => {
+    const a = JSON.stringify(await loadLocaleCatalogue("en"));
+    expect(JSON.stringify(await loadLocaleCatalogue("en"))).toBe(a);
   });
 });
 
@@ -105,11 +154,23 @@ describe("i18n: SEO", () => {
   it("emits self-referencing canonicals with hreflang alternates and x-default", () => {
     expect(localizedAlternates("/c/packaging", "hi")).toEqual({
       canonical: "/hi/c/packaging",
-      languages: { "en-IN": "/c/packaging", "hi-IN": "/hi/c/packaging", "x-default": "/c/packaging" },
+      languages: {
+        "en-IN": "/c/packaging",
+        "hi-IN": "/hi/c/packaging",
+        "kn-IN": "/kn/c/packaging",
+        "ta-IN": "/ta/c/packaging",
+        "te-IN": "/te/c/packaging",
+        "mr-IN": "/mr/c/packaging",
+        "gu-IN": "/gu/c/packaging",
+        "bn-IN": "/bn/c/packaging",
+        "x-default": "/c/packaging",
+      },
     });
+    expect(localizedAlternates("/c/packaging", "kn").canonical).toBe("/kn/c/packaging");
     expect(localizedAlternates("/", "en").canonical).toBe("/");
     expect(localizedAlternates("/", "hi").languages).toMatchObject({ "hi-IN": "/hi", "en-IN": "/" });
-    expect(sitemapLanguages("/pricing", (p) => `https://x.test${p}`)).toEqual({ "en-IN": "https://x.test/pricing", "hi-IN": "https://x.test/hi/pricing", "x-default": "https://x.test/pricing" });
+    expect(sitemapLanguages("/pricing", (p) => `https://x.test${p}`)).toMatchObject({ "en-IN": "https://x.test/pricing", "hi-IN": "https://x.test/hi/pricing", "bn-IN": "https://x.test/bn/pricing", "x-default": "https://x.test/pricing" });
+    expect(Object.keys(sitemapLanguages("/pricing", (p) => p))).toHaveLength(LOCALES.length + 1);
   });
   it("gives every active locale a distinct BCP 47 tag", () => {
     expect(new Set(LOCALES.map((l) => LOCALE_META[l].bcp47)).size).toBe(LOCALES.length);
@@ -118,10 +179,40 @@ describe("i18n: SEO", () => {
     const props = { className: "x", messages: {}, skip: null, header: null, footer: null, extras: null };
     mockPath = "/hi/search";
     expect(renderToStaticMarkup(<HtmlShell {...props}>page</HtmlShell>)).toMatch(/<html lang="hi-IN"/);
+    for (const code of NEW_LOCALES) {
+      mockPath = `/${code}/search`;
+      expect(renderToStaticMarkup(<HtmlShell {...props}>page</HtmlShell>)).toContain(`<html lang="${code}-IN"`);
+    }
     mockPath = "/en/search";
     expect(renderToStaticMarkup(<HtmlShell {...props}>page</HtmlShell>)).toMatch(/<html lang="en-IN"/);
     mockPath = "/account";
     expect(renderToStaticMarkup(<HtmlShell {...props}>page</HtmlShell>)).toMatch(/<html lang="en-IN"/);
+  });
+});
+
+describe("i18n: locales", () => {
+  it("routes every locale prefix and groups numbers the Indian way with Latin digits", () => {
+    for (const code of NEW_LOCALES) {
+      expect(splitLocale(`/${code}/c/x`)).toEqual({ locale: code, prefixed: true, rest: "/c/x" });
+      expect(localizePath("/p/abc", code)).toBe(`/${code}/p/abc`);
+      expect(formatNumber(1234567, code)).toBe("12,34,567");
+    }
+  });
+  it("preferredLocale picks the first supported language from browser preferences", async () => {
+    const { preferredLocale } = await import("@/i18n/language-suggestion");
+    expect(preferredLocale(["ta-IN", "en"])).toBe("ta");
+    expect(preferredLocale(["fr", "bn"])).toBe("bn");
+    expect(preferredLocale(["fr"])).toBeNull();
+  });
+  it("lists every locale in the switcher with a lang attribute and its native name", () => {
+    mockPath = "/search";
+    const html = renderToStaticMarkup(
+      <NextIntlClientProvider locale="en" messages={{ lang: en.lang }}>
+        <LanguageSwitcher />
+      </NextIntlClientProvider>,
+    );
+    for (const code of LOCALES) expect(html).toContain(`<option value="${code}" lang="${code}-IN"`);
+    for (const code of LOCALES) expect(html).toContain(`>${LOCALE_META[code].native}</option>`);
   });
 });
 

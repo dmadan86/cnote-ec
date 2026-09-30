@@ -119,3 +119,26 @@ export async function getPersonVerification(personId: string): Promise<PersonVer
   if (!p) return null;
   return { phone: p.erasedAt ? null : p.phone, phoneVerified: !!p.phoneVerifiedAt && !p.erasedAt, emailVerified: !!p.emailVerifiedAt, erased: !!p.erasedAt };
 }
+
+export interface BusinessBillingProfile {
+  /** legal name when declared, else the display name (GST invoices use the legal name) */
+  name: string;
+  gstin: string | null;
+  /** single-line registered address */
+  address: string;
+  /** 2-digit GST state code: from the GSTIN, else the declared registered address */
+  stateCode: string | null;
+}
+
+/** Billing/invoicing snapshot of a business (read-only). null = unknown business. */
+export async function getBusinessBillingProfile(businessId: string): Promise<BusinessBillingProfile | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(businessId)) return null;
+  const b = await prisma.business.findUnique({ where: { id: businessId } });
+  if (!b) return null;
+  const a = (b.registeredAddress ?? {}) as Record<string, unknown>;
+  const s = (k: string) => (typeof a[k] === "string" ? (a[k] as string) : "");
+  const address = [s("line1"), s("line2"), s("city") || b.city || "", s("state") || b.state || "", s("pincode") || b.pincode || ""].filter(Boolean).join(", ");
+  const fromGstin = b.gstin && /^\d{2}[A-Z0-9]{13}$/i.test(b.gstin) ? b.gstin.slice(0, 2) : null;
+  const stateCode = fromGstin ?? (/^\d{2}$/.test(s("stateCode")) ? s("stateCode") : null);
+  return { name: b.legalName || b.name, gstin: b.gstin, address, stateCode };
+}

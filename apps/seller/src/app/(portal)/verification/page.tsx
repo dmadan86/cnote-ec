@@ -6,6 +6,8 @@ import { formatDate } from "@/lib/format";
 import { load } from "@/lib/safe";
 import { identity } from "@/lib/services";
 import { GstForm } from "@/features/verification/gst-form";
+import { KycPanel } from "@/features/kyc/kyc-panel";
+import { T3Status } from "@/features/kyc/t3-status";
 
 export const metadata: Metadata = { title: "Verification" };
 
@@ -13,12 +15,15 @@ export default async function VerificationPage() {
   const session = await requireSeller("/verification");
   const b = session.business;
   const records = await load(() => identity.listVerificationRecords(b.id));
+  const kyc = await load(async () => (b.verificationTier === 1 ? identity.getKycSession({ personId: session.personId, businessId: b.id }) : null));
+  const audits = await load(() => identity.listAudits({ businessId: b.id, limit: 1 }));
+  const audit = audits.ok ? audits.data[0] ?? null : null;
 
   const tiers = [
     { tier: 0, name: "T0 Phone verified", body: "Your mobile number is confirmed by OTP.", done: session.phoneVerified, soon: false },
     { tier: 1, name: "T1 GST verified", body: "Your GSTIN is checked with the GST network. Shows the GST verified badge and improves your ranking.", done: b.verificationTier >= 1, soon: false },
-    { tier: 2, name: "T2 KYC verified", body: "Document and video KYC. Coming soon.", done: b.verificationTier >= 2, soon: true },
-    { tier: 3, name: "T3 Audited", body: "Physical or partner audit, for categories that need it. Coming soon.", done: b.verificationTier >= 3, soon: true },
+    { tier: 2, name: "T2 KYC verified", body: "Document checks and a short video KYC of the owner. Shows the KYC verified badge.", done: b.verificationTier >= 2, soon: false },
+    { tier: 3, name: "T3 Audited", body: "Physical or partner audit, for categories that need it. Arranged by our team.", done: b.verificationTier >= 3, soon: false },
   ];
 
   return (
@@ -51,6 +56,20 @@ export default async function VerificationPage() {
         <Card>
           <CardHeader><CardTitle>Verify your GST</CardTitle></CardHeader>
           <CardBody><GstForm mode="portal" /></CardBody>
+        </Card>
+      ) : null}
+
+      {b.verificationTier === 1 ? (
+        <Card>
+          <CardHeader><CardTitle>Complete KYC (Tier 2)</CardTitle></CardHeader>
+          <CardBody>{kyc.ok ? <KycPanel initial={kyc.data} /> : <Alert tone="danger">{kyc.error}</Alert>}</CardBody>
+        </Card>
+      ) : null}
+
+      {b.verificationTier >= 2 || audit ? (
+        <Card>
+          <CardHeader><CardTitle>Audit (Tier 3)</CardTitle></CardHeader>
+          <CardBody><T3Status audit={audit} tier={b.verificationTier} /></CardBody>
         </Card>
       ) : null}
 

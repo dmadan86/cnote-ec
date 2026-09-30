@@ -1,6 +1,6 @@
 import { type Privilege, type StaffView, hasPrivilege } from "@cnote/admin";
 import { signOutAction } from "@cnote/next-kit";
-import { Globe, MessageCircle, Activity, BarChart3, Building2, FileClock, Filter, ImageIcon, KeyRound, LayoutDashboard, LayoutTemplate, ListChecks, LogOut, Mail, MessageSquareWarning, Scale, ScrollText, ShieldCheck, Store, UserCog, UserRound } from "lucide-react";
+import { Gift, Globe, Megaphone, MessageCircle, Tag, Ticket, Activity, BarChart3, Building2, CreditCard, FileClock, Filter, ImageIcon, KeyRound, LayoutDashboard, LayoutTemplate, ListChecks, LogOut, Mail, MessageSquareWarning, Scale, ScrollText, ShieldCheck, Store, UserCog, UserRound } from "lucide-react";
 import { NavLink } from "./nav";
 
 const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Privilege }[] = [
@@ -8,8 +8,15 @@ const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Pri
   { href: "/reviews", label: "Review queue", icon: <ShieldCheck className="size-4" aria-hidden />, privilege: "reviews.read" },
   { href: "/moderation", label: "Moderation", icon: <MessageSquareWarning className="size-4" aria-hidden />, privilege: "ugc.read" },
   { href: "/listings", label: "Listing versions", icon: <FileClock className="size-4" aria-hidden />, privilege: "listings.moderate" },
+  { href: "/kyc", label: "KYC review", icon: <ShieldCheck className="size-4" aria-hidden />, privilege: "kyc.review" },
+  { href: "/audits", label: "Audits (T3)", icon: <ScrollText className="size-4" aria-hidden />, privilege: "audits.manage" },
   { href: "/images", label: "Images", icon: <ImageIcon className="size-4" aria-hidden />, privilege: "images.moderate" },
   { href: "/templates", label: "Templates", icon: <Mail className="size-4" aria-hidden />, privilege: "templates.read" },
+  { href: "/promotions", label: "Promotions", icon: <Megaphone className="size-4" aria-hidden />, privilege: "promotions.read" },
+  { href: "/ads", label: "Ads", icon: <Megaphone className="size-4" aria-hidden />, privilege: "ads.read" },
+  { href: "/offers", label: "Offers", icon: <Tag className="size-4" aria-hidden />, privilege: "offers.review" },
+  { href: "/coupons", label: "Coupons", icon: <Ticket className="size-4" aria-hidden />, privilege: "coupons.read" },
+  { href: "/referrals", label: "Referrals", icon: <Gift className="size-4" aria-hidden />, privilege: "referrals.review" },
   { href: "/storefronts/review", label: "Storefront review", icon: <Store className="size-4" aria-hidden />, privilege: "storefronts.review" },
   { href: "/storefronts/templates", label: "Storefront templates", icon: <LayoutTemplate className="size-4" aria-hidden />, privilege: "storefronts.templates" },
   { href: "/developers", label: "API keys", icon: <KeyRound className="size-4" aria-hidden />, privilege: "api_keys.read" },
@@ -18,6 +25,7 @@ const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Pri
   { href: "/metrics", label: "Metrics", icon: <BarChart3 className="size-4" aria-hidden />, privilege: "metrics.read" },
   { href: "/domains", label: "Domains", icon: <Globe className="size-4" aria-hidden />, privilege: "storefronts.review" },
   { href: "/whatsapp", label: "WhatsApp", icon: <MessageCircle className="size-4" aria-hidden />, privilege: "businesses.read" },
+  { href: "/payments", label: "Payments", icon: <CreditCard className="size-4" aria-hidden />, privilege: "payments.read" },
   { href: "/businesses", label: "Businesses", icon: <Building2 className="size-4" aria-hidden />, privilege: "businesses.read" },
   { href: "/compliance", label: "Compliance", icon: <Scale className="size-4" aria-hidden />, privilege: "compliance.read" },
   { href: "/staff", label: "Staff", icon: <UserCog className="size-4" aria-hidden />, privilege: "staff.read" },

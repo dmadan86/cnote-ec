@@ -11,6 +11,10 @@ import { itemListLd } from "@/lib/schema";
 import { selfAlternates } from "@/lib/seo-i18n";
 import { loadCategories, loadHits, loadRatings, loadSellers } from "@/features/search/data";
 import { firstParam } from "@/features/search/format";
+import { mergeSponsored } from "@cnote/ads";
+import { loadSponsoredForResults } from "@/features/ads/slots";
+import { SponsoredBlock, SponsoredCard } from "@/features/ads/sponsored";
+import { loadOffers } from "@/features/promotions/data";
 
 // Free-text search results are a dynamic, unbounded URL space: crawlable (follow) but never indexed. The curated,
 // indexable equivalents are the category pages (/c/<slug>) and keyword landing pages (/s/<category>/<keyword>).
@@ -80,7 +84,12 @@ export default async function SearchPage(props: PageProps<"/[locale]/search">) {
   } else {
     const [{ hits, failed }, categories] = await Promise.all([loadHits({ q, categorySlug: category || undefined, limit: 24 }), loadCategories()]);
     count = hits.length;
-    const ratings = await loadRatings(hits.map((h) => h.listing.id));
+    const [ratings, offers] = await Promise.all([loadRatings(hits.map((h) => h.listing.id)), loadOffers(hits.map((h) => h.listing.id))]);
+    // Sponsored slots are decided per request AFTER (and outside) the cached organic ranking: organic order is never touched
+    // (ADR-024 rule 1). Off unless ADS_ENABLED; any failure or timeout yields no ads and the page renders as before.
+    const categoryId = category ? categories.find((c) => c.slug === category)?.id : undefined;
+    const sponsored = q || categoryId ? await loadSponsoredForResults({ query: q, categoryId, surface: categoryId ? "category" : "search", organicListingIds: hits.map((h) => h.listing.id) }) : [];
+    const merged = mergeSponsored(hits.map((h) => ({ id: h.listing.id, hit: h })), sponsored.map((s) => ({ id: s.listing.id, after: s.after, slot: s })));
     body = (
       <>
         {hits.length ? <JsonLd data={itemListLd(q ? t("itemListQuery", { q }) : t("itemListProducts"), hits.map((h) => h.listing), locale)} /> : null}
@@ -102,11 +111,16 @@ export default async function SearchPage(props: PageProps<"/[locale]/search">) {
         ) : null}
         {hits.length ? (
           <>
+          <SponsoredBlock slots={merged.top.map((a) => a.slot)} locale={locale} />
           <h2 className="sr-only">{t("productResults")}</h2>
           <Grid>
-            {hits.map((h, i) => (
-              <ListingCard key={h.listing.id} listing={h.listing} seller={h.seller} rating={ratings[h.listing.id]} priority={i < 4} locale={locale} />
-            ))}
+            {merged.feed.map((f, i) =>
+              f.kind === "organic" ? (
+                <ListingCard key={f.item.id} listing={f.item.hit.listing} seller={f.item.hit.seller} rating={ratings[f.item.id]} offer={offers[f.item.id]} priority={i < 4} locale={locale} />
+              ) : (
+                <SponsoredCard key={f.item.slot.clickToken} slot={f.item.slot} locale={locale} />
+              ),
+            )}
           </Grid>
           </>
         ) : (

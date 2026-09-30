@@ -1,6 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { getTranslations } from "next-intl/server";
-import { Geist, Noto_Sans_Devanagari } from "next/font/google";
+import {
+  Geist,
+  Noto_Sans_Bengali,
+  Noto_Sans_Devanagari,
+  Noto_Sans_Gujarati,
+  Noto_Sans_Kannada,
+  Noto_Sans_Tamil,
+  Noto_Sans_Telugu,
+} from "next/font/google";
 import { Analytics } from "@/features/analytics";
 import { SiteFooter } from "@/features/shell/site-footer";
 import { SiteHeader } from "@/features/shell/site-header";
@@ -20,7 +28,7 @@ const geistSans = Geist({
   fallback: ["system-ui", "Arial"],
 });
 
-// Hindi (and later Marathi): Devanagari subset only. preload:false + unicode-range means the font file is fetched only
+// Hindi and Marathi: Devanagari subset only. preload:false + unicode-range means the font file is fetched only
 // when a page actually renders Devanagari text, so English pages pay nothing. Fallbacks are metric-close system fonts
 // (Nirmala UI on Windows, Kohinoor/Devanagari Sangam on Apple, Noto on Android) to limit the swap shift.
 const notoDevanagari = Noto_Sans_Devanagari({
@@ -30,6 +38,17 @@ const notoDevanagari = Noto_Sans_Devanagari({
   preload: false,
   fallback: ["Nirmala UI", "Kohinoor Devanagari", "Devanagari Sangam MN", "Mangal", "system-ui"],
 });
+
+// Other Indic scripts follow the same recipe as Devanagari: own subset, preload:false, display:swap. next/font emits
+// unicode-range @font-face rules, so a file is fetched only when a page actually renders glyphs of that script (an
+// English page downloads none); `:lang()` line-heights in globals.css are set up front to avoid a reflow on swap.
+const notoKannada = Noto_Sans_Kannada({ variable: "--font-kannada", subsets: ["kannada"], display: "swap", preload: false, fallback: ["Nirmala UI", "Kohinoor Kannada", "Kannada Sangam MN", "Tunga", "system-ui"] });
+const notoTamil = Noto_Sans_Tamil({ variable: "--font-tamil", subsets: ["tamil"], display: "swap", preload: false, fallback: ["Nirmala UI", "Tamil Sangam MN", "Latha", "system-ui"] });
+const notoTelugu = Noto_Sans_Telugu({ variable: "--font-telugu", subsets: ["telugu"], display: "swap", preload: false, fallback: ["Nirmala UI", "Kohinoor Telugu", "Telugu Sangam MN", "Gautami", "system-ui"] });
+const notoGujarati = Noto_Sans_Gujarati({ variable: "--font-gujarati", subsets: ["gujarati"], display: "swap", preload: false, fallback: ["Nirmala UI", "Kohinoor Gujarati", "Gujarati Sangam MN", "Shruti", "system-ui"] });
+const notoBengali = Noto_Sans_Bengali({ variable: "--font-bengali", subsets: ["bengali"], display: "swap", preload: false, fallback: ["Nirmala UI", "Kohinoor Bangla", "Bangla Sangam MN", "Vrinda", "system-ui"] });
+
+const FONT_VARS = [geistSans, notoDevanagari, notoKannada, notoTamil, notoTelugu, notoGujarati, notoBengali].map((f) => f.variable).join(" ");
 
 const DESCRIPTION = "Find verified manufacturers and suppliers across India, compare real prices and get quotes, ranked by trust, never by payment.";
 
@@ -56,7 +75,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const messages = pickClientMessages(await loadMessages("en"));
   return (
     <HtmlShell
-      className={`${geistSans.variable} ${notoDevanagari.variable} h-full antialiased`}
+      className={`${FONT_VARS} h-full antialiased`}
       messages={messages}
       skip={<SkipLink label={(await getTranslations({ locale: "en", namespace: "shell" }))("skipToContent")} />}
       header={<SiteHeader locale="en" />}

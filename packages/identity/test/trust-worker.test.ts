@@ -39,3 +39,27 @@ it("verification raises tier; handlers are idempotent per event id", async () =>
   await prisma.domainEvent.deleteMany({ where: { aggregateId: businessId } });
   await redis.del(`trust:ev:${id}`);
 });
+
+it("an upheld offer-honour report lowers trust once; a dismissed one is ignored", async () => {
+  const person = await prisma.person.create({ data: { email: `t-${randomUUID()}@example.test` } });
+  people.push(person.id);
+  const { businessId } = await createBusiness(person.id, { name: "Offer Mfg", isSeller: true });
+  ids.push(businessId);
+  await redis.del(`trust:${businessId}`);
+  await recomputeTrust(businessId);
+  const before = (await prisma.business.findUniqueOrThrow({ where: { id: businessId } })).trustScore;
+
+  const base = { version: 1, aggregateType: "OfferHonourReport", aggregateId: "r", occurredAt: new Date().toISOString() } as const;
+  const dismissedId = Math.floor(Math.random() * 1e12);
+  await trustHandlers.OfferHonourDecided!({ ...base, id: dismissedId, type: "OfferHonourDecided", payload: { reportId: "r1", offerId: "o", sellerBusinessId: businessId, upheld: false } });
+  expect(await redis.hget(`trust:${businessId}`, "offersBroken")).toBeNull();
+
+  const id = dismissedId + 1;
+  const ev = { ...base, id, type: "OfferHonourDecided", payload: { reportId: "r2", offerId: "o", sellerBusinessId: businessId, upheld: true } } as const;
+  await trustHandlers.OfferHonourDecided!(ev);
+  await trustHandlers.OfferHonourDecided!(ev);
+  expect(await redis.hget(`trust:${businessId}`, "offersBroken")).toBe("1");
+  expect((await prisma.business.findUniqueOrThrow({ where: { id: businessId } })).trustScore).toBeLessThan(before);
+  await prisma.domainEvent.deleteMany({ where: { aggregateId: businessId } });
+  await redis.del(`trust:ev:${id}`);
+});

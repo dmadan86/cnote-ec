@@ -2,7 +2,7 @@ import { getBalance, grantCredits } from "@cnote/billing";
 import { prisma } from "@cnote/db";
 import fc from "fast-check";
 import { randomUUID } from "node:crypto";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 interface Cat { id: string; slug: string; name: string; icon: null; leadCap: number; prohibited: boolean; attributeSchema: { fields: [] }; parentId: null }
 const st = vi.hoisted(() => ({
@@ -42,15 +42,21 @@ vi.mock("@cnote/identity", () => ({
 }));
 
 import * as api from "../src";
+import { setReachabilityDispatchMode } from "../src/reachability";
+setReachabilityDispatchMode("inline"); // the worker would deliver; here we deliver in-process
 import { repairCascades, sweepStuckScoring } from "../src/leads";
 import { cascade, loadEmbedding } from "../src/matching";
 import { pickSellers } from "../src";
+import {
+  reachabilityEnabled, REACHABILITY_COPY, recordReachabilityResponse, resolveReachabilityChecks, setReachabilityNotifier, startReachabilityCheck, type ReachabilityMessage,
+} from "../src";
 
 const {
   acceptLead, createEnquiry, declineLead, expireOverdueOffers, getConversation, getSellerLead, listSellerLeads, reportBuyerProblem, reportDeal,
   resolveEnquiryReview, sendMessage, sendQuote, listBuyerEnquiries, getBuyerEnquiry, listCandidatesForBuyer,
 } = api;
 
+process.env.REACHABILITY_CHECK_ENABLED = "false"; // legacy immediate-refund behaviour; the reachability flow is covered in its own describe below
 const tag = `enq-lc-${Date.now()}`;
 type Actor = { personId: string; businessId: string };
 const bizIds: string[] = [];
@@ -105,6 +111,7 @@ afterAll(async () => {
   await prisma.quote.deleteMany({ where: { conversationId: { in: convos } } });
   await prisma.dealReport.deleteMany({ where: { match: { enquiryId: { in: enquiryIds } } } });
   await prisma.conversation.deleteMany({ where: { id: { in: convos } } });
+  await prisma.reachabilityCheck.deleteMany({ where: { enquiryId: { in: enquiryIds } } });
   await prisma.order.deleteMany({ where: { enquiryId: { in: enquiryIds } } });
   await prisma.match.deleteMany({ where: { enquiryId: { in: enquiryIds } } });
   await prisma.enquiry.deleteMany({ where: { id: { in: enquiryIds } } });
@@ -673,5 +680,149 @@ describe("getters", () => {
     expect(await api.getMatchSummary("x")).toBeNull();
     expect(await api.getMatchSummary(randomUUID())).toBeNull();
     expect(await api.getMatchSummary(m.id)).toMatchObject({ status: "accepted", rank: 1, buyerBusinessId: buyer.businessId });
+  });
+});
+
+describe("reachability check (ADR-002)", () => {
+  const sent: ReachabilityMessage[] = [];
+  let mode: "ok" | "fail" | "sms" = "ok";
+  const notifier = { send: async (m: ReachabilityMessage) => { sent.push(m); if (mode === "fail") throw new Error("boom"); return { channel: mode === "sms" ? ("sms" as const) : ("whatsapp" as const) }; } };
+  beforeAll(() => { setReachabilityNotifier(notifier); });
+  afterAll(() => { setReachabilityNotifier(null); });
+  beforeEach(() => { process.env.REACHABILITY_CHECK_ENABLED = "true"; mode = "ok"; sent.length = 0; });
+  afterEach(() => { process.env.REACHABILITY_CHECK_ENABLED = "false"; });
+
+  async function accepted() {
+    const buyer = await party("buyer");
+    const sellers = await pool(1, 2);
+    const e = await post(buyer);
+    const m = e.matches[0]!;
+    const actor = byBiz(sellers, m.sellerBusinessId);
+    const bal = await getBalance(actor.businessId);
+    await acceptLead(actor, m.id);
+    return { actor, matchId: m.id, enquiryId: e.id, bal };
+  }
+  const check = (matchId: string) => prisma.reachabilityCheck.findFirstOrThrow({ where: { matchId } });
+  const expire = (matchId: string) => prisma.reachabilityCheck.updateMany({ where: { matchId }, data: { expiresAt: new Date(Date.now() - 1000) } });
+  const events = (enquiryId: string, type: string) => prisma.domainEvent.count({ where: { aggregateId: enquiryId, type } });
+
+  it("holds the refund, pings the buyer, shows the pending state, and is idempotent per report", async () => {
+    const a = await accepted();
+    await reportBuyerProblem(a.actor, a.matchId, "buyer_unreachable");
+    await reportBuyerProblem(a.actor, a.matchId, "buyer_unreachable");
+    expect(await getBalance(a.actor.businessId)).toBe(a.bal - 1);
+    expect((await prisma.match.findUnique({ where: { id: a.matchId } }))!.status).toBe("accepted");
+    expect(await prisma.reachabilityCheck.count({ where: { matchId: a.matchId } })).toBe(1);
+    const c = await check(a.matchId);
+    expect(c).toMatchObject({ status: "sent", channel: "whatsapp" });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ phone: "+919999900000", token: c.token, link: expect.stringMatching(new RegExp(`/r/${c.token}$`)), template: "cnote_reachability_check" });
+    const lead = await getSellerLead(a.actor.businessId, a.matchId);
+    expect(lead!.reachabilityCheck).toMatchObject({ status: "checking" });
+  });
+
+  it("buyer responded: no refund, single-use token, event once, lead card back to normal", async () => {
+    const a = await accepted();
+    await reportBuyerProblem(a.actor, a.matchId, "buyer_unreachable");
+    const { token } = await check(a.matchId);
+    expect(await recordReachabilityResponse(token)).toBe("responded");
+    expect(await recordReachabilityResponse(token)).toBe("responded");
+    expect(await recordReachabilityResponse("nope")).toBe("not_found");
+    expect(await recordReachabilityResponse("x".repeat(30))).toBe("not_found");
+    expect(await events(a.enquiryId, "ReachabilityChecked")).toBe(1);
+    await expire(a.matchId);
+    expect(await resolveReachabilityChecks()).toBe(0);
+    expect(await getBalance(a.actor.businessId)).toBe(a.bal - 1);
+    expect((await getSellerLead(a.actor.businessId, a.matchId))!.reachabilityCheck).toBeNull();
+    await expect(reportBuyerProblem(a.actor, a.matchId, "buyer_unreachable")).rejects.toMatchObject({ code: "conflict", message: expect.stringMatching(/confirmed/) });
+    // the seller can still flag the buyer as fake (unchanged flow)
+    await reportBuyerProblem(a.actor, a.matchId, "buyer_fake");
+    expect(await getBalance(a.actor.businessId)).toBe(a.bal);
+  });
+
+  it("response after expiry is rejected; expiry refunds exactly once even under concurrent job runs", async () => {
+    const a = await accepted();
+    await reportBuyerProblem(a.actor, a.matchId, "buyer_unreachable");
+    expect(await resolveReachabilityChecks()).toBe(0); // not yet expired
+    const { token } = await check(a.matchId);
+    await expire(a.matchId);
+    const runs = await Promise.all([resolveReachabilityChecks(), resolveReachabilityChecks(), resolveReachabilityChecks()]);
+    expect(runs.reduce((x, y) => x + y, 0)).toBe(1);
+    expect(await getBalance(a.actor.businessId)).toBe(a.bal);
+    expect(await resolveReachabilityChecks()).toBe(0);
+    expect(await recordReachabilityResponse(token)).toBe("expired");
+    expect((await check(a.matchId)).status).toBe("no_response");
+    expect(await events(a.enquiryId, "LeadRefunded")).toBe(1);
+    expect(await events(a.enquiryId, "ReachabilityChecked")).toBe(1);
+    expect((await prisma.match.findUnique({ where: { id: a.matchId } }))).toMatchObject({ status: "refunded", refundReason: "buyer_unreachable" });
+  });
+
+  it.each([["send failure", "fail"], ["no notifier", "none"], ["no phone", "nophone"]])("%s: refund immediately, never punish the seller", async (_n, how) => {
+    const a = await accepted();
+    if (how === "none") setReachabilityNotifier(null);
+    if (how === "fail") mode = "fail";
+    if (how === "nophone") st.phone = null;
+    try {
+      await reportBuyerProblem(a.actor, a.matchId, "buyer_unreachable");
+    } finally {
+      setReachabilityNotifier(notifier);
+    }
+    expect(await getBalance(a.actor.businessId)).toBe(a.bal);
+    expect((await check(a.matchId)).status).toBe("failed");
+    expect(await events(a.enquiryId, "LeadRefunded")).toBe(1);
+    expect(await events(a.enquiryId, "ReachabilityChecked")).toBe(1);
+    expect(await resolveReachabilityChecks()).toBe(0);
+  });
+
+  it("a failed-but-unrefunded check (crash before settle) is refunded by the job; re-report settles too", async () => {
+    const a = await accepted();
+    await reportBuyerProblem(a.actor, a.matchId, "buyer_unreachable");
+    const c = await check(a.matchId);
+    await prisma.reachabilityCheck.update({ where: { id: c.id }, data: { status: "failed" } });
+    await reportBuyerProblem(a.actor, a.matchId, "buyer_unreachable");
+    expect(await getBalance(a.actor.businessId)).toBe(a.bal);
+    const b = await accepted();
+    await reportBuyerProblem(b.actor, b.matchId, "buyer_unreachable");
+    await prisma.reachabilityCheck.updateMany({ where: { matchId: b.matchId }, data: { status: "failed" } });
+    expect(await resolveReachabilityChecks()).toBe(1);
+    expect(await getBalance(b.actor.businessId)).toBe(b.bal);
+  });
+
+  it("flag off: immediate refund, no check; buyer_fake unchanged; 72h window unchanged", async () => {
+    const a = await accepted();
+    process.env.REACHABILITY_CHECK_ENABLED = "false";
+    await reportBuyerProblem(a.actor, a.matchId, "buyer_unreachable");
+    expect(await getBalance(a.actor.businessId)).toBe(a.bal);
+    expect(await prisma.reachabilityCheck.count({ where: { matchId: a.matchId } })).toBe(0);
+    const b = await accepted();
+    process.env.REACHABILITY_CHECK_ENABLED = "true";
+    await reportBuyerProblem(b.actor, b.matchId, "buyer_fake");
+    expect(await getBalance(b.actor.businessId)).toBe(b.bal);
+    expect(await prisma.reachabilityCheck.count({ where: { matchId: b.matchId } })).toBe(0);
+    const c = await accepted();
+    const at = (await prisma.match.findUnique({ where: { id: c.matchId } }))!.respondedAt!.getTime();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(at + 72 * 3600_000 + 1));
+    await expect(reportBuyerProblem(c.actor, c.matchId, "buyer_unreachable")).rejects.toMatchObject({ code: "conflict", message: expect.stringMatching(/72-hour/) });
+    expect(await prisma.reachabilityCheck.count({ where: { matchId: c.matchId } })).toBe(0);
+  });
+
+  it("startReachabilityCheck without a match (intake): responded emits the event only; SMS channel; expiry marks no_response", async () => {
+    mode = "sms";
+    const buyer = await party("buyer");
+    await pool(1);
+    const e = await post(buyer);
+    const r = await startReachabilityCheck(e.id, { reason: "low_intent_intake" });
+    expect(r.status).toBe("queued"); // delivery happens in the worker (inline in this test file)
+    expect(await prisma.reachabilityCheck.findUnique({ where: { id: r.checkId } })).toMatchObject({ channel: "sms", matchId: null });
+    const { token } = (await prisma.reachabilityCheck.findUnique({ where: { id: r.checkId } }))!;
+    expect(await recordReachabilityResponse(token)).toBe("responded");
+    const r2 = await startReachabilityCheck(e.id, { reason: "low_intent_intake" });
+    await prisma.reachabilityCheck.update({ where: { id: r2.checkId }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    await resolveReachabilityChecks();
+    expect((await prisma.reachabilityCheck.findUnique({ where: { id: r2.checkId } }))!.status).toBe("no_response");
+    expect(await events(e.id, "ReachabilityChecked")).toBe(2);
+    expect(reachabilityEnabled()).toBe(true);
+    expect(REACHABILITY_COPY.sms.hi).toContain("{{2}}");
   });
 });

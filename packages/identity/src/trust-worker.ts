@@ -1,3 +1,4 @@
+import { auditWorkerJobs } from "./audits";
 import { emit, redis, type EventHandlers, type ModuleWorker } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { bustSellerCaches } from "./business";
@@ -19,6 +20,7 @@ function signalsFrom(tier: number, h: Record<string, string>, createdAt: Date, n
     moderationRejections: n("modRejected"),
     dealsWon: n("dealsWon"),
     disputesLost: n("disputesLost"),
+    offersBroken: n("offersBroken"),
     inactiveDays: Math.max(0, Math.floor((now - last) / DAY)),
   };
 }
@@ -30,10 +32,14 @@ export async function recomputeTrust(businessId: string, now = Date.now()): Prom
   const h = await redis.hgetall(counterKey(businessId));
   const { score, badgeActive } = computeTrustScore(signalsFrom(b.verificationTier, h, b.createdAt, now));
   if (score === b.trustScore && badgeActive === b.badgeActive) return { changed: false, score };
-  await prisma.$transaction(async (tx) => {
-    await tx.business.update({ where: { id: businessId }, data: { trustScore: score, badgeActive } });
+  // updateMany, not update: the business may be erased between the read and the write (DPDP erasure, cleanup).
+  const updated = await prisma.$transaction(async (tx) => {
+    const r = await tx.business.updateMany({ where: { id: businessId }, data: { trustScore: score, badgeActive } });
+    if (r.count === 0) return false;
     await emit(tx, "TrustScoreChanged", { type: "Business", id: businessId }, { businessId, from: b.trustScore, to: score, badgeActive });
+    return true;
   });
+  if (!updated) return null;
   await bustSellerCaches(businessId);
   return { changed: true, score };
 }
@@ -76,6 +82,10 @@ export const trustHandlers: EventHandlers = {
     if (e.payload.status !== "rejected") return;
     await once(e.id, e.payload.sellerBusinessId, (p) => p.hincrby(counterKey(e.payload.sellerBusinessId), "modRejected", 1));
   },
+  async OfferHonourDecided(e) {
+    if (!e.payload.upheld) return;
+    await once(e.id, e.payload.sellerBusinessId, (p) => p.hincrby(counterKey(e.payload.sellerBusinessId), "offersBroken", 1));
+  },
   async BusinessVerified(e) {
     const dedupe = `trust:ev:${e.id}`;
     if ((await redis.set(dedupe, "1", "EX", 7 * 86400, "NX")) === null) return;
@@ -106,5 +116,5 @@ export async function runTrustDecay(opts: { pageSize?: number } = {}): Promise<n
 export const worker: ModuleWorker = {
   name: "identity",
   handlers: trustHandlers,
-  jobs: [{ name: "identity.trust-decay", everyMs: DAY, run: async () => void (await runTrustDecay()) }, ...gstWorkerJobs],
+  jobs: [{ name: "identity.trust-decay", everyMs: DAY, run: async () => void (await runTrustDecay()) }, ...gstWorkerJobs, ...auditWorkerJobs],
 };

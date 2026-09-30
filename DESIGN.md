@@ -2,6 +2,10 @@
 
 UI/UX system for the marketplace. The visual target is `docs/design/home-reference.png`, and the product rules come from `docs/adr/ADR-v0.1.md`. Tokens and primitives live in `packages/ui`. Change them there, never with one-off hex values in apps.
 
+## Design research: consult Mobbin first
+
+Before designing or significantly changing any screen or flow (web, seller, admin, studio), look up real-world patterns on **Mobbin** (Mobbin MCP tools: `search_flows` for multi-step journeys, `search_screens` for single screens, `search_sections` for marketing-site sections). Adapt the strongest patterns to our tokens and principles below. Our own rules still win: honesty (ADR-005/009), trust visibility and WCAG 2.2 AA on the buyer web. Never copy another product's branding. Record what you referenced (Mobbin links plus what was adopted) in the feature's `docs/design/*.md`.
+
 ## Principles
 
 1. **Trust made visible.** Every seller surface shows the *real* verification tier and trust signals (ADR-003). Buyers see why a seller is shown; sellers see the intent score, their rank and the N cap on every lead (ADR-002).

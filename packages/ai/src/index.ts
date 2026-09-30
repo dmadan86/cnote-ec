@@ -204,3 +204,4 @@ export const worker: ModuleWorker = {
 };
 
 export * from "./getters";
+export * from "./document";

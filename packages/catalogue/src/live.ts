@@ -8,6 +8,7 @@ import { prisma } from "@cnote/db";
 import { bustSellerCaches, getTrustProfiles } from "@cnote/identity";
 import { liveDb, toVectorLiteral } from "@cnote/live-db";
 import { bustListingCaches } from "./cache";
+import { recordPrice } from "./price-history";
 import { getCategoryById } from "./categories";
 import { toPublicImage } from "./image-variants";
 import { isUuid, type LiveImage } from "./mappers";
@@ -166,6 +167,7 @@ export async function publishVersion(versionId: string, now = new Date()): Promi
     if (previous) await tx.listingVersion.update({ where: { id: previous }, data: { status: "superseded" } });
     await tx.listingVersion.update({ where: { id: v.id }, data: { status: "published", publishedAt: now } });
     await tx.listing.update({ where: { id: v.listingId }, data: { liveVersionId: v.id, status: "published", moderationStatus: "approved", moderationReason: null } });
+    await recordPrice(v.listingId, proj.snap.pricePaise, proj.snap.priceUnit, tx, now); // append-only, only when the published price changed
     const base = { listingId: v.listingId, sellerBusinessId: listing.sellerBusinessId };
     await emit(tx, "ListingVersionPublished", { type: "listing", id: v.listingId }, { ...base, versionId: v.id, version: v.version, previousVersionId: previous });
     if (!fresh.liveVersionId) await emit(tx, "ListingPublished", { type: "listing", id: v.listingId }, { ...base, categoryId: proj.category.id });

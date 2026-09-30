@@ -49,3 +49,13 @@ describe("voice note keys", () => {
     expect(mimeForKey("listings/_voice/a.m4a")).toBe("audio/mp4");
   });
 });
+
+describe("invoice and KYC keys", () => {
+  it("are private-only; invoices map to application/pdf", () => {
+    for (const k of ["invoices/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10.pdf", "kyc/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/pan.jpg"]) {
+      expect(isValidMediaKey(k, "private")).toBe(true);
+      expect(isValidMediaKey(k, "public")).toBe(false);
+    }
+    expect(mimeForKey("invoices/a.pdf")).toBe("application/pdf");
+  });
+});

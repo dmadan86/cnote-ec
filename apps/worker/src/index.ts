@@ -4,7 +4,9 @@
 import * as Sentry from "@sentry/node";
 import { sentryOptions } from "@cnote/observability";
 import { worker as ai } from "@cnote/ai";
-import { worker as billing } from "@cnote/billing";
+import { worker as billing, setCouponPort, couponPortFromModule } from "@cnote/billing";
+import { worker as promotions, couponPort } from "@cnote/promotions";
+import { worker as ads } from "@cnote/ads";
 import { worker as catalogue } from "@cnote/catalogue";
 import { consumeOnce, getJobQueue, relayOutbox, type JobTopic, type ModuleWorker } from "@cnote/core";
 import { worker as enquiry } from "@cnote/enquiry";
@@ -20,7 +22,11 @@ import { getSellerListingHsns } from "@cnote/catalogue";
 import { worker as leadgen } from "@cnote/leadgen";
 import { worker as metrics } from "@cnote/metrics";
 import { assertIndiaResidency, worker as compliance } from "@cnote/compliance";
-import { worker as whatsapp } from "@cnote/whatsapp";
+import { REACHABILITY_COPY, setReachabilityNotifier } from "@cnote/enquiry";
+import { extractDocument } from "@cnote/ai";
+import { getSmsSender, setKycPorts } from "@cnote/identity";
+import { ImageValidationError, getMediaStore, validateImage } from "@cnote/media";
+import { sendToPhone, worker as whatsapp } from "@cnote/whatsapp";
 import { seedStorefrontTemplates, worker as storefront } from "@cnote/storefront";
 import { assertRequiredSecrets } from "@cnote/security";
 import { cacheWorker, searchIndexer } from "@cnote/search";
@@ -36,7 +42,8 @@ Sentry.init(sentryOptions("worker", "nodejs"));
 // identity can't import catalogue (cycle); the composition root supplies the GST HSN-alignment source.
 setListingHsnSource(getSellerListingHsns);
 
-const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, notifications, developer, email, cacheWorker, searchIndexer, leadgen, domains, storefront, bulk, metrics, compliance, whatsapp];
+const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, notifications, developer, email, cacheWorker, searchIndexer, leadgen, domains, storefront, bulk, metrics, compliance, whatsapp, promotions, ads];
+setCouponPort(couponPortFromModule(couponPort));
 const consumer = `${hostname()}-${process.pid}`;
 let running = true;
 
@@ -65,6 +72,40 @@ await seedDefaultTemplates().catch((err) => {
 await seedStorefrontTemplates().catch((err) => {
   console.error("[worker] storefront template seed failed", err);
   Sentry.captureException(err);
+});
+
+// KYC ports (identity may not depend on ai/media): the retention purge deletes document images from the private store.
+setKycPorts({
+  store: {
+    put: (k, b, ct) => getMediaStore("private").put(k, b, ct),
+    get: (k) => getMediaStore("private").get(k),
+    delete: (k) => getMediaStore("private").delete(k),
+  },
+  inspectImage: (bytes) => {
+    try {
+      const v = validateImage(bytes);
+      return { mime: v.mime, ext: v.ext, width: v.width, height: v.height, sha256: v.sha256 };
+    } catch (err) {
+      throw err instanceof ImageValidationError ? err : new Error("Invalid image");
+    }
+  },
+  extractDocument: (input, subject) => extractDocument({ image: input.image, docType: input.docType }, subject),
+});
+
+// ADR-002 buyer reachability: WhatsApp utility template first (title + one-tap link), SMS fallback. Registered here
+// because only the worker delivers (enquiry queues the dispatch); throwing = delivery failure = seller refunded.
+setReachabilityNotifier({
+  async send(m) {
+    const hi = m.language === "hi";
+    const wa = await sendToPhone({
+      phone: m.phone,
+      template: { name: m.template, language: hi ? "hi" : "en", bodyParams: [m.enquiryTitle.slice(0, 60), m.link], category: "utility" },
+    });
+    if (wa.sent) return { channel: "whatsapp" };
+    const text = (hi ? REACHABILITY_COPY.sms.hi : REACHABILITY_COPY.sms.en).replace("{{1}}", m.enquiryTitle.slice(0, 40)).replace("{{2}}", m.link);
+    await getSmsSender().send({ to: m.phone, text });
+    return { channel: "sms" };
+  },
 });
 
 const queue = getJobQueue();

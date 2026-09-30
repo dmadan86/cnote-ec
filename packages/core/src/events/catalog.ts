@@ -99,7 +99,7 @@ export interface DomainEventPayloads {
   KycDecided: { sessionId: string; businessId: string; status: "approved" | "rejected" | "review"; decidedBy: string | null };
   AuditCompleted: { auditId: string; businessId: string; result: "pass" | "fail" | "conditional"; validUntil: string | null };
   // buyer reachability (ADR-002)
-  ReachabilityChecked: { checkId: string; enquiryId: string; matchId: string | null; channel: string; status: "responded" | "no_response" | "failed" };
+  ReachabilityChecked: { checkId: string; enquiryId: string; matchId: string | null; channel: string; status: "responded" | "no_response" | "failed"; sellerBusinessId?: string };
   // billing
   CreditsGranted: { businessId: string; amount: number; reason: string; expiresAt: string };
   CreditConsumed: { businessId: string; txnId: string; refType: string; refId: string };

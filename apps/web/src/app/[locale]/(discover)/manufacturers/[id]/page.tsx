@@ -13,6 +13,7 @@ import { localizedAlternates } from "@/lib/seo-i18n";
 import { ListingCard } from "@/features/search/cards";
 import { loadRatings, loadSeller, loadSellerIndex, loadSellerListings } from "@/features/search/data";
 import { getUiLabels } from "@/features/search/labels";
+import { loadOffers } from "@/features/promotions/data";
 
 // Static + ISR like product pages: top sellers prerendered, the rest on first request; purged by seller:<id> / seller-listings:<id>.
 export const revalidate = 300;
@@ -46,7 +47,7 @@ export default async function ManufacturerPage(props: PageProps<"/[locale]/manuf
   const seller = await loadSeller(id);
   if (!seller) notFound();
   const listings = await loadSellerListings(id);
-  const ratings = await loadRatings(listings.map((l) => l.id));
+  const [ratings, offers] = await Promise.all([loadRatings(listings.map((l) => l.id)), loadOffers(listings.map((l) => l.id))]);
   const place = [seller.city, seller.state].filter(Boolean).join(", ");
 
   return (
@@ -81,7 +82,7 @@ export default async function ManufacturerPage(props: PageProps<"/[locale]/manuf
         {listings.length ? (
           <Grid>
             {listings.map((l) => (
-              <ListingCard key={l.id} listing={l} rating={ratings[l.id]} locale={locale} />
+              <ListingCard key={l.id} listing={l} rating={ratings[l.id]} offer={offers[l.id]} locale={locale} />
             ))}
           </Grid>
         ) : (

@@ -7,7 +7,7 @@
 import { prisma } from "@cnote/db";
 import * as catalogue from "@cnote/catalogue";
 import { purgeInactiveConversationMessages } from "@cnote/enquiry";
-import { purgeErasedPersonResiduals, purgeExpiredAuthSessions } from "@cnote/identity";
+import { purgeErasedPersonResiduals, purgeExpiredAuthSessions, purgeKycDocuments } from "@cnote/identity";
 import { purgeAbandonedCaptures } from "@cnote/leadgen";
 import { purgeReadNotifications } from "@cnote/notifications";
 import { purgeRejectedUgc } from "@cnote/reviews";
@@ -80,16 +80,23 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     run: (before, { dryRun }) => catalogue.purgeSoftDeletedImages(before, { dryRun }),
   },
   {
-    name: "catalogue.voice_notes_expired", module: "catalogue", envKey: "VOICE_NOTES", defaultDays: 1, supportsDryRun: false,
-    description: "Seller voice notes past their purge date (audio kept only with voice_retention consent). Skipped until the AI workstream exports purgeExpiredVoiceNotes.",
+    name: "catalogue.voice_notes_expired", module: "catalogue", envKey: "VOICE_NOTES", defaultDays: 1, supportsDryRun: true,
+    description: "Seller voice notes past their per-note purge date (24h without voice_retention consent, 180d with it).",
     legalBasis: "DPDP s.6 consent (purpose-scoped voice_retention); ADR-004/010",
-    run: (_before, { dryRun }) => optionalPurge(catalogue, "purgeExpiredVoiceNotes", [new Date()], dryRun),
+    // Each note carries its own purgeAfter (set from the consent snapshot), so the policy window is not used here.
+    run: (_before, { dryRun }) => catalogue.purgeExpiredVoiceNotes(new Date(), { dryRun }),
   },
   {
     name: "whatsapp.message_bodies_retention", module: "whatsapp", envKey: "WHATSAPP_MESSAGES", defaultDays: 30, supportsDryRun: false,
-    description: "WhatsApp message bodies and media keys past the retention window. Skipped until the WhatsApp workstream exports purgeWhatsAppMessages.",
+    description: "WhatsApp message bodies and media keys past the retention window.",
     legalBasis: "DPDP s.8(7); message bodies are not stored beyond the window (ADR-004)",
-    run: (before, { dryRun }) => optionalPurge(whatsapp, "purgeWhatsAppMessages", [before], dryRun),
+    run: async (before, { dryRun }) => (dryRun ? 0 : whatsapp.purgeWhatsAppMessages(before)),
+  },
+  {
+    name: "identity.kyc_documents_90d", module: "identity", envKey: "KYC_DOCUMENTS", defaultDays: 90, supportsDryRun: true,
+    description: "KYC document images 90 days after the session is decided (or expired); masked fields, verdicts and checks are kept as the verification record.",
+    legalBasis: "DPDP s.8(7) storage limitation; ADR-003 verification evidence is retained in minimised form",
+    run: (before, { dryRun }) => purgeKycDocuments(before, { dryRun }),
   },
   {
     name: "leadgen.abandoned_captures_90d", module: "leadgen", envKey: "ABANDONED_CAPTURES", defaultDays: 90, supportsDryRun: true,

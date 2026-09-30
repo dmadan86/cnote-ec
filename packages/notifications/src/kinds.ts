@@ -331,6 +331,27 @@ export const KINDS: NotificationKind[] = [
       return fan(await membersOf(dir, e.payload.businessId, { ownersOnly: true }), { businessId: e.payload.businessId, vars: { score: to }, href: "/verification" });
     },
   }),
+  kind({
+    key: "lead.reachability_result",
+    name: "Buyer reachability check result",
+    description: "Outcome of the automated check with a buyer the seller reported as unreachable (decided within 24h).",
+    category: "leads",
+    app: "seller",
+    event: "ReachabilityChecked",
+    variables: [v("outcome", "What happened and what it means for the credit", "The buyer confirmed they still need this."), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "Buyer check complete", body: "{{outcome}}" },
+    },
+    async resolve(e: DomainEvent<"ReachabilityChecked">, dir) {
+      const { sellerBusinessId, status, matchId } = e.payload;
+      if (!sellerBusinessId || !matchId) return [];
+      const outcome =
+        status === "responded"
+          ? "The buyer confirmed they still need this. No refund was issued; please contact them again."
+          : "We could not reach the buyer, so your lead credit was refunded.";
+      return fan(await membersOf(dir, sellerBusinessId), { businessId: sellerBusinessId, vars: { outcome }, href: "/leads" });
+    },
+  }),
 ];
 
 const KEY_INDEX = new Map(KINDS.map((k) => [k.key, k]));

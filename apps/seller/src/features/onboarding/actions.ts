@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireSession, type ActionResult } from "@cnote/next-kit";
 import { requireSeller } from "@/lib/auth";
-import { ONB, readOnb, writeOnb } from "@/lib/cookies";
+import { applyReferralCode } from "@cnote/promotions";
+import { ONB, clearOnb, readOnb, writeOnb } from "@/lib/cookies";
 import { LANGUAGES } from "@/lib/constants";
 import { str, strs } from "@/lib/form-data";
 import { logEvent } from "@/lib/metrics";
@@ -26,6 +27,12 @@ export async function createBusinessAction(_prev: ActionResult | null, fd: FormD
       .parse({ name: str(fd, "name"), city: str(fd, "city"), state: str(fd, "state"), pincode: str(fd, "pincode"), languages: strs(fd, "languages") });
     const { businessId } = await identity.createBusiness(session.personId, { ...input, isSeller: true });
     await writeOnb(ONB.startedAt, String(Date.now()));
+    // A bad or self-referral code must never block onboarding; the reward is decided later (ADR-025).
+    const ref = await readOnb(ONB.referral);
+    if (ref) {
+      await applyReferralCode({ refereeBusinessId: businessId, code: ref }).catch((e) => console.warn("[seller] referral not applied", e instanceof Error ? e.message : e));
+      await clearOnb(ONB.referral);
+    }
     logEvent("seller.onboarding_business_created", { personId: session.personId, businessId });
     return undefined;
   });
@@ -77,6 +84,7 @@ export async function skipStepAction(fd: FormData): Promise<void> {
 /** Step 5: plan (free by default, no auto-upgrade) + purpose-scoped consents (ADR-005, ADR-010). */
 export async function finishOnboardingAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const session = await requireSeller("/onboarding");
+  let paidPlan: string | null = null;
   const result = await run(async () => {
     for (const purpose of ["matching", "counterparty_sharing", "marketing"] as const) {
       await identity.setConsent(session.personId, purpose, fd.get(purpose) === "on", "seller_onboarding");
@@ -86,13 +94,14 @@ export async function finishOnboardingAction(_prev: ActionResult | null, fd: For
       const plans = await billing.listPlans();
       const plan = plans.find((p) => p.code === planCode);
       if (!plan) throw new z.ZodError([{ code: "custom", path: ["planCode"], message: "Choose one of the plans shown.", input: planCode }]);
-      if (plan.monthlyPricePaise > 0) await billing.subscribe(session.business.id, plan.code);
+      // Paid plans are bought through hosted checkout (never activated without payment); onboarding still completes.
+      if (plan.monthlyPricePaise > 0) paidPlan = plan.code;
     }
     await writeOnb(ONB.done, "1");
     const t0 = Number(await readOnb(ONB.startedAt));
     logEvent("seller.onboarding_completed", { businessId: session.business.id, totalMs: Number.isFinite(t0) && t0 > 0 ? Date.now() - t0 : null, planCode: planCode || null });
     return undefined;
   });
-  if (result.ok) redirect("/onboarding/done");
+  if (result.ok) redirect(paidPlan ? `/billing/checkout?plan=${encodeURIComponent(paidPlan)}` : "/onboarding/done");
   return result;
 }

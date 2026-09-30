@@ -92,6 +92,8 @@ describe("computeTrustScore", () => {
     const base = computeTrustScore(emptySignals(1)).score;
     expect(computeTrustScore({ ...emptySignals(1), moderationRejections: 2 }).score).toBe(base - 10);
     expect(computeTrustScore({ ...emptySignals(1), inactiveDays: 90 }).score).toBeLessThan(base);
+    expect(computeTrustScore({ ...emptySignals(1), offersBroken: 1 }).score).toBe(base - 5);
+    expect(computeTrustScore({ ...emptySignals(1), offersBroken: 99 }).score).toBe(base - 20);
     const worst = computeTrustScore({ ...emptySignals(1), expired: 500, moderationRejections: 50, disputesLost: 50, inactiveDays: 999 });
     expect(worst.score).toBeGreaterThanOrEqual(0);
     expect(worst.badgeActive).toBe(false);

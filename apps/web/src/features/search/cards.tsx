@@ -1,5 +1,6 @@
 import type { ListingView } from "@cnote/catalogue";
 import type { TrustProfile } from "@cnote/identity";
+import type { PublicOffer } from "@cnote/promotions";
 import { ProductCard, SellerCard } from "@cnote/ui";
 import type { Locale } from "@/i18n/config";
 import { LocaleLink } from "@/i18n/link";
@@ -8,6 +9,7 @@ import { RatingStars } from "@/features/reviews/stars";
 import { CompareIsland, SaveIsland } from "@/features/user-state/islands";
 import { moqText } from "./format";
 import { getUiLabels } from "./labels";
+import { cardOffer } from "../promotions/card-offer";
 import { ProductImage } from "./product-image";
 
 const CARD_SIZES = "(min-width: 1280px) 12vw, (min-width: 1024px) 20vw, (min-width: 640px) 30vw, 45vw";
@@ -17,15 +19,16 @@ const CARD_SIZES = "(min-width: 1280px) 12vw, (min-width: 1024px) 20vw, (min-wid
  * state after hydration, so any page made of these cards can be ISR/CDN cached. Pass `rating` from a batched
  * `loadRatings()` so approved review stars show without a query per card.
  */
-export async function ListingCard({ listing, seller, priority, rating, locale }: { listing: ListingView; seller?: TrustProfile | null; priority?: boolean; rating?: { average: number; count: number }; locale: Locale }) {
+export async function ListingCard({ listing, seller, priority, rating, locale, offer }: { listing: ListingView; seller?: TrustProfile | null; priority?: boolean; rating?: { average: number; count: number }; locale: Locale; offer?: PublicOffer | null }) {
   const labels = await getUiLabels(locale);
+  const shown = offer ? await cardOffer(offer, locale) : null;
   return (
     <ProductCard
       id={listing.id}
       href={productPath(listing)}
       title={listing.title}
       image={<ProductImage src={listing.imageUrls[0]} sizes={CARD_SIZES} priority={priority} />}
-      pricePaise={listing.pricePaise}
+      pricePaise={shown?.pricePaise ?? listing.pricePaise}
       priceUnit={listing.priceUnit}
       moqText={moqText(listing)}
       seller={seller ? { name: seller.name, city: seller.city, tier: seller.verificationTier, badgeActive: seller.badgeActive } : null}
@@ -34,6 +37,7 @@ export async function ListingCard({ listing, seller, priority, rating, locale }:
       footer={<CompareIsland id={listing.id} title={listing.title} />}
       linkComponent={LocaleLink}
       labels={labels.card}
+      offer={shown?.chip ?? null}
     />
   );
 }

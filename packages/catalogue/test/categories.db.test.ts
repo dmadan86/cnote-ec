@@ -10,6 +10,7 @@ const tag = randomUUID().slice(0, 8);
 const bizIds: string[] = [];
 
 afterAll(async () => {
+  await prisma.listingPriceHistory.deleteMany({ where: { listing: { sellerBusinessId: { in: bizIds } } } }).catch(() => {});
   await prisma.listing.deleteMany({ where: { sellerBusinessId: { in: bizIds } } });
   await prisma.business.deleteMany({ where: { id: { in: bizIds } } });
   await prisma.category.updateMany({ where: { slug: { endsWith: tag }, parentId: { not: null } }, data: { parentId: null } });

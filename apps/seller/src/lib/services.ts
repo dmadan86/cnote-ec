@@ -4,9 +4,13 @@ import * as billing from "@cnote/billing";
 import * as catalogue from "@cnote/catalogue";
 import * as enquiry from "@cnote/enquiry";
 import * as identity from "@cnote/identity";
+import { couponPort } from "@cnote/promotions";
 import { currentSession } from "@cnote/next-kit";
 import type { Session } from "@cnote/identity";
 import { unstable_rethrow } from "next/navigation";
+
+// Checkout quotes coupons through promotions (billing may not import it, ADR-006).
+billing.setCouponPort(billing.couponPortFromModule(couponPort));
 
 export { billing, catalogue, enquiry, identity };
 

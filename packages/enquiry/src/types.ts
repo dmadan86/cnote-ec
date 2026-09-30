@@ -86,6 +86,8 @@ export interface LeadView {
   conversationId: string | null;
   /** Why `buyer.phone` is null after accept (consent not granted / no phone). */
   contactNote?: string | null;
+  /** Set while an "unreachable" report is being verified with the buyer (refund decided within 24h). */
+  reachabilityCheck?: { status: "checking"; expiresAt: string } | null;
 }
 
 export interface CandidateView {

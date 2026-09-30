@@ -3,6 +3,7 @@
 import { pickSellers, createEnquiry, reportDeal, sendMessage, type EnquiryView } from "@cnote/enquiry";
 import { actorOf, requireBusiness, runAction, type ActionResult } from "@cnote/next-kit";
 import { revalidatePath } from "next/cache";
+import { attributeEnquiryFromCookie } from "@/features/ads/slots";
 
 const str = (f: FormData, k: string) => {
   const v = f.get(k);
@@ -37,6 +38,7 @@ export async function postRfqAction(_prev: ActionResult<EnquiryView> | null, f: 
       },
       { buyerPhoneVerified: s.phoneVerified },
     );
+    await attributeEnquiryFromCookie({ enquiryId: enquiry.id, buyerBusinessId: s.business.id, listingId: str(f, "preferredListingId") });
     revalidatePath("/buyer/enquiries");
     return enquiry;
   });

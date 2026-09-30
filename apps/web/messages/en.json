@@ -274,6 +274,8 @@
     "similar": "Similar products"
   },
   "pricing": {
+    "cta": "Choose plan",
+    "ctaFree": "Start free",
     "title": "Pricing",
     "description": "Public, self-serve pricing. Pay only for leads you accept.",
     "heading": "Simple, public pricing",

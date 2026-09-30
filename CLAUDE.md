@@ -122,6 +122,9 @@ Prefer `@cnote/ui` primitives, which carry the correct ARIA, over hand-rolled wi
 
 ## UI reference
 
+**Design research:** consult Mobbin (MCP `search_flows` / `search_screens` / `search_sections`) before designing new screens or flows, and cite what you adopted in the feature's design doc (see DESIGN.md).
+
+
 See `DESIGN.md` for tokens, components and page anatomy. `docs/design/home-reference.png` is the target look for the buyer-facing homepage:
 - **Header:** top nav with Products, Manufacturers, Templates & Design, AI Tools, Business Services and Resources menus, plus a Deliver-to location picker, Request Quote, Orders, Sign in and a purple "Join for Free" CTA.
 - **Hero:** a tabbed AI search box (AI Search / Products / Manufacturers / Templates / Business Services) with "Try asking" chips.

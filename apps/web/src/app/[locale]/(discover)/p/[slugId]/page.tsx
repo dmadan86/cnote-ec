@@ -18,8 +18,11 @@ import { ProductImage } from "@/features/search/product-image";
 import { ProductReviewsStatic } from "@/features/reviews";
 import { RatingStars } from "@/features/reviews/stars";
 import { LeadNudge } from "@/features/leadgen/nudge";
+import { loadOffer } from "@/features/promotions/data";
+import { OfferPanel } from "@/features/promotions/offer-panel";
 import { UnlockButton } from "@/features/leadgen/unlock-buttons";
 import { CompareIsland, SaveIsland } from "@/features/user-state/islands";
+import { SponsoredSimilar } from "@/features/ads/similar";
 
 // Product pages are static: the top 100 listings are prerendered at build time, everything else renders on first
 // request and is then cached (ISR). Regenerated at most every 5 min, and immediately (stale-while-revalidate, or
@@ -74,15 +77,17 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
   // Self-healing canonical URL: wrong / missing / stale slug (title edited) -> 308 to /p/<current-slug>-<id>.
   if (parsed.slug !== productPath(listing).slice("/p/".length, -37)) permanentRedirect(localizePath(productPath(listing), locale));
 
-  const [seller, category, similar, summary, reviews] = await Promise.all([
+  const [seller, category, similar, summary, reviews, offer] = await Promise.all([
     loadSeller(listing.sellerBusinessId),
     loadCategory(listing.category.slug),
     loadHitsStatic({ q: listing.title, limit: 9 }, [`listing:${listing.id}`]),
     loadRatingSummary(listing.id),
     loadReviewsPage(listing.id),
+    loadOffer(listing.id),
   ]);
   const others = similar.hits.filter((h) => h.listing.id !== listing.id).slice(0, 4);
   const ratings = await loadRatings(others.map((h) => h.listing.id));
+  const otherOffers = await Promise.all(others.map((h) => loadOffer(h.listing.id)));
   const fields = new Map((category?.attributeSchema.fields ?? []).map((f) => [f.key, f]));
   const attrs = Object.entries(listing.attributes ?? {}).filter(([, v]) => v !== "" && v != null);
   const moq = moqText(listing);
@@ -139,6 +144,8 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
             {moq ? <p className="mt-1 text-sm text-muted">{t("minOrder", { value: moq })}</p> : null}
             <p className="mt-1 text-xs text-muted">{t("indicative")}</p>
           </div>
+
+          {offer ? <OfferPanel offer={offer} unit={listing.priceUnit} locale={locale} /> : null}
 
           <div className="flex flex-wrap items-center gap-3">
             {/* Client islands: the dialog opens only on click (never on load), signed-in buyers skip it. */}
@@ -227,12 +234,14 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
         <section className="mt-12" aria-labelledby="similar">
           <SectionHeader id="similar" title={t("similar")} />
           <Grid>
-            {others.map((h) => (
-              <ListingCard key={h.listing.id} listing={h.listing} seller={h.seller} rating={ratings[h.listing.id]} locale={locale} />
+            {others.map((h, i) => (
+              <ListingCard key={h.listing.id} listing={h.listing} seller={h.seller} rating={ratings[h.listing.id]} locale={locale} offer={otherOffers[i]} />
             ))}
           </Grid>
         </section>
       ) : null}
+
+      <SponsoredSimilar listingId={listing.id} locale={locale} />
     </Container>
   );
 }

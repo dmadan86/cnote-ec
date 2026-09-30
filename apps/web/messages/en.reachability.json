@@ -1,0 +1,11 @@
+{
+  "reachability": {
+    "heading": "Do you still need this?",
+    "intro": "A supplier on Cnote wants to contact you about your requirement. Tap the button below to confirm you still need it.",
+    "confirm": "Yes, I still need this",
+    "thanksTitle": "Thanks, the supplier will contact you",
+    "thanksBody": "We have let the supplier know. You do not need to do anything else.",
+    "expiredTitle": "This link has expired",
+    "expiredBody": "This link is no longer valid. If you still need this, reply to the supplier's message or post your requirement again."
+  }
+}

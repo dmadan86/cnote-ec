@@ -7,10 +7,17 @@
 /* Latin glyphs come from Geist, Devanagari glyphs from Noto Sans Devanagari (per-glyph fallback). The Devanagari
    @font-face uses unicode-range and preload:false, so the file is only fetched when a page actually shows Devanagari. */
 html {
-  --font-sans: var(--font-geist-sans), var(--font-devanagari), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-geist-sans), var(--font-devanagari), var(--font-kannada), var(--font-tamil), var(--font-telugu),
+    var(--font-gujarati), var(--font-bengali), ui-sans-serif, system-ui, sans-serif;
 }
-:lang(hi) {
-  line-height: 1.6; /* Devanagari matras need more vertical room than Latin; set once to avoid reflow on font swap */
+:lang(hi),
+:lang(mr),
+:lang(kn),
+:lang(ta),
+:lang(te),
+:lang(gu),
+:lang(bn) {
+  line-height: 1.6; /* Indic scripts need more vertical room than Latin (matras, stacked conjuncts); set once to avoid reflow on font swap */
 }
 
 html {

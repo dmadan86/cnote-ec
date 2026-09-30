@@ -128,11 +128,22 @@ describe("recomputeTrust", () => {
     expect(await score(b)).not.toBe(3);
     expect(await recomputeTrust(b)).toMatchObject({ changed: false });
   });
+  it("returns null when the business is erased between the read and the write", async () => {
+    const b = await seller();
+    const row = await prisma.business.findUniqueOrThrow({ where: { id: b } });
+    const ghost = randomUUID();
+    const spy = vi.spyOn(prisma.business, "findUnique").mockResolvedValueOnce({ ...row, id: ghost, trustScore: 3 } as never);
+    try {
+      expect(await recomputeTrust(ghost)).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
   it("module worker registers the handlers and the daily trust-decay + gst-recheck jobs", async () => {
     expect(worker.name).toBe("identity");
-    expect(Object.keys(worker.handlers ?? {}).sort()).toEqual(["BusinessVerified", "LeadAccepted", "LeadDeclined", "LeadExpired", "ListingModerated"]);
+    expect(Object.keys(worker.handlers ?? {}).sort()).toEqual(["BusinessVerified", "LeadAccepted", "LeadDeclined", "LeadExpired", "ListingModerated", "OfferHonourDecided"]);
     const jobs = worker.jobs ?? [];
-    expect(jobs.map((j) => j.name).sort()).toEqual(["identity.gst-recheck", "identity.trust-decay"]);
+    expect(jobs.map((j) => j.name).sort()).toEqual(["identity.audit-expiry", "identity.gst-recheck", "identity.trust-decay"]);
     for (const j of jobs) expect(j.everyMs).toBe(86_400_000);
     await jobs.find((j) => j.name === "identity.trust-decay")!.run();
   });

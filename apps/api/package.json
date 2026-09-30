@@ -21,6 +21,7 @@
     "@cnote/enquiry": "workspace:*",
     "@cnote/identity": "workspace:*",
     "@cnote/observability": "workspace:*",
+    "@cnote/promotions": "workspace:*",
     "@cnote/reviews": "workspace:*",
     "@cnote/search": "workspace:*",
     "@cnote/security": "workspace:*",

@@ -25,6 +25,7 @@
     "@cnote/enquiry": "workspace:*",
     "@cnote/identity": "workspace:*",
     "@cnote/leadgen": "workspace:*",
+    "@cnote/media": "workspace:*",
     "@cnote/metrics": "workspace:*",
     "@cnote/notifications": "workspace:*",
     "@cnote/observability": "workspace:*",

@@ -53,6 +53,7 @@ afterAll(async () => {
   const ids = [live, draft, otherListing];
   await prisma.domainEvent.deleteMany({ where: { aggregateId: { in: (await prisma.listingImage.findMany({ where: { listingId: { in: ids } }, select: { id: true } })).map((i) => i.id) } } }).catch(() => {});
   await prisma.listingImage.deleteMany({ where: { listingId: { in: ids } } });
+  await prisma.listingPriceHistory.deleteMany({ where: { listing: { sellerBusinessId: { in: biz } } } }).catch(() => {});
   await prisma.listing.deleteMany({ where: { sellerBusinessId: { in: biz } } });
   await prisma.business.deleteMany({ where: { id: { in: biz } } });
   await prisma.category.deleteMany({ where: { slug: { endsWith: tag } } });

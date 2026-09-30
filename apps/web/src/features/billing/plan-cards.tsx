@@ -2,7 +2,7 @@ import type { PlanView } from "@cnote/billing";
 import { Badge, Card, CardBody, CardTitle, Money } from "@cnote/ui";
 import { Check } from "lucide-react";
 
-export function PlanCards({ plans }: { plans: PlanView[] }) {
+export function PlanCards({ plans, sellerUrl, cta, ctaFree }: { plans: PlanView[]; sellerUrl?: string; cta?: string; ctaFree?: string }) {
   return (
     <div className="grid gap-4 md:grid-cols-3">
       {plans.map((p) => (
@@ -27,6 +27,14 @@ export function PlanCards({ plans }: { plans: PlanView[] }) {
                 </li>
               ))}
             </ul>
+            {sellerUrl ? (
+              <a
+                href={p.monthlyPricePaise === 0 ? sellerUrl : `${sellerUrl}/billing/checkout?plan=${encodeURIComponent(p.code)}`}
+                className="mt-auto inline-flex min-h-11 items-center justify-center rounded-lg border border-brand-600 px-4 text-sm font-semibold text-brand-700 hover:bg-brand-50"
+              >
+                {p.monthlyPricePaise === 0 ? ctaFree : cta}
+              </a>
+            ) : null}
           </CardBody>
         </Card>
       ))}

@@ -6,6 +6,7 @@ import * as identity from "@cnote/identity";
 import { cascade } from "./matching";
 import { cascadeSafe } from "./safe";
 import { runMatching } from "./matching";
+import { createCheck, enqueueDispatch, pendingChecksByMatch, reachabilityEnabled, resolveReachabilityCheck } from "./reachability";
 import { categories, enquiryBase, lockRow, personContact, profiles, REFUND_WINDOW_MS } from "./support";
 import type { Actor, LeadView } from "./types";
 
@@ -15,6 +16,7 @@ async function toLeadViews(rows: { match: Match; enquiry: Enquiry; conversationI
   const cats = await categories();
   const profs = await profiles(rows.map((r) => r.enquiry.buyerBusinessId));
   const out: LeadView[] = [];
+  const pending = await pendingChecksByMatch(rows.map((r) => r.match.id));
   for (const { match, enquiry, conversationId } of rows) {
     const buyer = profs.get(enquiry.buyerBusinessId);
     const revealed = match.status === "accepted";
@@ -42,6 +44,7 @@ async function toLeadViews(rows: { match: Match; enquiry: Enquiry; conversationI
       },
       conversationId,
       contactNote,
+      reachabilityCheck: pending.has(match.id) ? { status: "checking", expiresAt: pending.get(match.id)!.expiresAt } : null,
     });
   }
   return out;
@@ -136,7 +139,7 @@ export async function expireOverdueOffers(now = new Date()): Promise<number> {
 }
 
 /** Refunds one accepted match inside the tx: status → refunded, credit returned, LeadRefunded. */
-async function refundMatch(tx: Tx, m: Match, reason: "buyer_unreachable" | "buyer_fake" | "enquiry_rejected") {
+export async function refundMatch(tx: Tx, m: Match, reason: "buyer_unreachable" | "buyer_fake" | "enquiry_rejected") {
   await tx.match.update({ where: { id: m.id }, data: { status: "refunded", refundReason: reason } });
   if (m.creditTxnId) await billing.refundCredit(tx, m.creditTxnId);
   await emit(tx, "LeadRefunded", { type: "enquiry", id: m.enquiryId }, { enquiryId: m.enquiryId, matchId: m.id, sellerBusinessId: m.sellerBusinessId, reason });
@@ -150,6 +153,9 @@ const FAKE_FLAGS_TO_REJECT = 2;
  * every accepted match.
  */
 export async function reportBuyerProblem(actor: Actor, matchId: string, kind: "buyer_unreachable" | "buyer_fake"): Promise<void> {
+  // "unreachable" with the check enabled: the refund is held while we verify with the buyer (ADR-002 outreach).
+  let checkId: string | null = null;
+  let settleId: string | null = null;
   await prisma.$transaction(async (tx) => {
     await lockRow(tx, "matches", matchId);
     const m = await tx.match.findUnique({ where: { id: matchId } });
@@ -157,6 +163,16 @@ export async function reportBuyerProblem(actor: Actor, matchId: string, kind: "b
     if (m.status === "refunded") return; // already handled
     if (m.status !== "accepted" || !m.respondedAt) throw new DomainError("conflict", "Only accepted leads can be reported.");
     if (Date.now() - m.respondedAt.getTime() > REFUND_WINDOW_MS) throw new DomainError("conflict", "The 72-hour refund window for this lead has passed.");
+    if (kind === "buyer_unreachable" && reachabilityEnabled()) {
+      const checks = await tx.reachabilityCheck.findMany({ where: { matchId } });
+      if (checks.some((c) => c.status === "responded")) throw new DomainError("conflict", "The buyer confirmed they still need this. Please contact them again.");
+      if (checks.some((c) => c.status === "sent" || c.status === "failed" || c.status === "no_response")) {
+        settleId = checks.find((c) => c.status !== "sent")?.id ?? null; // failed/expired-but-unresolved: settle now; a live check just waits
+        return;
+      }
+      checkId = await createCheck(tx, m.enquiryId, matchId);
+      return;
+    }
     await refundMatch(tx, m, kind);
     if (kind !== "buyer_fake") return;
 
@@ -169,6 +185,10 @@ export async function reportBuyerProblem(actor: Actor, matchId: string, kind: "b
       else if (other.status === "offered") await closeOffer(tx, other, "expired");
     }
   });
+  if (settleId) await resolveReachabilityCheck(settleId);
+  if (!checkId) return;
+  // Delivered by the worker (see reachability.ts); a delivery failure there settles the check immediately.
+  await enqueueDispatch(checkId);
 }
 
 /** Ops release/reject of an enquiry held in review (low confidence). */

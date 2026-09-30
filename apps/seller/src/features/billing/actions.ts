@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { ActionResult } from "@cnote/next-kit";
 import { requireSeller } from "@/lib/auth";
@@ -16,16 +17,60 @@ function refresh() {
   revalidatePath("/leads");
 }
 
-/** ADR-005: explicit, user-initiated plan start. Never auto-upgraded. Payment is mocked in Phase 1. */
+function actor(session: Awaited<ReturnType<typeof requireSeller>>) {
+  return { businessId: session.business.id, name: session.name ?? undefined, email: session.email ?? undefined, phone: session.phone ?? undefined };
+}
+
+/**
+ * ADR-005: explicit, user-initiated plan start. Never auto-upgraded. The free plan switches immediately; paid plans
+ * continue to the order summary (/billing/checkout) and are activated by the payment webhook.
+ */
 export async function subscribeAction(_prev: BillingResult | null, fd: FormData): Promise<BillingResult> {
   const session = await requireSeller("/billing");
-  return run(async () => {
+  const res = await run(async () => {
     const code = z.string().min(1, "Choose a plan.").parse(str(fd, "planCode"));
+    const plan = (await billing.listPlans()).find((p) => p.code === code);
+    if (!plan) throw new z.ZodError([{ code: "custom", path: ["planCode"], message: "Choose one of the plans shown.", input: code }]);
+    if (plan.monthlyPricePaise > 0) return `/billing/checkout?plan=${encodeURIComponent(code)}`;
     await billing.subscribe(session.business.id, code);
     logEvent("seller.plan_started", { businessId: session.business.id, planCode: code });
     refresh();
     return null;
   });
+  if (res.ok && res.data) redirect(res.data);
+  return res.ok ? { ok: true, data: null } : res;
+}
+
+/** Order summary confirmed: create the PaymentOrder and hand over to the gateway's hosted page (no card data here, ADR-010). */
+export async function checkoutAction(_prev: BillingResult | null, fd: FormData): Promise<BillingResult> {
+  const session = await requireSeller("/billing");
+  const res = await run(async () => {
+    const couponCode = str(fd, "couponCode") || undefined;
+    const planCode = str(fd, "planCode");
+    const packId = str(fd, "packId");
+    const c = await billing.startCheckout(
+      actor(session),
+      planCode ? { purpose: "subscription", planCode, couponCode } : { purpose: "credit_pack", packId: z.string().min(1, "Choose a pack.").parse(packId), couponCode },
+    );
+    logEvent("seller.checkout_started", { businessId: session.business.id, purpose: planCode ? "subscription" : "credit_pack", ref: planCode || packId });
+    return c.redirectUrl;
+  });
+  if (res.ok) redirect(res.data);
+  return res;
+}
+
+/** Dev only (PAYMENTS_PROVIDER=mock): the local "pay" page outcome. */
+export async function mockPayAction(_prev: BillingResult | null, fd: FormData): Promise<BillingResult> {
+  const session = await requireSeller("/billing");
+  const orderId = str(fd, "orderId");
+  const outcome = str(fd, "outcome") === "failed" ? "failed" : "paid";
+  const res = await run(async () => {
+    await billing.completeMockPayment({ businessId: session.business.id }, orderId, outcome);
+    refresh();
+    return null;
+  });
+  if (res.ok) redirect(`/billing/return?order=${encodeURIComponent(orderId)}`);
+  return res;
 }
 
 export async function cancelPlanAction(_prev: BillingResult | null): Promise<BillingResult> {

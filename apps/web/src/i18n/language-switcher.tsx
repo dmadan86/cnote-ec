@@ -41,7 +41,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
         ))}
       </select>
       <noscript>
-        <ul className="mt-1 flex gap-3">
+        <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
           {LOCALES.map((code) => (
             <li key={code}>
               <a href={target(code)} hrefLang={LOCALE_META[code].hreflang} lang={LOCALE_META[code].bcp47}>

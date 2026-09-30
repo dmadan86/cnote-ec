@@ -12,6 +12,7 @@ import { localizedAlternates } from "@/lib/seo-i18n";
 import { ListingCard } from "@/features/search/cards";
 import { loadCategories, loadCategory, loadHitsStatic, loadRatings } from "@/features/search/data";
 import { getUiLabels } from "@/features/search/labels";
+import { loadOffers } from "@/features/promotions/data";
 
 // Category landing pages: prerendered for every category at build time, rebuilt in the background every 5 min and on
 // demand when `search` / `category:<slug>` / listing tags are purged. Unknown slugs render on first request (ISR).
@@ -48,7 +49,7 @@ export default async function CategoryPage(props: PageProps<"/[locale]/c/[slug]"
   const category = await loadCategory(slug);
   if (!category || category.prohibited) notFound();
   const { hits } = await loadHitsStatic({ q: "", categorySlug: slug, limit: 48 });
-  const ratings = await loadRatings(hits.map((h) => h.listing.id));
+  const [ratings, offers] = await Promise.all([loadRatings(hits.map((h) => h.listing.id)), loadOffers(hits.map((h) => h.listing.id))]);
   const catsPath = localizePath("/categories", locale);
   const catsName = (await getTranslations({ locale, namespace: "categories" }))("title");
   return (
@@ -71,7 +72,7 @@ export default async function CategoryPage(props: PageProps<"/[locale]/c/[slug]"
             <h2 className="sr-only">{t("productsIn", { name: category.name })}</h2>
             <Grid>
               {hits.map((h, i) => (
-                <ListingCard key={h.listing.id} listing={h.listing} seller={h.seller} rating={ratings[h.listing.id]} priority={i < 4} locale={locale} />
+                <ListingCard key={h.listing.id} listing={h.listing} seller={h.seller} rating={ratings[h.listing.id]} offer={offers[h.listing.id]} priority={i < 4} locale={locale} />
               ))}
             </Grid>
           </>

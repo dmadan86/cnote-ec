@@ -1,4 +1,4 @@
-import { BarChart3, Bell, ClipboardList, Globe, LayoutTemplate, CreditCard, Inbox, LayoutDashboard, Package, Scale, Settings, Star, ShieldCheck, type LucideIcon } from "lucide-react";
+import { BadgePercent, BarChart3, Gift, Megaphone, Bell, ClipboardList, Globe, LayoutTemplate, CreditCard, Inbox, LayoutDashboard, Package, Scale, Settings, Star, ShieldCheck, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -20,6 +20,9 @@ export const NAV_ITEMS: NavItem[] = [
   { href: STUDIO_URL, label: "Storefront", icon: LayoutTemplate, primary: false },
   { href: "/storefront/domains", label: "Domains", icon: Globe, primary: false },
   { href: "/storefront/analytics", label: "Analytics", icon: BarChart3, primary: false },
+  { href: "/offers", label: "Offers", icon: BadgePercent, primary: false },
+  { href: "/ads", label: "Sponsored", icon: Megaphone, primary: false },
+  { href: "/referrals", label: "Refer & earn", icon: Gift, primary: false },
   { href: "/notifications", label: "Notifications", icon: Bell, primary: false },
   { href: "/billing", label: "Billing", icon: CreditCard, primary: true },
   { href: "/verification", label: "Verification", icon: ShieldCheck, primary: false },

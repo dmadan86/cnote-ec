@@ -17,7 +17,7 @@ const now = new Date("2026-06-30T00:00:00Z");
 
 beforeEach(() => {
   opt.voice.mockReset().mockResolvedValue(2);
-  opt.wa.mockReset().mockResolvedValue({ purged: 4 });
+  opt.wa.mockReset().mockResolvedValue(4);
 });
 afterAll(() => prisma.retentionRun.deleteMany({ where: { module: "test" } }));
 
@@ -50,12 +50,15 @@ describe("registry", () => {
     expect(await optionalPurge({ f: async () => 9 }, "f", [], false)).toBe(9);
   });
 
-  it("guarded voice/whatsapp policies call the optional exports when present", async () => {
+  it("voice/whatsapp policies call the owning modules; voice dry-run is delegated (catalogue counts without deleting)", async () => {
     const byName = (n: string) => RETENTION_POLICIES.find((p) => p.name === n)!;
     expect(await byName("catalogue.voice_notes_expired").run(now, { dryRun: false })).toBe(2);
     expect(await byName("whatsapp.message_bodies_retention").run(now, { dryRun: false })).toBe(4);
-    expect(await byName("catalogue.voice_notes_expired").run(now, { dryRun: true })).toBe(0);
-    expect(opt.voice).toHaveBeenCalledTimes(1);
+    expect(await byName("catalogue.voice_notes_expired").run(now, { dryRun: true })).toBe(2);
+    expect(opt.voice).toHaveBeenCalledTimes(2);
+    expect(opt.voice).toHaveBeenLastCalledWith(expect.any(Date), { dryRun: true });
+    expect(await byName("whatsapp.message_bodies_retention").run(now, { dryRun: true })).toBe(0);
+    expect(opt.wa).toHaveBeenCalledTimes(1);
   });
 
   it("every module-backed policy supports a dry run against the real database without changing data", async () => {

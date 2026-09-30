@@ -1,6 +1,7 @@
 import { listPlans } from "@cnote/billing";
 import { getTranslations } from "next-intl/server";
 import { Container, PageHeader } from "@cnote/ui";
+import { SELLER_APP_URL } from "@/features/shell/site";
 import type { Metadata } from "next";
 import { resolveLocale } from "@/i18n/server";
 import { localizedAlternates } from "@/lib/seo-i18n";
@@ -24,7 +25,7 @@ export default async function PricingPage(props: PageProps<"/[locale]/pricing">)
     <Container className="py-10">
       <PageHeader title={t("heading")} description={t("subheading")} />
       <div className="mt-8 flex flex-col gap-10">
-        <PlanCards plans={plans} />
+        <PlanCards plans={plans} sellerUrl={SELLER_APP_URL} cta={t("cta")} ctaFree={t("ctaFree")} />
         <div className="grid gap-6 lg:grid-cols-2">
           <CreditCalculator plans={plans} />
           <dl className="grid gap-4 sm:grid-cols-2">

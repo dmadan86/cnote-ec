@@ -38,6 +38,7 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await prisma.listingImage.deleteMany({ where: { id: { in: imgIds } } });
+  await prisma.listingPriceHistory.deleteMany({ where: { listing: { id: listingId } } }).catch(() => {});
   await prisma.listing.deleteMany({ where: { id: listingId } });
   await prisma.business.deleteMany({ where: { id: bizId } });
   await prisma.category.deleteMany({ where: { slug: { endsWith: tag } } });

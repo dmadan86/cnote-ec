@@ -1,7 +1,13 @@
 // Generic object keys shared by every driver and every module (listings, template assets, storefronts).
 // Lowercase only, so keys behave identically on case-insensitive disks and case-sensitive object stores.
 
-const MEDIA_KEY_RE = /^(listings|templates|storefronts|bulk)\/[a-z0-9/_.-]+$/;
+const MEDIA_KEY_RE = /^(listings|templates|storefronts|bulk|invoices|kyc)\/[a-z0-9/_.-]+$/;
+
+/**
+ * Prefixes that may only ever live in the PRIVATE bucket: product sheets (prices/SKUs), voice recordings, GST invoices
+ * and KYC documents are personal or commercially sensitive and must never be publicly addressable.
+ */
+const PRIVATE_ONLY = ["bulk/", "listings/_voice/", "invoices/", "kyc/"];
 
 /**
  * Safe key: allowed prefix, restricted charset, no empty/dot segments (no traversal), bounded length, has an extension.
@@ -10,7 +16,7 @@ const MEDIA_KEY_RE = /^(listings|templates|storefronts|bulk)\/[a-z0-9/_.-]+$/;
 export function isValidMediaKey(key: string, bucket?: MediaBucket): boolean {
   if (key.length > 300 || !MEDIA_KEY_RE.test(key)) return false;
   // Private-only content: product sheets and voice recordings (personal data under DPDP) are never publicly addressable.
-  if (bucket === "public" && (key.startsWith("bulk/") || key.startsWith("listings/_voice/"))) return false;
+  if (bucket === "public" && PRIVATE_ONLY.some((p) => key.startsWith(p))) return false;
   const segs = key.split("/");
   if (segs.some((s) => s === "" || s.startsWith("."))) return false;
   return /\.[a-z0-9]{2,5}$/.test(key);
@@ -31,6 +37,7 @@ export const KEY_MIME: Record<string, string> = {
   csv: "text/csv",
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   zip: "application/zip",
+  pdf: "application/pdf",
   // Seller voice notes (private bucket only, see isValidMediaKey).
   ogg: "audio/ogg",
   opus: "audio/opus",

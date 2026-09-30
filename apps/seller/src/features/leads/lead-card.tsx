@@ -86,6 +86,7 @@ function AcceptedPanel({ lead }: { lead: LeadView }) {
           </Link>
         ) : null}
       </div>
+      {lead.reachabilityCheck ? <Alert tone="info">Checking with the buyer. We will decide on your refund within 24 hours.</Alert> : null}
       <details>
         <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-ink underline">Report unreachable or fake</summary>
         <form action={report} className="mt-2 space-y-3">
@@ -95,7 +96,7 @@ function AcceptedPanel({ lead }: { lead: LeadView }) {
             <SubmitButton name="kind" value="buyer_unreachable" variant="outline" pendingText="Sending…">Buyer unreachable</SubmitButton>
             <SubmitButton name="kind" value="buyer_fake" variant="outline" pendingText="Sending…">Enquiry looks fake</SubmitButton>
           </div>
-          {rep?.ok ? <Alert tone="success">Thanks. We are checking this and will refund your credit if it is confirmed.</Alert> : null}
+          {rep?.ok ? <Alert tone="success">Thanks. We are checking this with the buyer and will decide on your refund within 24 hours.</Alert> : null}
           {errorOf(rep) ? <Alert tone="danger">{errorOf(rep)}</Alert> : null}
         </form>
       </details>

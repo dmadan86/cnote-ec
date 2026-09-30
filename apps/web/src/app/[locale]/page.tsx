@@ -13,6 +13,7 @@ import { CategoryGrid, CategoryGridSkeleton } from "@/features/shell/home/catego
 import { Hero } from "@/features/shell/home/hero";
 import { PopularRails, PopularRailSkeleton } from "@/features/shell/home/popular-products";
 import { PromoPanels } from "@/features/shell/home/promo-panels";
+import { PromoCollections, PromoHeroBanner, PromoStrip } from "@/features/promotions/home";
 import { SITE_NAME } from "@/features/shell/site";
 import { loadSuggestions } from "@/features/search/data";
 
@@ -60,8 +61,15 @@ export default async function Home(props: PageProps<"/[locale]">) {
           },
         ]}
       />
+      <Suspense fallback={null}>
+        <PromoStrip locale={locale} />
+      </Suspense>
       <Hero suggestions={suggestions} locale={locale} />
       <Container className="flex flex-col gap-10 pt-8 lg:gap-14 lg:pt-10">
+        {/* Editorial (never sold) promotions: optional, render nothing when none are live. */}
+        <Suspense fallback={null}>
+          <PromoHeroBanner locale={locale} />
+        </Suspense>
         <section aria-labelledby="cat-title">
           <SectionHeader
             id="cat-title"
@@ -78,6 +86,10 @@ export default async function Home(props: PageProps<"/[locale]">) {
         </section>
 
         <PromoPanels locale={locale} />
+
+        <Suspense fallback={null}>
+          <PromoCollections locale={locale} />
+        </Suspense>
 
         <section id="popular" aria-labelledby="popular-title">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

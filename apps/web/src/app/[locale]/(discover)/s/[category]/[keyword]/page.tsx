@@ -12,6 +12,7 @@ import { localizedAlternates } from "@/lib/seo-i18n";
 import { ListingCard } from "@/features/search/cards";
 import { loadCategory, loadHitsStatic, loadLandingKeywords, loadRatings } from "@/features/search/data";
 import { getUiLabels } from "@/features/search/labels";
+import { loadOffers } from "@/features/promotions/data";
 
 // Curated, indexable search landing pages: /s/<category-slug>/<keyword-slug>. Only keywords derived from live listings
 // exist (allow-list); everything else 404s. Free-text /search?q= pages stay noindex. The keyword is catalogue data
@@ -51,7 +52,7 @@ export default async function LandingPage(props: PageProps<"/[locale]/s/[categor
   const r = await resolve(categorySlug, keywordSlug);
   if (!r) notFound();
   const { hits } = await loadHitsStatic({ q: r.keyword, categorySlug, limit: 24 });
-  const ratings = await loadRatings(hits.map((h) => h.listing.id));
+  const [ratings, offers] = await Promise.all([loadRatings(hits.map((h) => h.listing.id)), loadOffers(hits.map((h) => h.listing.id))]);
   const heading = titleCase(r.keyword);
   return (
     <Container className="py-6 lg:py-8">
@@ -68,7 +69,7 @@ export default async function LandingPage(props: PageProps<"/[locale]/s/[categor
         <h2 className="sr-only">{t("products")}</h2>
         <Grid>
           {hits.map((h, i) => (
-            <ListingCard key={h.listing.id} listing={h.listing} seller={h.seller} rating={ratings[h.listing.id]} priority={i < 4} locale={locale} />
+            <ListingCard key={h.listing.id} listing={h.listing} seller={h.seller} rating={ratings[h.listing.id]} offer={offers[h.listing.id]} priority={i < 4} locale={locale} />
           ))}
         </Grid>
       </div>

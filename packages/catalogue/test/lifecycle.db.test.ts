@@ -56,6 +56,7 @@ afterAll(async () => {
   await liveDb.liveListing.deleteMany({ where: { id: { in: ids } } });
   await prisma.listing.updateMany({ where: { id: { in: ids } }, data: { liveVersionId: null } });
   await prisma.listingVersion.deleteMany({ where: { listingId: { in: ids } } });
+  await prisma.listingPriceHistory.deleteMany({ where: { listing: { id: { in: ids } } } }).catch(() => {});
   await prisma.listing.deleteMany({ where: { id: { in: ids } } });
   await prisma.business.deleteMany({ where: { id: { in: bizIds } } });
   await prisma.category.deleteMany({ where: { slug: { endsWith: tag } } });

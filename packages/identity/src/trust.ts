@@ -12,11 +12,13 @@ export interface TrustSignals {
   moderationRejections: number;
   dealsWon: number;
   disputesLost: number;
+  /** Upheld "seller did not honour the advertised offer" reports (ADR-025). */
+  offersBroken?: number;
   inactiveDays: number;
 }
 
 export const emptySignals = (tier = 0): TrustSignals => ({
-  tier, acceptedFast: 0, acceptedSlow: 0, declined: 0, expired: 0, moderationRejections: 0, dealsWon: 0, disputesLost: 0, inactiveDays: 0,
+  tier, acceptedFast: 0, acceptedSlow: 0, declined: 0, expired: 0, moderationRejections: 0, dealsWon: 0, disputesLost: 0, offersBroken: 0, inactiveDays: 0,
 });
 
 const TIER_POINTS = [25, 40, 50, 55] as const;
@@ -35,7 +37,8 @@ export function computeTrustScore(s: TrustSignals): { score: number; badgeActive
   const dealPts = Math.min(10, s.dealsWon * 2);
   const disputePts = -Math.min(30, s.disputesLost * 10);
   const moderationPts = -Math.min(25, s.moderationRejections * 5);
+  const offerPts = -Math.min(20, (s.offersBroken ?? 0) * 5);
   const decay = -Math.min(15, Math.max(0, Math.floor((s.inactiveDays - 30) / 10) + (s.inactiveDays > 30 ? 1 : 0)));
-  const score = Math.round(Math.min(100, Math.max(0, tierPts + responsePts + dealPts + disputePts + moderationPts + decay)));
+  const score = Math.round(Math.min(100, Math.max(0, tierPts + responsePts + dealPts + disputePts + moderationPts + offerPts + decay)));
   return { score, badgeActive: s.tier >= 1 && score >= BADGE_THRESHOLD };
 }

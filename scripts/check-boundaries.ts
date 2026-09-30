@@ -33,7 +33,13 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   "@cnote/observability": [],
   "@cnote/ui": [],
   "@cnote/identity": ["@cnote/core", "@cnote/db", "@cnote/security"],
-  "@cnote/billing": ["@cnote/core", "@cnote/db"],
+  // + identity (30 Sep 2026): GST invoices snapshot the recipient's legal name/GSTIN/address via getBusinessBillingProfile.
+  // + media: rendered invoice PDFs cached in the private bucket (invoices/ keys are private-only).
+  "@cnote/billing": ["@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media"],
+  // ADR-024 sponsored placements: reads live listings/trust, spends via billing's ad wallet, merges after organic search.
+  "@cnote/ads": ["@cnote/billing", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/search"],
+  // ADR-025 promotions/offers/coupons/referrals: price history via catalogue, rewards via billing.
+  "@cnote/promotions": ["@cnote/billing", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media"],
   "@cnote/admin": ["@cnote/core", "@cnote/db", "@cnote/identity"],
   "@cnote/ai": ["@cnote/core", "@cnote/db"],
   "@cnote/templates": ["@cnote/core", "@cnote/db", "@cnote/media"],

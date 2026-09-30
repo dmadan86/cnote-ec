@@ -50,6 +50,7 @@ const TABLE: Row[] = [
   { key: "billing.subscription_cancelled", event: ev("SubscriptionCancelled", { businessId: SB, planCode: "pro" }), people: ["s-owner"], vars: { planCode: "pro" } },
   { key: "business.verified", event: ev("BusinessVerified", { businessId: SB, tier: "gst" }), people: ["s-owner"], vars: { tier: "gst" }, href: "/verification" },
   { key: "trust.badge_revoked", event: ev("TrustScoreChanged", { businessId: SB, from: 50, to: 30, badgeActive: false }), people: ["s-owner"], vars: { score: 30 } },
+  { key: "lead.reachability_result", event: ev("ReachabilityChecked", { checkId: "c", enquiryId: "e", matchId: "m", channel: "sms", status: "responded", sellerBusinessId: SB }), people: ["s1", "s2"], href: "/leads" },
 ];
 const NONE: { key: string; event: ReturnType<typeof ev>; note: string }[] = [
   { key: "enquiry.under_review", event: ev("EnquiryScored", { enquiryId: "e", needsReview: false }), note: "no review needed" },
@@ -59,6 +60,7 @@ const NONE: { key: string; event: ReturnType<typeof ev>; note: string }[] = [
   { key: "trust.badge_revoked", event: ev("TrustScoreChanged", { businessId: SB, from: 50, to: 45, badgeActive: false }), note: "still above threshold" },
   { key: "trust.badge_revoked", event: ev("TrustScoreChanged", { businessId: SB, from: 30, to: 20, badgeActive: false }), note: "was already below" },
   { key: "trust.badge_revoked", event: ev("TrustScoreChanged", { businessId: SB, from: 50, to: 30, badgeActive: true }), note: "badge still active" },
+  { key: "lead.reachability_result", event: ev("ReachabilityChecked", { checkId: "c", enquiryId: "e", matchId: null, channel: "sms", status: "failed" }), note: "no match / seller" },
 ];
 
 describe("kinds registry", () => {

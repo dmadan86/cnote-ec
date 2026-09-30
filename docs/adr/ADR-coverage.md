@@ -1,7 +1,17 @@
 # ADR coverage: what the code implements against ADR-000 to ADR-025
 
-**As of:** 30 Sep 2026, repository HEAD `425e151` (wave 4: metrics, orders, boundary guard, Hindi UI, photo/voice listings, WhatsApp channel, DPDP compliance). A "Wave 4 update" note under each affected ADR supersedes the older gap text above it.
+**As of:** 30 Sep 2026, wave 5 (see "Wave 5 update"); wave-4 notes refer to HEAD `425e151` (wave 4: metrics, orders, boundary guard, Hindi UI, photo/voice listings, WhatsApp channel, DPDP compliance). A "Wave 4 update" note under each affected ADR supersedes the older gap text above it.
 **Method:** read `docs/adr/ADR-v0.1.md`, `ADR-024-025-proposed.md`, every `docs/design/*.md`, the package sources, the Prisma schemas and the event catalogue; then judged each ADR by what is actually in code. Evidence lists packages and files; gaps are stated against the ADR text.
+
+## Wave 5 update (supersedes gap text below where it overlaps)
+
+- **ADR-001/005 payments + GST invoicing:** `PaymentOrder` via a payment-gateway port (mock by default; Razorpay adapter), signed idempotent webhooks (`apps/api`), GST invoices with gap-free per-FY sequences stored in the private media bucket, refunds, pricing CTAs to hosted checkout; paid plans chosen at onboarding go to checkout (never activated without payment).
+- **ADR-002 reachability:** automated buyer reachability check after a lead is accepted (WhatsApp utility template → SMS fallback, delivered from the worker via the `enquiry.reachability_dispatch` queue); unreachable buyers feed the 72h auto-refund.
+- **ADR-003 T2 KYC:** document KYC sessions (private `kyc/` keys, VLM extraction with masked PAN/Aadhaar, staff review, 90-day document retention) and periodic verification audits; upheld "offer not honoured" reports now lower the trust score.
+- **ADR-004 languages:** buyer web in 8 locales (en, hi, kn, ta, te, mr, gu, bn) with a key-parity test. Seller-app i18n still open.
+- **ADR-024 sponsored products (flag `ADS_ENABLED`, off by default):** ad wallet (append-only, idempotent), campaigns with staff review, trust floor 50 / tier ≥ 1, labelled slots on search and "similar sponsored" on the product page, invalid-click filtering + 72h re-score, settlement, enquiry attribution (click cookie, then last click), `/ranking-and-ads` disclosure; an organic-integrity test proves organic order is identical with ads on and off.
+- **ADR-025 promotions:** editorial promotions, seller offers validated against the LIVE listing price (reference-price honesty, `ListingPriceHistory`), offer-honour reports, coupons (one per GSTIN) on checkout, referrals (`?ref=` captured at signup, risk flags for rings/shared phone/GSTIN, staff review of rewards); offers shown on product cards.
+- **Still open:** seller-app i18n, geo targeting for ads on search, ads notification templates, Phase 2 (ADR-012 to 017) and Phase 3 (ADR-019 to 023).
 **Status values:** Implemented (Phase-1 scope is met) / Partial / Not started / Deferred by phase (the ADR itself is a Phase 2 or 3 item and correctly unbuilt).
 **Answer to "did we add all the ADRs?":** all 24 accepted or proposed decisions in ADR-000 to ADR-023 are recorded, and the Phase 1 ones are largely built. The Phase 1 ADRs with real holes are ADR-004 (WhatsApp, voice, vernacular), ADR-002 (reachability verification), ADR-003 (T2/T3 tiers) and ADR-005 (real payments). Fourteen decisions taken during the build are now recorded as ADR-026 to ADR-039 (this folder).
 

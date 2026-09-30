@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
     return [
       // Legacy category URLs -> canonical /c/<slug> (permanent, 308). /products/<id> redirects in its page (needs the title for the slug).
       { source: "/categories/:slug", destination: "/c/:slug", permanent: true },
-      { source: "/hi/categories/:slug", destination: "/hi/c/:slug", permanent: true },
+      { source: "/:locale(hi|kn|ta|te|mr|gu|bn)/categories/:slug", destination: "/:locale/c/:slug", permanent: true },
     ];
   },
   async headers() {
@@ -43,12 +43,12 @@ const nextConfig: NextConfig = {
       // Search and supplier listings render per query but contain nothing personal (per-user bits are client islands): a
       // short shared-cache window makes repeated queries CDN hits while Redis serves the rest.
       { source: "/search", headers: [{ key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=300" }] },
-      { source: "/hi/search", headers: [{ key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=300" }] },
-      { source: "/hi/manufacturers", headers: [{ key: "Cache-Control", value: "public, s-maxage=120, stale-while-revalidate=600" }] },
+      { source: "/:locale(hi|kn|ta|te|mr|gu|bn)/search", headers: [{ key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=300" }] },
+      { source: "/:locale(hi|kn|ta|te|mr|gu|bn)/manufacturers", headers: [{ key: "Cache-Control", value: "public, s-maxage=120, stale-while-revalidate=600" }] },
       { source: "/manufacturers", headers: [{ key: "Cache-Control", value: "public, s-maxage=120, stale-while-revalidate=600" }] },
       // Generated social cards are pure functions of the listing: a day at the shared cache, a week stale-while-revalidate.
       { source: "/p/:slugId/:file(opengraph-image.*)", headers: [{ key: "Cache-Control", value: "public, s-maxage=86400, stale-while-revalidate=604800" }] },
-      { source: "/:locale(en|hi)/p/:slugId/:file(opengraph-image.*)", headers: [{ key: "Cache-Control", value: "public, s-maxage=86400, stale-while-revalidate=604800" }] },
+      { source: "/:locale(en|hi|kn|ta|te|mr|gu|bn)/p/:slugId/:file(opengraph-image.*)", headers: [{ key: "Cache-Control", value: "public, s-maxage=86400, stale-while-revalidate=604800" }] },
       // Seed placeholder art is not fingerprinted: a day fresh, a week stale-while-revalidate.
       { source: "/placeholders/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }] },
     ];

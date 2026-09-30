@@ -18,7 +18,7 @@ export { exportPersonalData, erasePerson } from "./privacy";
 
 export { computeTrustScore, BADGE_THRESHOLD, type TrustSignals } from "./trust";
 export { isValidGstin, isValidUdyam, setGstnProvider, type GstnProvider, type GstnRecord } from "./gstin";
-export { setMailer, setSmsSender, type Mailer, type SmsSender } from "./mailer";
+export { getSmsSender, setMailer, setSmsSender, type Mailer, type SmsSender } from "./mailer";
 export { passwordProblem } from "./password";
 
 /** Consumes lead/dispute/moderation events to recompute trust scores; decay job. */

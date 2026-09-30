@@ -24,6 +24,8 @@ vi.mock("@cnote/identity", () => ({
 }));
 
 import { acceptLead, createEnquiry, declineLead, getConversation, listSellerLeads, reportBuyerProblem, sendMessage, sendQuote, reportDeal, expireOverdueOffers } from "../src";
+import { setReachabilityDispatchMode } from "../src/reachability";
+setReachabilityDispatchMode("inline"); // the worker would deliver; here we deliver in-process
 
 const tag = `enq-test-${Date.now()}`;
 const bizIds: string[] = [];
