@@ -55,6 +55,18 @@ function originFor(host: string): string {
 }
 
 /** Canonical public URL origin of a storefront: its primary active custom domain, else <slug>.<root>. */
+/**
+ * Origin of the storefront's primary ACTIVE custom domain (e.g. "https://www.acme.com"), or null when it has none.
+ * SEO policy: an active custom domain is canonical; otherwise the marketplace's /store/<slug> is.
+ */
+export async function customDomainOrigin(slug: string): Promise<string | null> {
+  const host = await cachedTagged<string>(`sfcustom:v1:${slug}`, [canonTag(slug)], 300, async () => {
+    const sf = await prisma.storefront.findUnique({ where: { slug }, select: { id: true } });
+    return (sf && (await primaryActiveHost(sf.id))) || "";
+  });
+  return host ? originFor(host) : null;
+}
+
 export async function storefrontCanonical(slug: string): Promise<string> {
   const host = await cachedTagged<string>(`sfcanon:v1:${slug}`, [canonTag(slug)], 300, async () => {
     const sf = await prisma.storefront.findUnique({ where: { slug }, select: { id: true } });

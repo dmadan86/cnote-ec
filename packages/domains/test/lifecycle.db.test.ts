@@ -8,7 +8,7 @@ import {
   addDomain, adminDomainCounts, adminListDomains, domainCheckResponse, domainSetupInfo, forceRecheck, listDomains, processDomainCheck,
   recheckLiveDomains, removeDomain, removeDomainById, requestRecheck, setPrimary, startVerification, sweepStalledDomains, toView,
 } from "../src/lifecycle";
-import { resolveHost, storefrontCanonical } from "../src/resolve";
+import { customDomainOrigin, resolveHost, storefrontCanonical } from "../src/resolve";
 import { worker } from "../src/worker";
 import { domainCheckToken } from "../src/verify";
 
@@ -127,6 +127,15 @@ describe("processDomainCheck: full lifecycle", () => {
     expect(await resolveHost(h)).toEqual({ kind: "custom", storefrontSlug: s.slug, canonicalHost: h });
     expect(await resolveHost(`${h}:443`)).toMatchObject({ kind: "custom" });
     expect(await storefrontCanonical(s.slug)).toBe(`https://${h}`);
+    expect(await customDomainOrigin(s.slug)).toBe(`https://${h}`);
+  });
+
+  it("customDomainOrigin is null without an active custom domain (the marketplace path stays canonical)", async () => {
+    const s = await mkSeller("nocustom");
+    expect(await customDomainOrigin(s.slug)).toBeNull();
+    await addDomain(s.biz, host("pending")); // pending DNS is not active
+    expect(await customDomainOrigin(s.slug)).toBeNull();
+    expect(await customDomainOrigin(`missing-${run}`)).toBeNull();
   });
 
   it("second active domain is not primary; setPrimary switches canonical; only active domains qualify", async () => {

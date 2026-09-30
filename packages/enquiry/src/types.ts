@@ -14,6 +14,8 @@ export interface EnquiryInput {
   buyerPicks?: boolean;
   /** Optional: enquiry started from a listing page — that seller is ranked first if eligible. */
   preferredListingId?: string | null;
+  /** Optional: enquiry started from a seller's storefront — that seller is ranked first if eligible. */
+  preferredSellerId?: string | null;
 }
 
 export interface Actor {

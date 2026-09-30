@@ -1,11 +1,31 @@
 import type { Metadata } from "next";
+import { customDomainOrigin } from "@cnote/domains";
 import { getStorefrontCanonical, type PublishedStorefront } from "@cnote/storefront";
 import { findPage } from "@cnote/storefront/render";
 import { productPath } from "@/lib/paths";
 import { absoluteUrl } from "@/lib/site-url";
 
-/** Canonical URL for a storefront page. The domains module makes `getStorefrontCanonical` return the custom domain once active. */
-export const canonicalFor = (slug: string, page: string) => getStorefrontCanonical(slug, page);
+/**
+ * Canonical URL for a storefront page. SEO policy: the seller's primary ACTIVE custom domain is canonical (the proxy
+ * serves /<page> there); otherwise the marketplace URL /store/<slug>/<page>. Platform subdomains are never canonical,
+ * so the same page is never indexed under two hosts.
+ */
+export async function canonicalFor(slug: string, page: string): Promise<string> {
+  let custom: string | null = null;
+  try {
+    custom = await customDomainOrigin(slug);
+  } catch (err) {
+    console.error("[web] customDomainOrigin failed", err instanceof Error ? err.message : err);
+  }
+  if (custom) return `${custom}${page && page !== "home" ? `/${page.replace(/^\/+/, "")}` : "/"}`;
+  return getStorefrontCanonical(slug, page);
+}
+
+/** Live storefronts whose canonical URL is on the marketplace (custom-domain ones belong in their own host's sitemap). */
+export async function platformCanonicalStorefronts(slugs: string[]): Promise<string[]> {
+  const checks = await Promise.all(slugs.map(async (slug) => ((await customDomainOrigin(slug).catch(() => null)) ? null : slug)));
+  return checks.filter((s): s is string => s !== null);
+}
 
 export async function storefrontMetadata(s: PublishedStorefront, pageSlug: string): Promise<Metadata> {
   const page = findPage(s.document, pageSlug);

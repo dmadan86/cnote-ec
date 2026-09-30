@@ -99,7 +99,10 @@ describe("event handlers", () => {
         "ListingImageModerated",
         "ListingModerated",
         "ListingPublished",
+        "ListingUnpublished",
+        "ListingVersionPublished",
         "ReviewModerated",
+        "StorefrontDomainStatusChanged",
         "StorefrontPublished",
         "StorefrontSuspended",
         "StorefrontVersionReviewed",
@@ -113,8 +116,9 @@ describe("event handlers", () => {
     await call("StorefrontPublished", { slug: "acme" });
     await call("StorefrontVersionReviewed", { storefrontId: "sf1" });
     await call("StorefrontSuspended", { storefrontId: "sf1" });
-    for (const n of ["ListingModerated", "ListingArchived", "ListingImageModerated", "ReviewModerated"]) await call(n, { sellerBusinessId: "biz1" });
-    expect(h.hard).toHaveLength(7);
+    await call("StorefrontDomainStatusChanged", { storefrontId: "sf1" });
+    for (const n of ["ListingModerated", "ListingArchived", "ListingImageModerated", "ReviewModerated", "ListingUnpublished"]) await call(n, { sellerBusinessId: "biz1" });
+    expect(h.hard).toHaveLength(9);
     expect(h.hard.every((t) => t.length === 1 && t[0] === "storefront:acme")).toBe(true);
     expect(h.soft).toEqual([]);
   });
@@ -122,7 +126,8 @@ describe("event handlers", () => {
     await call("TrustScoreChanged", { businessId: "biz1" });
     await call("BusinessVerified", { businessId: "biz1" });
     await call("ListingPublished", { sellerBusinessId: "biz1" });
-    expect(h.soft).toHaveLength(3);
+    await call("ListingVersionPublished", { sellerBusinessId: "biz1" });
+    expect(h.soft).toHaveLength(4);
     expect(h.hard).toEqual([]);
   });
   it("unknown sellers/storefronts are ignored (idempotent, no throw)", async () => {

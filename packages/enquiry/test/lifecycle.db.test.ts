@@ -30,6 +30,7 @@ vi.mock("@cnote/catalogue", () => ({
   getCategoryBySlug: async (slug: string) => (st.cats as Cat[]).find((c) => c.slug === slug) ?? null,
   listCategories: async () => st.cats,
   getListing: async (id: string) => st.listings.get(id) ?? null,
+  getPublicListing: async (id: string) => st.listings.get(id) ?? null,
   findSellerCandidates: async (o: { excludeSellerIds?: string[] }) => st.candidates.filter((c) => !o.excludeSellerIds?.includes(c.sellerBusinessId)),
 }));
 vi.mock("@cnote/identity", () => ({
@@ -173,6 +174,34 @@ describe("createEnquiry", () => {
     // an unknown listing is ignored
     const e2 = await post(buyer, { preferredListingId: randomUUID() });
     expect(e2.matches[0]!.sellerBusinessId).toBe(sellers[0]!.businessId);
+  });
+
+  it("ranks a storefront's seller first when it is an eligible candidate, never adds an ineligible one", async () => {
+    const buyer = await party("buyer");
+    const sellers = await pool(5);
+    const e = await post(buyer, { preferredSellerId: sellers[3]!.businessId });
+    expect(e.matches[0]!.sellerBusinessId).toBe(sellers[3]!.businessId);
+    expect(e.matches).toHaveLength(3); // still capped at N
+    // a seller outside the candidate set (not matching / unknown) cannot be injected into the lead
+    const outsider = randomUUID();
+    const e2 = await post(buyer, { preferredSellerId: outsider });
+    expect(e2.matches.map((m) => m.sellerBusinessId)).not.toContain(outsider);
+    expect(e2.matches[0]!.sellerBusinessId).toBe(sellers[0]!.businessId);
+  });
+
+  it("an explicit preferred seller wins over a preferred listing", async () => {
+    const buyer = await party("buyer");
+    const sellers = await pool(5);
+    const listingId = randomUUID();
+    st.listings.set(listingId, { sellerBusinessId: sellers[4]!.businessId });
+    const e = await post(buyer, { preferredListingId: listingId, preferredSellerId: sellers[2]!.businessId });
+    expect(e.matches[0]!.sellerBusinessId).toBe(sellers[2]!.businessId);
+  });
+
+  it("rejects a malformed preferred seller id", async () => {
+    const buyer = await party("buyer");
+    await pool(3);
+    await expect(post(buyer, { preferredSellerId: "not-a-uuid" })).rejects.toThrow();
   });
 
   it("passes intent signals: prior enquiries, phone verification, near-duplicate similarity", async () => {

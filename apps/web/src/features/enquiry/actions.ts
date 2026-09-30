@@ -32,6 +32,7 @@ export async function postRfqAction(_prev: ActionResult<EnquiryView> | null, f: 
         neededBy: str(f, "neededBy"),
         buyerPicks: f.get("buyerPicks") === "on",
         preferredListingId: str(f, "preferredListingId"),
+        preferredSellerId: str(f, "preferredSellerId"),
         language: s.preferredLanguage,
       },
       { buyerPhoneVerified: s.phoneVerified },

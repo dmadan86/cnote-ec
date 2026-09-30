@@ -24,6 +24,11 @@ export const storefrontHandlers: EventHandlers = {
   TrustScoreChanged: async (e) => bySeller(e.payload.businessId, false),
   BusinessVerified: async (e) => bySeller(e.payload.businessId, false),
   ListingPublished: async (e) => bySeller(e.payload.sellerBusinessId, false),
+  // Live-DB publisher (listing versions): storefront product grids read LIVE listings.
+  ListingVersionPublished: async (e) => bySeller(e.payload.sellerBusinessId, false),
+  ListingUnpublished: async (e) => bySeller(e.payload.sellerBusinessId, true),
+  // Custom domain went active/inactive: the canonical URL (and JSON-LD @id) on every page changes.
+  StorefrontDomainStatusChanged: async (e) => byStorefront(e.payload.storefrontId),
   ListingModerated: async (e) => bySeller(e.payload.sellerBusinessId, true),
   ListingArchived: async (e) => bySeller(e.payload.sellerBusinessId, true),
   ListingImageModerated: async (e) => bySeller(e.payload.sellerBusinessId, true),

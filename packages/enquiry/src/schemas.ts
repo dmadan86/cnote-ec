@@ -24,6 +24,7 @@ export const enquiryInputSchema = z.object({
   language: z.string().trim().max(8).default("en"),
   buyerPicks: z.boolean().default(false),
   preferredListingId: z.string().uuid().nullish().transform((v) => v ?? null),
+  preferredSellerId: z.string().uuid().nullish().transform((v) => v ?? null),
 });
 export type ParsedEnquiryInput = z.output<typeof enquiryInputSchema>;
 

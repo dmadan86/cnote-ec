@@ -96,8 +96,10 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
   });
 
   if (status === "scoring") {
-    let preferredSellerId: string | null = null;
-    if (data.preferredListingId) preferredSellerId = (await catalogue.getListing(data.preferredListingId))?.sellerBusinessId ?? null;
+    // A preference never bypasses matching rules: the seller is only ranked first if it is already an eligible
+    // candidate (category, trust, cap). Only LIVE listings count, so a draft id in a URL can't steer a lead.
+    let preferredSellerId: string | null = data.preferredSellerId;
+    if (!preferredSellerId && data.preferredListingId) preferredSellerId = (await catalogue.getPublicListing(data.preferredListingId))?.sellerBusinessId ?? null;
     await runMatching(id, { preferredSellerId });
   }
   return (await getBuyerEnquiry(actor.businessId, id))!;

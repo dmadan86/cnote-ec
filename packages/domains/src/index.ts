@@ -11,7 +11,7 @@ export {
   processDomainCheck, startVerification, domainCheckResponse, adminListDomains, adminDomainCounts, recheckLiveDomains, sweepStalledDomains, toView,
   type DomainView, type AdminDomainRow,
 } from "./lifecycle";
-export { resolveHost, storefrontCanonical, platformSubdomainHost, invalidateStorefrontHosts, type ResolvedHost } from "./resolve";
+export { resolveHost, storefrontCanonical, customDomainOrigin, platformSubdomainHost, invalidateStorefrontHosts, type ResolvedHost } from "./resolve";
 export { classifyBot, classifyDevice, classifySource, pickTrafficParams, referrerHost, type BotMatch, type BotCategory, type Device, type TrafficSource, type TrafficParams } from "./classify";
 export { recordHit, recordStorefrontEnquiry, flushTraffic, classifyHit, totalsFromHash, dayKey, normalizePath, isPageView, type HitInput, type HostKind, type DailyTotals } from "./metering";
 export { getTrafficSummary, getTrafficSummaryForSeller, getMeteredRequests, type TrafficSummary, type TrafficPoint, type Breakdown } from "./queries";

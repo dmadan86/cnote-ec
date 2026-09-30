@@ -10,7 +10,7 @@ const UNITS = ["pcs", "kg", "ton", "meter", "set", "box", "litre"];
 
 export interface RfqFormProps {
   categories: { slug: string; name: string }[];
-  defaults?: { title?: string; requirement?: string; categorySlug?: string; preferredListingId?: string };
+  defaults?: { title?: string; requirement?: string; categorySlug?: string; preferredListingId?: string; preferredSellerId?: string };
 }
 
 export function RfqForm({ categories, defaults }: RfqFormProps) {
@@ -22,6 +22,7 @@ export function RfqForm({ categories, defaults }: RfqFormProps) {
     <form action={action} className="flex flex-col gap-5" noValidate>
       {state && !state.ok ? <Alert tone="danger">{state.error}</Alert> : null}
       {defaults?.preferredListingId ? <input type="hidden" name="preferredListingId" value={defaults.preferredListingId} /> : null}
+      {defaults?.preferredSellerId ? <input type="hidden" name="preferredSellerId" value={defaults.preferredSellerId} /> : null}
 
       <Field label="What do you need?" htmlFor="title" error={err("title")} hint="A short title, e.g. 3-ply corrugated boxes">
         <Input id="title" name="title" required maxLength={140} defaultValue={defaults?.title} aria-invalid={!!err("title")} />

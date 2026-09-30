@@ -14,6 +14,7 @@ vi.mock("@cnote/catalogue", () => ({
   getCategoryBySlug: async () => null,
   listCategories: async () => [],
   getListing: async () => null,
+  getPublicListing: async () => null,
   findSellerCandidates: async (o: { excludeSellerIds?: string[] }) => state.candidates.filter((c) => !o.excludeSellerIds?.includes(c.sellerBusinessId)),
 }));
 vi.mock("@cnote/identity", () => ({
