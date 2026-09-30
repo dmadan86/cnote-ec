@@ -7,3 +7,4 @@ export { completeUnlock } from "./unlock";
 export { funnelByTriggerDay, type FunnelRow } from "./funnel";
 export { sweepAbandoned, ABANDON_AFTER_MS } from "./abandon";
 export { worker } from "./worker";
+export * from "./retention";

@@ -14,3 +14,4 @@ export { setChannelAdapter, type ChannelAdapter, type ChannelMessage } from "./c
 export type { Directory } from "./recipients";
 export { listQueueTopics, registerQueueTopic, listDeadLetters, replayDeadLetter, listEmailLog, EMAIL_STATUSES, type QueueTopicInfo, type EmailLogEntry } from "./ops";
 export { worker, pruneReadNotifications } from "./worker";
+export * from "./retention";

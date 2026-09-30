@@ -15,6 +15,7 @@
     "@cnote/billing": "workspace:*",
     "@cnote/bulk": "workspace:*",
     "@cnote/catalogue": "workspace:*",
+    "@cnote/compliance": "workspace:*",
     "@cnote/core": "workspace:*",
     "@cnote/developer": "workspace:*",
     "@cnote/domains": "workspace:*",

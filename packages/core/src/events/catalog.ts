@@ -52,6 +52,17 @@ export interface DomainEventPayloads {
   // lead generation (buyer unlock funnel)
   LeadCaptureVerified: { captureId: string; personId: string; trigger: string; unlock: string; listingId: string | null; isNewPerson: boolean };
   LeadCaptureConverted: { captureId: string; personId: string; trigger: string; enquiryId: string | null };
+  // orders (ADR-007 stub; off-platform in Phase 1)
+  OrderRecorded: { orderId: string; matchId: string; enquiryId: string; buyerBusinessId: string; sellerBusinessId: string; totalPaise: number | null };
+  OrderStatusChanged: { orderId: string; buyerBusinessId: string; sellerBusinessId: string; from: string; to: string };
+  // compliance (ADR-010)
+  GrievanceFiled: { ticketId: string; personId: string | null; category: string; dueAt: string };
+  GrievanceResolved: { ticketId: string; personId: string | null; status: "resolved" | "rejected" };
+  AppealFiled: { appealId: string; personId: string; subjectType: string; subjectId: string };
+  AppealDecided: { appealId: string; personId: string; subjectType: string; subjectId: string; status: "resolved" | "rejected" };
+  // voice + WhatsApp onboarding (ADR-004)
+  VoiceNoteTranscribed: { voiceNoteId: string; sellerBusinessId: string; listingId: string | null; language: string | null };
+  WhatsAppOnboardingCompleted: { contactId: string; personId: string; businessId: string; listingId: string | null };
   // billing
   CreditsGranted: { businessId: string; amount: number; reason: string; expiresAt: string };
   CreditConsumed: { businessId: string; txnId: string; refType: string; refId: string };
@@ -104,6 +115,14 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   BulkJobFinished: 1,
   LeadCaptureVerified: 1,
   LeadCaptureConverted: 1,
+  OrderRecorded: 1,
+  OrderStatusChanged: 1,
+  GrievanceFiled: 1,
+  GrievanceResolved: 1,
+  AppealFiled: 1,
+  AppealDecided: 1,
+  VoiceNoteTranscribed: 1,
+  WhatsAppOnboardingCompleted: 1,
   CreditsGranted: 1,
   CreditConsumed: 1,
   CreditRefunded: 1,

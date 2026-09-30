@@ -15,6 +15,7 @@
     "@cnote/billing": "workspace:*",
     "@cnote/bulk": "workspace:*",
     "@cnote/catalogue": "workspace:*",
+    "@cnote/compliance": "workspace:*",
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",
     "@cnote/developer": "workspace:*",
@@ -23,6 +24,7 @@
     "@cnote/enquiry": "workspace:*",
     "@cnote/identity": "workspace:*",
     "@cnote/leadgen": "workspace:*",
+    "@cnote/metrics": "workspace:*",
     "@cnote/notifications": "workspace:*",
     "@cnote/observability": "workspace:*",
     "@cnote/reviews": "workspace:*",
@@ -30,6 +32,7 @@
     "@cnote/security": "workspace:*",
     "@cnote/storefront": "workspace:*",
     "@cnote/templates": "workspace:*",
+    "@cnote/whatsapp": "workspace:*",
     "@cnote/wishlist": "workspace:*",
     "@sentry/node": "^11.1.0"
   }

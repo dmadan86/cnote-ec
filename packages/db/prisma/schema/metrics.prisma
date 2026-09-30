@@ -1,0 +1,34 @@
+// Owned by @cnote/metrics: daily ADR success metrics computed from the domain event log (read-only
+// over DomainEvent + module public getters). One row per (metric, day, dimension).
+
+model MetricDaily {
+  metric    String // e.g. "lead_to_conversation_rate" (see packages/metrics/src/definitions.ts)
+  day       DateTime @db.Date
+  /// optional breakdown, e.g. "category:packaging-printing"; "" = overall
+  dimension String   @default("")
+  value     Float
+  numerator   Float?
+  denominator Float?
+  computedAt DateTime @default(now()) @map("computed_at") @db.Timestamptz
+
+  @@id([metric, day, dimension])
+  @@index([day])
+  @@map("metric_daily")
+}
+
+/// SLO breaches / threshold alerts raised by the metrics job (shown in admin; notification fan-out optional).
+model MetricAlert {
+  id         String    @id @default(uuid()) @db.Uuid
+  metric     String
+  day        DateTime  @db.Date
+  value      Float
+  threshold  Float
+  direction  String // "below" | "above"
+  message    String
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([metric, day])
+  @@index([resolvedAt, createdAt])
+  @@map("metric_alerts")
+}

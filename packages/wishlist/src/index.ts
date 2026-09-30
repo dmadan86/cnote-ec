@@ -11,3 +11,4 @@ export {
   COMPARE_COOKIE, COMPARE_MAX, COMPARE_COOKIE_MAX_AGE, parseCompareIds, serializeCompareIds, addToCompare, type CompareAddResult,
 } from "./compare";
 export { worker } from "./worker";
+export * from "./retention";

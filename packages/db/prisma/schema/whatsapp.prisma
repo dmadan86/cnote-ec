@@ -1,0 +1,44 @@
+// Owned by @cnote/whatsapp: WhatsApp Business Platform channel (ADR-004 primary onboarding channel).
+// Message bodies are NOT stored beyond the retention window; media lives in the private media bucket.
+
+model WhatsAppContact {
+  id          String   @id @default(uuid()) @db.Uuid
+  /// sha256 of the E.164 number (lookup); the raw number lives only on Person once verified
+  phoneHash   String   @unique @map("phone_hash")
+  personId    String?  @map("person_id") @db.Uuid
+  /// conversation state machine for guided flows: { flow: "seller_onboarding", step: "business_name", data: {...} }
+  state       Json     @default("{}")
+  language    String   @default("en")
+  /// WhatsApp 24h customer-service window: free-form replies allowed until this instant
+  windowUntil DateTime? @map("window_until") @db.Timestamptz
+  optedOutAt  DateTime? @map("opted_out_at") @db.Timestamptz
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  messages WhatsAppMessage[]
+
+  @@index([personId])
+  @@map("whatsapp_contacts")
+}
+
+model WhatsAppMessage {
+  id          String    @id @default(uuid()) @db.Uuid
+  contactId   String    @map("contact_id") @db.Uuid
+  direction   String // "in" | "out"
+  /// provider message id (wamid) for idempotency of webhooks + status updates
+  providerId  String?   @unique @map("provider_id")
+  kind        String // "text" | "image" | "audio" | "template" | "interactive"
+  /// short, PII-redacted summary for ops; full text purged after the retention window
+  body        String?
+  mediaKey    String?   @map("media_key") // private media bucket key for images/voice notes
+  template    String?
+  status      String    @default("received") // received | sent | delivered | read | failed
+  /// estimated conversation cost in paise (category-based pricing)
+  costPaise   Int?      @map("cost_paise")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  contact WhatsAppContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId, createdAt])
+  @@map("whatsapp_messages")
+}

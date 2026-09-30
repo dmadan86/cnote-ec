@@ -23,6 +23,7 @@
     "@cnote/reviews": "workspace:*",
     "@cnote/search": "workspace:*",
     "@cnote/security": "workspace:*",
+    "@cnote/whatsapp": "workspace:*",
     "@cnote/wishlist": "workspace:*",
     "@hono/node-server": "^2.1.3",
     "@hono/zod-openapi": "^1.6.3",

@@ -162,3 +162,25 @@ model ListingVersion {
   @@index([status, publishAt])
   @@map("listing_versions")
 }
+
+/// Seller voice notes used to draft listings (ADR-004). Audio is personal data: kept only with the
+/// `voice_retention` consent, otherwise deleted right after transcription (retention job enforces).
+model VoiceNote {
+  id               String    @id @default(uuid()) @db.Uuid
+  sellerBusinessId String    @map("seller_business_id") @db.Uuid
+  personId         String    @map("person_id") @db.Uuid
+  storageKey       String?   @unique @map("storage_key") // null once the audio is purged
+  mimeType         String    @map("mime_type")
+  durationMs       Int?      @map("duration_ms")
+  language         String?
+  transcript       String?
+  transcriptConfidence Float? @map("transcript_confidence") @db.Real
+  listingId        String?   @map("listing_id") @db.Uuid // draft created from it
+  retainAudio      Boolean   @default(false) @map("retain_audio") // snapshot of voice_retention consent
+  purgeAfter       DateTime  @map("purge_after") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([sellerBusinessId, createdAt])
+  @@index([purgeAfter])
+  @@map("voice_notes")
+}

@@ -1,0 +1,40 @@
+// Owned by @cnote/enquiry (orders sub-module). ADR-007: model the lifecycle now so Phase-2 escrow
+// (ADR-012) and disputes (ADR-013) attach to real rows. Phase 1 orders are OFF-PLATFORM records created
+// from an accepted quote / a "won" deal report — no money moves through the platform yet.
+
+enum OrderStatus {
+  recorded // created from a won deal / accepted quote (off-platform, Phase 1)
+  confirmed // both parties confirmed the order terms
+  dispatched
+  delivered
+  completed
+  cancelled
+
+  @@map("order_status")
+}
+
+model Order {
+  id               String      @id @default(uuid()) @db.Uuid
+  matchId          String      @map("match_id") @db.Uuid
+  enquiryId        String      @map("enquiry_id") @db.Uuid
+  quoteId          String?     @map("quote_id") @db.Uuid
+  buyerBusinessId  String      @map("buyer_business_id") @db.Uuid
+  sellerBusinessId String      @map("seller_business_id") @db.Uuid
+  /// "off_platform" in Phase 1; "escrow" once ADR-012 lands
+  settlement       String      @default("off_platform")
+  status           OrderStatus @default(recorded)
+  pricePaise       BigInt?     @map("price_paise") // per unit, from the quote when known
+  quantity         Int?
+  unit             String?
+  totalPaise       BigInt?     @map("total_paise")
+  currency         String      @default("INR")
+  buyerConfirmedAt  DateTime?  @map("buyer_confirmed_at") @db.Timestamptz
+  sellerConfirmedAt DateTime?  @map("seller_confirmed_at") @db.Timestamptz
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([matchId])
+  @@index([buyerBusinessId, createdAt])
+  @@index([sellerBusinessId, createdAt])
+  @@map("orders")
+}

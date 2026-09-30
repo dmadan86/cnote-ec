@@ -1,0 +1,64 @@
+// Owned by @cnote/compliance: DPDP grievance redressal, takedown appeals, retention run log (ADR-010).
+
+enum ComplianceCaseStatus {
+  open
+  in_progress
+  resolved
+  rejected
+
+  @@map("compliance_case_status")
+}
+
+/// DPDP Act grievance (data principal complaint) handled by the Grievance Officer within the statutory window.
+model GrievanceTicket {
+  id          String               @id @default(uuid()) @db.Uuid
+  personId    String?              @map("person_id") @db.Uuid // null when raised without an account
+  /// contact for anonymous raisers; masked in admin lists
+  contactEmail String?             @map("contact_email")
+  category    String // "access" | "correction" | "erasure" | "consent" | "other"
+  subject     String
+  body        String
+  status      ComplianceCaseStatus @default(open)
+  /// statutory response deadline (configurable, default 30 days)
+  dueAt       DateTime             @map("due_at") @db.Timestamptz
+  resolution  String?
+  handledBy   String?              @map("handled_by") @db.Uuid // StaffMember id
+  resolvedAt  DateTime?            @map("resolved_at") @db.Timestamptz
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([status, dueAt])
+  @@map("grievance_tickets")
+}
+
+/// A seller/user appeal against a moderation decision (listing, listing version, image, review/comment, storefront).
+model ModerationAppeal {
+  id          String               @id @default(uuid()) @db.Uuid
+  personId    String               @map("person_id") @db.Uuid
+  businessId  String?              @map("business_id") @db.Uuid
+  subjectType String               @map("subject_type") // "listing_version" | "listing_image" | "review" | "comment" | "storefront_version"
+  subjectId   String               @map("subject_id") @db.Uuid
+  reason      String
+  status      ComplianceCaseStatus @default(open)
+  decisionNote String?             @map("decision_note")
+  decidedBy   String?              @map("decided_by") @db.Uuid
+  decidedAt   DateTime?            @map("decided_at") @db.Timestamptz
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([subjectType, subjectId, personId])
+  @@index([status, createdAt])
+  @@map("moderation_appeals")
+}
+
+/// Audit of every retention purge (what policy ran, how many rows) — evidence for DPDP storage limitation.
+model RetentionRun {
+  id        String   @id @default(uuid()) @db.Uuid
+  policy    String // e.g. "messages.closed_enquiries_365d"
+  module    String
+  purged    Int
+  startedAt DateTime @map("started_at") @db.Timestamptz
+  finishedAt DateTime @map("finished_at") @db.Timestamptz
+  error     String?
+
+  @@index([policy, startedAt])
+  @@map("retention_runs")
+}
