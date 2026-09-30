@@ -51,7 +51,7 @@ jobs:
       OTP_DEV_ECHO: "true"
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -137,7 +137,7 @@ jobs:
         ports: ["6379:6379"]
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -195,7 +195,7 @@ jobs:
       JWT_SECRET: ci-only-jwt-secret-0123456789abcdef0123456789abcdef
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -264,7 +264,7 @@ jobs:
           if [ -z "$OPENSEARCH_URL" ]; then echo "run=false" >> "$GITHUB_OUTPUT"; echo "OPENSEARCH_URL secret not set; skipping"; else echo "run=true" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/checkout@v4
         if: steps.gate.outputs.run == 'true'
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: steps.gate.outputs.run == 'true'
       - uses: actions/setup-node@v4
         if: steps.gate.outputs.run == 'true'
