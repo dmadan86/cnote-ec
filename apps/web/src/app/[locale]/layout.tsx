@@ -38,9 +38,10 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
   return (
     <NextIntlClientProvider locale={locale} messages={messages} timeZone={IST}>
       <SkipLink label={(await getTranslations({ locale, namespace: "shell" }))("skipToContent")} />
+      {/* Consent banner early in the DOM (after the skip link) so keyboard and screen-reader users meet it first. */}
+      <Analytics />
       <SiteHeader locale={locale} />
       <SiteFrame footer={<SiteFooter locale={locale} />}>{children}</SiteFrame>
-      <Analytics />
     </NextIntlClientProvider>
   );
 }

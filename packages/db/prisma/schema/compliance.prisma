@@ -1,4 +1,4 @@
-// Owned by @cnote/compliance: DPDP grievance redressal, takedown appeals, retention run log (ADR-010).
+// Owned by @cnote/compliance: DPDP grievance redressal, takedown appeals, retention run log, cookie consent receipts (ADR-010).
 
 enum ComplianceCaseStatus {
   open
@@ -61,4 +61,30 @@ model RetentionRun {
 
   @@index([policy, startedAt])
   @@map("retention_runs")
+}
+
+/// Proof of consent for cookie / browser-storage choices (DPDP Act s.6(10) burden of proof on the Data Fiduciary;
+/// GDPR Art 7(1)). Append-only: one row per choice or change, never updated. Deliberately holds NO IP address and NO user
+/// agent. `consentId` is the random id in the browser's `cnote_consent` cookie (it identifies a browser, not a person);
+/// `personId` is set only when the visitor was signed in. Purged after 3 years by the `compliance.cookie_consent_receipts`
+/// retention policy.
+model CookieConsentReceipt {
+  id            String   @id @default(uuid()) @db.Uuid
+  consentId     String   @map("consent_id")
+  policyVersion Int      @map("policy_version")
+  /// per-category choices (strictly necessary is always on and needs no consent)
+  analytics     Boolean
+  marketing     Boolean
+  /// the Global Privacy Control signal was on when the choice was made
+  gpc           Boolean
+  /// "accept_all" | "reject_all" | "custom" | "withdraw"
+  action        String
+  locale        String
+  personId      String?  @map("person_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([consentId, createdAt])
+  @@index([personId, createdAt])
+  @@index([createdAt])
+  @@map("cookie_consent_receipts")
 }

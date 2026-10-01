@@ -5,6 +5,7 @@ import { isUuid } from "@/lib/paths";
 import { isPublic, loadListing } from "@/features/search/data";
 import { moqText } from "@/features/search/format";
 import { VISITOR_COOKIE } from "@/features/ads/slots";
+import { CONSENT_COOKIE, isGranted, parseConsent } from "@/features/consent/state";
 
 // Per-request and never cached: an ad decision is personal to the request (frequency cap, budget) and its click token expires.
 export const dynamic = "force-dynamic";
@@ -17,7 +18,9 @@ export async function GET(req: NextRequest) {
   try {
     const listing = await loadListing(id);
     if (!listing || !isPublic(listing)) return NextResponse.json({ items: [] }, { headers: noStore });
-    const existing = req.cookies.get(VISITOR_COOKIE)?.value;
+    // cnote_vid is marketing storage: only read or set with the visitor's marketing consent (else an ephemeral id).
+    const marketing = isGranted(parseConsent(req.cookies.get(CONSENT_COOKIE)?.value), "marketing");
+    const existing = marketing ? req.cookies.get(VISITOR_COOKIE)?.value : undefined;
     const visitorId = existing ?? randomUUID();
     const slots = await getSponsoredSlots({
       query: listing.title,
@@ -42,7 +45,7 @@ export async function GET(req: NextRequest) {
       },
       { headers: noStore },
     );
-    if (!existing) res.cookies.set(VISITOR_COOKIE, visitorId, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 60 * 60 * 24 * 30, path: "/" });
+    if (marketing && !existing) res.cookies.set(VISITOR_COOKIE, visitorId, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 60 * 60 * 24 * 30, path: "/" });
     return res;
   } catch (err) {
     console.error("[web] /api/ads/similar failed:", err instanceof Error ? err.message : err);

@@ -3,6 +3,7 @@ import { requireSession, signOutAction } from "@cnote/next-kit";
 import { Badge, Button, buttonClasses, Card, CardBody, CardHeader, CardTitle, Container, PageHeader } from "@cnote/ui";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { CookieSettingsButton } from "@/features/consent";
 import { ConsentForm, DeleteAccountForm, PhoneVerification, ProfileForm } from "@/features/identity/forms";
 import { signOutEverywhereAction } from "@/features/identity/actions";
 import { formatDate } from "@/i18n/config";
@@ -16,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AccountPage() {
   const s = await requireSession("/account");
   const locale = await getRequestLocale();
-  const [t, consents, sessions] = await Promise.all([getTranslations({ locale, namespace: "account" }), getConsents(s.personId), listAuthSessions(s.personId, s.sessionId, "web")]);
+  const [t, tc, consents, sessions] = await Promise.all([getTranslations({ locale, namespace: "account" }), getTranslations({ locale, namespace: "consent" }), getConsents(s.personId), listAuthSessions(s.personId, s.sessionId, "web")]);
   const when = (iso: string) => formatDate(iso, locale, { dateStyle: "medium", timeStyle: "short" });
 
   return (
@@ -35,7 +36,13 @@ export default async function AccountPage() {
 
         <Card>
           <CardHeader><CardTitle>{t("privacyTitle")}</CardTitle></CardHeader>
-          <CardBody><ConsentForm consents={consents} /></CardBody>
+          <CardBody className="flex flex-col gap-4">
+            <ConsentForm consents={consents} />
+            <div className="border-t border-line pt-4">
+              <p className="text-sm text-muted">{tc("accountBody")}</p>
+              <CookieSettingsButton label={tc("openSettings")} className={`${buttonClasses("outline", "md", "min-h-11")} mt-2`} />
+            </div>
+          </CardBody>
         </Card>
 
         <Card>

@@ -56,3 +56,13 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Cookie consent banner (features/consent): it is position:fixed, so it never shifts content. While it is shown, reserve its
+   height at the bottom of the page and in scroll padding so the footer stays reachable and a keyboard-focused control is
+   never hidden behind it (WCAG 2.2 SC 2.4.11). --consent-banner-h is kept in sync by ConsentManager. */
+html[data-consent-banner] {
+  scroll-padding-bottom: calc(var(--consent-banner-h, 12rem) + 1rem);
+}
+html[data-consent-banner] body {
+  padding-bottom: var(--consent-banner-h, 12rem);
+}

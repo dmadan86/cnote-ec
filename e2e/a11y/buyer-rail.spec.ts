@@ -89,7 +89,7 @@ test.describe("desktop rail", () => {
       { path: "/no-such-page-xyz", current: null, lang: "en" },
     ];
     for (const p of pages) {
-      await page.context().clearCookies(); // visiting /hi remembers Hindi for the unprefixed pages (cnote_locale)
+      await page.context().clearCookies({ name: "cnote_locale" }); // visiting /hi remembers Hindi for the unprefixed pages (cnote_locale)
       await page.goto(p.path);
       await settle(page);
       await expect(rail(page), p.path).toBeVisible();

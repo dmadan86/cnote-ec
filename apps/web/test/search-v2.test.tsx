@@ -27,6 +27,8 @@ const voice = await import("@/app/api/search/voice/route");
 const image = await import("@/app/api/search/image/route");
 const { loadSponsoredForResults } = await import("@/features/ads/slots");
 const { SearchTools } = await import("@/features/search/search-tools");
+const { CONSENT_POLICY_VERSION, serializeConsent } = await import("@/features/consent/state");
+const marketingConsent = (marketing: boolean) => serializeConsent({ version: CONSENT_POLICY_VERSION, id: "9".repeat(32), analytics: false, marketing, gpc: false, at: Math.floor(Date.now() / 1000) - 5 });
 const { solidJpeg } = await import("@cnote/media");
 
 const post = (path: string, fd: FormData, headers: Record<string, string> = {}) => new NextRequest(`http://x.test${path}`, { method: "POST", body: fd, headers });
@@ -62,8 +64,20 @@ describe("buyer geo (ads geo-targeting gap)", () => {
   it("loadSponsoredForResults passes the Deliver-to cookie as pincode + state", async () => {
     h.cookies.set("cnote_pincode", "641604");
     h.cookies.set("cnote_vid", "vid1");
+    h.cookies.set("cnote_consent", marketingConsent(true));
     await loadSponsoredForResults({ query: "yarn", surface: "search", organicListingIds: ["a"] });
     expect(h.getSponsoredSlots).toHaveBeenCalledWith(expect.objectContaining({ query: "yarn", visitorId: "vid1", buyerPincode: "641604", buyerState: "Tamil Nadu" }));
+  });
+  it("does not read the visitor id cookie without marketing consent (cnote_vid is marketing storage)", async () => {
+    h.getSponsoredSlots.mockClear();
+    h.cookies.set("cnote_vid", "vid1");
+    for (const consent of [undefined, marketingConsent(false)]) {
+      if (consent) h.cookies.set("cnote_consent", consent);
+      else h.cookies.delete("cnote_consent");
+      await loadSponsoredForResults({ query: "yarn", surface: "search", organicListingIds: ["a"] });
+      expect(h.getSponsoredSlots).toHaveBeenLastCalledWith(expect.objectContaining({ visitorId: null }));
+    }
+    h.cookies.delete("cnote_consent");
   });
   it("without a valid cookie the location is explicitly unknown", async () => {
     h.cookies.set("cnote_pincode", "junk");
