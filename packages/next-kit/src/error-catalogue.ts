@@ -145,7 +145,8 @@ export const ERROR_MESSAGE_KEYS: Readonly<Record<string, string>> = {
 
 /** The stable key of an error: its explicit `key`, else the key registered for its exact English message. */
 export function errorKeyFor(err: Pick<DomainError, "message" | "key">): string | undefined {
-  return err.key ?? ERROR_MESSAGE_KEYS[err.message];
+  // Own keys only: a message like "__proto__" or "constructor" must not resolve to an inherited Object.prototype member.
+  return err.key ?? (Object.hasOwn(ERROR_MESSAGE_KEYS, err.message) ? ERROR_MESSAGE_KEYS[err.message] : undefined);
 }
 
 /** Result shape both `ActionResult` and API error bodies satisfy. */

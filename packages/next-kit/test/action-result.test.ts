@@ -47,6 +47,11 @@ describe("errorResponse", () => {
       }),
     );
   });
+  it("never resolves a message key from Object.prototype (__proto__, constructor, toString)", async () => {
+    for (const msg of ["__proto__", "constructor", "toString", "hasOwnProperty"]) {
+      expect(await errorResponse(new DomainError("not_found", msg)).json()).toEqual({ error: msg, code: "not_found" });
+    }
+  });
   it("includes the key in the body when there is one", async () => {
     expect(await errorResponse(new DomainError("conflict", "x", undefined, "k.v")).json()).toEqual({ error: "x", code: "conflict", key: "k.v" });
   });
