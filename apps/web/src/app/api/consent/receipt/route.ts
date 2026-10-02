@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
       action: r.action,
       analytics: r.analytics,
       marketing: r.marketing,
+      functional: r.functional,
       globalPrivacyControl: r.gpc,
       policyVersion: r.policyVersion,
       registryHash: r.registryHash,

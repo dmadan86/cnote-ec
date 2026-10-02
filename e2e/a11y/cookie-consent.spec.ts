@@ -108,8 +108,10 @@ test.describe("preferences dialog", () => {
     await expect(d.getByText("Always active")).toBeVisible();
     const analytics = d.getByRole("switch", { name: "Analytics" });
     const marketing = d.getByRole("switch", { name: "Marketing and attribution" });
+    const functional = d.getByRole("switch", { name: "Preferences and personalisation" });
     await expect(analytics).toHaveAttribute("aria-checked", "false");
     await expect(marketing).toHaveAttribute("aria-checked", "false");
+    await expect(functional).toHaveAttribute("aria-checked", "false");
     // accordion: expand the marketing table
     await d.getByRole("button", { name: "Marketing and attribution" }).click();
     await expect(d.getByRole("table")).toBeVisible();
@@ -228,7 +230,7 @@ test.describe("choices", () => {
     expect([consent?.get("a"), consent?.get("m")]).toEqual(["1", "0"]);
   });
 
-  test("Global Privacy Control: Accept all leaves marketing off, and the dialog says so", async ({ browser, baseURL }) => {
+  test("Global Privacy Control: Accept all leaves marketing off (preferences stay on), and the dialog says so", async ({ browser, baseURL }) => {
     const context = await browser.newContext({ baseURL, locale: "en-IN", extraHTTPHeaders: { "sec-gpc": "1" } });
     await context.addInitScript(() => Object.defineProperty(Navigator.prototype, "globalPrivacyControl", { get: () => true, configurable: true }));
     const page = await context.newPage();
@@ -239,7 +241,7 @@ test.describe("choices", () => {
     await expect(d.getByText(/Global Privacy Control signal is on/)).toBeVisible();
     await d.getByRole("button", { name: "Accept all" }).click();
     const c = await consentOf(page);
-    expect([c?.get("a"), c?.get("m"), c?.get("gpc")]).toEqual(["1", "0", "1"]);
+    expect([c?.get("a"), c?.get("m"), c?.get("f"), c?.get("gpc")]).toEqual(["1", "0", "1", "1"]); // GPC turns marketing off, never preferences
     await context.close();
   });
 

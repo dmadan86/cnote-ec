@@ -91,8 +91,8 @@ function DialogBody({
   headingRef: RefObject<HTMLHeadingElement | null>;
 }) {
   const t = useTranslations("consent");
-  // Nothing pre-ticked: with no stored choice both optional categories start off.
-  const [draft, setDraft] = useState<ConsentChoices>(initial ? { analytics: initial.analytics, marketing: initial.marketing } : REJECT_ALL);
+  // Nothing pre-ticked: with no stored choice every optional category starts off.
+  const [draft, setDraft] = useState<ConsentChoices>(initial ? { analytics: initial.analytics, marketing: initial.marketing, functional: initial.functional } : REJECT_ALL);
   return (
     <>
       <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3 sm:px-6">

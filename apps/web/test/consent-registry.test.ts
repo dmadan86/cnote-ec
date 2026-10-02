@@ -22,9 +22,9 @@ const KEY_RE = /["'](cnote_[a-z0-9_]+)["']/g;
 describe("cookie registry (single source of truth)", () => {
   const names = STORAGE_REGISTRY.map((e) => e.name);
 
-  it("has unique names and only the three known categories", () => {
+  it("has unique names and only the four known categories", () => {
     expect(new Set(names).size).toBe(names.length);
-    expect(CATEGORIES).toEqual(["necessary", "analytics", "marketing"]);
+    expect(CATEGORIES).toEqual(["necessary", "analytics", "marketing", "functional"]);
     for (const e of STORAGE_REGISTRY) expect(CATEGORIES).toContain(e.category);
   });
 

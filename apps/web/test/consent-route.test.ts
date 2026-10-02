@@ -64,7 +64,7 @@ describe("POST /api/consent", () => {
     expect(h.ledger).not.toHaveBeenCalled();
     h.session.mockResolvedValue({ personId: "11111111-1111-4111-8111-111111111111" });
     expect((await POST(req({ ...valid, at: 1_790_000_000 }))).status).toBe(200);
-    expect(h.ledger).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", { analytics: true, marketing: false }, { clientAt: 1_790_000_000 });
+    expect(h.ledger).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", { analytics: true, marketing: false, functional: false }, { clientAt: 1_790_000_000 });
     h.ledger.mockRejectedValue(new Error("ledger down"));
     const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
     expect((await POST(req(valid))).status).toBe(200);

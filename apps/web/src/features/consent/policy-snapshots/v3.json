@@ -5,7 +5,7 @@
       "alwaysActive": "Always active",
       "analyticsDesc": "Microsoft Clarity records anonymised usage (clicks, scrolling, page views) so we can find and fix problems. Form entries are masked.",
       "analyticsTitle": "Analytics",
-      "bannerText": "{site}, as data fiduciary, uses essential cookies to run this site. With your permission we also use analytics cookies to improve it and marketing cookies to measure campaigns. Nothing optional is used unless you accept. <link>Cookie policy</link>",
+      "bannerText": "{site}, as data fiduciary, uses essential cookies to run this site. With your permission we also use analytics cookies to improve it, marketing cookies to measure campaigns and preference cookies to remember things like recently viewed products. Nothing optional is used unless you accept. <link>Cookie policy</link>",
       "customise": "Customise",
       "dialogIntro": "Choose which optional cookies and similar storage {site} may use. Essential ones are always on because the site cannot work without them. You can change your choice at any time from Cookie settings in the footer.",
       "dialogTitle": "Cookie preferences",
@@ -17,13 +17,15 @@
         "session": "Session",
         "years": "{count, plural, one {# year} other {# years}}"
       },
+      "functionalDesc": "Remembers things that make the site easier for you, such as the products you recently viewed on this device. Nothing here is used for advertising.",
+      "functionalTitle": "Preferences and personalisation",
       "gpcNote": "Your browser's Global Privacy Control signal is on, so marketing stays off unless you switch it on here.",
       "kind": {
         "cookie": "Cookie",
         "localStorage": "Local storage",
         "sessionStorage": "Session storage"
       },
-      "marketingDesc": "Remembers an anonymous visitor ID, which sponsored listing you clicked and where you came from (campaign links), how often we show supplier-quote prompts, and the products you recently viewed on this device.",
+      "marketingDesc": "Remembers an anonymous visitor ID, which sponsored listing you clicked and where you came from (campaign links), and how often we show supplier-quote prompts.",
       "marketingTitle": "Marketing and attribution",
       "necessaryDesc": "Needed for sign-in, security, your language and delivery pincode, and to remember this choice. They cannot be switched off.",
       "necessaryTitle": "Strictly necessary",
@@ -67,7 +69,7 @@
       "alwaysActive": "हमेशा चालू",
       "analyticsDesc": "Microsoft Clarity गुमनाम उपयोग (क्लिक, स्क्रॉल, पेज व्यू) रिकॉर्ड करता है ताकि हम समस्याएँ ढूँढकर ठीक कर सकें। फ़ॉर्म में भरी जानकारी छिपा दी जाती है।",
       "analyticsTitle": "एनालिटिक्स",
-      "bannerText": "{site}, डेटा फ़िड्यूशियरी के रूप में, इस साइट को चलाने के लिए ज़रूरी कुकी इस्तेमाल करता है। आपकी अनुमति से हम साइट को बेहतर बनाने के लिए एनालिटिक्स कुकी और अभियानों को मापने के लिए मार्केटिंग कुकी भी इस्तेमाल करते हैं। आपके स्वीकार किए बिना कोई वैकल्पिक कुकी इस्तेमाल नहीं होती। <link>कुकी नीति</link>",
+      "bannerText": "{site}, डेटा फ़िड्यूशियरी के रूप में, इस साइट को चलाने के लिए ज़रूरी कुकी इस्तेमाल करता है। आपकी अनुमति से हम साइट को बेहतर बनाने के लिए एनालिटिक्स कुकी, अभियानों को मापने के लिए मार्केटिंग कुकी और हाल में देखे प्रोडक्ट जैसी बातें याद रखने के लिए पसंद वाली कुकी भी इस्तेमाल करते हैं। आपके स्वीकार किए बिना कोई वैकल्पिक कुकी इस्तेमाल नहीं होती। <link>कुकी नीति</link>",
       "customise": "अपनी पसंद चुनें",
       "dialogIntro": "चुनें कि {site} कौन-सी वैकल्पिक कुकी और इसी तरह का स्टोरेज इस्तेमाल कर सकता है। ज़रूरी कुकी हमेशा चालू रहती हैं क्योंकि उनके बिना साइट काम नहीं कर सकती। आप अपनी पसंद कभी भी फ़ुटर में \"कुकी सेटिंग\" से बदल सकते हैं।",
       "dialogTitle": "कुकी की पसंद",
@@ -79,13 +81,15 @@
         "session": "सेशन",
         "years": "{count, plural, one {# साल} other {# साल}}"
       },
+      "functionalDesc": "वे बातें याद रखता है जो साइट को आपके लिए आसान बनाती हैं, जैसे इस डिवाइस पर आपके हाल में देखे गए प्रोडक्ट। इसमें से कुछ भी विज्ञापन के लिए इस्तेमाल नहीं होता।",
+      "functionalTitle": "पसंद और वैयक्तिकरण",
       "gpcNote": "आपके ब्राउज़र का ग्लोबल प्राइवेसी कंट्रोल सिग्नल चालू है, इसलिए मार्केटिंग तब तक बंद रहती है जब तक आप उसे यहाँ चालू न करें।",
       "kind": {
         "cookie": "कुकी",
         "localStorage": "लोकल स्टोरेज",
         "sessionStorage": "सेशन स्टोरेज"
       },
-      "marketingDesc": "एक गुमनाम विज़िटर आईडी, आपने कौन-सी प्रायोजित लिस्टिंग खोली और आप कहाँ से आए (अभियान लिंक), सप्लायर-कोटेशन सुझाव हम कितनी बार दिखाते हैं, और इस डिवाइस पर आपने हाल में कौन-से प्रोडक्ट देखे, यह याद रखता है।",
+      "marketingDesc": "एक गुमनाम विज़िटर आईडी, आपने कौन-सी प्रायोजित लिस्टिंग खोली और आप कहाँ से आए (अभियान लिंक), और सप्लायर-कोटेशन सुझाव हम कितनी बार दिखाते हैं, यह याद रखता है।",
       "marketingTitle": "मार्केटिंग और एट्रिब्यूशन",
       "necessaryDesc": "साइन-इन, सुरक्षा, आपकी भाषा और डिलीवरी पिनकोड के लिए, और यह पसंद याद रखने के लिए ज़रूरी। इन्हें बंद नहीं किया जा सकता।",
       "necessaryTitle": "बिल्कुल ज़रूरी",
@@ -410,7 +414,7 @@
       "purpose": "nudgeSession"
     },
     {
-      "category": "marketing",
+      "category": "functional",
       "duration": {
         "unit": "persistent"
       },
@@ -421,5 +425,5 @@
     }
   ],
   "updated": "2026-10-02",
-  "version": 2
+  "version": 3
 }

@@ -18,7 +18,7 @@ when `NEXT_PUBLIC_CLARITY_PROJECT_ID` was set, so a normal first-time visitor wa
 | **GDPR Art 4(11), 7** and **ePrivacy Directive Art 5(3)** | Prior opt-in for anything non-essential (cookies **and** localStorage/sessionStorage, and third-party scripts); nothing pre-ticked; scrolling or continuing is not consent; Art 7(1) proof and Art 7(3) easy withdrawal. |
 | **EDPB Cookie Banner Taskforce report (Jan 2023)** | "Reject all" on the first layer, Accept and Reject with equal visual prominence, no cookie wall, no dark patterns, no pre-ticked boxes, no "legitimate interest" for tracking. |
 | **CNIL cookie guidance** | Consent choice is re-asked after **12 months** (CNIL maximum is 13); the refusal is remembered as long as an acceptance. |
-| **Global Privacy Control** (CCPA/CPRA regs 11 CCR 7025) | `navigator.globalPrivacyControl === true` or `Sec-GPC: 1` treats marketing as opted out: "Accept all" grants analytics only; the user can still switch marketing on explicitly. Recorded in the receipt. |
+| **Global Privacy Control** (CCPA/CPRA regs 11 CCR 7025) | `navigator.globalPrivacyControl === true` or `Sec-GPC: 1` treats marketing as opted out: "Accept all" grants analytics and preferences but not marketing; the user can still switch marketing on explicitly. GPC never affects the `functional` category (it is not a sale/share signal). Recorded in the receipt. |
 | **WCAG 2.2 AA** | Region landmark (not a fake dialog) for the banner; native `<dialog>` + `showModal()` (focus trap, Esc, inert page); switches are `role="switch"` with `aria-checked` and visible On/Off text; 44px targets; visible focus; 2.4.11 Focus Not Obscured handled by reserving the banner height; `prefers-reduced-motion`; scrollable tables are focusable regions. |
 
 ## UX (Mobbin reference)
@@ -43,6 +43,7 @@ no hydration mismatch.
 | Strictly necessary | none (always on) | sign-in/security, and things the user explicitly asked for or dismissed |
 | Analytics | opt-in | Microsoft Clarity (loaded only after opt-in; masked forms; never `identify`) |
 | Marketing and attribution | opt-in | visitor id, ad-click attribution, UTM/referrer attribution, lead-gen nudge history |
+| Preferences and personalisation (`functional`) | opt-in, default off | things that make the site easier but the visitor did not explicitly ask for, e.g. the "Recently viewed" rail. Consent is specific to this purpose (DPDP s.6(1), EDPB 05/2020 granularity), so it is NOT bundled into marketing. "Accept all" grants it; Global Privacy Control does not affect it |
 
 ### Cookie / storage classification
 
@@ -65,7 +66,7 @@ no hydration mismatch.
 | `cnote_attr` | sessionStorage | marketing | first party | session |
 | `cnote_lg_v1` | localStorage | marketing | first party | until cleared |
 | `cnote_lg_views`, `cnote_lg_session` | sessionStorage | marketing | first party | session |
-| `cnote_recent_v1` | localStorage | marketing (recently viewed product ids, device only; see `docs/design/buyer-convenience.md`) | first party | until cleared (entries expire after 30 days) |
+| `cnote_recent_v1` | localStorage | **functional** (recently viewed product ids, device only; see `docs/design/buyer-convenience.md`) | first party | until cleared (entries expire after 30 days) |
 
 ## Single source of truth
 
@@ -76,7 +77,7 @@ registry, and checks the shared-package cookies (auth, OAuth/MFA challenge, comp
 
 ## Consent record (cookie)
 
-`cnote_consent` = URL-encoded `v=1&id=<32 hex>&a=1&m=0&t=<unix s>&gpc=0`, first party, `Path=/`, `SameSite=Lax`, `Secure` on
+`cnote_consent` = URL-encoded `v=3&id=<32 hex>&a=1&m=0&f=0&t=<unix s>&gpc=0`, first party, `Path=/`, `SameSite=Lax`, `Secure` on
 https, **not** httpOnly (client islands read it), `Max-Age` = 12 months. Pure `parseConsent`/`serializeConsent`
 (`features/consent/state.ts`) are shared by client and server. `t` is strictly increasing per consent id (`buildConsent`), because
 the server dedupes receipts on `(id, t)`. A missing, malformed, expired (over 12 months), future-dated
@@ -109,7 +110,7 @@ appends a `CookieConsentReceipt` (`packages/db/prisma/schema/compliance.prisma`,
 |---|---|
 | `consent_id` | random 32 hex from the browser's `cnote_consent` (a browser, not a person) |
 | `policy_version` | `CONSENT_POLICY_VERSION` the notice was at |
-| `analytics`, `marketing` | per-category choice (necessary is always on and needs no consent) |
+| `analytics`, `marketing`, `functional` | per-category choice (necessary is always on and needs no consent); `functional` is `false` on rows from before it existed and when an older browser build omits it |
 | `gpc` | Global Privacy Control was on (cookie flag OR `Sec-GPC: 1`) |
 | `action` | `accept_all` / `reject_all` / `custom` / `withdraw` (any switch-off of something granted is `withdraw`) |
 | `locale` | language the notice was shown in |
@@ -130,7 +131,7 @@ review, like the other retention windows.
 When an erasure request is resolved (`respondToGrievance`, request type `erasure`), `anonymizeCookieConsentReceipts` sets
 `person_id = NULL` on that person's receipts in the same transaction and keeps the rest: the anonymous proof of what a browser was
 told and chose, which we may retain to demonstrate compliance until the 3-year purge. This is the single deliberate exception to
-"append-only". The identity ledger rows for `analytics_cookies` / `marketing_cookies` are withdrawn by `erasePerson` like every
+"append-only". The identity ledger rows for `analytics_cookies` / `marketing_cookies` / `functional_cookies` are withdrawn by `erasePerson` like every
 other purpose. Counsel to confirm.
 
 ### Reliable receipts
@@ -171,7 +172,7 @@ it to the consent log.
 ### Account sync (signed-in people)
 
 - **Write.** When `POST /api/consent` is called by a signed-in person it mirrors the choice into the identity consent ledger through
-  `@cnote/identity`'s public `setConsent` (purposes `analytics_cookies`, `marketing_cookies`; source `web_cookie_banner`), only for
+  `@cnote/identity`'s public `setConsent` (purposes `analytics_cookies`, `marketing_cookies`, `functional_cookies`; source `web_cookie_banner`), only for
   purposes that changed. The ledger write is best effort and never fails the receipt. Account forms skip these two purposes
   (`saveConsentsAction`), so saving the account page cannot withdraw them.
 - **Read.** `ConsentManager` (a client island, once per page load) calls `GET /api/consent/account` (`{signedIn, analytics:{granted,at},
@@ -208,7 +209,7 @@ Reject all. It complements the source-grep unit test, which cannot see what the 
 1. Add the entry to `STORAGE_REGISTRY` (`registry.ts`): name exactly as written by code, category, kind, provider, purpose
    key, duration (and `httpOnly` / `alsoServerSet` if the server writes it).
 2. Add `consent.purpose.<key>` (and any new duration/provider key) to **all 8** `apps/web/messages/*.json` catalogues.
-3. Non-essential keys must call `clientGranted("analytics" | "marketing")` (client) or read `cnote_consent` from the request
+3. Non-essential keys must call `clientGranted("analytics" | "marketing" | "functional")` (client) or read `cnote_consent` from the request
    (server) before writing. Strictly necessary keys need a one-line justification in the registry comment.
 4. **Bump `CONSENT_POLICY_VERSION` and `CONSENT_POLICY_UPDATED` (`state.ts`) and add a snapshot** (see "Policy version snapshots")
    whenever the registry or a notice string changes. The snapshot test enforces this, so a bump now accompanies even a strictly
@@ -255,3 +256,8 @@ detaches the person's cookie-consent receipts (see "Erasure" above).
   list or TC string. Revisit if that changes.
 - **Children's data: not applicable.** The product is B2B for registered businesses; we do not target or knowingly serve people under
   18 (DPDP s.9 verifiable parental consent and the ban on tracking children are not triggered). Revisit if a consumer surface is added.
+
+## Preferences and personalisation (`functional`), policy version 3
+
+Added with the buyer convenience features. Cookie format gains `f=0|1`; a cookie without `f` parses as "not granted" (and the version bump to 3 re-prompts everybody anyway). Policy version 2 was prepared in the PR but never released, so there is no `v2.json`: the snapshots are v1 and v3.
+End to end: `ConsentState`/`ConsentChoices.functional`, the registry (`cnote_recent_v1`), a third optional switch in the preferences dialog and on `/cookies` (rendered from `CATEGORIES`), `POST /api/consent` (`functional` optional, default false, for receipts queued by an older build), `cookie_consent_receipts.functional` (boolean, default false), identity purpose `functional_cookies` with account sync, the admin consent log (column, CSV column, grant counts), `requireConsent(req, "functional")`, and the cookie-audit e2e (a "preferences only" state).

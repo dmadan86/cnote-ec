@@ -17,7 +17,7 @@ Status: implemented. Related: ADR-002 (contact only after accept), ADR-005 (lead
 
 ## Recently viewed
 
-Device-local list of the last 12 product ids (30 days) in `localStorage["cnote_recent_v1"]`. Not strictly necessary, so it is stored only with the **marketing and attribution** consent (otherwise memory only, so nothing is remembered across pages). A dedicated "preferences" category would change the cookie format, the receipt table and the account ledger, so it is deferred; the registry, notice text (`marketingDesc`, `purpose.recentlyViewed`) and policy version (now 2, snapshot `v2.json`) say so plainly. No server sync (nothing to erase; the ids never leave the device). The rail is a client island on the home page and the PDP and reads public facts from `GET /api/recently-viewed?ids=` (stateless, live listings only).
+Device-local list of the last 12 product ids (30 days) in `localStorage["cnote_recent_v1"]`. Not strictly necessary, so it needs consent, and that consent must be specific to its purpose: it has its own opt-in category `functional` ("Preferences and personalisation", default off, granted by "Accept all", unaffected by Global Privacy Control). It is written only while `functional` is granted (otherwise memory only, so nothing is remembered across pages); withdrawal deletes the key. No server sync (nothing to erase; the ids never leave the device). See `cookie-consent.md` for the end-to-end category. The rail is a client island on the home page and the PDP and reads public facts from `GET /api/recently-viewed?ids=` (stateless, live listings only).
 
 ## Wishlist
 

@@ -3,7 +3,7 @@
 // resolves ids to public product facts through GET /api/recently-viewed, which is stateless).
 //
 // Consent (docs/design/buyer-convenience.md, docs/design/cookie-consent.md): remembering browsing history across visits is
-// personalisation, not strictly necessary. `cnote_recent_v1` is registered under the "marketing" category and is written
+// personalisation, not strictly necessary. `cnote_recent_v1` is registered under the "functional" (Preferences & personalisation) category and is written
 // ONLY while that category is granted. Without it the history lives in memory for the current page load (so the product
 // page you are on still works) and nothing touches storage. Withdrawal clears the key (applyConsent -> clientClearable).
 import { useSyncExternalStore } from "react";
@@ -19,7 +19,7 @@ const listeners = new Set<() => void>();
 let wired = false;
 
 function read(now = Date.now()): RecentEntry[] {
-  if (!clientGranted("marketing")) return memory;
+  if (!clientGranted("functional")) return memory;
   try {
     return parseRecent(localStorage.getItem(RECENT_KEY), now);
   } catch {
@@ -37,7 +37,7 @@ function publish(entries: RecentEntry[]) {
 
 function write(entries: RecentEntry[]) {
   memory = entries;
-  if (clientGranted("marketing")) {
+  if (clientGranted("functional")) {
     try {
       if (entries.length) localStorage.setItem(RECENT_KEY, serializeRecent(entries));
       else localStorage.removeItem(RECENT_KEY);
@@ -65,7 +65,7 @@ function wire() {
   wired = true;
   // A consent change (grant, withdraw, another tab) re-reads the right source.
   window.addEventListener(CONSENT_EVENT, () => {
-    if (!clientGranted("marketing")) memory = []; // withdrawal forgets the in-memory copy too
+    if (!clientGranted("functional")) memory = []; // withdrawal forgets the in-memory copy too
     publish(read());
   });
   window.addEventListener("storage", (e) => {

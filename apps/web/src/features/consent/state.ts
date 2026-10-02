@@ -1,9 +1,9 @@
 // Consent record (pure: no window/document/next imports, so route handlers, the proxy and client islands share it).
 //
 // The record lives in ONE first-party cookie, `cnote_consent`, holding a URL-encoded query string:
-//   v=1&id=<32 hex>&a=1&m=0&t=<unix seconds>&gpc=0
+//   v=3&id=<32 hex>&a=1&m=0&f=0&t=<unix seconds>&gpc=0
 // v = CONSENT_POLICY_VERSION, id = random consent id (links the receipt stored server-side), a = analytics,
-// m = marketing and attribution, t = when the choice was made, gpc = Global Privacy Control was on.
+// m = marketing and attribution, f = preferences & personalisation (functional; GPC does not affect it), t = when the choice was made, gpc = Global Privacy Control was on.
 // Strictly necessary storage needs no consent (DPDP s.7(a)/(b); ePrivacy Art 5(3) exemptions) so it has no flag.
 // Design + standards: docs/design/cookie-consent.md.
 
@@ -17,14 +17,14 @@ export const CONSENT_OPEN_EVENT = "cnote:consent-open";
  * Bump when a NEW non-essential purpose or provider is added, or an existing one changes materially: every stored
  * choice with an older version is treated as "no choice" and everybody is asked again (fresh, specific consent).
  */
-export const CONSENT_POLICY_VERSION = 2;
+export const CONSENT_POLICY_VERSION = 3;
 /** Shown on the cookie policy page. Update together with CONSENT_POLICY_VERSION. */
 export const CONSENT_POLICY_UPDATED = "2026-10-02";
 
 /** 12 months. Re-prompt after this; stays under CNIL's 13-month maximum for the lifetime of a consent choice. */
 export const CONSENT_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
 
-export const OPTIONAL_CATEGORIES = ["analytics", "marketing"] as const;
+export const OPTIONAL_CATEGORIES = ["analytics", "marketing", "functional"] as const;
 export type OptionalCategory = (typeof OPTIONAL_CATEGORIES)[number];
 export type ConsentAction = "accept_all" | "reject_all" | "custom" | "withdraw";
 export const CONSENT_ACTIONS: readonly ConsentAction[] = ["accept_all", "reject_all", "custom", "withdraw"];
@@ -32,6 +32,8 @@ export const CONSENT_ACTIONS: readonly ConsentAction[] = ["accept_all", "reject_
 export interface ConsentChoices {
   analytics: boolean;
   marketing: boolean;
+  /** Preferences & personalisation (e.g. recently viewed). Not affected by Global Privacy Control. */
+  functional: boolean;
 }
 
 export interface ConsentState extends ConsentChoices {
@@ -90,6 +92,9 @@ export function parseConsent(raw: string | null | undefined, now: number = Date.
   const id = p.get("id");
   const analytics = flag(p.get("a"));
   const marketing = flag(p.get("m"));
+  // `f` (functional) is absent from cookies written before it existed: that means "not granted", never an error.
+  const functional = p.get("f") === "1";
+  if (p.has("f") && flag(p.get("f")) === null) return null;
   const gpc = flag(p.get("gpc"));
   const at = Number(p.get("t"));
   if (version !== CONSENT_POLICY_VERSION) return null;
@@ -97,7 +102,7 @@ export function parseConsent(raw: string | null | undefined, now: number = Date.
   if (!Number.isInteger(at) || at <= 0) return null;
   const nowS = Math.floor(now / 1000);
   if (at > nowS + SKEW_SECONDS || nowS - at > CONSENT_MAX_AGE_SECONDS) return null;
-  return { version, id, analytics, marketing, gpc, at };
+  return { version, id, analytics, marketing, functional, gpc, at };
 }
 
 /** Cookie VALUE for a state (URL-encoded query string). */
@@ -107,6 +112,7 @@ export function serializeConsent(s: ConsentState): string {
   p.set("id", s.id);
   p.set("a", s.analytics ? "1" : "0");
   p.set("m", s.marketing ? "1" : "0");
+  p.set("f", s.functional ? "1" : "0");
   p.set("t", String(s.at));
   p.set("gpc", s.gpc ? "1" : "0");
   return encodeURIComponent(p.toString());
@@ -137,8 +143,8 @@ export const isGranted = (s: ConsentState | null | undefined, category: Optional
 export const marketingGrantedInHeader = (header: string | null | undefined, now?: number): boolean => isGranted(readConsentFromHeader(header, now), "marketing");
 
 /** What "Accept all" grants: everything, except marketing when the Global Privacy Control signal is on. */
-export const acceptAllChoices = (gpc: boolean): ConsentChoices => ({ analytics: true, marketing: !gpc });
-export const REJECT_ALL: ConsentChoices = { analytics: false, marketing: false };
+export const acceptAllChoices = (gpc: boolean): ConsentChoices => ({ analytics: true, marketing: !gpc, functional: true });
+export const REJECT_ALL: ConsentChoices = { analytics: false, marketing: false, functional: false };
 
 /**
  * The action to record: a choice that switches off something previously granted is a `withdraw`, whichever button was
@@ -163,6 +169,7 @@ export function buildConsent(
     id: o.prev?.id ?? newConsentId(),
     analytics: choices.analytics,
     marketing: choices.marketing,
+    functional: choices.functional,
     gpc: o.gpc,
     at,
   };

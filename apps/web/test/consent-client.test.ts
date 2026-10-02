@@ -53,32 +53,32 @@ describe("applyConsent", () => {
   it("Reject all writes a denied record, emits cnote:consent, and posts a reject_all receipt", () => {
     const f = fakeEnv();
     const s = rejectAll("en", f.env);
-    expect(s).toMatchObject({ analytics: false, marketing: false });
+    expect(s).toMatchObject({ analytics: false, marketing: false, functional: false });
     expect(readClientConsent(f.env)).toMatchObject({ analytics: false, marketing: false, id: s.id });
     expect(f.events).toEqual([s]);
-    expect(f.receipts).toEqual([{ consentId: s.id, policyVersion: s.version, analytics: false, marketing: false, gpc: false, action: "reject_all", locale: "en", at: s.at }]);
+    expect(f.receipts).toEqual([{ consentId: s.id, policyVersion: s.version, analytics: false, marketing: false, functional: false, gpc: false, action: "reject_all", locale: "en", at: s.at }]);
     expect(f.jar.has(CONSENT_COOKIE)).toBe(true);
   });
   it("Accept all grants both categories; with GPC on it grants analytics only and records gpc", () => {
     const a = fakeEnv();
-    expect(acceptAll("hi", a.env)).toMatchObject({ analytics: true, marketing: true, gpc: false });
-    expect(a.receipts[0]).toMatchObject({ action: "accept_all", locale: "hi", marketing: true });
+    expect(acceptAll("hi", a.env)).toMatchObject({ analytics: true, marketing: true, functional: true, gpc: false });
+    expect(a.receipts[0]).toMatchObject({ action: "accept_all", locale: "hi", marketing: true, functional: true });
     const g = fakeEnv({ gpc: true });
-    expect(acceptAll("en", g.env)).toMatchObject({ analytics: true, marketing: false, gpc: true });
-    expect(g.receipts[0]).toMatchObject({ action: "accept_all", marketing: false, gpc: true });
+    expect(acceptAll("en", g.env)).toMatchObject({ analytics: true, marketing: false, functional: true, gpc: true }); // GPC switches marketing off, never functional
+    expect(g.receipts[0]).toMatchObject({ action: "accept_all", marketing: false, functional: true, gpc: true });
   });
   it("a user can still explicitly switch marketing on despite GPC (custom choice)", () => {
     const g = fakeEnv({ gpc: true });
-    expect(applyConsent({ analytics: false, marketing: true }, "custom", "en", g.env)).toMatchObject({ marketing: true, gpc: true });
+    expect(applyConsent({ analytics: false, marketing: true, functional: false }, "custom", "en", g.env)).toMatchObject({ marketing: true, functional: false, gpc: true });
     expect(clientGranted("marketing", g.env)).toBe(true);
   });
   it("withdrawal deletes that category's client storage and cookies (incl. Clarity's) and is recorded as withdraw", () => {
     const f = fakeEnv({ host: "www.example.in", cookies: { _clck: "x", _clsk: "y", cnote_vid: "v1", cnote_locale: "hi" }, local: ["cnote_lg_v1", "cnote_lang_suggestion_dismissed"], session: ["cnote_attr", "cnote_lg_views", "cnote_lg_session"] });
-    applyConsent({ analytics: true, marketing: true }, "custom", "en", f.env); // start from a granted state
+    applyConsent({ analytics: true, marketing: true, functional: false }, "custom", "en", f.env); // start from a granted state
     f.jar.set("_clck", "x");
     f.jar.set("cnote_vid", "v1");
     f.writes.length = 0;
-    const s = applyConsent({ analytics: true, marketing: false }, "custom", "en", f.env);
+    const s = applyConsent({ analytics: true, marketing: false, functional: false }, "custom", "en", f.env);
     expect(s.marketing).toBe(false);
     expect(f.receipts.at(-1)?.action).toBe("withdraw");
     expect(f.jar.has("cnote_vid")).toBe(false); // client-readable visitor id gone
@@ -87,7 +87,7 @@ describe("applyConsent", () => {
     expect(f.local.has("cnote_lang_suggestion_dismissed")).toBe(true); // strictly necessary: untouched
     expect(f.jar.get("cnote_locale")).toBe("hi");
     expect(f.jar.has("_clck")).toBe(true); // analytics still granted
-    applyConsent({ analytics: false, marketing: false }, "reject_all", "en", f.env);
+    applyConsent({ analytics: false, marketing: false, functional: false }, "reject_all", "en", f.env);
     expect(f.jar.has("_clck")).toBe(false);
     expect(f.jar.has("_clsk")).toBe(false);
     expect(f.receipts.at(-1)?.action).toBe("withdraw");
@@ -188,8 +188,8 @@ describe("reliable receipts (pending outbox)", () => {
     expect(new Set(f.receipts.map((r) => `${r.consentId}:${r.at}`)).size).toBe(2);
   });
   it("only trusts well-formed stored receipts", () => {
-    expect(isReceiptBody({ consentId: "a".repeat(32), policyVersion: 1, analytics: true, marketing: false, gpc: false, action: "custom", locale: "en", at: 1 })).toBe(true);
-    for (const bad of [null, "x", {}, { consentId: "short" }, { consentId: "a".repeat(32), policyVersion: 1, analytics: true, marketing: false, gpc: false, action: "custom", locale: "en" }]) expect(isReceiptBody(bad)).toBe(false);
+    expect(isReceiptBody({ consentId: "a".repeat(32), policyVersion: 1, analytics: true, marketing: false, functional: false, gpc: false, action: "custom", locale: "en", at: 1 })).toBe(true);
+    for (const bad of [null, "x", {}, { consentId: "short" }, { consentId: "a".repeat(32), policyVersion: 1, analytics: true, marketing: false, functional: false, gpc: false, action: "custom", locale: "en" }]) expect(isReceiptBody(bad)).toBe(false);
   });
 });
 
@@ -201,8 +201,13 @@ describe("syncFromAccount", () => {
     const f = fakeEnv();
     const adopted = await syncFromAccount("en", f.env, async () => ledger({ analytics: { granted: true, at: nowS - 100 }, marketing: { granted: false, at: nowS - 50 } }));
     expect(adopted).toBe(true);
-    expect(readClientConsent(f.env)).toMatchObject({ analytics: true, marketing: false });
+    expect(readClientConsent(f.env)).toMatchObject({ analytics: true, marketing: false, functional: false }); // no ledger row for functional: not granted
     expect(f.flags.get(CONSENT_SYNC_KEY)).toBe("1");
+  });
+  it("adopts a functional grant from the ledger like any other purpose", async () => {
+    const f = fakeEnv();
+    await syncFromAccount("en", f.env, async () => ledger({ functional: { granted: true, at: nowS - 10 } }));
+    expect(readClientConsent(f.env)).toMatchObject({ analytics: false, marketing: false, functional: true });
   });
   it("does nothing for anonymous visitors, offline, or an empty ledger", async () => {
     expect(await syncFromAccount("en", fakeEnv().env, async () => ({ signedIn: false, analytics: null, marketing: null }))).toBe(false);
@@ -214,7 +219,7 @@ describe("syncFromAccount", () => {
     const mine = acceptAll("en", f.env); // cookie: both granted at NOW
     const adopted = await syncFromAccount("en", f.env, async () => ledger({ analytics: { granted: true, at: nowS - 10 }, marketing: { granted: false, at: mine.at + 60 } }));
     expect(adopted).toBe(true);
-    expect(readClientConsent(f.env)).toMatchObject({ analytics: true, marketing: false });
+    expect(readClientConsent(f.env)).toMatchObject({ analytics: true, marketing: false, functional: true });
     expect(f.receipts.at(-1)?.action).toBe("withdraw");
     expect(f.jar.has("cnote_vid")).toBe(false);
   });
@@ -224,7 +229,7 @@ describe("syncFromAccount", () => {
     let calls = 0;
     const load = async () => (calls++, ledger({ analytics: { granted: false, at: nowS - 500 }, marketing: { granted: false, at: nowS - 500 } }));
     expect(await syncFromAccount("en", f.env, load)).toBe(false);
-    expect(readClientConsent(f.env)).toMatchObject({ analytics: true, marketing: true });
+    expect(readClientConsent(f.env)).toMatchObject({ analytics: true, marketing: true, functional: true });
     expect(await syncFromAccount("en", f.env, load)).toBe(false);
     expect(calls).toBe(1);
   });

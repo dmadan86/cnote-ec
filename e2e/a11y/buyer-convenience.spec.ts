@@ -23,8 +23,8 @@ const seed = (cmd: "unlock" | "save", email: string, listingId: string): Record<
 };
 const listingIdOf = (href: string) => href.slice(-36);
 
-const marketingConsent = () =>
-  serializeConsent({ version: CONSENT_POLICY_VERSION, id: newConsentId(), analytics: false, marketing: true, gpc: false, at: Math.floor(Date.now() / 1000) - 60 });
+const functionalConsent = () =>
+  serializeConsent({ version: CONSENT_POLICY_VERSION, id: newConsentId(), analytics: false, marketing: false, functional: true, gpc: false, at: Math.floor(Date.now() / 1000) - 60 });
 
 async function productHrefs(page: Page, n: number): Promise<string[]> {
   await page.goto("/search?q=box");
@@ -79,7 +79,7 @@ test.describe("supplier contact after unlock", () => {
 });
 
 test.describe("recently viewed", () => {
-  test("stores nothing without marketing consent and shows no rail", async ({ page }) => {
+  test("stores nothing without functional consent and shows no rail", async ({ page }) => {
     const [a, b] = await productHrefs(page, 2);
     await page.goto(a!);
     await settle(page);
@@ -91,8 +91,8 @@ test.describe("recently viewed", () => {
     expect(await page.evaluate(() => localStorage.getItem("cnote_recent_v1"))).toBeNull();
   });
 
-  test("with marketing consent it remembers on this device, shows the rail on home and the product page, and can be cleared", async ({ page, context }, info) => {
-    await context.addCookies([{ name: CONSENT_COOKIE, value: marketingConsent(), url: WEB_URL }]);
+  test("with preferences (functional) consent it remembers on this device, shows the rail on home and the product page, and can be cleared", async ({ page, context }, info) => {
+    await context.addCookies([{ name: CONSENT_COOKIE, value: functionalConsent(), url: WEB_URL }]);
     const [a, b] = await productHrefs(page, 2);
     await page.goto(a!);
     await settle(page);

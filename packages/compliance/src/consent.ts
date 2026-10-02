@@ -24,6 +24,8 @@ export const cookieConsentSchema = z
     policyVersion: z.number().int().min(1).max(10_000),
     analytics: z.boolean(),
     marketing: z.boolean(),
+    /** Preferences & personalisation. Optional so a receipt queued by an older browser build (no such field) still validates as false. */
+    functional: z.boolean().default(false),
     gpc: z.boolean(),
     action: z.enum(COOKIE_CONSENT_ACTIONS),
     locale: z.enum(CONSENT_LOCALES),
@@ -32,7 +34,7 @@ export const cookieConsentSchema = z
   })
   .strict()
   .refine((v) => v.action !== "accept_all" || v.analytics, { message: "accept_all must include analytics", path: ["action"] })
-  .refine((v) => v.action !== "reject_all" || (!v.analytics && !v.marketing), { message: "reject_all must not grant anything", path: ["action"] });
+  .refine((v) => v.action !== "reject_all" || (!v.analytics && !v.marketing && !v.functional), { message: "reject_all must not grant anything", path: ["action"] });
 
 export type CookieConsentInput = z.input<typeof cookieConsentSchema>;
 
@@ -42,6 +44,7 @@ export interface CookieConsentReceiptView {
   policyVersion: number;
   analytics: boolean;
   marketing: boolean;
+  functional: boolean;
   gpc: boolean;
   action: CookieConsentAction;
   locale: string;
@@ -60,6 +63,7 @@ const toView = (r: ReceiptRow): CookieConsentReceiptView => ({
   policyVersion: r.policyVersion,
   analytics: r.analytics,
   marketing: r.marketing,
+  functional: r.functional,
   gpc: r.gpc,
   action: r.action as CookieConsentAction,
   locale: r.locale,
@@ -85,7 +89,7 @@ export async function recordCookieConsent(
   const personId = ctx.personId && isUuid(ctx.personId) ? ctx.personId : null;
   const registryHash = ctx.registryHash && HASH_RE.test(ctx.registryHash) ? ctx.registryHash : null;
   const clientAt = v.at ?? null;
-  const data = { consentId: v.consentId, policyVersion: v.policyVersion, analytics: v.analytics, marketing: v.marketing, gpc: v.gpc, action: v.action, locale: v.locale, personId, clientAt, registryHash };
+  const data = { consentId: v.consentId, policyVersion: v.policyVersion, analytics: v.analytics, marketing: v.marketing, functional: v.functional, gpc: v.gpc, action: v.action, locale: v.locale, personId, clientAt, registryHash };
   if (clientAt === null) {
     const row = await prisma.cookieConsentReceipt.create({ data });
     return { id: row.id, createdAt: row.createdAt.toISOString(), duplicate: false };
@@ -190,17 +194,20 @@ export interface CookieConsentStats {
   daily: { day: string; accept_all: number; reject_all: number; custom: number; withdraw: number; total: number }[];
   byLocale: { locale: string; accept_all: number; reject_all: number; custom: number; withdraw: number; total: number }[];
   gpc: { total: number; withGpc: number; /** 0..1, 0 when there are no receipts */ share: number };
+  /** receipts whose choice had each category on (a receipt is a choice event, not a person) */
+  granted: { analytics: number; marketing: number; functional: number };
 }
 
 const DAY_MS = 86_400_000;
 
 /** Pure fold of (day, locale, action, gpc, n) rows into the stats shape (exported for tests). */
-export function foldConsentStats(rows: { day: string; locale: string; action: string; gpc: boolean; n: number }[], range: { from: Date; to: Date }): CookieConsentStats {
+export function foldConsentStats(rows: { day: string; locale: string; action: string; gpc: boolean; n: number; analytics?: number; marketing?: number; functional?: number }[], range: { from: Date; to: Date }): CookieConsentStats {
   const blank = () => ({ accept_all: 0, reject_all: 0, custom: 0, withdraw: 0, total: 0 });
   const days = new Map<string, ReturnType<typeof blank>>();
   const locales = new Map<string, ReturnType<typeof blank>>();
   let total = 0;
   let withGpc = 0;
+  const granted = { analytics: 0, marketing: 0, functional: 0 };
   for (const r of rows) {
     if (!(COOKIE_CONSENT_ACTIONS as readonly string[]).includes(r.action)) continue;
     const a = r.action as CookieConsentAction;
@@ -212,6 +219,9 @@ export function foldConsentStats(rows: { day: string; locale: string; action: st
     locales.set(r.locale, l);
     total += r.n;
     if (r.gpc) withGpc += r.n;
+    granted.analytics += r.analytics ?? 0;
+    granted.marketing += r.marketing ?? 0;
+    granted.functional += r.functional ?? 0;
   }
   return {
     from: range.from.toISOString(),
@@ -220,6 +230,7 @@ export function foldConsentStats(rows: { day: string; locale: string; action: st
     daily: [...days].sort(([a], [b]) => a.localeCompare(b)).map(([day, c]) => ({ day, ...c })),
     byLocale: [...locales].sort(([, a], [, b]) => b.total - a.total).map(([locale, c]) => ({ locale, ...c })),
     gpc: { total, withGpc, share: total ? withGpc / total : 0 },
+    granted,
   };
 }
 
@@ -234,8 +245,9 @@ export async function cookieConsentStats(o: { from?: Date; to?: Date; policyVers
   if (from >= to) throw new DomainError("validation", "The start date must be before the end date", { field: "from" });
   if (to.getTime() - from.getTime() > 366 * DAY_MS) throw new DomainError("validation", "Choose a range of at most 366 days", { field: "from" });
   const version = o.policyVersion !== undefined ? Prisma.sql`AND policy_version = ${o.policyVersion}` : Prisma.empty;
-  const rows = await prisma.$queryRaw<{ day: string; locale: string; action: string; gpc: boolean; n: number }[]>(Prisma.sql`
-    SELECT to_char(created_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') AS day, locale, action, gpc, count(*)::int AS n
+  const rows = await prisma.$queryRaw<{ day: string; locale: string; action: string; gpc: boolean; n: number; analytics: number; marketing: number; functional: number }[]>(Prisma.sql`
+    SELECT to_char(created_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') AS day, locale, action, gpc, count(*)::int AS n,
+           count(*) FILTER (WHERE analytics)::int AS analytics, count(*) FILTER (WHERE marketing)::int AS marketing, count(*) FILTER (WHERE functional)::int AS functional
     FROM cookie_consent_receipts
     WHERE created_at >= ${from} AND created_at < ${to} ${version}
     GROUP BY 1, 2, 3, 4`);

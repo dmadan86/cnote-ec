@@ -48,7 +48,8 @@ function StatsView({ stats }: { stats: CookieConsentStats }) {
           <CardHeader><CardTitle>Global Privacy Control</CardTitle></CardHeader>
           <CardBody className="text-sm">
             <p className="text-3xl font-semibold text-ink">{pct(stats.gpc.share)}</p>
-            <p className="text-muted">{stats.gpc.withGpc} of {stats.gpc.total} receipts were made with GPC on (marketing is never pre-granted for them).</p>
+            <p className="text-muted">{stats.gpc.withGpc} of {stats.gpc.total} receipts were made with GPC on (marketing is never pre-granted for them; GPC does not affect preferences/functional).</p>
+            <p className="mt-2 text-muted">Choices with each category on: analytics {stats.granted.analytics}, marketing {stats.granted.marketing}, preferences {stats.granted.functional} (of {stats.total}).</p>
           </CardBody>
         </Card>
         <Card>
@@ -122,7 +123,7 @@ export default async function ConsentLogPage({ searchParams }: PageProps<"/compl
         <>
           <Table>
             <caption className="sr-only">Cookie consent receipts, newest first</caption>
-            <thead><tr><Th>Recorded</Th><Th>Action</Th><Th>Analytics</Th><Th>Marketing</Th><Th>GPC</Th><Th>Policy</Th><Th>Lang</Th><Th>Consent ID</Th><Th>Person</Th></tr></thead>
+            <thead><tr><Th>Recorded</Th><Th>Action</Th><Th>Analytics</Th><Th>Marketing</Th><Th>Functional</Th><Th>GPC</Th><Th>Policy</Th><Th>Lang</Th><Th>Consent ID</Th><Th>Person</Th></tr></thead>
             <tbody>
               {page.items.map((r) => (
                 <tr key={r.id}>
@@ -130,6 +131,7 @@ export default async function ConsentLogPage({ searchParams }: PageProps<"/compl
                   <Td><Badge tone={ACTION_TONE[r.action]}>{r.action.replace("_", " ")}</Badge></Td>
                   <Td>{r.analytics ? "On" : "Off"}</Td>
                   <Td>{r.marketing ? "On" : "Off"}</Td>
+                  <Td>{r.functional ? "On" : "Off"}</Td>
                   <Td>{r.gpc ? "Yes" : "No"}</Td>
                   <Td className="whitespace-nowrap">v{r.policyVersion}{r.registryHash ? <> <Mono>{r.registryHash.slice(0, 8)}</Mono></> : null}</Td>
                   <Td>{r.locale}</Td>

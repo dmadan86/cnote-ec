@@ -36,15 +36,15 @@ describe("recently viewed: pure list", () => {
 });
 
 describe("recently viewed: consent registration", () => {
-  it("is registered as marketing localStorage (not strictly necessary) and cleared on withdrawal", () => {
+  it("is registered as functional localStorage (not strictly necessary) and cleared on withdrawal", () => {
     const e = STORAGE_REGISTRY.find((x) => x.name === "cnote_recent_v1");
-    expect(e).toMatchObject({ category: "marketing", kind: "localStorage", purpose: "recentlyViewed" });
-    expect(clientClearable("marketing").map((x) => x.name)).toContain("cnote_recent_v1");
+    expect(e).toMatchObject({ category: "functional", kind: "localStorage", purpose: "recentlyViewed" });
+    expect(clientClearable("functional").map((x) => x.name)).toContain("cnote_recent_v1");
   });
 });
 
-const consentCookie = (marketing: boolean) =>
-  `${CONSENT_COOKIE}=${serializeConsent({ version: CONSENT_POLICY_VERSION, id: "c".repeat(32), analytics: false, marketing, gpc: false, at: Math.floor(Date.now() / 1000) - 5 })}`;
+const consentCookie = (functional: boolean) =>
+  `${CONSENT_COOKIE}=${serializeConsent({ version: CONSENT_POLICY_VERSION, id: "c".repeat(32), analytics: false, marketing: false, functional, gpc: false, at: Math.floor(Date.now() / 1000) - 5 })}`;
 
 function browser(cookie: string) {
   const m = new Map<string, string>();
@@ -59,7 +59,7 @@ describe("recently viewed: storage follows consent", () => {
   beforeEach(() => vi.resetModules());
   afterEach(() => vi.unstubAllGlobals());
 
-  it("writes NOTHING to storage without marketing consent, but keeps the list in memory for the page", async () => {
+  it("writes NOTHING to storage without functional consent, but keeps the list in memory for the page", async () => {
     const b = browser("");
     const s = await import("@/features/recently-viewed/store");
     s.recordView(ID(1));
@@ -68,7 +68,7 @@ describe("recently viewed: storage follows consent", () => {
     expect(b.m.size).toBe(0);
   });
 
-  it("writes cnote_recent_v1 once marketing is granted, and clearing removes it", async () => {
+  it("writes cnote_recent_v1 once functional is granted, and clearing removes it", async () => {
     const b = browser(consentCookie(true));
     const s = await import("@/features/recently-viewed/store");
     s.recordView(ID(1));
@@ -77,7 +77,7 @@ describe("recently viewed: storage follows consent", () => {
     expect(b.m.has("cnote_recent_v1")).toBe(false);
   });
 
-  it("does not write when marketing was explicitly rejected", async () => {
+  it("does not write when functional was explicitly rejected", async () => {
     const b = browser(consentCookie(false));
     const s = await import("@/features/recently-viewed/store");
     s.recordView(ID(1));
