@@ -4,6 +4,7 @@ import { sitemapLanguages } from "@/lib/seo-i18n";
 import { absoluteUrl } from "@/lib/site-url";
 import { loadCategories, loadLandingKeywords, loadListingIndex, loadSellerIndex } from "@/features/search/data";
 import { CONSENT_POLICY_UPDATED } from "@/features/consent/state";
+import { LEGAL_DOCS } from "@/features/legal/docs";
 import { ARTICLES, helpPath, TOPIC_IDS } from "@/features/help/articles";
 import { CHUNK, sitemapLayout } from "@/features/seo/sitemap-layout";
 import { topStorefrontSlugs } from "@/features/storefront/data";
@@ -39,6 +40,16 @@ export default async function sitemap(props: { id: Promise<string> }): Promise<M
       { url: absoluteUrl("/manufacturers"), alternates: alt("/manufacturers"), lastModified: now, changeFrequency: "daily", priority: 0.8 },
       { url: absoluteUrl("/pricing"), alternates: alt("/pricing"), lastModified: now, changeFrequency: "monthly", priority: 0.4 },
       { url: absoluteUrl("/cookies"), alternates: alt("/cookies"), lastModified: new Date(CONSENT_POLICY_UPDATED), changeFrequency: "yearly", priority: 0.2 },
+      // Policy and information pages (features/legal): versioned documents carry their effective date as lastModified.
+      ...(
+        [
+          ["/terms", "terms"],
+          ["/privacy", "privacy"],
+          ["/refund-policy", "refund"],
+          ["/prohibited-items", "prohibited"],
+        ] as const
+      ).map(([path, doc]) => ({ url: absoluteUrl(path), alternates: alt(path), lastModified: new Date(LEGAL_DOCS[doc].effective), changeFrequency: "yearly" as const, priority: 0.3 })),
+      ...(["/about", "/contact", "/trust", "/accessibility", "/security", "/report", "/sitemap"] as const).map((path) => ({ url: absoluteUrl(path), alternates: alt(path), lastModified: now, changeFrequency: "yearly" as const, priority: 0.3 })),
       { url: absoluteUrl("/help"), alternates: alt("/help"), lastModified: now, changeFrequency: "monthly", priority: 0.5 },
       ...HELP_PATHS.map((path) => ({ url: absoluteUrl(path), alternates: alt(path), lastModified: now, changeFrequency: "monthly" as const, priority: 0.4 })),
       ...categories.map((c) => ({ url: absoluteUrl(categoryPath(c.slug)), alternates: alt(categoryPath(c.slug)), lastModified: now, changeFrequency: "daily" as const, priority: 0.8 })),

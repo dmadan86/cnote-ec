@@ -4,14 +4,15 @@ import type { CatalogueLocale } from "./config";
 import en from "../../messages/en.json";
 
 export type Messages = typeof en;
-type Json = { [k: string]: Json | string };
+type Json = { [k: string]: Json | Json[] | string | string[] };
 
 function merge(base: Json, over: Json): Json {
   const out: Json = { ...base };
   for (const [k, v] of Object.entries(over)) {
     if (k.startsWith("_")) continue; // _todo / _meta markers are not messages
     const b = out[k];
-    out[k] = typeof v === "object" && v !== null && typeof b === "object" && b !== null ? merge(b, v) : v;
+    // Arrays (e.g. legal page sections) are replaced as a whole: spreading one into an object would break its shape.
+    out[k] = typeof v === "object" && v !== null && !Array.isArray(v) && typeof b === "object" && b !== null && !Array.isArray(b) ? merge(b, v) : v;
   }
   return out;
 }
@@ -22,7 +23,7 @@ function merge(base: Json, over: Json): Json {
  * best-effort directory scan (server only, `messages/` next to the app) decides which names to try. A file whose top
  * level already has a `<namespace>` key is merged as-is; otherwise its content is placed under that namespace.
  */
-const KNOWN_NAMESPACE_FILES = ["a2a", "account", "actions", "ads", "buyer", "compare", "credit", "disputes", "escrow", "help", "negotiation", "prices", "promotions", "quality", "rail", "reachability", "search", "supplier", "errors", "states", "grievance", "notif", "orderTracking", "titles", "wishlist"];
+const KNOWN_NAMESPACE_FILES = ["a2a", "account", "actions", "ads", "buyer", "compare", "credit", "disputes", "escrow", "help", "negotiation", "prices", "promotions", "quality", "rail", "reachability", "search", "supplier", "errors", "states", "grievance", "legal", "notif", "orderTracking", "titles", "wishlist"];
 
 function discoverNamespaces(): string[] {
   const found = new Set(KNOWN_NAMESPACE_FILES);

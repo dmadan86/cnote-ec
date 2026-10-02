@@ -1,0 +1,6 @@
+# Security contact for the buyer web (RFC 9116). Replace the contact with the production security mailbox before launch.
+Contact: mailto:security@example.com
+Expires: 2027-10-02T00:00:00.000Z
+Preferred-Languages: en, hi
+Policy: https://example.com/security
+Canonical: https://example.com/.well-known/security.txt
