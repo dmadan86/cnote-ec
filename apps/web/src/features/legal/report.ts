@@ -22,9 +22,14 @@ export const DETAILS_MIN = 20;
 export const DETAILS_MAX = 3000;
 const URL_MAX = 2000;
 
-/** http(s) URLs only (no javascript: or data:), at most 2000 characters. */
+/** Control characters (CR, LF, tab, NUL...). The WHATWG URL parser silently STRIPS tab/CR/LF, so `new URL()` alone would accept them. */
+const CONTROL = /[\u0000-\u001f\u007f]/;
+/** Collapses CR/LF/tab runs to a space: user text that lands in a ticket subject, email subject or header must stay single-line. */
+export const singleLine = (v: string): string => v.replace(/[\r\n\t\u2028\u2029]+/g, " ").trim();
+
+/** http(s) URLs only (no javascript: or data:), at most 2000 characters, no control characters. */
 export function isHttpUrl(v: string): boolean {
-  if (v.length > URL_MAX) return false;
+  if (v.length > URL_MAX || CONTROL.test(v)) return false;
   try {
     const u = new URL(v);
     return u.protocol === "http:" || u.protocol === "https:";
@@ -63,16 +68,17 @@ export function validateReport(raw: Record<string, unknown>): ReportResult {
   if (proof && !isHttpUrl(proof)) errors.proof = "proofInvalid";
   if (raw.declaration !== "on" && raw.declaration !== "true") errors.declaration = "declarationRequired";
   if (Object.keys(errors).length) return { ok: false, errors };
-  return { ok: true, value: { url, type: type as ReportType, name: name.slice(0, 120), email, details, proof } };
+  // store the normalised href, never the raw text (defence in depth against header/subject injection)
+  return { ok: true, value: { url: new URL(url).href, type: type as ReportType, name: singleLine(name).slice(0, 120), email, details, proof: proof ? new URL(proof).href : "" } };
 }
 
 /** Subject (<= 200) and body (<= 5000) of the grievance ticket carrying the report. */
 export function reportToTicket(r: ReportInput): { subject: string; body: string } {
-  const subject = `Report [${r.type}] ${r.url}`.slice(0, 200);
+  const subject = singleLine(`Report [${r.type}] ${r.url}`).slice(0, 200);
   const body = [
     `Type: ${r.type}`,
     `Reported URL: ${r.url}`,
-    `Claimant: ${r.name} <${r.email}>`,
+    `Claimant: ${singleLine(r.name)} <${r.email}>`,
     r.proof ? `Proof: ${r.proof}` : null,
     "Good-faith declaration: accepted",
     "",

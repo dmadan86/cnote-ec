@@ -61,6 +61,7 @@ const TABLE: Row[] = [
   { key: "lead.reachability_result", event: ev("ReachabilityChecked", { checkId: "c", enquiryId: "e", matchId: "m", channel: "sms", status: "responded", sellerBusinessId: SB }), people: ["s1", "s2"], href: "/leads" },
   { key: "message.digest", event: ev("MessageSent", { conversationId: "c", senderPersonId: "s1" }), people: [] }, // pipeline-only digest kind: never resolved from an event
   { key: "deal.confirm_requested", event: ev("DealClaimedBySeller", { matchId: "m", sellerBusinessId: SB, buyerBusinessId: BB, conversationId: "c" }), people: ["b1"], vars: { sellerName: "Sharma", enquiryTitle: "Yarn" }, href: "/conversations/c" },
+  { key: "domain.claim_superseded", event: ev("DomainClaimSuperseded", { domainId: "d", storefrontId: "sf", sellerBusinessId: SB, hostname: "www.acme.com", reason: "expired" }), people: ["s1", "s2"], href: "/storefront/domains", vars: { hostname: "www.acme.com" } },
 ];
 const NONE: { key: string; event: ReturnType<typeof ev>; note: string }[] = [
   { key: "enquiry.under_review", event: ev("EnquiryScored", { enquiryId: "e", needsReview: false }), note: "no review needed" },
@@ -245,5 +246,17 @@ describe("ops helpers and channels", () => {
     setChannelAdapter({ channel: "whatsapp", reset: true });
     expect(getChannelAdapter("whatsapp").channel).toBe("whatsapp");
     expect(getChannelAdapter("whatsapp")).not.toHaveProperty("sent");
+  });
+});
+
+describe("domain.claim_superseded (anti-squatting notice)", () => {
+  it.each([
+    ["other_party_verified", /another party verified/],
+    ["expired", /not verified within/],
+  ])("tells the losing claimant's team why (%s)", async (reason, why) => {
+    const out = await getKind("domain.claim_superseded")!.resolve(ev("DomainClaimSuperseded", { domainId: "d", storefrontId: "sf", sellerBusinessId: SB, hostname: "www.acme.com", reason }) as never, dir());
+    expect(out.map((r) => r.personId).sort()).toEqual(["s1", "s2"]);
+    expect(out[0]).toMatchObject({ href: "/storefront/domains", vars: { hostname: "www.acme.com" } });
+    expect(String(out[0]!.vars.reason)).toMatch(why);
   });
 });

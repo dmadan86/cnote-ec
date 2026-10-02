@@ -214,6 +214,27 @@ export const KINDS: NotificationKind[] = [
     },
   }),
   kind({
+    key: "domain.claim_superseded",
+    name: "Domain claim ended",
+    description: "A pending (not yet DNS-verified) custom-domain claim was dropped because another party verified the domain first, or it expired.",
+    category: "listings",
+    app: "seller",
+    event: "DomainClaimSuperseded",
+    variables: [v("hostname", "Domain name", "www.example.com"), v("reason", "Why the claim ended", "another party verified ownership first"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "Domain claim ended: {{hostname}}", body: "Your pending claim on {{hostname}} ended because {{reason}}. If the domain is yours, add it again and publish the DNS records, or contact support." },
+      email: { subject: "Your claim on {{hostname}} ended", body: "Hi {{recipientName}},\n\nYour pending claim on {{hostname}} ended because {{reason}}.\n\nIf the domain is yours, add it again and publish the DNS records, or contact support so we can help you prove ownership: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"DomainClaimSuperseded">, dir) {
+      const people = await membersOf(dir, e.payload.sellerBusinessId);
+      return fan(people, {
+        businessId: e.payload.sellerBusinessId,
+        vars: { hostname: e.payload.hostname, reason: e.payload.reason === "expired" ? "it was not verified within the allowed time" : "another party verified ownership of the domain first" },
+        href: "/storefront/domains",
+      });
+    },
+  }),
+  kind({
     key: "review.moderated",
     name: "Your review was reviewed",
     description: "Tells a review author whether their review was published.",

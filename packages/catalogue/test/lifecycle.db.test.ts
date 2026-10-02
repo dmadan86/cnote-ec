@@ -12,12 +12,14 @@ vi.mock("@cnote/ai", () => ({
   moderate: async (i: { text: string }) => ({
     verdict: /blockme/i.test(i.text) ? "block" : /reviewme/i.test(i.text) ? "review" : "allow",
     flags: /blockme/i.test(i.text) ? ["bad"] : [], reason: /blockme/i.test(i.text) ? "policy" : null, decisionId: "d", confidence: 0.9,
-    needsReview: /flagme/i.test(i.text),
+    needsReview: /flagme/i.test(i.text), deterministic: "clean",
   }),
   extractListing: async () => aiMock.extract?.(),
 }));
 
 process.env.PREVIEW_TOKEN_SECRET ??= "test-preview-secret";
+process.env.LISTING_AUTO_APPROVE_MIN_HUMAN_APPROVED = "0";
+process.env.LISTING_AUTO_APPROVE_SAMPLE_RATE = "0";
 const cat = await import("../src/index");
 const live = await import("../src/live");
 const { invalidateTags, cacheTags } = await import("@cnote/core");
@@ -29,7 +31,7 @@ const bizIds: string[] = [];
 const staff = randomUUID();
 
 const mkSeller = async (tier: number, trust: number, name = "S") => {
-  const b = await prisma.business.create({ data: { name: `${name} ${tag}`, isSeller: true, verificationTier: tier, trustScore: trust } });
+  const b = await prisma.business.create({ data: { name: `${name} ${tag}`, isSeller: true, verificationTier: tier, trustScore: trust, createdAt: new Date(Date.now() - 90 * 86_400_000) } });
   bizIds.push(b.id);
   return b.id;
 };

@@ -312,7 +312,7 @@
       "domainNotFound": "Domain not found.",
       "tooManyAttemptsTryAgain": "Too many attempts. Please try again in an hour.",
       "connectUpDomainsRemoveOne": "You can connect up to {maxDomainsPerStorefront} domains. Remove one first.",
-      "domainAlreadyConnectedStorefrontIf": "That domain is already connected to a storefront. If it is yours, contact support.",
+      "domainAlreadyConnectedStorefrontIf": "We could not connect that domain. If it is yours, contact support and we will help you prove ownership.",
       "onlyDomainActiveMadePrimary": "Only a domain that is active can be made primary.",
       "reCheckedLotWaitFew": "You have re-checked a lot. Please wait a few minutes."
     },

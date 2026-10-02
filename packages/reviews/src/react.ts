@@ -1,6 +1,8 @@
 import { DomainError, rateLimit } from "@cnote/core";
 import { prisma, type Prisma } from "@cnote/db";
-import { REACTIONS_PER_HOUR, REPORT_THRESHOLD } from "./constants";
+import * as ai from "@cnote/ai";
+import { REACTIONS_PER_HOUR } from "./constants";
+import { countCredibleReporters, reportPolicy } from "./report-policy";
 import { bustQaCaches, bustReviewCaches } from "./cache";
 import { syncAnswered } from "./qa-state";
 import { recomputeSummary } from "./summary";
@@ -15,6 +17,8 @@ export interface ReactInput {
   kind: ReactionKind;
   /** required for "report" */
   reason?: string;
+  /** client IP (from clientIp()); reports are rate limited per IP as well as per person */
+  ip?: string | null;
 }
 
 const isUniqueViolation = (e: unknown) => typeof e === "object" && e !== null && (e as { code?: string }).code === "P2002";
@@ -84,8 +88,11 @@ async function flagIfApproved(tx: Prisma.TransactionClient, type: ReactionSubjec
 
 /**
  * "helpful" (reviews and answers, counted while public) and "report" (abuse, any subject). One of each per person per
- * item; repeats are no-ops (`changed: false`). An approved item reaching REPORT_THRESHOLD reports goes back to
- * "flagged" (hidden until staff re-approve) and leaves the rating aggregate / the public Q&A list.
+ * item; repeats are no-ops (`changed: false`). An approved item is auto-hidden ("flagged": hidden until staff re-approve,
+ * out of the rating aggregate / public Q&A list) only when the reports come from enough DISTINCT, CREDIBLE accounts
+ * (verified and aged, see report-policy.ts). Reports from fresh or unverified accounts past the threshold are queued for
+ * staff review without hiding the item, so brigading with throw-away accounts cannot silence a competitor.
+ * Reports are rate limited per person and per IP.
  */
 export async function react(actor: Actor, input: ReactInput): Promise<{ changed: boolean }> {
   const { subjectType, subjectId, kind } = input;
@@ -93,7 +100,15 @@ export async function react(actor: Actor, input: ReactInput): Promise<{ changed:
   const reason = kind === "report" ? reportReason.parse(input.reason) : null;
   if (!(await rateLimit(`reviews:react:${actor.personId}`, REACTIONS_PER_HOUR, 3_600))) throw new DomainError("rate_limited", "Too many actions. Please slow down.");
 
+  const policy = reportPolicy();
+  if (kind === "report") {
+    if (!(await rateLimit(`reviews:report:${actor.personId}:h`, policy.perPersonPerHour, 3_600)) || !(await rateLimit(`reviews:report:${actor.personId}:d`, policy.perPersonPerDay, 86_400)))
+      throw new DomainError("rate_limited", "You have reported a lot recently. Please try again later.");
+    if (input.ip && !(await rateLimit(`reviews:report:ip:${input.ip}`, policy.perIpPerHour, 3_600))) throw new DomainError("rate_limited", "Too many reports from this network. Please try again later.");
+  }
+
   let touched: string | null = null;
+  let contested: { reports: number; credible: number } | null = null;
   try {
     const res = await prisma.$transaction(async (tx) => {
       const subject = await loadSubject(tx, subjectType, subjectId);
@@ -111,9 +126,19 @@ export async function react(actor: Actor, input: ReactInput): Promise<{ changed:
         return { changed: true };
       }
       const reports = await bumpReport(tx, subjectType, subjectId);
-      if (reports >= REPORT_THRESHOLD) await flagIfApproved(tx, subjectType, subjectId, subject.listingId);
+      if (reports >= policy.threshold) {
+        const reporters = await tx.ugcReaction.findMany({ where: { subjectType, subjectId, kind: "report" }, select: { personId: true }, take: 200 });
+        const credible = await countCredibleReporters(reporters.map((r) => r.personId), new Date(), policy);
+        if (credible >= policy.credibleThreshold) await flagIfApproved(tx, subjectType, subjectId, subject.listingId);
+        else if (reports % policy.threshold === 0) contested = { reports, credible }; // queue for staff, item stays visible
+      }
       return { changed: true };
     });
+    if (res.changed && contested) {
+      const c = contested as { reports: number; credible: number };
+      // best effort: the staff queue must never fail a report that was already recorded
+      await ai.enqueueReview({ subject: { type: "message", id: subjectId }, reason: `Reported ${c.reports}x (${c.credible} from verified, aged accounts): ${subjectType} not auto-hidden, please review` }).catch(() => undefined);
+    }
     if (res.changed && touched) {
       if (subjectType === "question" || subjectType === "answer") await bustQaCaches(touched); // helpful counts and auto-flags change the public list
       else if (kind === "report") await bustReviewCaches(touched); // may have auto-flagged (hidden) the item

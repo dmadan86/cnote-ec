@@ -77,7 +77,7 @@ Once the edge reports active, the worker requests `https://<host>/.well-known/cn
 
 ## 7. Environment
 
-`STOREFRONT_ROOT_DOMAIN`, `STOREFRONT_CNAME_TARGET`, `STOREFRONT_APEX_IPS`, `PLATFORM_HOSTS` (extra marketplace hosts, `*.suffix` allowed), `EDGE_PROVIDER`, `CF_API_TOKEN`, `CF_ZONE_ID`, `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID`, `DOMAINS_DNS_RESOLVERS`, `DOMAINS_HTTP_PROBE`, `DOMAIN_CHECK_SECRET` (falls back to `JWT_SECRET`).
+`STOREFRONT_ROOT_DOMAIN`, `STOREFRONT_CNAME_TARGET`, `STOREFRONT_APEX_IPS`, `PLATFORM_HOSTS` (extra marketplace hosts, `*.suffix` allowed), `EDGE_PROVIDER`, `CF_API_TOKEN`, `CF_ZONE_ID`, `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID`, `DOMAINS_DNS_RESOLVERS`, `DOMAINS_HTTP_PROBE`, `DOMAIN_CHECK_SECRET` (required, dedicated; HKDF-derived, never falls back to `JWT_SECRET`).
 
 ## 8. Integration
 

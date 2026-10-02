@@ -315,7 +315,7 @@
       "domainNotFound": "ডোমেইন পাওয়া যায়নি।",
       "tooManyAttemptsTryAgain": "অনেকবার চেষ্টা হয়েছে। অনুগ্রহ করে এক ঘণ্টা পরে আবার চেষ্টা করুন।",
       "connectUpDomainsRemoveOne": "আপনি সর্বোচ্চ {maxDomainsPerStorefront}টি ডোমেইন যুক্ত করতে পারেন। আগে একটি সরিয়ে দিন।",
-      "domainAlreadyConnectedStorefrontIf": "ওই ডোমেইন আগেই একটি স্টোরফ্রন্টের সঙ্গে যুক্ত। এটি আপনার হলে সাপোর্টের সঙ্গে যোগাযোগ করুন।",
+      "domainAlreadyConnectedStorefrontIf": "আমরা ওই ডোমেইনটি যুক্ত করতে পারিনি। এটি আপনার হলে সাপোর্টের সঙ্গে যোগাযোগ করুন, মালিকানা প্রমাণে আমরা সাহায্য করব।",
       "onlyDomainActiveMadePrimary": "শুধু সক্রিয় ডোমেইনকেই প্রাইমারি করা যায়।",
       "reCheckedLotWaitFew": "আপনি অনেকবার আবার যাচাই করেছেন। অনুগ্রহ করে কয়েক মিনিট অপেক্ষা করুন।"
     },

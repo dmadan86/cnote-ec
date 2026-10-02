@@ -33,7 +33,7 @@ export async function BnplOption({ actor, orderId, escrowId, locale = "en" }: { 
           {!app || !["submitted", "offered", "accepted", "disbursed"].includes(app.status) ? (
             <>
               {app?.loan?.status === "cancelled" && app.loan.cancelReason === "cooling_off" ? (
-                <Alert tone="info"><span role="status">{t("exit.done")} {app.loan.exitAmountPaise !== null ? <Money paise={app.loan.exitAmountPaise} /> : null}</span></Alert>
+                <Alert tone="info">{t("exit.done")} {app.loan.exitAmountPaise !== null ? <Money paise={app.loan.exitAmountPaise} /> : null}</Alert>
               ) : app ? <Alert tone="info">{t(`status.${app.status}`)}</Alert> : null}
               <BnplApplyForm orderId={orderId} escrowId={escrowId} needsConsent={!opt.consented} labels={labels} />
             </>

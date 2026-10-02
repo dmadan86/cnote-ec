@@ -13,6 +13,7 @@
   "dependencies": {
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",
+    "@cnote/security": "workspace:*",
     "@cnote/storefront": "workspace:*",
     "zod": "^4.6.5"
   }

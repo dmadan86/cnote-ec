@@ -15,7 +15,7 @@ vi.mock("@cnote/catalogue", () => ({
   getListing: async (id: string) => state.listings.get(id) ?? null,
   listSellerListings: async (biz: string) => [...state.listings.values()].filter((l) => l.sellerBusinessId === biz),
 }));
-vi.mock("@cnote/identity", () => ({ getTrustProfiles: async () => new Map() }));
+vi.mock("@cnote/identity", () => ({ getTrustProfiles: async () => new Map(), getPersonVerification: async () => ({ phone: null, phoneVerified: false, emailVerified: true, erased: false, createdAt: new Date(Date.now() - 30 * 86_400_000).toISOString() }) }));
 vi.mock("@cnote/enquiry", () => ({}));
 vi.mock("@cnote/core", async (orig) => ({ ...(await orig<typeof import("@cnote/core")>()), rateLimit: async () => true }));
 

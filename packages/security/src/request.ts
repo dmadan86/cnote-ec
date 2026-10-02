@@ -4,6 +4,7 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { DomainError, rateLimit } from "@cnote/core";
 import { clientIp } from "./client-ip";
+import type { PublicTarget } from "./pinned-fetch";
 
 // ---------- CSRF: same-origin ----------
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -205,10 +206,11 @@ export function isPrivateAddress(ip: string): boolean {
 
 /**
  * Outbound-fetch guard for user-supplied URLs (webhooks, image imports, domain verification): https only
- * (http allowed with `allowHttp`), no credentials, and every resolved address must be public. Returns the URL.
- * Note: resolve-then-fetch is still racy (DNS rebinding); pin the resolved IP in the HTTP client for hostile inputs.
+ * (http allowed with `allowHttp`), no credentials, and every resolved address must be public. DNS is resolved ONCE and
+ * the validated address is returned so the caller can connect to exactly that IP (`pinnedFetch`): resolve-then-fetch
+ * with a second, separate lookup is a DNS-rebinding TOCTOU.
  */
-export async function assertPublicHttpUrl(raw: string, opts: { allowHttp?: boolean } = {}): Promise<URL> {
+export async function assertPublicHttpTarget(raw: string, opts: { allowHttp?: boolean } = {}): Promise<PublicTarget> {
   const block = (why: string): never => {
     logSecurityEvent("ssrf.blocked", { why, url: raw.slice(0, 200) });
     throw new DomainError("validation", "That URL is not allowed.");
@@ -223,13 +225,20 @@ export async function assertPublicHttpUrl(raw: string, opts: { allowHttp?: boole
   if (u.username || u.password) block("credentials");
   const host = u.hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "");
   if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal") || host.endsWith(".local")) block("local-host");
-  if (isIP(host)) {
+  const literal = isIP(host);
+  if (literal) {
     if (isPrivateAddress(host)) block("private-ip");
-  } else {
-    const addrs = await lookup(host, { all: true }).catch(() => []);
-    if (addrs.length === 0 || addrs.some((a) => isPrivateAddress(a.address))) block("private-or-unresolvable");
+    return { url: u, address: host, family: literal as 4 | 6 };
   }
-  return u;
+  const addrs = await lookup(host, { all: true }).catch(() => []);
+  if (addrs.length === 0 || addrs.some((a) => isPrivateAddress(a.address))) block("private-or-unresolvable");
+  const first = addrs[0]!;
+  return { url: u, address: first.address, family: (first.family === 6 ? 6 : 4) };
+}
+
+/** URL-only form of `assertPublicHttpTarget` (validation without pinning; prefer the target form + `pinnedFetch`). */
+export async function assertPublicHttpUrl(raw: string, opts: { allowHttp?: boolean } = {}): Promise<URL> {
+  return (await assertPublicHttpTarget(raw, opts)).url;
 }
 
 // ---------- CSP report endpoint ----------

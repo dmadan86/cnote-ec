@@ -67,7 +67,7 @@ export async function updateProfile(personId: string, input: { name?: string; pr
 
 const toProfile = (b: {
   id: string; name: string; city: string | null; state: string | null; pincode: string | null;
-  verificationTier: number; trustScore: number; badgeActive: boolean; languages: string[];
+  verificationTier: number; trustScore: number; badgeActive: boolean; languages: string[]; createdAt?: Date;
 }): TrustProfile => ({
   businessId: b.id,
   name: b.name,
@@ -78,6 +78,7 @@ const toProfile = (b: {
   trustScore: b.trustScore,
   badgeActive: b.badgeActive,
   languages: b.languages,
+  ...(b.createdAt ? { createdAt: b.createdAt.toISOString() } : {}),
 });
 
 /** Drops cached trust profiles + seller lists after a business/trust write. Never throws. */
