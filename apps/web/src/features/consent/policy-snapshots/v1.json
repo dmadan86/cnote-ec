@@ -1,0 +1,413 @@
+{
+  "notice": {
+    "en": {
+      "acceptAll": "Accept all",
+      "alwaysActive": "Always active",
+      "analyticsDesc": "Microsoft Clarity records anonymised usage (clicks, scrolling, page views) so we can find and fix problems. Form entries are masked.",
+      "analyticsTitle": "Analytics",
+      "bannerText": "{site}, as data fiduciary, uses essential cookies to run this site. With your permission we also use analytics cookies to improve it and marketing cookies to measure campaigns. Nothing optional is used unless you accept. <link>Cookie policy</link>",
+      "customise": "Customise",
+      "dialogIntro": "Choose which optional cookies and similar storage {site} may use. Essential ones are always on because the site cannot work without them. You can change your choice at any time from Cookie settings in the footer.",
+      "dialogTitle": "Cookie preferences",
+      "duration": {
+        "days": "{count, plural, one {# day} other {# days}}",
+        "minutes": "{count, plural, one {# minute} other {# minutes}}",
+        "months": "{count, plural, one {# month} other {# months}}",
+        "persistent": "Until you clear it",
+        "session": "Session",
+        "years": "{count, plural, one {# year} other {# years}}"
+      },
+      "gpcNote": "Your browser's Global Privacy Control signal is on, so marketing stays off unless you switch it on here.",
+      "kind": {
+        "cookie": "Cookie",
+        "localStorage": "Local storage",
+        "sessionStorage": "Session storage"
+      },
+      "marketingDesc": "Remembers an anonymous visitor ID, which sponsored listing you clicked and where you came from (campaign links), and how often we show supplier-quote prompts.",
+      "marketingTitle": "Marketing and attribution",
+      "necessaryDesc": "Needed for sign-in, security, your language and delivery pincode, and to remember this choice. They cannot be switched off.",
+      "necessaryTitle": "Strictly necessary",
+      "off": "Off",
+      "on": "On",
+      "proofBody": "When you choose, we keep a record: a random consent ID, your choices, the policy version, your language and the time. It holds no IP address or browser details. We keep it for 3 years as proof of consent. Your choice expires after 12 months, when we ask again.",
+      "provider": {
+        "clarity": "Microsoft Clarity",
+        "firstParty": "First party"
+      },
+      "purpose": {
+        "adClick": "Remembers which sponsored listing you clicked, so a later enquiry can be attributed to it.",
+        "attribution": "Records the campaign link (UTM) or website you came from, for this visit.",
+        "auth": "Keeps you signed in for a few minutes at a time (short-lived access token).",
+        "clarityId": "Microsoft Clarity: recognises your browser to group your visits.",
+        "clarityMs": "Set by Microsoft while Clarity runs: recognises the browser across Microsoft services.",
+        "claritySession": "Microsoft Clarity: links the page views of one visit.",
+        "compare": "Holds the products in your compare list.",
+        "consent": "Remembers your cookie choice.",
+        "consentPending": "Holds your latest cookie choice until our server confirms it has saved the record of it.",
+        "consentSync": "Remembers, for this visit only, that your cookie choice was checked against your account.",
+        "langSuggestion": "Remembers that you dismissed the language suggestion.",
+        "locale": "Remembers the language you chose.",
+        "mfa": "Holds a pending two-step sign-in for a few minutes.",
+        "nudgeHistory": "Counts how often we showed a supplier-quote prompt, so we do not repeat it too often.",
+        "nudgeSession": "Marks the start of this visit for the quote prompt.",
+        "nudgeViews": "Counts the products you viewed in this visit, to decide when to show a quote prompt.",
+        "oauth": "Protects the Google sign-in round trip against forgery.",
+        "pincode": "Remembers the delivery pincode you entered.",
+        "rail": "Remembers whether you expanded or collapsed the side menu.",
+        "session": "Keeps you signed in on this device (refresh token, revoked when you sign out).",
+        "visitor": "Anonymous visitor ID that links your visit to a supplier enquiry.",
+        "voiceConsent": "Remembers that you agreed to the voice search notice."
+      },
+      "rejectAll": "Reject all",
+      "saveChoices": "Save choices"
+    },
+    "hi": {
+      "acceptAll": "सभी स्वीकार करें",
+      "alwaysActive": "हमेशा चालू",
+      "analyticsDesc": "Microsoft Clarity गुमनाम उपयोग (क्लिक, स्क्रॉल, पेज व्यू) रिकॉर्ड करता है ताकि हम समस्याएँ ढूँढकर ठीक कर सकें। फ़ॉर्म में भरी जानकारी छिपा दी जाती है।",
+      "analyticsTitle": "एनालिटिक्स",
+      "bannerText": "{site}, डेटा फ़िड्यूशियरी के रूप में, इस साइट को चलाने के लिए ज़रूरी कुकी इस्तेमाल करता है। आपकी अनुमति से हम साइट को बेहतर बनाने के लिए एनालिटिक्स कुकी और अभियानों को मापने के लिए मार्केटिंग कुकी भी इस्तेमाल करते हैं। आपके स्वीकार किए बिना कोई वैकल्पिक कुकी इस्तेमाल नहीं होती। <link>कुकी नीति</link>",
+      "customise": "अपनी पसंद चुनें",
+      "dialogIntro": "चुनें कि {site} कौन-सी वैकल्पिक कुकी और इसी तरह का स्टोरेज इस्तेमाल कर सकता है। ज़रूरी कुकी हमेशा चालू रहती हैं क्योंकि उनके बिना साइट काम नहीं कर सकती। आप अपनी पसंद कभी भी फ़ुटर में \"कुकी सेटिंग\" से बदल सकते हैं।",
+      "dialogTitle": "कुकी की पसंद",
+      "duration": {
+        "days": "{count, plural, one {# दिन} other {# दिन}}",
+        "minutes": "{count, plural, one {# मिनट} other {# मिनट}}",
+        "months": "{count, plural, one {# महीना} other {# महीने}}",
+        "persistent": "जब तक आप हटा न दें",
+        "session": "सेशन",
+        "years": "{count, plural, one {# साल} other {# साल}}"
+      },
+      "gpcNote": "आपके ब्राउज़र का ग्लोबल प्राइवेसी कंट्रोल सिग्नल चालू है, इसलिए मार्केटिंग तब तक बंद रहती है जब तक आप उसे यहाँ चालू न करें।",
+      "kind": {
+        "cookie": "कुकी",
+        "localStorage": "लोकल स्टोरेज",
+        "sessionStorage": "सेशन स्टोरेज"
+      },
+      "marketingDesc": "एक गुमनाम विज़िटर आईडी, आपने कौन-सी प्रायोजित लिस्टिंग खोली और आप कहाँ से आए (अभियान लिंक), और सप्लायर-कोटेशन सुझाव हम कितनी बार दिखाते हैं, यह याद रखता है।",
+      "marketingTitle": "मार्केटिंग और एट्रिब्यूशन",
+      "necessaryDesc": "साइन-इन, सुरक्षा, आपकी भाषा और डिलीवरी पिनकोड के लिए, और यह पसंद याद रखने के लिए ज़रूरी। इन्हें बंद नहीं किया जा सकता।",
+      "necessaryTitle": "बिल्कुल ज़रूरी",
+      "off": "बंद",
+      "on": "चालू",
+      "proofBody": "जब आप चुनाव करते हैं, हम एक रिकॉर्ड रखते हैं: एक रैंडम सहमति आईडी, आपकी पसंद, नीति संस्करण, आपकी भाषा और समय। इसमें कोई IP पता या ब्राउज़र का विवरण नहीं होता। हम इसे सहमति के प्रमाण के रूप में 3 साल रखते हैं। आपकी पसंद 12 महीने बाद समाप्त हो जाती है, तब हम दोबारा पूछते हैं।",
+      "provider": {
+        "clarity": "Microsoft Clarity",
+        "firstParty": "फ़र्स्ट पार्टी"
+      },
+      "purpose": {
+        "adClick": "याद रखती है कि आपने कौन-सी प्रायोजित लिस्टिंग खोली, ताकि बाद की पूछताछ उससे जोड़ी जा सके।",
+        "attribution": "इस विज़िट के लिए वह अभियान लिंक (UTM) या वेबसाइट दर्ज करती है जहाँ से आप आए।",
+        "auth": "आपको कुछ मिनट तक साइन-इन रखती है (छोटी अवधि का एक्सेस टोकन)।",
+        "clarityId": "Microsoft Clarity: आपके ब्राउज़र को पहचानकर आपके विज़िट जोड़ती है।",
+        "clarityMs": "Clarity चलने के दौरान Microsoft द्वारा सेट: Microsoft की सेवाओं में ब्राउज़र को पहचानती है।",
+        "claritySession": "Microsoft Clarity: एक विज़िट के पेज व्यू आपस में जोड़ती है।",
+        "compare": "आपकी तुलना सूची के उत्पाद रखती है।",
+        "consent": "आपकी कुकी पसंद याद रखती है।",
+        "consentPending": "आपकी नवीनतम कुकी पसंद को तब तक रखती है जब तक हमारा सर्वर पुष्टि न कर दे कि उसका रिकॉर्ड सहेज लिया गया है।",
+        "consentSync": "केवल इस विज़िट के लिए याद रखती है कि आपकी कुकी पसंद आपके खाते से मिलाई जा चुकी है।",
+        "langSuggestion": "याद रखती है कि आपने भाषा का सुझाव बंद कर दिया था।",
+        "locale": "आपकी चुनी हुई भाषा याद रखती है।",
+        "mfa": "कुछ मिनट के लिए अधूरा दो-चरणीय साइन-इन रखती है।",
+        "nudgeHistory": "गिनती रखती है कि हमने सप्लायर-कोटेशन सुझाव कितनी बार दिखाया, ताकि उसे बार-बार न दोहराएँ।",
+        "nudgeSession": "कोटेशन सुझाव के लिए इस विज़िट की शुरुआत चिह्नित करती है।",
+        "nudgeViews": "इस विज़िट में देखे गए उत्पाद गिनती है, ताकि तय हो सके कि कोटेशन सुझाव कब दिखाना है।",
+        "oauth": "Google साइन-इन की प्रक्रिया को जालसाज़ी से बचाती है।",
+        "pincode": "आपका डाला हुआ डिलीवरी पिनकोड याद रखती है।",
+        "rail": "याद रखती है कि आपने साइड मेन्यू फैलाया था या समेटा था।",
+        "session": "इस डिवाइस पर आपको साइन-इन रखती है (रिफ़्रेश टोकन, साइन-आउट करने पर रद्द हो जाता है)।",
+        "visitor": "गुमनाम विज़िटर आईडी जो आपके विज़िट को सप्लायर पूछताछ से जोड़ती है।",
+        "voiceConsent": "याद रखती है कि आपने वॉइस सर्च की सूचना स्वीकार की थी।"
+      },
+      "rejectAll": "सभी अस्वीकार करें",
+      "saveChoices": "पसंद सहेजें"
+    }
+  },
+  "registry": [
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 12,
+        "unit": "months"
+      },
+      "kind": "cookie",
+      "name": "cnote_consent",
+      "provider": "firstParty",
+      "purpose": "consent"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "unit": "persistent"
+      },
+      "kind": "localStorage",
+      "name": "cnote_consent_pending",
+      "provider": "firstParty",
+      "purpose": "consentPending"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "unit": "session"
+      },
+      "kind": "sessionStorage",
+      "name": "cnote_consent_sync",
+      "provider": "firstParty",
+      "purpose": "consentSync"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 15,
+        "unit": "minutes"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "cnote_web_at",
+      "provider": "firstParty",
+      "purpose": "auth"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 30,
+        "unit": "days"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "cnote_web_rt",
+      "provider": "firstParty",
+      "purpose": "session"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 10,
+        "unit": "minutes"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "cnote_web_oauth",
+      "provider": "firstParty",
+      "purpose": "oauth"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 5,
+        "unit": "minutes"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "cnote_web_mfa",
+      "provider": "firstParty",
+      "purpose": "mfa"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 1,
+        "unit": "years"
+      },
+      "kind": "cookie",
+      "name": "cnote_locale",
+      "provider": "firstParty",
+      "purpose": "locale"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 1,
+        "unit": "years"
+      },
+      "kind": "cookie",
+      "name": "cnote_rail",
+      "provider": "firstParty",
+      "purpose": "rail"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 1,
+        "unit": "years"
+      },
+      "kind": "cookie",
+      "name": "cnote_pincode",
+      "provider": "firstParty",
+      "purpose": "pincode"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 7,
+        "unit": "days"
+      },
+      "kind": "cookie",
+      "name": "cnote_compare",
+      "provider": "firstParty",
+      "purpose": "compare"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "unit": "persistent"
+      },
+      "kind": "localStorage",
+      "name": "cnote_lang_suggestion_dismissed",
+      "provider": "firstParty",
+      "purpose": "langSuggestion"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "unit": "persistent"
+      },
+      "kind": "localStorage",
+      "name": "cnote_voice_consent_v1",
+      "provider": "firstParty",
+      "purpose": "voiceConsent"
+    },
+    {
+      "category": "analytics",
+      "duration": {
+        "n": 1,
+        "unit": "years"
+      },
+      "kind": "cookie",
+      "name": "_clck",
+      "provider": "clarity",
+      "purpose": "clarityId"
+    },
+    {
+      "category": "analytics",
+      "duration": {
+        "n": 1,
+        "unit": "days"
+      },
+      "kind": "cookie",
+      "name": "_clsk",
+      "provider": "clarity",
+      "purpose": "claritySession"
+    },
+    {
+      "category": "analytics",
+      "duration": {
+        "n": 1,
+        "unit": "years"
+      },
+      "kind": "cookie",
+      "name": "CLID",
+      "provider": "clarity",
+      "purpose": "clarityId"
+    },
+    {
+      "category": "analytics",
+      "duration": {
+        "n": 10,
+        "unit": "minutes"
+      },
+      "kind": "cookie",
+      "name": "ANONCHK",
+      "provider": "clarity",
+      "purpose": "clarityMs"
+    },
+    {
+      "category": "analytics",
+      "duration": {
+        "n": 7,
+        "unit": "days"
+      },
+      "kind": "cookie",
+      "name": "MR",
+      "provider": "clarity",
+      "purpose": "clarityMs"
+    },
+    {
+      "category": "analytics",
+      "duration": {
+        "n": 1,
+        "unit": "years"
+      },
+      "kind": "cookie",
+      "name": "MUID",
+      "provider": "clarity",
+      "purpose": "clarityMs"
+    },
+    {
+      "category": "analytics",
+      "duration": {
+        "unit": "session"
+      },
+      "kind": "cookie",
+      "name": "SM",
+      "provider": "clarity",
+      "purpose": "clarityMs"
+    },
+    {
+      "alsoServerSet": true,
+      "category": "marketing",
+      "duration": {
+        "n": 30,
+        "unit": "days"
+      },
+      "kind": "cookie",
+      "name": "cnote_vid",
+      "provider": "firstParty",
+      "purpose": "visitor"
+    },
+    {
+      "category": "marketing",
+      "duration": {
+        "n": 7,
+        "unit": "days"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "cnote_ad_click",
+      "provider": "firstParty",
+      "purpose": "adClick"
+    },
+    {
+      "category": "marketing",
+      "duration": {
+        "unit": "session"
+      },
+      "kind": "sessionStorage",
+      "name": "cnote_attr",
+      "provider": "firstParty",
+      "purpose": "attribution"
+    },
+    {
+      "category": "marketing",
+      "duration": {
+        "unit": "persistent"
+      },
+      "kind": "localStorage",
+      "name": "cnote_lg_v1",
+      "provider": "firstParty",
+      "purpose": "nudgeHistory"
+    },
+    {
+      "category": "marketing",
+      "duration": {
+        "unit": "session"
+      },
+      "kind": "sessionStorage",
+      "name": "cnote_lg_views",
+      "provider": "firstParty",
+      "purpose": "nudgeViews"
+    },
+    {
+      "category": "marketing",
+      "duration": {
+        "unit": "session"
+      },
+      "kind": "sessionStorage",
+      "name": "cnote_lg_session",
+      "provider": "firstParty",
+      "purpose": "nudgeSession"
+    }
+  ],
+  "updated": "2026-09-30",
+  "version": 1
+}

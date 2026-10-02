@@ -5,6 +5,7 @@ import { ChevronDown, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { SITE_NAME } from "@/features/shell/site";
+import { ConsentRecord } from "./consent-record";
 import { CookieTable } from "./cookie-table";
 import { CATEGORIES, type StorageCategory } from "./registry";
 import { Switch } from "./switch";
@@ -113,6 +114,7 @@ function DialogBody({
             ),
           )}
         </div>
+        {initial ? <ConsentRecord className="mt-4 border-t border-line pt-4" /> : null}
       </div>
       <div className="flex flex-wrap gap-2 border-t border-line bg-surface px-4 py-3 sm:px-6">
         <button type="button" className={FOOTER_BUTTON} onClick={onAcceptAll}>

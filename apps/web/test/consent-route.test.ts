@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const h = vi.hoisted(() => ({ record: vi.fn(), rate: vi.fn(), session: vi.fn() }));
+const h = vi.hoisted(() => ({ record: vi.fn(), rate: vi.fn(), session: vi.fn(), ledger: vi.fn() }));
+vi.mock("@/features/consent/ledger", () => ({ syncCookieConsentToLedger: h.ledger }));
 vi.mock("@cnote/compliance", () => ({ recordCookieConsent: h.record }));
 vi.mock("@cnote/core", async () => {
   class DomainError extends Error {
@@ -30,6 +31,7 @@ beforeEach(() => {
   h.record.mockReset().mockResolvedValue({ id: "r1", createdAt: "2026-09-30T00:00:00.000Z" });
   h.rate.mockReset().mockResolvedValue(true);
   h.session.mockReset().mockResolvedValue(null);
+  h.ledger.mockReset().mockResolvedValue([]);
 });
 
 describe("POST /api/consent", () => {
@@ -41,13 +43,40 @@ describe("POST /api/consent", () => {
     expect(h.record).toHaveBeenCalledTimes(1);
     const [input, ctx] = h.record.mock.calls[0]!;
     expect(input).toEqual(valid);
-    expect(ctx).toEqual({ personId: null });
+    expect(ctx).toEqual({ personId: null, registryHash: expect.stringMatching(/^[a-f0-9]{64}$/) });
     expect(JSON.stringify(h.record.mock.calls[0])).not.toMatch(/198\.18|Mozilla/);
   });
   it("attaches the personId when signed in", async () => {
     h.session.mockResolvedValue({ personId: "11111111-1111-4111-8111-111111111111" });
     await POST(req(valid));
-    expect(h.record.mock.calls[0]![1]).toEqual({ personId: "11111111-1111-4111-8111-111111111111" });
+    expect(h.record.mock.calls[0]![1]).toMatchObject({ personId: "11111111-1111-4111-8111-111111111111" });
+  });
+  it("stores the sha256 of the committed policy snapshot, computed server-side (an unknown version gets none)", async () => {
+    await POST(req({ ...valid, policyVersion: 9999 }));
+    expect(h.record.mock.calls[0]![1]).toEqual({ personId: null, registryHash: null });
+  });
+  it("passes the browser timestamp through for idempotency", async () => {
+    await POST(req({ ...valid, at: 1_790_000_000 }));
+    expect(h.record.mock.calls[0]![0]).toMatchObject({ at: 1_790_000_000 });
+  });
+  it("mirrors the choice into the account ledger only when signed in, and never fails the request over it", async () => {
+    await POST(req(valid));
+    expect(h.ledger).not.toHaveBeenCalled();
+    h.session.mockResolvedValue({ personId: "11111111-1111-4111-8111-111111111111" });
+    expect((await POST(req({ ...valid, at: 1_790_000_000 }))).status).toBe(200);
+    expect(h.ledger).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", { analytics: true, marketing: false }, { clientAt: 1_790_000_000 });
+    h.ledger.mockRejectedValue(new Error("ledger down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect((await POST(req(valid))).status).toBe(200);
+    err.mockRestore();
+  });
+  it("does not touch the ledger when the receipt could not be stored", async () => {
+    h.session.mockResolvedValue({ personId: "11111111-1111-4111-8111-111111111111" });
+    h.record.mockRejectedValue(new Error("db down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await POST(req(valid));
+    err.mockRestore();
+    expect(h.ledger).not.toHaveBeenCalled();
   });
   it("rate-limits per client IP taken from the trusted header helper, and answers 429 without storing", async () => {
     await POST(req(valid));

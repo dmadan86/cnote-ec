@@ -3,7 +3,7 @@
 import { useLocale } from "next-intl";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ConsentBannerView } from "./banner";
-import { acceptAll, applyConsent, consentSnapshot, gpcSignal, rejectAll, subscribeConsent } from "./client";
+import { acceptAll, applyConsent, consentSnapshot, flushPendingReceipts, gpcSignal, rejectAll, subscribeConsent, syncFromAccount } from "./client";
 import { PreferencesDialog } from "./preferences-dialog";
 import { CONSENT_OPEN_EVENT, parseConsent, type ConsentChoices } from "./state";
 
@@ -26,6 +26,12 @@ export function ConsentManager() {
   const customiseRef = useRef<HTMLButtonElement>(null);
   const bannerRef = useRef<HTMLElement>(null);
   const showBanner = raw !== null && consent === null;
+
+  // Reliable receipts: resend any receipt the server has not acknowledged yet (idempotent on consentId + at), then, for
+  // signed-in people, reconcile the cookie with the account ledger. Both run once per page load; neither blocks rendering.
+  useEffect(() => {
+    void flushPendingReceipts().then(() => syncFromAccount(locale));
+  }, [locale]);
 
   useEffect(() => {
     const onOpen = () => {
