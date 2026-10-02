@@ -58,6 +58,33 @@ describe("wishlist share links (DB)", () => {
     expect(await prisma.wishlistShare.count({ where: { wishlistId: list.id } })).toBe(1);
   });
 
+  // The two branches below are what the racy test above only sometimes reaches (depends on scheduling), so they are
+  // pinned deterministically: the "does a share exist?" read is forced to miss while the row really exists.
+  it("losing a create race returns the winner's link (deterministic)", async () => {
+    const p = person();
+    const list = await getOrCreateDefaultList(p);
+    const winner = await createShare(p, list.id);
+    const spy = vi.spyOn(prisma.wishlistShare, "findUnique").mockResolvedValueOnce(null);
+    try {
+      const res = await createShare(p, list.id);
+      expect(res.token).toBe(winner.token);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("a failed create with no winner to return rethrows the original error (deterministic)", async () => {
+    const p = person();
+    const list = await getOrCreateDefaultList(p);
+    await createShare(p, list.id);
+    const spy = vi.spyOn(prisma.wishlistShare, "findUnique").mockResolvedValue(null);
+    try {
+      await expect(createShare(p, list.id)).rejects.toMatchObject({ code: "P2002" });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("revoking kills the link at once and a new share issues a new token", async () => {
     const p = person();
     const list = await getOrCreateDefaultList(p);

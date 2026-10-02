@@ -1,6 +1,6 @@
 import { DomainError, redis, setJobQueue, type JobQueue } from "@cnote/core";
 import { prisma } from "@cnote/db";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { domainsConfig } from "../src/config";
 import type { CaaRecord, DnsResolver } from "../src/dns";
 import { MockEdgeProvider, setEdgeProvider } from "../src/edge";
@@ -59,6 +59,8 @@ afterAll(async () => {
   await prisma.business.deleteMany({ where: { id: { in: bizIds } } });
   for (const id of ids) await redis.del(`dv:gen:${id}`, `dv:lock:${id}`, `domains:recheck:${id}`);
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe("addDomain", () => {
   it("requires a storefront", async () => {
@@ -250,6 +252,7 @@ describe("verification scheduling", () => {
     expect(await verifyNow(id, h, new MockEdgeProvider(), { gen: 1, txt: false })).toBeNull();
   });
   it("requestRecheck is owner-only and rate-limited to 5 per window", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); // fixed-window limiter: a real minute/hour boundary mid-test would reset the counter
     const s = await mkSeller("rl");
     const other = await mkSeller("rl2");
     const { id } = await addDomain(s.biz, host("rl"));

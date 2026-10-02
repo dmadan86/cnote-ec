@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { MemoryJobQueue, setJobQueue } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { setConsent } from "@cnote/identity";
@@ -48,6 +48,8 @@ afterAll(async () => {
   setJobQueue(undefined);
   await rm(dir, { recursive: true, force: true });
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe("voice notes", () => {
   it("stores audio privately, snapshots no-consent retention (24h) and rejects bad input", async () => {
@@ -195,6 +197,7 @@ describe("draftListingFromPhotos", () => {
   });
 
   it("is rate limited per person", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); // fixed-window limiter: a real minute/hour boundary mid-test would reset the counter
     const ok = await solidJpeg(400, 400, [1, 2, 3]);
     const person = randomUUID();
     let last: unknown;

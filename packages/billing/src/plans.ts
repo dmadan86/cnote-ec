@@ -26,13 +26,19 @@ function defaultAnnualDiscountBps(env: NodeJS.ProcessEnv = process.env): number 
 
 /** Idempotent upsert of the default plans. Never touches subscriptions. */
 export async function seedPlans(): Promise<void> {
-  for (const p of DEFAULT_PLANS) {
-    await prisma.plan.upsert({
-      where: { code: p.code },
-      create: { ...p, annualDiscountBps: defaultAnnualDiscountBps() }, // existing rows keep whatever finance configured
-      update: { name: p.name, monthlyPricePaise: p.monthlyPricePaise, monthlyCredits: p.monthlyCredits, features: p.features, sortOrder: p.sortOrder },
-    });
-  }
+  // One transaction under an advisory lock: readers see either no plans or all of them (loadPlans seeds lazily when the table is
+  // empty, so a half-seeded table would be served, and cached for 10 minutes, as the full catalogue), and two concurrent first
+  // callers queue instead of racing each other's upserts into a unique violation.
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('billing:seed-plans'))`;
+    for (const p of DEFAULT_PLANS) {
+      await tx.plan.upsert({
+        where: { code: p.code },
+        create: { ...p, annualDiscountBps: defaultAnnualDiscountBps() }, // existing rows keep whatever finance configured
+        update: { name: p.name, monthlyPricePaise: p.monthlyPricePaise, monthlyCredits: p.monthlyCredits, features: p.features, sortOrder: p.sortOrder },
+      });
+    }
+  });
   await invalidateTags([cacheTags.plans]);
 }
 

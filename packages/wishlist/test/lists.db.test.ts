@@ -41,6 +41,28 @@ describe("wishlist (DB)", () => {
     expect(res[0]!.name).toBe("Saved items");
   });
 
+  // Pinned deterministically (the concurrent test above only sometimes loses the create race): the "find" read is
+  // forced to miss while the default list really exists, so the create hits the unique index.
+  it("losing the default-list create race returns the winner (deterministic)", async () => {
+    const winner = await getOrCreateDefaultList(p);
+    const spy = vi.spyOn(prisma.wishlist, "findFirst").mockResolvedValueOnce(null);
+    try {
+      expect((await getOrCreateDefaultList(p)).id).toBe(winner.id);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("a unique violation with no winner to return rethrows (deterministic)", async () => {
+    await getOrCreateDefaultList(p);
+    const spy = vi.spyOn(prisma.wishlist, "findFirst").mockResolvedValue(null);
+    try {
+      await expect(getOrCreateDefaultList(p)).rejects.toMatchObject({ code: "P2002" });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("add is idempotent, snapshots price and emits once", async () => {
     const l = listing(5000);
     const a = await addItem(p, l);
