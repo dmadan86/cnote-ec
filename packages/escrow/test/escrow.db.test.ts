@@ -76,10 +76,6 @@ describe("creation and funding", () => {
     process.env.ESCROW_PARTNER = "razorpay_route";
     await expect(handleEscrowWebhook("mock", rawBody, headers)).rejects.toMatchObject({ code: "not_found" });
     delete process.env.ESCROW_PARTNER;
-    // flag off
-    process.env.ESCROW_ENABLED = "0";
-    await expect(handleEscrowWebhook("mock", rawBody, headers)).rejects.toMatchObject({ code: "forbidden" });
-    process.env.ESCROW_ENABLED = "1";
     // no default secret: unset secret verifies nothing (a forger using the old public default is refused)
     const forged = JSON.stringify({ id: "forged1", type: "collect.captured", escrowId: v.id, amountPaise: 1_000_000 });
     const { hmac } = await import("../src/partner/util");
@@ -93,6 +89,21 @@ describe("creation and funding", () => {
     vi.stubEnv("ESCROW_MOCK_CHECKOUT", "1");
     expect((await handleEscrowWebhook("mock", rawBody, headers)).outcome).toBe("funded");
     vi.unstubAllEnvs();
+  });
+  it("flag off: settling events for existing obligations are still applied (funding), from the configured partner only", async () => {
+    const o = await mkOrder();
+    const v = await createEscrowForOrder(o.buyerActor, o.orderId);
+    process.env.ESCROW_ENABLED = "0";
+    // nothing new can be started, but the buyer's payment for the escrow that exists lands
+    await expect(createEscrowForOrder((await mkOrder()).buyerActor, o.orderId)).rejects.toMatchObject({ code: "forbidden" });
+    const { rawBody, headers } = mock().simulateCollect(v.id, 1_000_000);
+    expect((await handleEscrowWebhook("mock", rawBody, headers)).outcome).toBe("funded");
+    expect(await status(v.id)).toBe("funded");
+    // still only the configured partner
+    process.env.ESCROW_PARTNER = "razorpay_route";
+    const other = mock().simulateCollect(v.id, 1_000_000);
+    await expect(handleEscrowWebhook("mock", other.rawBody, other.headers)).rejects.toMatchObject({ code: "not_found" });
+    delete process.env.ESCROW_PARTNER;
   });
   it("H1: an event from provider X cannot fund or settle an escrow opened with provider Y", async () => {
     const o = await mkOrder();

@@ -226,11 +226,29 @@ describe("checkout reservation (security audit M3)", () => {
     await expect(q(c.code, loser.id)).resolves.toMatchObject({ discountPaise: 19_980 });
   });
 
-  it("same business: parallel checkouts on a once-per-business code reserve once (per-business limit counts reservations)", async () => {
+  it("same business retry: a new checkout replaces its own abandoned reservation; parallel checkouts still allow exactly one redemption", async () => {
     const b = await mkBusiness(1);
     const c = await mk({ perBusinessLimit: 1 });
-    const out = await Promise.allSettled([0, 1, 2, 3].map((i) => reserve(c.id, b.id, `pb-${tag}-${i}`)));
+    // abandoned checkout, then a retry with the same code is NOT refused: the old reservation is released
+    await reserve(c.id, b.id, `rt-${tag}-1`);
+    await expect(q(c.code, b.id)).resolves.toMatchObject({ discountPaise: 19_980 });
+    await reserve(c.id, b.id, `rt-${tag}-2`);
+    const rows = await prisma.couponRedemption.findMany({ where: { couponId: c.id, businessId: b.id }, orderBy: { createdAt: "asc" } });
+    expect(rows.map((r) => r.status).sort()).toEqual(["reserved", "voided"]);
+    expect(await prisma.domainEvent.count({ where: { aggregateId: c.id, type: "CouponVoided", payload: { path: ["reason"], equals: "superseded_by_new_checkout" } } })).toBe(1);
+    // the abandoned order paying late cannot redeem (its reservation was released and the new one holds the only slot)
+    await expect(prisma.$transaction((tx) => redeemCouponTx(tx, c.id, { businessId: b.id, paymentOrderId: `rt-${tag}-1`, amountPaise: 99_900 }))).rejects.toMatchObject({ code: "conflict" });
+    await expect(prisma.$transaction((tx) => redeemCouponTx(tx, c.id, { businessId: b.id, paymentOrderId: `rt-${tag}-2`, amountPaise: 99_900 }))).resolves.toMatchObject({ replay: false });
+  });
+
+  it("same business: N parallel checkouts leave one live reservation and only one can be redeemed", async () => {
+    const b = await mkBusiness(1);
+    const c = await mk({ perBusinessLimit: 1 });
+    await Promise.all([0, 1, 2, 3].map((i) => reserve(c.id, b.id, `pp-${tag}-${i}`)));
+    expect(await prisma.couponRedemption.count({ where: { couponId: c.id, businessId: b.id, status: "reserved" } })).toBe(1);
+    const out = await Promise.allSettled([0, 1, 2, 3].map((i) => prisma.$transaction((tx) => redeemCouponTx(tx, c.id, { businessId: b.id, paymentOrderId: `pp-${tag}-${i}`, amountPaise: 99_900 }))));
     expect(out.filter((o) => o.status === "fulfilled")).toHaveLength(1);
+    expect(await prisma.couponRedemption.count({ where: { couponId: c.id, businessId: b.id, status: "applied" } })).toBe(1);
   });
 
   it("same GSTIN across businesses: one reservation", async () => {

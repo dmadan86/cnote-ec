@@ -3,7 +3,7 @@
 import { DomainError } from "@cnote/core";
 import { prisma, type Tx } from "@cnote/db";
 import { storeOffers } from "./applications";
-import { assertCreditEnabled } from "./config";
+import { creditEnabled } from "./config";
 import { applyDpd, recordCancellation, recordDisbursal, recordRepayment, recordWriteOff } from "./loans";
 import { activePartnerName, assertMockAllowed, getCreditPartner, MockPartner, mockPartnerAllowed, type PartnerEvent } from "./partner";
 import { ports } from "./ports";
@@ -16,10 +16,12 @@ export interface WebhookResult { status: "processed" | "duplicate" | "ignored" }
 
 type After = () => Promise<void>;
 
-async function apply(tx: Tx, partnerName: string, e: PartnerEvent, after: After[]): Promise<WebhookResult["status"]> {
+async function apply(tx: Tx, partnerName: string, e: PartnerEvent, after: After[], enabled: boolean): Promise<WebhookResult["status"]> {
   const partner = getCreditPartner(partnerName);
   switch (e.type) {
     case "application.offered": {
+      // flag off: new offers START something new; refused (the partner redelivers once credit is enabled)
+      if (!enabled) throw new DomainError("forbidden", "Credit is not available yet.");
       const app = await tx.creditApplication.findUnique({ where: { partner_partnerRef: { partner: partnerName, partnerRef: e.partnerRef } } });
       if (!app || !e.offers?.length || (app.status !== "submitted" && app.status !== "offered")) return "ignored";
       await storeOffers(tx, app.id, app.product as Product, partner.lender, e.offers, e.at);
@@ -34,6 +36,11 @@ async function apply(tx: Tx, partnerName: string, e: PartnerEvent, after: After[
       return r.count ? "processed" : "ignored";
     }
     case "loan.disbursed": {
+      if (!enabled) {
+        // flag off: only the disbursal of an application the borrower already accepted (money in flight) is honoured
+        const inFlight = await tx.creditApplication.findUnique({ where: { partner_partnerRef: { partner: partnerName, partnerRef: e.partnerRef } }, select: { status: true } });
+        if (inFlight?.status !== "accepted") throw new DomainError("forbidden", "Credit is not available yet.");
+      }
       const r = await recordDisbursal(tx, { partner: partnerName, partnerRef: e.partnerRef, loanRef: e.loanRef ?? e.partnerRef, amountPaise: e.amountPaise, at: e.at });
       if (!r) return "ignored";
       if (r.created && r.loan.product === "bnpl") {
@@ -62,9 +69,12 @@ async function apply(tx: Tx, partnerName: string, e: PartnerEvent, after: After[
 
 export async function handleCreditWebhook(partnerName: string, raw: Uint8Array, headers: Headers): Promise<WebhookResult> {
   const partner = getCreditPartner(partnerName);
-  // Security audit H1: refuse while the feature is off, and accept ONLY the configured partner (a forged `mock` event must
+  // Security audit H1: accept ONLY the configured partner (a forged `mock` event must
   // never move a loan while a real partner is configured). Same not_found so nothing is revealed.
-  assertCreditEnabled();
+  // Turning the feature off must not strand money in flight: with the flag off, events that SETTLE existing obligations
+  // (repayment, close, cancel, overdue, write-off, rejection, disbursal of an already-accepted application) are still applied;
+  // events that would START something new are refused inside apply().
+  const enabled = creditEnabled();
   if (partnerName !== activePartnerName() || (partnerName === "mock" && !mockPartnerAllowed())) throw new DomainError("not_found", "Unknown credit partner.", undefined, "credit.unknownCreditPartner");
   const event = partner.verifyWebhook(raw, headers);
   if (!event) throw new DomainError("unauthenticated", "Invalid webhook signature.");
@@ -72,7 +82,7 @@ export async function handleCreditWebhook(partnerName: string, raw: Uint8Array, 
   const status = await prisma.$transaction(async (tx) => {
     const made = await tx.creditWebhookEvent.createMany({ skipDuplicates: true, data: [{ partner: partnerName, eventId: event.eventId, type: event.type }] });
     if (made.count === 0) return "duplicate" as const;
-    return apply(tx, partnerName, event, after);
+    return apply(tx, partnerName, event, after, enabled);
   });
   for (const f of after) await f();
   return { status };

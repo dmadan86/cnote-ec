@@ -15,9 +15,11 @@ const UUID = /^[0-9a-f-]{36}$/i;
 
 export async function handleEscrowWebhook(provider: string, rawBody: Uint8Array | string, headers: Headers | Record<string, string | undefined>): Promise<WebhookResult> {
   if (!isPartnerName(provider)) throw new DomainError("not_found", "Unknown escrow provider");
-  // Security audit H1: the feature flag gates ingress, and ONLY the configured partner may post (a forged `mock` event, signed
+  // Security audit H1: ONLY the configured partner may post (a forged `mock` event, signed
   // with a guessable secret, must never move money while a real partner is configured). Same 404 so nothing is revealed.
-  assertEscrowEnabled();
+  // No flag gate here: every event type this ingress understands settles an EXISTING obligation (funding of an escrow that
+  // was already created, payout / refund settled or failed); nothing new can be started from a webhook (an unknown escrow only
+  // opens a reconciliation issue). Turning ESCROW_ENABLED off therefore never strands money in flight.
   if (provider !== activePartnerName()) throw new DomainError("not_found", "Unknown escrow provider");
   if (provider === "mock" && !mockPartnerAllowed()) throw new DomainError("not_found", "Unknown escrow provider");
   const parsed = getEscrowPartner(provider).verifyWebhook(rawBody, headers);

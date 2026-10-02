@@ -197,11 +197,16 @@ async function priorPaidPurchase(businessId: string): Promise<boolean> {
 /** A redemption that holds a slot: applied, or reserved by a checkout that has not yet expired (security audit M3). */
 const holding = (now: Date) => ({ OR: [{ status: "applied" as const }, { status: "reserved" as const, createdAt: { gt: new Date(now.getTime() - COUPON.reservationMinutes * 60_000) } }] });
 
+/** Like holding(), but the business's OWN unpaid reservations do not count: a retried checkout replaces them (see reserveCoupon). */
+const holdingOthers = (now: Date, businessId: string) => ({
+  OR: [{ status: "applied" as const }, { status: "reserved" as const, businessId: { not: businessId }, createdAt: { gt: new Date(now.getTime() - COUPON.reservationMinutes * 60_000) } }],
+});
+
 async function eligible(c: Row, o: { businessId: string; planCode?: string; amountPaise: number; isFirstPurchase?: boolean }, now: Date): Promise<void> {
   if (c.kind === "ad_credit") throw invalid(); // ad wallet credits are not redeemable at plan checkout
   if (c.status !== "active" || now < c.validFrom || now >= c.validTo) throw invalid();
   if (c.maxRedemptions !== null) {
-    const reserved = await prisma.couponRedemption.count({ where: { couponId: c.id, status: "reserved", createdAt: { gt: new Date(now.getTime() - COUPON.reservationMinutes * 60_000) } } });
+    const reserved = await prisma.couponRedemption.count({ where: { couponId: c.id, status: "reserved", businessId: { not: o.businessId }, createdAt: { gt: new Date(now.getTime() - COUPON.reservationMinutes * 60_000) } } });
     if (c.redeemedCount + reserved >= c.maxRedemptions) throw invalid();
   }
   if (!Number.isInteger(o.amountPaise) || o.amountPaise <= 0) throw new DomainError("validation", "A payable amount is required to apply a code", undefined, "promotions.payableAmountRequiredApplyCode");
@@ -211,10 +216,10 @@ async function eligible(c: Row, o: { businessId: string; planCode?: string; amou
   if (c.firstPurchaseOnly && (o.isFirstPurchase === false || (o.isFirstPurchase === undefined && (await priorPaidPurchase(o.businessId))))) throw invalid();
   const keys = await riskKeys(o.businessId);
   if (keys.tier < c.minTier) throw new DomainError("forbidden", "Verify your business (GSTIN) to use this code.", undefined, "promotions.verifyBusinessGstinUseCode");
-  const used = await prisma.couponRedemption.count({ where: { couponId: c.id, businessId: o.businessId, ...holding(now) } });
+  const used = await prisma.couponRedemption.count({ where: { couponId: c.id, businessId: o.businessId, status: "applied" } });
   if (used >= c.perBusinessLimit) throw invalid();
   if (keys.gstin) {
-    const sameGstin = await prisma.couponRedemption.count({ where: { couponId: c.id, gstin: keys.gstin, ...holding(now) } });
+    const sameGstin = await prisma.couponRedemption.count({ where: { couponId: c.id, gstin: keys.gstin, ...holdingOthers(now, o.businessId) } });
     if (sameGstin >= c.perBusinessLimit) throw invalid();
   }
 }
@@ -311,6 +316,14 @@ export async function reserveCoupon(couponId: string, opts: ReserveOptions, now 
     const same = await tx.couponRedemption.findUnique({ where: { couponId_businessId_checkoutRef: { couponId: c.id, businessId: opts.businessId, checkoutRef } } });
     if (same?.status === "applied" || (same?.status === "reserved" && same.createdAt > cutoff)) return { redemptionId: same.id, discountPaise: Number(same.discountPaise), creditsBonus: same.creditsGranted };
     if (c.status !== "active" || now < c.validFrom || now >= c.validTo || c.kind === "ad_credit") throw invalid();
+    // A retry by the SAME business replaces its own earlier, unpaid reservation (the abandoned checkout) instead of being refused.
+    // Only one reservation per business can be live, so parallel checkouts still yield one redemption: an older order that is
+    // paid later fails its re-check in redeemInTx against the newer reservation.
+    const stale = await tx.couponRedemption.findMany({ where: { couponId: c.id, businessId: opts.businessId, status: "reserved", checkoutRef: { not: checkoutRef } }, select: { id: true } });
+    if (stale.length) {
+      await tx.couponRedemption.updateMany({ where: { id: { in: stale.map((x) => x.id) } }, data: { status: "voided" } });
+      for (const x of stale) await emit(tx, "CouponVoided", { type: "coupon", id: c.id }, { couponId: c.id, redemptionId: x.id, businessId: opts.businessId, reason: "superseded_by_new_checkout" });
+    }
     const notSame = same ? { id: { not: same.id } } : {};
     const liveReserved = await tx.couponRedemption.count({ where: { couponId: c.id, status: "reserved", createdAt: { gt: cutoff }, ...notSame } });
     if (c.maxRedemptions !== null && c.redeemedCount + liveReserved >= c.maxRedemptions) throw invalid();

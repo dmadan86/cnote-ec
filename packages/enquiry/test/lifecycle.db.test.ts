@@ -909,6 +909,14 @@ describe("refund farming guard (security audit M2)", () => {
     expect((await listRefundReviews()).some((r) => r.matchId === leads[1]!.matchId)).toBe(true);
   });
 
+  it("buyer_unreachable refunds count toward the refund rate (the reachability flow itself is unchanged)", async () => {
+    const { seller, leads } = await farm(6);
+    expect((await reportBuyerProblem(seller, leads[0]!.matchId, "buyer_unreachable")).outcome).toBe("refunded"); // never held
+    // 1 unreachable refund + this fake report = 2 of 6 = 33% > 20%: held
+    expect((await reportBuyerProblem(seller, leads[1]!.matchId, "buyer_fake")).outcome).toBe("held_for_review");
+    expect((await reportBuyerProblem(seller, leads[2]!.matchId, "buyer_unreachable")).outcome).toBe("refunded");
+  });
+
   it("burst: more than N seller refunds in 7 days are held even when the rate is fine", async () => {
     await withEnv({ LEAD_REFUND_GUARD_MAX_PER_WEEK: "1", LEAD_REFUND_GUARD_RATE_BPS: "10000" }, async () => {
       const { seller, leads } = await farm(3);
