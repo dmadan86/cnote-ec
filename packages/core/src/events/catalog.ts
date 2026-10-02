@@ -23,7 +23,8 @@ export interface DomainEventPayloads {
   ListingImageProcessed: { imageId: string; listingId: string; variants: number };
   ListingImageModerated: { imageId: string; listingId: string; sellerBusinessId: string; status: "approved" | "rejected"; moderatedBy: string };
   // enquiry & matching
-  EnquiryCreated: { enquiryId: string; buyerBusinessId: string; categoryId: string | null };
+  /** v2 adds the RFQ depth fields (all optional, absent on v1 rows): attachment count (files are never in the event), preferred minimum seller tier and the quote expiry. */
+  EnquiryCreated: { enquiryId: string; buyerBusinessId: string; categoryId: string | null; attachmentCount?: number; minSellerTier?: number | null; expiresAt?: string | null };
   EnquiryScored: { enquiryId: string; intentScore: number; needsReview: boolean };
   LeadMatched: { enquiryId: string; matchId: string; sellerBusinessId: string; rank: number; matchScore: number };
   LeadAccepted: { enquiryId: string; matchId: string; sellerBusinessId: string; creditTxnId: string | null; responseMs: number };
@@ -180,7 +181,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   ListingVersionReviewed: 1,
   ListingVersionPublished: 1,
   ListingUnpublished: 1,
-  EnquiryCreated: 1,
+  EnquiryCreated: 2,
   EnquiryScored: 1,
   LeadMatched: 1,
   LeadAccepted: 1,

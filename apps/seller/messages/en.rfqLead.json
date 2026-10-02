@@ -1,0 +1,15 @@
+{
+  "rfqLead": {
+    "targetPrice": "Target price per unit",
+    "budget": "Budget per unit",
+    "pincode": "Delivery pincode",
+    "quoteDeadline": "Quote deadline",
+    "deadlinePassed": "Deadline passed",
+    "preferredTier": "Buyer prefers",
+    "tierPlus": "Tier {tier} or higher",
+    "attachments": "Drawings and specs",
+    "download": "Download {name}",
+    "quoteAttachments": "Attach files (optional)",
+    "quoteAttachmentsHint": "Up to 3 files, PDF, JPG or PNG, 5 MB each. The buyer sees them next to your quote."
+  }
+}

@@ -3,6 +3,7 @@ import * as catalogue from "@cnote/catalogue";
 import { DomainError, emit, rateLimit } from "@cnote/core";
 import { prisma, toVectorLiteral } from "@cnote/db";
 import { randomUUID } from "node:crypto";
+import { checkAttachments, discardStored, MAX_RFQ_ATTACHMENTS, MAX_RFQ_ATTACHMENT_BYTES, storeAttachmentBytes } from "./attachments";
 import { getBuyerEnquiry } from "./buyer";
 import { runMatching } from "./matching";
 import { enquiryInputSchema } from "./schemas";
@@ -12,6 +13,8 @@ import type { Actor, CreateEnquiryContext, EnquiryInput, EnquiryView } from "./t
 /** Validates, moderates, embeds, scores intent, matches top-N sellers synchronously (< 2s). */
 export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: CreateEnquiryContext = {}): Promise<EnquiryView> {
   const data = enquiryInputSchema.parse(input);
+  // Validate files up front (type by magic bytes, size, count) so a bad upload fails before any model call or write.
+  const files = checkAttachments(input.attachments, MAX_RFQ_ATTACHMENTS, MAX_RFQ_ATTACHMENT_BYTES);
   if (!(await rateLimit(`enquiry:create:${actor.businessId}`, 10, 3600))) {
     throw new DomainError("rate_limited", "You have posted many requirements this hour. Please try again a little later.");
   }
@@ -37,6 +40,7 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
     WHERE buyer_business_id = ${actor.businessId}::uuid AND created_at > now() - interval '7 days' AND embedding IS NOT NULL
     ORDER BY embedding <=> ${vec}::vector LIMIT 1`;
 
+  // ADR-008/010: only the text fields above reach the model. Attachments (drawings/specs) are stored privately and never sent.
   const blocked = moderation.verdict === "block";
   let intentScore: number | null = null;
   let intentReasons: string[] = [];
@@ -66,6 +70,9 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
   const held = !blocked && (moderation.verdict === "review" || moderation.needsReview || scoreNeedsReview);
   const status = blocked ? "rejected" : held ? "review" : "scoring";
 
+  const stored = await storeAttachmentBytes(id, files);
+  const expiresAt = new Date(Date.now() + data.expiresInDays * 24 * 60 * 60 * 1000);
+  try {
   await prisma.$transaction(async (tx) => {
     await tx.enquiry.create({
       data: {
@@ -88,12 +95,28 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
         status,
         sellerCap: category?.leadCap ?? 3,
         buyerPicks: data.buyerPicks,
+        budgetMinPaise: data.budgetMinPaise === null ? null : BigInt(data.budgetMinPaise),
+        budgetMaxPaise: data.budgetMaxPaise === null ? null : BigInt(data.budgetMaxPaise),
+        expiresAt,
+        minSellerTier: data.minSellerTier,
       },
     });
+    if (stored.length) {
+      await tx.enquiryAttachment.createMany({
+        data: stored.map((s) => ({ id: s.id, enquiryId: id, uploadedByBusiness: actor.businessId, key: s.key, fileName: s.fileName, mimeType: s.mimeType, sizeBytes: s.sizeBytes, createdAt: s.createdAt })),
+      });
+    }
     await tx.$executeRaw`UPDATE enquiries SET embedding = ${vec}::vector, embedding_version = ${emb.version} WHERE id = ${id}::uuid`;
-    await emit(tx, "EnquiryCreated", { type: "enquiry", id }, { enquiryId: id, buyerBusinessId: actor.businessId, categoryId: category?.id ?? null });
+    await emit(tx, "EnquiryCreated", { type: "enquiry", id }, {
+      enquiryId: id, buyerBusinessId: actor.businessId, categoryId: category?.id ?? null,
+      attachmentCount: stored.length, minSellerTier: data.minSellerTier, expiresAt: expiresAt.toISOString(),
+    });
     if (intentScore !== null) await emit(tx, "EnquiryScored", { type: "enquiry", id }, { enquiryId: id, intentScore, needsReview: held });
   });
+  } catch (err) {
+    await discardStored(stored);
+    throw err;
+  }
 
   if (status === "scoring") {
     // A preference never bypasses matching rules: the seller is only ranked first if it is already an eligible

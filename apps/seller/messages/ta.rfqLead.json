@@ -1,0 +1,18 @@
+{
+  "rfqLead": {
+    "_meta": {
+      "review": "machine-drafted; needs native review"
+    },
+    "targetPrice": "ஒரு யூனிட்டுக்கான இலக்கு விலை",
+    "budget": "ஒரு யூனிட்டுக்கான பட்ஜெட்",
+    "pincode": "டெலிவரி பின்கோடு",
+    "quoteDeadline": "கோட் அனுப்ப கடைசி தேதி",
+    "deadlinePassed": "கெடு முடிந்தது",
+    "preferredTier": "வாங்குபவரின் விருப்பம்",
+    "tierPlus": "டியர் {tier} அல்லது அதற்கு மேல்",
+    "attachments": "வரைபடங்களும் விவரக்குறிப்புகளும்",
+    "download": "{name} பதிவிறக்கு",
+    "quoteAttachments": "கோப்புகளை இணைக்கவும் (விருப்பம்)",
+    "quoteAttachmentsHint": "அதிகபட்சம் 3 கோப்புகள், PDF, JPG அல்லது PNG, ஒவ்வொன்றும் 5 MB வரை. வாங்குபவர் இவற்றை உங்கள் கோட்டுடன் பார்ப்பார்."
+  }
+}
