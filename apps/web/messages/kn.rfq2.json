@@ -40,7 +40,6 @@
         "closed": "ಮುಚ್ಚಲಾಗಿದೆ",
         "expired": "ಅವಧಿ ಮುಗಿದಿದೆ"
       },
-      "statusCount": "{label}, {count}",
       "emptyFilter": "ಈಗ ಯಾವುದೇ {status} ಅವಶ್ಯಕತೆ ಇಲ್ಲ.",
       "quotesReceived": "{count, plural, =0 {ಇನ್ನೂ ಕೋಟ್ ಬಂದಿಲ್ಲ} one {# ಕೋಟ್ ಬಂದಿದೆ} other {# ಕೋಟ್‌ಗಳು ಬಂದಿವೆ}}",
       "matchedOf": "ಗರಿಷ್ಠ {max} ರಲ್ಲಿ {matched} ಮಾರಾಟಗಾರರು ಹೊಂದಿಕೆಯಾಗಿದ್ದಾರೆ",

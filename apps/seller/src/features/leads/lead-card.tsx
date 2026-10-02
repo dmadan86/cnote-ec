@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useSyncExternalStore } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { MapPin, MessageSquare, Phone } from "lucide-react";
 import { Alert, Badge, Card, CardBody, IntentScore, TrustBadge, buttonClasses } from "@cnote/ui";
@@ -116,6 +116,18 @@ function AcceptedPanel({ lead }: { lead: LeadView }) {
   );
 }
 
+/** Deadline date, or "Deadline passed". The clock is read in an effect-free external store so render stays pure. */
+function DeadlineText({ expiresAt, locale }: { expiresAt: string; locale: Parameters<typeof formatDate>[1] }) {
+  const tr = useTranslations("rfqLead");
+  const minute = () => Math.floor(Date.now() / 60_000);
+  const now = useSyncExternalStore(subscribeMinute, minute, minute);
+  return <>{new Date(expiresAt).getTime() < now * 60_000 ? tr("deadlinePassed") : formatDate(expiresAt, locale)}</>;
+}
+function subscribeMinute(cb: () => void) {
+  const t = setInterval(cb, 60_000);
+  return () => clearInterval(t);
+}
+
 export function LeadCard({ lead, balance }: { lead: LeadView; balance: number | null }) {
   const t = useTranslations("leads");
   const loc = useLocale();
@@ -125,7 +137,6 @@ export function LeadCard({ lead, balance }: { lead: LeadView; balance: number | 
   const st = STATUS[lead.status];
   const rupees = (p: number) => `₹${(p / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
   const budget = [e.budgetMinPaise ? rupees(e.budgetMinPaise) : null, e.budgetMaxPaise ? rupees(e.budgetMaxPaise) : null].filter(Boolean).join(" – ");
-  const deadlinePassed = e.expiresAt ? new Date(e.expiresAt).getTime() < Date.now() : false;
   const hasRfqDetails = !!(e.targetPricePaise || budget || e.deliveryPincode || e.expiresAt || e.minSellerTier || e.attachments.length);
   return (
     <Card>
@@ -176,7 +187,7 @@ export function LeadCard({ lead, balance }: { lead: LeadView; balance: number | 
             {e.expiresAt ? (
               <div>
                 <dt className="text-xs text-muted">{tr("quoteDeadline")}</dt>
-                <dd className="font-medium text-ink">{deadlinePassed ? tr("deadlinePassed") : formatDate(e.expiresAt, locale)}</dd>
+                <dd className="font-medium text-ink"><DeadlineText expiresAt={e.expiresAt} locale={locale} /></dd>
               </div>
             ) : null}
             {e.minSellerTier ? (

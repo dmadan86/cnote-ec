@@ -1,0 +1,18 @@
+{
+  "rfqLead": {
+    "_meta": {
+      "review": "machine-drafted; needs native review"
+    },
+    "targetPrice": "యూనిట్‌కు లక్ష్య ధర",
+    "budget": "యూనిట్‌కు బడ్జెట్",
+    "pincode": "డెలివరీ పిన్‌కోడ్",
+    "quoteDeadline": "కోట్ ఇవ్వడానికి చివరి తేదీ",
+    "deadlinePassed": "గడువు ముగిసింది",
+    "preferredTier": "కొనుగోలుదారు ప్రాధాన్యత",
+    "tierPlus": "టియర్ {tier} లేదా అంతకంటే ఎక్కువ",
+    "attachments": "డ్రాయింగ్‌లు మరియు స్పెసిఫికేషన్‌లు",
+    "download": "{name} డౌన్‌లోడ్ చేయండి",
+    "quoteAttachments": "ఫైళ్లను జత చేయండి (ఐచ్ఛికం)",
+    "quoteAttachmentsHint": "గరిష్ఠంగా 3 ఫైళ్లు, PDF, JPG లేదా PNG, ఒక్కొక్కటి 5 MB వరకు. కొనుగోలుదారు వీటిని మీ కోట్‌తో పాటు చూస్తారు."
+  }
+}

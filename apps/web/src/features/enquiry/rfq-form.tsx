@@ -3,7 +3,7 @@ import type { EnquiryView } from "@cnote/enquiry";
 import type { ActionResult } from "@cnote/next-kit";
 import { Alert, Button, Field, Input, Select, Textarea } from "@cnote/ui";
 import { useTranslations } from "next-intl";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState, useSyncExternalStore } from "react";
 import { PINCODE_COOKIE } from "@/features/shell/site";
 import { postRfqAction } from "./actions";
 import { RfqResult } from "./rfq-result";
@@ -13,6 +13,12 @@ export const MAX_FILES = 5;
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const ACCEPT_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const EXPIRY_DAYS = [1, 3, 7, 14, 30];
+
+const noopSubscribe = () => () => undefined;
+export function readPincodeCookie(): string | null {
+  const m = document.cookie.match(new RegExp(`(?:^|; )${PINCODE_COOKIE}=(\\d{6})`));
+  return m ? m[1]! : null;
+}
 
 /** Client-side mirror of the server's checks (the server re-validates by magic bytes). Returns an error key + file name, or null. */
 export function validateFiles(files: { name: string; type: string; size: number }[]): { key: "errTooMany" | "errType" | "errSize"; name?: string } | null {
@@ -103,12 +109,10 @@ export function RfqForm({ categories, defaults }: RfqFormProps) {
   const t2 = useTranslations("rfq2");
   const tc = useTranslations("cards");
   const tierLabels = trustLabels(tc).tiers;
-  const [pincode, setPincode] = useState("");
-  // "Deliver to" pincode (cnote_pincode, non-httpOnly) prefills the delivery pincode once; typing always wins.
-  useEffect(() => {
-    const m = document.cookie.match(new RegExp(`(?:^|; )${PINCODE_COOKIE}=(\d{6})`));
-    if (m) setPincode((cur) => cur || m[1]!);
-  }, []);
+  // "Deliver to" pincode (cnote_pincode, non-httpOnly) prefills the delivery pincode; once the buyer types, their value wins.
+  const cookiePin = useSyncExternalStore(noopSubscribe, readPincodeCookie, () => null);
+  const [typedPin, setTypedPin] = useState<string | null>(null);
+  const pincode = typedPin ?? cookiePin ?? "";
   const [state, action, pending] = useActionState<ActionResult<EnquiryView> | null, FormData>(postRfqAction, null);
   if (state?.ok) return <RfqResult enquiry={state.data} />;
   const err = (k: string) => (state && !state.ok ? state.fieldErrors?.[k] : undefined);
@@ -157,7 +161,7 @@ export function RfqForm({ categories, defaults }: RfqFormProps) {
           <Input id="deliveryCity" name="deliveryCity" autoComplete="address-level2" />
         </Field>
         <Field label={t("pincode")} htmlFor="deliveryPincode" error={err("deliveryPincode")} hint={t2("pincodeHint")}>
-          <Input id="deliveryPincode" name="deliveryPincode" inputMode="numeric" maxLength={6} autoComplete="postal-code" value={pincode} onChange={(e) => setPincode(e.target.value.replace(/\D/g, ""))} />
+          <Input id="deliveryPincode" name="deliveryPincode" inputMode="numeric" maxLength={6} autoComplete="postal-code" value={pincode} onChange={(e) => setTypedPin(e.target.value.replace(/\D/g, ""))} />
         </Field>
         <Field label={t("neededBy")} htmlFor="neededBy" error={err("neededBy")} hint={t2("requiredByHint")}>
           <Input id="neededBy" name="neededBy" type="date" />

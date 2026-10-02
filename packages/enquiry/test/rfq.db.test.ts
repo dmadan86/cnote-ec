@@ -224,7 +224,7 @@ describe("attachment access", () => {
 
     // signing driver
     const signing = Object.create(store) as LocalMediaStore;
-    signing.signedGetUrl = async (k: string, ttl: number) => `https://signed.example/${k}?ttl=${ttl}`;
+    (signing as unknown as { signedGetUrl: (k: string, ttl: number) => Promise<string> }).signedGetUrl = async (k, ttl) => `https://signed.example/${k}?ttl=${ttl}`;
     setMediaStore(signing, "private");
     expect((await openAttachment(buyer, id))!.signedUrl).toMatch(/^https:\/\/signed\.example\/rfq\/.+\?ttl=300$/);
     setMediaStore(store, "private");

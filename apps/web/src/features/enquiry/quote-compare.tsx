@@ -248,7 +248,7 @@ export function QuoteCompare({ comparison }: { comparison: QuoteComparison }) {
                 <div
                   ref={strip}
                   role="region"
-                  aria-label={t("title")}
+                  aria-label={t("caption")}
                   tabIndex={0}
                   className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 focus-visible:outline-2 focus-visible:outline-brand-600"
                 >

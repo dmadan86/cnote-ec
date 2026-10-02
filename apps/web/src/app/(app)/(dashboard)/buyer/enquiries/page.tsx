@@ -53,7 +53,7 @@ export default async function BuyerEnquiriesPage(props: PageProps<"/buyer/enquir
                     aria-current={active ? "page" : undefined}
                     className={buttonClasses(active ? "primary" : "outline", "md", "min-h-11 sm:min-h-10")}
                   >
-                    {tr("statusCount", { label: tr(`status.${c.key}`), count: c.count })}
+                    {tr(`status.${c.key}`)} ({c.count})
                   </Link>
                 </li>
               );

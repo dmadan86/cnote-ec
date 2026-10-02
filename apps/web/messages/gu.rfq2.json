@@ -40,7 +40,6 @@
         "closed": "બંધ",
         "expired": "સમય પૂરો"
       },
-      "statusCount": "{label}, {count}",
       "emptyFilter": "હાલ કોઈ {status} જરૂરિયાત નથી.",
       "quotesReceived": "{count, plural, =0 {હજી કોઈ ક્વોટેશન નથી} one {# ક્વોટેશન મળ્યું} other {# ક્વોટેશન મળ્યા}}",
       "matchedOf": "વધુમાં વધુ {max} માંથી {matched} વેચનાર સાથે મેળ થયો",

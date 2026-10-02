@@ -40,7 +40,6 @@
         "closed": "మూసివేసినవి",
         "expired": "గడువు ముగిసినవి"
       },
-      "statusCount": "{label}, {count}",
       "emptyFilter": "ప్రస్తుతం {status} అవసరాలు ఏవీ లేవు.",
       "quotesReceived": "{count, plural, =0 {ఇంకా కొటేషన్లు లేవు} one {# కొటేషన్ వచ్చింది} other {# కొటేషన్లు వచ్చాయి}}",
       "matchedOf": "గరిష్ఠంగా {max} లో {matched} సెల్లర్లు సరిపోలారు",

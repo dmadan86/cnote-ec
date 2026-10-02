@@ -40,7 +40,6 @@
         "closed": "बंद",
         "expired": "मुदत संपली"
       },
-      "statusCount": "{label}, {count}",
       "emptyFilter": "सध्या कोणतीही {status} गरज नाही.",
       "quotesReceived": "{count, plural, =0 {अजून कोटेशन नाही} one {# कोटेशन मिळाले} other {# कोटेशन मिळाली}}",
       "matchedOf": "कमाल {max} पैकी {matched} विक्रेत्यांशी जुळवणी झाली",

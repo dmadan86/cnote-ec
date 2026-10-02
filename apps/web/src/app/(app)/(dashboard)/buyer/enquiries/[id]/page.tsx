@@ -28,7 +28,7 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
   const t = await getTranslations({ locale, namespace: "buyer" });
   const t2 = await getTranslations({ locale, namespace: "rfq2" });
   const tc = await getTranslations({ locale, namespace: "cards" });
-  const comparison = e.matches.length ? await getQuoteComparison(actorOf(s), e.id) : null;
+  const comparison = await getQuoteComparison(actorOf(s), e.id);
   const money = (p: number) => `₹${(p / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
   const cap = e.sellerCap ?? 3;

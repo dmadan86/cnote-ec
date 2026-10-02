@@ -40,7 +40,6 @@
         "closed": "বন্ধ",
         "expired": "মেয়াদ শেষ"
       },
-      "statusCount": "{label}, {count}",
       "emptyFilter": "এখন কোনও {status} চাহিদা নেই।",
       "quotesReceived": "{count, plural, =0 {এখনও কোনও কোটেশন নেই} one {#টি কোটেশন পাওয়া গেছে} other {#টি কোটেশন পাওয়া গেছে}}",
       "matchedOf": "সর্বোচ্চ {max} জনের মধ্যে {matched} জন বিক্রেতার সঙ্গে মিলেছে",

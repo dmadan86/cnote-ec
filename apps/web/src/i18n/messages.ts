@@ -83,7 +83,7 @@ export function loadMessages(locale: CatalogueLocale): Promise<Messages> {
 export const loadLocaleCatalogue = loadLocaleFiles;
 
 /** Namespaces client components read (everything else stays server-side and out of the client payload). */
-export const CLIENT_NAMESPACES = ["shell", "search", "rails", "consent", "unlock", "leadgen", "ui", "lang", "errors", "filters", "states", "cards", "auth", "rfq", "compare", "rail", "pdp", "filters"] as const;
+export const CLIENT_NAMESPACES = ["shell", "search", "rails", "consent", "unlock", "leadgen", "ui", "lang", "errors", "filters", "states", "cards", "auth", "rfq", "rfq2", "compare", "rail", "pdp", "filters"] as const;
 
 /**
  * Extra namespaces for client components of the dynamic routes (account, buyer, rfq, ...). Kept out of CLIENT_NAMESPACES

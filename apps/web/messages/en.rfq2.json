@@ -37,7 +37,6 @@
         "closed": "Closed",
         "expired": "Expired"
       },
-      "statusCount": "{label}, {count}",
       "emptyFilter": "No {status} requirements right now.",
       "quotesReceived": "{count, plural, =0 {No quotes yet} one {# quote received} other {# quotes received}}",
       "matchedOf": "{matched} of max {max} suppliers matched",

@@ -40,7 +40,6 @@
         "closed": "முடிக்கப்பட்டவை",
         "expired": "காலாவதியானவை"
       },
-      "statusCount": "{label}, {count}",
       "emptyFilter": "இப்போது {status} தேவைகள் எதுவும் இல்லை.",
       "quotesReceived": "{count, plural, =0 {இன்னும் கோட்டேஷன் இல்லை} one {# கோட்டேஷன் கிடைத்தது} other {# கோட்டேஷன்கள் கிடைத்தன}}",
       "matchedOf": "அதிகபட்சம் {max} பேரில் {matched} விற்பனையாளர்கள் பொருந்தினர்",
