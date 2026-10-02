@@ -61,3 +61,6 @@ graphify-out/
 
 # alternate Next distDirs (e.g. a second dev server for e2e)
 .next-*/
+
+# AI eval run output (committed baselines live in packages/ai/evals/baseline)
+packages/ai/evals/reports/

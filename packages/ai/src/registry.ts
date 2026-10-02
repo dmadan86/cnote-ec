@@ -1,4 +1,4 @@
-import { AnthropicImageExtractor, AnthropicIntentScorer, AnthropicListingExtractor, AnthropicModerator, createAnthropicClient, type MessagesClient } from "./anthropic";
+import { defaultModels, AnthropicImageExtractor, AnthropicIntentScorer, AnthropicListingExtractor, AnthropicModerator, createAnthropicClient, type MessagesClient, type ModelSet } from "./anthropic";
 import { localEmbedder } from "./embedder";
 import { extractListingHeuristic } from "./heuristic/extract";
 import { HEURISTIC_MODEL, scoreIntentHeuristic } from "./heuristic/intent";
@@ -31,11 +31,11 @@ async function withFallback<I, O>(
 }
 
 /** Anthropic for reasoning capabilities; embeddings stay local (Anthropic has no embeddings API). */
-export function anthropicProviders(client: MessagesClient = createAnthropicClient(), fallback = true): Providers {
-  const intent = new AnthropicIntentScorer(client);
-  const extractor = new AnthropicListingExtractor(client);
-  const moderator = new AnthropicModerator(client);
-  const imageExtractor = new AnthropicImageExtractor(client);
+export function anthropicProviders(client: MessagesClient = createAnthropicClient(), fallback = true, models: ModelSet = defaultModels()): Providers {
+  const intent = new AnthropicIntentScorer(client, models);
+  const extractor = new AnthropicListingExtractor(client, models);
+  const moderator = new AnthropicModerator(client, models);
+  const imageExtractor = new AnthropicImageExtractor(client, models);
   const h = heuristicProviders;
   const wrap = <I, O>(p: (i: I) => Promise<ProviderResult<O>>, f: (i: I) => Promise<ProviderResult<O>>) =>
     fallback ? (i: I) => withFallback(p, f, i) : p;
@@ -62,5 +62,33 @@ export function getProviders(): Providers {
   return cached.providers;
 }
 
+let shadowOverride: Providers | null = null;
+let cachedShadow: { key: string; providers: Providers | null } | null = null;
+
+/**
+ * Shadow mode (ADR-008): AI_SHADOW_PROVIDER ("anthropic" | "heuristic") runs a candidate beside the live provider; its
+ * decisions are logged with shadow=true and never reach users. AI_SHADOW_MODEL_REASONING / AI_SHADOW_MODEL_FAST pick the
+ * candidate models. No heuristic fallback here: a failing candidate must show up as an error, not be masked.
+ * Returns null when unset, or when it would just repeat the live provider.
+ */
+export function getShadowProviders(): Providers | null {
+  if (shadowOverride) return shadowOverride;
+  const name = process.env.AI_SHADOW_PROVIDER;
+  if (name !== "anthropic" && name !== "heuristic") return null;
+  const models: ModelSet = {
+    reasoning: process.env.AI_SHADOW_MODEL_REASONING || defaultModels().reasoning,
+    fast: process.env.AI_SHADOW_MODEL_FAST || defaultModels().fast,
+  };
+  const live = process.env.AI_PROVIDER === "anthropic" ? "anthropic" : "heuristic";
+  const sameAsLive = name === live && models.reasoning === defaultModels().reasoning && models.fast === defaultModels().fast;
+  if (sameAsLive) return null;
+  const key = JSON.stringify([name, models]);
+  if (cachedShadow?.key !== key) cachedShadow = { key, providers: name === "anthropic" ? anthropicProviders(createAnthropicClient(), false, models) : heuristicProviders };
+  return cachedShadow.providers;
+}
+
 /** Test hook: inject providers (null restores env-based selection). */
 export function setProvidersForTests(p: Providers | null) { override = p; cached = null; cachedRemote = null; }
+
+/** Test hook: inject candidate providers for shadow mode (null restores env-based selection). */
+export function setShadowProvidersForTests(p: Providers | null) { shadowOverride = p; cachedShadow = null; }

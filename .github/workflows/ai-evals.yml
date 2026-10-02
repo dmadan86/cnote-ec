@@ -1,0 +1,142 @@
+name: AI evals
+
+# ADR-008: prompt and model changes are gated on golden-set evals.
+#  - nightly + manual: run the golden sets against the real Anthropic provider and compare with the committed baseline
+#  - pull requests that touch packages/ai (prompts, versions, model ids, eval data): this workflow runs, the prompt manifest
+#    check fails an unbumped prompt change, and a changed prompt/model needs a live eval (or a refreshed committed baseline)
+# Without the ANTHROPIC_API_KEY repo secret the live job skips cleanly with a notice (and fails a PR that changed a prompt or model).
+
+on:
+  schedule:
+    - cron: "17 21 * * *" # nightly, 02:47 IST
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: Provider to evaluate
+        type: choice
+        options: [anthropic, heuristic]
+        default: anthropic
+  pull_request:
+    paths:
+      - "packages/ai/src/**"
+      - "packages/ai/evals/**"
+      - "packages/ai/prompts.manifest.json"
+      - "packages/ai/package.json"
+      - ".github/workflows/ai-evals.yml"
+
+concurrency:
+  group: ai-evals-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+  # The eval harness never opens a database connection; the generated Prisma client only needs a URL to import.
+  DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote
+  LIVE_DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote_live
+
+jobs:
+  offline-gate:
+    name: Prompt manifest + offline evals
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      prompts_changed: ${{ steps.diff.outputs.prompts_changed }}
+      baseline_touched: ${{ steps.diff.outputs.baseline_touched }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Prompt text, version and model-id manifest
+        run: pnpm --filter @cnote/ai run eval:manifest
+
+      - name: Did this PR change a prompt, prompt version or model id?
+        id: diff
+        run: |
+          prompts_changed=false
+          baseline_touched=false
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="origin/${{ github.base_ref }}"
+            if ! git diff --quiet "$base"...HEAD -- packages/ai/prompts.manifest.json; then prompts_changed=true; fi
+            if ! git diff --quiet "$base"...HEAD -- packages/ai/evals/baseline/anthropic.json; then baseline_touched=true; fi
+          fi
+          echo "prompts_changed=$prompts_changed" >> "$GITHUB_OUTPUT"
+          echo "baseline_touched=$baseline_touched" >> "$GITHUB_OUTPUT"
+
+      - name: Golden sets, heuristic provider (hard floors + baseline)
+        run: pnpm --filter @cnote/ai run eval --provider heuristic --out "$RUNNER_TEMP/ai-evals"
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ai-evals-heuristic
+          path: ${{ runner.temp }}/ai-evals
+          if-no-files-found: ignore
+
+  live-eval:
+    name: Golden sets, Anthropic provider
+    needs: offline-gate
+    # Fork PRs never get secrets; they are handled by the "no key" branch below.
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.provider == 'anthropic') ||
+      (github.event_name == 'pull_request' && needs.offline-gate.outputs.prompts_changed == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - name: Is a key available?
+        id: key
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "have_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "have_key=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip notice (no ANTHROPIC_API_KEY)
+        if: steps.key.outputs.have_key != 'true' && github.event_name != 'pull_request'
+        run: echo "::notice title=AI evals skipped::ANTHROPIC_API_KEY is not set as a repository secret, so the live Anthropic eval was skipped. Add the secret to enable the nightly run."
+
+      - name: Require evidence when a prompt or model changed and no key is available
+        if: steps.key.outputs.have_key != 'true' && github.event_name == 'pull_request'
+        run: |
+          if [ "${{ needs.offline-gate.outputs.baseline_touched }}" = "true" ]; then
+            echo "::warning title=Live AI eval not run in CI::No ANTHROPIC_API_KEY is available to this run (fork PR or secret not set). The PR refreshes packages/ai/evals/baseline/anthropic.json, so a maintainer must review that the numbers came from a real run."
+          else
+            echo "::error title=AI eval required (ADR-008)::This PR changes a prompt, prompt version or model id in packages/ai, and CI cannot run the live eval (no ANTHROPIC_API_KEY). Run 'pnpm --filter @cnote/ai run eval --provider anthropic --update-baseline' locally with a key, review the report in packages/ai/evals/reports/, and commit packages/ai/evals/baseline/anthropic.json with the PR."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.key.outputs.have_key == 'true'
+      - uses: pnpm/action-setup@v6
+        if: steps.key.outputs.have_key == 'true'
+      - uses: actions/setup-node@v7
+        if: steps.key.outputs.have_key == 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.key.outputs.have_key == 'true'
+
+      - name: Golden sets, Anthropic provider (hard floors + baseline + latency + cost)
+        if: steps.key.outputs.have_key == 'true'
+        run: pnpm --filter @cnote/ai run eval --provider anthropic --out "$RUNNER_TEMP/ai-evals"
+
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.key.outputs.have_key == 'true'
+        with:
+          name: ai-evals-anthropic
+          path: ${{ runner.temp }}/ai-evals
+          if-no-files-found: ignore
