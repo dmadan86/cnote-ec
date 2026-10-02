@@ -304,7 +304,7 @@ describe("consent ledger", () => {
   });
   it("getConsentStates returns the latest row with its time per purpose (null when never recorded), for cookie-banner sync", async () => {
     const id = await person();
-    expect(await getConsentStates(id, COOKIE_CONSENT_PURPOSES)).toEqual({ analytics_cookies: null, marketing_cookies: null });
+    expect(await getConsentStates(id, COOKIE_CONSENT_PURPOSES)).toEqual({ analytics_cookies: null, marketing_cookies: null, functional_cookies: null });
     await setConsent(id, "analytics_cookies", true, "web_cookie_banner");
     await new Promise((r) => setTimeout(r, 5));
     await setConsent(id, "analytics_cookies", false, "web_cookie_banner");
@@ -362,7 +362,7 @@ describe("DPDP export + erasure", () => {
     expect(await prisma.authSession.count({ where: { personId: t.personId, revokedAt: null } })).toBe(0);
     expect(await getSession(t.accessToken, "web")).toBeNull();
     expect(await getSession(seller.accessToken, "seller")).toBeNull();
-    expect(await getConsents(t.personId)).toEqual({ matching: false, marketing: false, voice_retention: false, counterparty_sharing: false, credit_underwriting: false, analytics_cookies: false, marketing_cookies: false });
+    expect(await getConsents(t.personId)).toEqual({ matching: false, marketing: false, voice_retention: false, counterparty_sharing: false, credit_underwriting: false, analytics_cookies: false, marketing_cookies: false, functional_cookies: false });
     const erasureRows = await prisma.consent.findMany({ where: { personId: t.personId, source: "erasure" } });
     expect(erasureRows).toHaveLength(CONSENT_PURPOSES.length);
     // history is preserved (append-only), only withdrawn

@@ -10,6 +10,7 @@ enum ConsentPurpose {
   /// cookie-banner choices of a signed-in person, mirrored so they follow the account across devices
   analytics_cookies
   marketing_cookies
+  functional_cookies
 
   @@map("consent_purpose")
 }

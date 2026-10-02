@@ -452,6 +452,14 @@
       "templateCouldNotAppliedDetails": "This template could not be applied to your details. Please contact support.",
       "templateNotValid": "The template is not valid.",
       "templateNotFound": "Template not found."
+    },
+    "qa": {
+      "ownProduct": "You can't ask a question about your own product.",
+      "onlyContact": "Your message was mostly contact details, which we remove. Please ask about the product itself.",
+      "tooManyOpen": "You already have questions waiting for an answer on this product. Please wait for the seller to reply.",
+      "duplicate": "You've already asked this question.",
+      "questionGone": "That question isn't available.",
+      "sellerOnly": "Only the seller can answer this question."
     }
   }
 }

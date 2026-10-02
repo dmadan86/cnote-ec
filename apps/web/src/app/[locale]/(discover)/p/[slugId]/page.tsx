@@ -9,16 +9,17 @@ import { LocaleLink as Link } from "@/i18n/link";
 import { resolveLocale } from "@/i18n/server";
 import { JsonLd } from "@/lib/json-ld";
 import { categoryPath, parseProductParam, productPath } from "@/lib/paths";
-import { breadcrumbLd, productLd } from "@/lib/schema";
+import { breadcrumbLd, faqLd, productLd } from "@/lib/schema";
 import { localizedAlternates } from "@/lib/seo-i18n";
 import { ListingCard } from "@/features/search/cards";
-import { isPublic, loadCategory, loadHitsStatic, loadListing, loadListingIndex, loadRatingSummary, loadRatings, loadReviewsPage, loadSeller } from "@/features/search/data";
+import { isPublic, loadCategory, loadHitsStatic, loadListing, loadListingIndex, loadQaPage, loadRatingSummary, loadRatings, loadReviewsPage, loadSeller } from "@/features/search/data";
 import { getUiLabels } from "@/features/search/labels";
 import { moqText } from "@/features/search/format";
 import { Gallery } from "@/features/pdp/gallery";
 import { PurchasePanel } from "@/features/pdp/purchase-panel";
 import { ShareMenu } from "@/features/pdp/share-menu";
 import { TradeInfo } from "@/features/pdp/trade-info";
+import { ProductQa } from "@/features/qa/section";
 import { ProductReviewsStatic } from "@/features/reviews";
 import { RatingStars } from "@/features/reviews/stars";
 import { LeadNudge } from "@/features/leadgen/nudge";
@@ -30,6 +31,8 @@ import { SponsoredSimilar } from "@/features/ads/similar";
 import { stateLabel } from "@/features/identity/states";
 import { loadSupplierTrust } from "@/features/supplier/data";
 import { SellerCard } from "@/features/supplier/seller-card";
+import { SupplierContact } from "@/features/contact/supplier-contact";
+import { RecentlyViewedRail, RecentlyViewedTracker } from "@/features/recently-viewed/rail";
 
 // Product pages are static: the top 100 listings are prerendered at build time, everything else renders on first
 // request and is then cached (ISR). Regenerated at most every 5 min, and immediately (stale-while-revalidate, or
@@ -84,7 +87,7 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
   // Self-healing canonical URL: wrong / missing / stale slug (title edited) -> 308 to /p/<current-slug>-<id>.
   if (parsed.slug !== productPath(listing).slice("/p/".length, -37)) permanentRedirect(localizePath(productPath(listing), locale));
 
-  const [seller, category, similar, summary, reviews, offer, supplierTrust] = await Promise.all([
+  const [seller, category, similar, summary, reviews, offer, supplierTrust, qa] = await Promise.all([
     loadSeller(listing.sellerBusinessId),
     loadCategory(listing.category.slug),
     loadHitsStatic({ q: listing.title, limit: 9 }, [`listing:${listing.id}`]),
@@ -92,6 +95,7 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
     loadReviewsPage(listing.id),
     loadOffer(listing.id),
     loadSupplierTrust(listing.sellerBusinessId),
+    loadQaPage(listing.id),
   ]);
   const others = similar.hits.filter((h) => h.listing.id !== listing.id).slice(0, 4);
   const sellerState = seller ? await stateLabelFor(locale, seller.state) : "";
@@ -118,6 +122,7 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
       <JsonLd
         data={[
           productLd(listing, seller, rating, reviews.items.slice(0, 5).map((v) => ({ rating: v.rating, author: v.authorName, body: v.body.slice(0, 500), date: v.createdAt.slice(0, 10) })), locale),
+          ...[faqLd(qa.items.slice(0, 10).map((q) => ({ question: q.body, answer: q.answer.body, date: q.askedAt.slice(0, 10) })))].filter((x): x is NonNullable<typeof x> => x !== null),
           breadcrumbLd([{ name: ui.home, path: localizePath("/", locale) }, { name: listing.category.name, path: localizePath(categoryPath(listing.category.slug), locale) }, { name: listing.title }]),
         ]}
       />
@@ -174,7 +179,11 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
               trust={supplierTrust}
               locale={locale}
               place={[seller.city, sellerState].filter(Boolean).join(", ")}
-              contact={<UnlockButton trigger="pdp_contact_seller" unlock="seller_contact" listingId={listing.id} listingTitle={listing.title} label={t("contactSeller")} variant="outline" size="md" />}
+              contact={
+                <SupplierContact listingId={listing.id} listingTitle={listing.title}>
+                  <UnlockButton trigger="pdp_contact_seller" unlock="seller_contact" listingId={listing.id} listingTitle={listing.title} label={t("contactSeller")} variant="outline" size="md" />
+                </SupplierContact>
+              }
             />
           ) : null}
 
@@ -227,6 +236,10 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
         <ProductReviewsStatic listingId={listing.id} />
       </div>
 
+      <div className="mt-12">
+        <ProductQa listingId={listing.id} locale={locale} />
+      </div>
+
       {others.length ? (
         <section className="mt-12" aria-labelledby="similar">
           <SectionHeader id="similar" title={t("similar")} />
@@ -239,6 +252,8 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
       ) : null}
 
       <SponsoredSimilar listingId={listing.id} locale={locale} />
+      <RecentlyViewedTracker id={listing.id} />
+      <RecentlyViewedRail excludeId={listing.id} className="mt-12" />
     </Container>
   );
 }

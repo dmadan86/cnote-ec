@@ -40,6 +40,11 @@ export interface DomainEventPayloads {
   ReviewModerated: { reviewId: string; listingId: string; sellerBusinessId: string; status: "approved" | "rejected"; rating: number; moderatedBy: string };
   CommentSubmitted: { commentId: string; listingId: string; parentId: string | null; authorPersonId: string; isSeller: boolean; aiVerdict: string | null };
   CommentModerated: { commentId: string; listingId: string; status: "approved" | "rejected"; moderatedBy: string };
+  // product questions & answers (buyer asks, seller answers; public only once answered and approved)
+  ProductQuestionAsked: { questionId: string; listingId: string; sellerBusinessId: string; askerPersonId: string; status: "pending" | "flagged" | "approved"; aiVerdict: string | null; piiStripped: boolean };
+  ProductQuestionAnswered: { questionId: string; answerId: string; listingId: string; sellerBusinessId: string; askerPersonId: string; answeredByPersonId: string; status: "pending" | "flagged" | "approved"; aiVerdict: string | null; piiStripped: boolean };
+  /** Staff decision on a held (or reported) question/answer. `askerPersonId` lets observers notify without a lookup. */
+  ProductQaModerated: { kind: "question" | "answer"; id: string; questionId: string; listingId: string; sellerBusinessId: string; askerPersonId: string; status: "approved" | "rejected"; moderatedBy: string };
   // wishlist (demand signal for sellers/search; no PII beyond ids)
   WishlistItemAdded: { wishlistId: string; personId: string; listingId: string };
   WishlistItemRemoved: { wishlistId: string; personId: string; listingId: string };
@@ -53,6 +58,8 @@ export interface DomainEventPayloads {
   // lead generation (buyer unlock funnel)
   LeadCaptureVerified: { captureId: string; personId: string; trigger: string; unlock: string; listingId: string | null; isNewPerson: boolean };
   LeadCaptureConverted: { captureId: string; personId: string; trigger: string; enquiryId: string | null };
+  // buyer used a supplier contact channel after a legitimate unlock (accepted match); never carries the number or address itself
+  SupplierContacted: { buyerPersonId: string; sellerBusinessId: string; listingId: string; enquiryId: string; channel: "call" | "whatsapp" | "email" | "enquiry" };
   // orders (ADR-007 stub; off-platform in Phase 1)
   OrderRecorded: { orderId: string; matchId: string; enquiryId: string; buyerBusinessId: string; sellerBusinessId: string; totalPaise: number | null };
   OrderStatusChanged: { orderId: string; buyerBusinessId: string; sellerBusinessId: string; from: string; to: string };
@@ -201,6 +208,9 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   ReviewModerated: 1,
   CommentSubmitted: 1,
   CommentModerated: 1,
+  ProductQuestionAsked: 1,
+  ProductQuestionAnswered: 1,
+  ProductQaModerated: 1,
   WishlistItemAdded: 1,
   WishlistItemRemoved: 1,
   StorefrontPublished: 1,
@@ -210,6 +220,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   BulkJobFinished: 1,
   LeadCaptureVerified: 1,
   LeadCaptureConverted: 1,
+  SupplierContacted: 1,
   OrderRecorded: 1,
   OrderStatusChanged: 1,
   GrievanceFiled: 1,

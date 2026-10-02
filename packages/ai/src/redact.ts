@@ -1,7 +1,8 @@
 // PII redaction (ADR-010). Applied to everything sent to a model vendor AND to the
 // AiDecision.inputRedacted audit column, so the audit trail never holds more than the vendor saw.
 
-const EMAIL = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+// Bounded quantifiers (RFC 5321 limits) keep matching linear on adversarial input (CodeQL js/polynomial-redos).
+const EMAIL = /[A-Z0-9._%+-]{1,64}@[A-Z0-9.-]{1,255}\.[A-Z]{2,24}/gi;
 const GSTIN = /\b\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b/gi;
 const PAN = /\b[A-Z]{5}\d{4}[A-Z]\b/gi;
 const AADHAAR = /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g;

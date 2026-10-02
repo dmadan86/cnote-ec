@@ -53,6 +53,9 @@ export const cacheTags = {
   rating: (listingId: string) => `rating:${listingId}`,
   reviews: (listingId: string) => `reviews:${listingId}`,
   reviewsAll: "reviews:all",
+  /** public answered product questions of one listing / all listings (erasure) */
+  qa: (listingId: string) => `qa:${listingId}`,
+  qaAll: "qa:all",
   plans: "plans",
   sitemap: "sitemap",
 } as const;

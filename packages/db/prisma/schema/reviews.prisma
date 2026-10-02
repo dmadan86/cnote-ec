@@ -1,4 +1,4 @@
-// Owned by @cnote/reviews: product ratings/reviews and product comments (Q&A), all user-generated
+// Owned by @cnote/reviews: product ratings/reviews, product comments and product questions & answers, all user-generated
 // and held for moderation. Only `approved` content is public or counted in rating aggregates.
 
 enum UgcStatus {
@@ -98,4 +98,66 @@ model ListingRatingSummary {
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("listing_rating_summaries")
+}
+
+/// Buyer question about a product. Visible to the asker (always) and the listing's seller unless held for
+/// moderation; public only together with an approved answer (see ProductQuestion.answeredAt).
+model ProductQuestion {
+  id               String    @id @default(uuid()) @db.Uuid
+  listingId        String    @map("listing_id") @db.Uuid
+  sellerBusinessId String    @map("seller_business_id") @db.Uuid // denormalised for the seller inbox
+  authorPersonId   String    @map("author_person_id") @db.Uuid
+  authorBusinessId String?   @map("author_business_id") @db.Uuid
+  /// stored AFTER contact-detail stripping (phone/email/ID numbers never reach the table)
+  body             String
+  language         String    @default("en")
+  /// true when contact details were removed from what the asker typed (shown to the asker)
+  piiStripped      Boolean   @default(false) @map("pii_stripped")
+  status           UgcStatus @default(pending)
+  moderationNote   String?   @map("moderation_note")
+  aiVerdict        String?   @map("ai_verdict")
+  aiDecisionId     String?   @map("ai_decision_id") @db.Uuid
+  moderatedBy      String?   @map("moderated_by") @db.Uuid
+  moderatedAt      DateTime? @map("moderated_at") @db.Timestamptz
+  reportCount      Int       @default(0) @map("report_count")
+  /// set while the question has an approved answer (denormalised; keeps the public list one indexed query)
+  answeredAt       DateTime? @map("answered_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  answers ProductAnswer[]
+
+  @@index([listingId, status, answeredAt])
+  @@index([sellerBusinessId, status, createdAt])
+  @@index([authorPersonId, listingId])
+  @@index([status, createdAt])
+  @@map("product_questions")
+}
+
+/// The seller's answer to a question (one per question; editing re-moderates it).
+model ProductAnswer {
+  id               String    @id @default(uuid()) @db.Uuid
+  questionId       String    @unique @map("question_id") @db.Uuid
+  listingId        String    @map("listing_id") @db.Uuid
+  sellerBusinessId String    @map("seller_business_id") @db.Uuid
+  authorPersonId   String    @map("author_person_id") @db.Uuid
+  body             String
+  language         String    @default("en")
+  piiStripped      Boolean   @default(false) @map("pii_stripped")
+  status           UgcStatus @default(pending)
+  moderationNote   String?   @map("moderation_note")
+  aiVerdict        String?   @map("ai_verdict")
+  aiDecisionId     String?   @map("ai_decision_id") @db.Uuid
+  moderatedBy      String?   @map("moderated_by") @db.Uuid
+  moderatedAt      DateTime? @map("moderated_at") @db.Timestamptz
+  helpfulCount     Int       @default(0) @map("helpful_count")
+  reportCount      Int       @default(0) @map("report_count")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  question ProductQuestion @relation(fields: [questionId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([listingId, status])
+  @@map("product_answers")
 }

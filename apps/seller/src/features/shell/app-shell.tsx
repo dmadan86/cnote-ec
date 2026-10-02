@@ -19,7 +19,7 @@ async function SignOut() {
   );
 }
 
-export function AppShell({ session, children }: { session: SessionWithBusiness; children: React.ReactNode }) {
+export function AppShell({ session, unansweredQuestions = 0, children }: { session: SessionWithBusiness; unansweredQuestions?: number; children: React.ReactNode }) {
   const b = session.business;
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[16rem_1fr]">
@@ -31,7 +31,7 @@ export function AppShell({ session, children }: { session: SessionWithBusiness; 
             <TrustBadge tier={b.verificationTier} badgeActive={b.badgeActive} />
           </div>
         </div>
-        <SidebarNav />
+        <SidebarNav unanswered={unansweredQuestions} />
         <div className="mt-auto flex flex-col gap-3">
           <LanguageSwitcher />
           <SignOut />

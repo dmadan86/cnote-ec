@@ -102,6 +102,7 @@ describe("cacheTags", () => {
     expect(cacheTags.sellerListings("b")).toBe("seller-listings:b");
     expect(cacheTags.seller("b")).toBe("seller:b");
     expect(cacheTags.rating("l")).toBe("rating:l");
+    expect(cacheTags.qa("l")).toBe("qa:l");
     expect(cacheTags.reviews("l")).toBe("reviews:l");
     const statics = [cacheTags.categories, cacheTags.sellers, cacheTags.featured, cacheTags.search, cacheTags.reviewsAll, cacheTags.plans, cacheTags.sitemap];
     expect(new Set(statics).size).toBe(statics.length);

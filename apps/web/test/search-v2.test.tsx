@@ -28,7 +28,7 @@ const image = await import("@/app/api/search/image/route");
 const { loadSponsoredForResults } = await import("@/features/ads/slots");
 const { SearchTools } = await import("@/features/search/search-tools");
 const { CONSENT_POLICY_VERSION, serializeConsent } = await import("@/features/consent/state");
-const marketingConsent = (marketing: boolean) => serializeConsent({ version: CONSENT_POLICY_VERSION, id: "9".repeat(32), analytics: false, marketing, gpc: false, at: Math.floor(Date.now() / 1000) - 5 });
+const marketingConsent = (marketing: boolean) => serializeConsent({ version: CONSENT_POLICY_VERSION, id: "9".repeat(32), analytics: false, marketing, functional: false, gpc: false, at: Math.floor(Date.now() / 1000) - 5 });
 const { solidJpeg } = await import("@cnote/media");
 
 const post = (path: string, fd: FormData, headers: Record<string, string> = {}) => new NextRequest(`http://x.test${path}`, { method: "POST", body: fd, headers });

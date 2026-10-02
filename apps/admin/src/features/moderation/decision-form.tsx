@@ -4,7 +4,7 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { moderateAction } from "./actions";
 
 /** Approve / Reject with a note. The note is required to reject (enforced again server-side) and is shown to the author. */
-export function DecisionForm({ kind, id }: { kind: "review" | "comment" | "reply"; id: string }) {
+export function DecisionForm({ kind, id }: { kind: "review" | "comment" | "reply" | "question" | "answer"; id: string }) {
   return (
     <ActionForm action={moderateAction} successMessage="Decision recorded." className="space-y-2">
       <input type="hidden" name="kind" value={kind} />

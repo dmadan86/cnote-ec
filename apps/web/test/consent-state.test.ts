@@ -20,18 +20,18 @@ import {
 
 const NOW = Date.parse("2026-09-30T00:00:00Z");
 const at = (offsetSeconds = 0) => Math.floor(NOW / 1000) + offsetSeconds;
-const state = (over: Partial<ConsentState> = {}): ConsentState => ({ version: CONSENT_POLICY_VERSION, id: "a".repeat(32), analytics: true, marketing: false, gpc: false, at: at(-60), ...over });
+const state = (over: Partial<ConsentState> = {}): ConsentState => ({ version: CONSENT_POLICY_VERSION, id: "a".repeat(32), analytics: true, marketing: false, functional: false, gpc: false, at: at(-60), ...over });
 
 describe("consent cookie: serialize / parse", () => {
   it("round-trips a state through the URL-encoded compact format", () => {
     const s = state();
     const raw = serializeConsent(s);
-    expect(decodeURIComponent(raw)).toBe(`v=${CONSENT_POLICY_VERSION}&id=${"a".repeat(32)}&a=1&m=0&t=${s.at}&gpc=0`);
+    expect(decodeURIComponent(raw)).toBe(`v=${CONSENT_POLICY_VERSION}&id=${"a".repeat(32)}&a=1&m=0&f=0&t=${s.at}&gpc=0`);
     expect(raw).not.toMatch(/[&=]/); // fully URL-encoded: safe as a cookie value
     expect(parseConsent(raw, NOW)).toEqual(s);
   });
   it("accepts the already-decoded value too (framework cookie jars decode)", () => {
-    expect(parseConsent(decodeURIComponent(serializeConsent(state({ marketing: true, gpc: true }))), NOW)).toMatchObject({ marketing: true, gpc: true });
+    expect(parseConsent(decodeURIComponent(serializeConsent(state({ marketing: true, functional: false, gpc: true }))), NOW)).toMatchObject({ marketing: true, functional: false, gpc: true });
   });
   it("treats legacy 'granted' / 'denied' and other junk as no choice (re-prompt)", () => {
     for (const v of ["granted", "denied", "", undefined, null, "%E0%A4%A", "v=1", "a=1&m=1", `v=1&id=short&a=1&m=1&t=${at()}&gpc=0`]) expect(parseConsent(v, NOW), String(v)).toBeNull();
@@ -83,26 +83,46 @@ describe("consent: server-side reads (route handlers / Cookie header)", () => {
 
 describe("consent: defaults, GPC and actions", () => {
   it("nothing is pre-ticked", () => {
-    expect(REJECT_ALL).toEqual({ analytics: false, marketing: false });
+    expect(REJECT_ALL).toEqual({ analytics: false, marketing: false, functional: false });
   });
   it("Accept all grants everything, except marketing when Global Privacy Control is on", () => {
-    expect(acceptAllChoices(false)).toEqual({ analytics: true, marketing: true });
-    expect(acceptAllChoices(true)).toEqual({ analytics: true, marketing: false });
+    expect(acceptAllChoices(false)).toEqual({ analytics: true, marketing: true, functional: true });
+    expect(acceptAllChoices(true)).toEqual({ analytics: true, marketing: false, functional: true }); // GPC never touches functional
   });
   it("buildConsent stamps version/time/gpc and keeps the browser's consent id across changes", () => {
     const first = buildConsent(REJECT_ALL, { gpc: true, now: NOW });
-    expect(first).toMatchObject({ version: CONSENT_POLICY_VERSION, analytics: false, marketing: false, gpc: true, at: at() });
+    expect(first).toMatchObject({ version: CONSENT_POLICY_VERSION, analytics: false, marketing: false, functional: false, gpc: true, at: at() });
     expect(first.id).toMatch(/^[a-f0-9]{32}$/);
-    expect(buildConsent({ analytics: true, marketing: true }, { gpc: true, prev: first, now: NOW + 5000 }).id).toBe(first.id); // explicit opt-in despite GPC is allowed
+    expect(buildConsent({ analytics: true, marketing: true, functional: false }, { gpc: true, prev: first, now: NOW + 5000 }).id).toBe(first.id); // explicit opt-in despite GPC is allowed
     expect(newConsentId()).not.toBe(newConsentId());
   });
   it("switching off something previously granted is a withdrawal, whichever button was used", () => {
-    const prev = state({ analytics: true, marketing: true });
-    expect(deriveAction("accept_all", prev, { analytics: true, marketing: true })).toBe("accept_all");
+    const prev = state({ analytics: true, marketing: true, functional: false });
+    expect(deriveAction("accept_all", prev, { analytics: true, marketing: true, functional: false })).toBe("accept_all");
     expect(deriveAction("reject_all", prev, REJECT_ALL)).toBe("withdraw");
-    expect(deriveAction("custom", prev, { analytics: true, marketing: false })).toBe("withdraw");
-    expect(deriveAction("custom", prev, { analytics: true, marketing: true })).toBe("custom");
+    expect(deriveAction("custom", prev, { analytics: true, marketing: false, functional: false })).toBe("withdraw");
+    expect(deriveAction("custom", prev, { analytics: true, marketing: true, functional: false })).toBe("custom");
     expect(deriveAction("reject_all", null, REJECT_ALL)).toBe("reject_all");
-    expect(deriveAction("reject_all", state({ analytics: false, marketing: false }), REJECT_ALL)).toBe("reject_all");
+    expect(deriveAction("reject_all", state({ analytics: false, marketing: false, functional: false }), REJECT_ALL)).toBe("reject_all");
+  });
+});
+
+describe("functional (preferences & personalisation) category", () => {
+  const cookieFor = (extra: string) => encodeURIComponent(`v=${CONSENT_POLICY_VERSION}&id=${"a".repeat(32)}&a=1&m=1${extra}&t=${at(-60)}&gpc=0`);
+  it("a cookie without `f` parses as functional NOT granted (old cookies are never read as consent)", () => {
+    expect(parseConsent(cookieFor(""), NOW)).toMatchObject({ analytics: true, marketing: true, functional: false });
+  });
+  it("reads f=1 and f=0, and rejects a malformed f", () => {
+    expect(parseConsent(cookieFor("&f=1"), NOW)?.functional).toBe(true);
+    expect(parseConsent(cookieFor("&f=0"), NOW)?.functional).toBe(false);
+    expect(parseConsent(cookieFor("&f=yes"), NOW)).toBeNull();
+  });
+  it("is granted only by its own flag, so analytics or marketing never imply it", () => {
+    expect(isGranted(state({ analytics: true, marketing: true, functional: false }), "functional")).toBe(false);
+    expect(isGranted(state({ analytics: false, marketing: false, functional: true }), "functional")).toBe(true);
+  });
+  it("switching only functional off is a withdrawal", () => {
+    const prev = state({ functional: true });
+    expect(deriveAction("custom", prev, { analytics: true, marketing: false, functional: false })).toBe("withdraw");
   });
 });

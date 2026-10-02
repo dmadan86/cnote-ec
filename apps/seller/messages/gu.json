@@ -34,7 +34,9 @@
       "settings": "સેટિંગ્સ",
       "prices": "ભાવ માહિતી",
       "credit": "ક્રેડિટ",
-      "agents": "ક્વોટેશન એજન્ટ"
-    }
+      "agents": "ક્વોટેશન એજન્ટ",
+      "questions": "પ્રશ્નો"
+    },
+    "questionsUnanswered": "{count} બાકી જવાબ"
   }
 }

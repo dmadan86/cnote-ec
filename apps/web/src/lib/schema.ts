@@ -3,6 +3,7 @@ import type { TrustProfile } from "@cnote/identity";
 import { DEFAULT_LOCALE, localizePath, type Locale } from "@/i18n/config";
 import { absoluteUrl } from "./site-url";
 import { productPath, sellerPath } from "./paths";
+import { buildSlabs } from "@/features/pdp/tiers";
 
 type Json = Record<string, unknown>;
 
@@ -26,6 +27,50 @@ export const itemListLd = (name: string, listings: Pick<ListingView, "id" | "tit
 
 const toImages = (l: ListingView) => l.imageUrls.filter((u) => !u.endsWith(".svg")).map((u) => absoluteUrl(u));
 
+const sellerOrgLd = (seller: TrustProfile | null, locale: Locale): Json =>
+  seller
+    ? { seller: { "@type": "Organization", name: seller.name, url: localUrl(sellerPath(seller.businessId), locale), ...(seller.city ? { address: { "@type": "PostalAddress", addressLocality: seller.city, ...(seller.state ? { addressRegion: seller.state } : {}), addressCountry: "IN" } } : {}) } }
+    : {};
+
+/**
+ * Offer(s) for a listing. With quantity price slabs: an `AggregateOffer` (lowPrice/highPrice over the slabs) whose `offers` carry
+ * one Offer per slab with `eligibleQuantity` (minValue/maxValue). Without slabs: the single Offer as before.
+ */
+export function offersLd(l: ListingView, seller: TrustProfile | null, url: string, locale: Locale): Json {
+  const common = { priceCurrency: "INR", availability: "https://schema.org/InStock", itemCondition: "https://schema.org/NewCondition" };
+  const slabs = buildSlabs(l.priceTiers ?? undefined, l.pricePaise, l.moq);
+  if (slabs.length) {
+    const prices = slabs.map((x) => x.pricePaise);
+    const unit = l.moqUnit ? { unitText: l.moqUnit } : {};
+    return {
+      "@type": "AggregateOffer",
+      url,
+      ...common,
+      lowPrice: (Math.min(...prices) / 100).toFixed(2),
+      highPrice: (Math.max(...prices) / 100).toFixed(2),
+      offerCount: slabs.length,
+      offers: slabs.map((x) => ({
+        "@type": "Offer",
+        url,
+        ...common,
+        price: (x.pricePaise / 100).toFixed(2),
+        eligibleQuantity: { "@type": "QuantitativeValue", minValue: x.from, ...(x.to != null ? { maxValue: x.to } : {}), ...unit },
+      })),
+      ...sellerOrgLd(seller, locale),
+    };
+  }
+  return {
+    "@type": "Offer",
+    url,
+    priceCurrency: "INR",
+    ...(l.pricePaise != null ? { price: (l.pricePaise / 100).toFixed(2) } : {}),
+    availability: common.availability,
+    itemCondition: common.itemCondition,
+    ...(l.moq != null ? { eligibleQuantity: { "@type": "QuantitativeValue", minValue: l.moq, ...(l.moqUnit ? { unitText: l.moqUnit } : {}) } } : {}),
+    ...sellerOrgLd(seller, locale),
+  };
+}
+
 /**
  * schema.org Product + Offer. Price is INR (paise / 100). `rating` must come from APPROVED reviews only
  * (getRatingSummaries is approved-only by construction); it is omitted entirely when there are no reviews.
@@ -44,18 +89,7 @@ export function productLd(l: ListingView, seller: TrustProfile | null, rating: {
     category: l.category.name,
     ...(l.hsn ? { additionalProperty: [{ "@type": "PropertyValue", name: "HSN code", value: l.hsn }] } : {}),
     ...(seller ? { brand: { "@type": "Brand", name: seller.name } } : {}),
-    offers: {
-      "@type": "Offer",
-      url,
-      priceCurrency: "INR",
-      ...(l.pricePaise != null ? { price: (l.pricePaise / 100).toFixed(2) } : {}),
-      availability: "https://schema.org/InStock",
-      itemCondition: "https://schema.org/NewCondition",
-      ...(l.moq != null ? { eligibleQuantity: { "@type": "QuantitativeValue", minValue: l.moq, ...(l.moqUnit ? { unitText: l.moqUnit } : {}) } } : {}),
-      ...(seller
-        ? { seller: { "@type": "Organization", name: seller.name, url: localUrl(sellerPath(seller.businessId), locale), ...(seller.city ? { address: { "@type": "PostalAddress", addressLocality: seller.city, ...(seller.state ? { addressRegion: seller.state } : {}), addressCountry: "IN" } } : {}) } }
-        : {}),
-    },
+    offers: offersLd(l, seller, url, locale),
     ...(rating && rating.count > 0 ? { aggregateRating: { "@type": "AggregateRating", ratingValue: rating.average, reviewCount: rating.count, bestRating: 5, worstRating: 1 } } : {}),
     ...(reviews.length
       ? { review: reviews.map((r) => ({ "@type": "Review", reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5 }, author: { "@type": "Person", name: r.author }, reviewBody: r.body, datePublished: r.date })) }
@@ -85,3 +119,21 @@ export function sellerLd(s: TrustProfile, locale: Locale = DEFAULT_LOCALE, ratin
     ],
   };
 }
+
+/**
+ * FAQPage for a product's answered Q&A. Only approved questions with approved answers reach this (the module's public
+ * list), so nothing held for moderation or private to its asker is ever exposed to crawlers.
+ */
+export const faqLd = (items: { question: string; answer: string; date?: string }[]): Json | null =>
+  items.length === 0
+    ? null
+    : {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: items.map((i) => ({
+          "@type": "Question",
+          name: i.question,
+          ...(i.date ? { dateCreated: i.date } : {}),
+          acceptedAnswer: { "@type": "Answer", text: i.answer },
+        })),
+      };
