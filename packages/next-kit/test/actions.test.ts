@@ -90,11 +90,16 @@ describe("signInAction", () => {
 });
 
 describe("signUpAction", () => {
-  const base = { email: "a@b.c", password: "pw", name: "N", consent_matching: "on" };
+  const base = { email: "a@b.co", password: "Tr1cky-Horse-Battery", name: "N", consent_matching: "on" };
   it("requires matching consent before anything else", async () => {
     const r = await signUpAction(null, fd({ ...base, consent_matching: "off" }));
     expect(r).toMatchObject({ ok: false, fieldErrors: { consent_matching: expect.any(String) } });
     expect(h.verifyHumanOrThrow).not.toHaveBeenCalled();
+    expect(h.signUpWithPassword).not.toHaveBeenCalled();
+  });
+  it("reports every invalid field at once, each on its own field (WCAG 3.3.1)", async () => {
+    const r = await signUpAction(null, fd({ email: "not-an-email", password: "short", consent_matching: "off" }));
+    expect(r).toMatchObject({ ok: false, fieldErrors: { email: expect.any(String), password: expect.any(String), consent_matching: expect.any(String) } });
     expect(h.signUpWithPassword).not.toHaveBeenCalled();
   });
   it("human check failure blocks account creation", async () => {
@@ -124,12 +129,19 @@ describe("forgot / reset / signOut", () => {
     expect(h.requestPasswordReset).toHaveBeenCalledWith("x@y.z", expect.anything());
   });
   it("reset error is returned; success redirects to safe target, default /signin", async () => {
+    const password = "Tr1cky-Horse-Battery";
     h.resetPassword.mockRejectedValueOnce(new DomainError("validation", "bad token"));
-    expect(await resetPasswordAction(null, fd({ token: "t", password: "p" }))).toEqual({ ok: false, error: "bad token" });
+    expect(await resetPasswordAction(null, fd({ token: "t", password }))).toEqual({ ok: false, error: "bad token" });
     h.resetPassword.mockResolvedValue(undefined);
-    await expect(resetPasswordAction(null, fd({ token: "t", password: "p" }))).rejects.toThrow("REDIRECT:/signin");
-    await expect(resetPasswordAction(null, fd({ token: "t", password: "p", redirectTo: "//evil" }))).rejects.toThrow("REDIRECT:/signin");
-    await expect(resetPasswordAction(null, fd({ token: "t", password: "p", redirectTo: "/ok" }))).rejects.toThrow("REDIRECT:/ok");
+    await expect(resetPasswordAction(null, fd({ token: "t", password }))).rejects.toThrow("REDIRECT:/signin");
+    await expect(resetPasswordAction(null, fd({ token: "t", password, redirectTo: "//evil" }))).rejects.toThrow("REDIRECT:/signin");
+    await expect(resetPasswordAction(null, fd({ token: "t", password, redirectTo: "/ok" }))).rejects.toThrow("REDIRECT:/ok");
+  });
+  it("reset: a weak or empty password is reported on the password field, without spending the token", async () => {
+    for (const password of ["", "short"]) {
+      expect(await resetPasswordAction(null, fd({ token: "t", password }))).toMatchObject({ ok: false, fieldErrors: { password: expect.any(String) } });
+    }
+    expect(h.resetPassword).not.toHaveBeenCalled();
   });
   it("signOut revokes this realm's refresh token and clears cookies", async () => {
     h.jar.map.set("cnote_web_rt", "RT");
