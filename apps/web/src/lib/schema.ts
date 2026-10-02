@@ -63,7 +63,8 @@ export function productLd(l: ListingView, seller: TrustProfile | null, rating: {
   };
 }
 
-export function sellerLd(s: TrustProfile, locale: Locale = DEFAULT_LOCALE): Json {
+/** `rating` is the seller's approved-review aggregate; aggregateRating is emitted only when there are real reviews. */
+export function sellerLd(s: TrustProfile, locale: Locale = DEFAULT_LOCALE, rating?: { average: number; count: number } | null, extra: { sameAs?: string[] } = {}): Json {
   const url = localUrl(sellerPath(s.businessId), locale);
   return {
     "@context": "https://schema.org",
@@ -76,6 +77,8 @@ export function sellerLd(s: TrustProfile, locale: Locale = DEFAULT_LOCALE): Json
       : {}),
     areaServed: { "@type": "Country", name: "India" },
     ...(s.languages.length ? { knowsLanguage: s.languages } : {}),
+    ...(rating && rating.count > 0 ? { aggregateRating: { "@type": "AggregateRating", ratingValue: rating.average, reviewCount: rating.count, bestRating: 5, worstRating: 1 } } : {}),
+    ...(extra.sameAs?.length ? { sameAs: extra.sameAs } : {}),
     additionalProperty: [
       { "@type": "PropertyValue", name: "Trust score (0-100)", value: s.trustScore },
       { "@type": "PropertyValue", name: "Verification tier (0-3)", value: s.verificationTier },
