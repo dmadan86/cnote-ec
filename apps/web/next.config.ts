@@ -55,6 +55,9 @@ const nextConfig: NextConfig = {
         source: `${p}/:path*`,
         headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }, { key: "X-Robots-Tag", value: "noindex, nofollow" }],
       })),
+      // The service worker script and manifest must always be revalidated so an updated worker is picked up promptly.
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache, max-age=0, must-revalidate" }, { key: "Content-Type", value: "text/javascript; charset=utf-8" }] },
+      { source: "/manifest.webmanifest", headers: [{ key: "Cache-Control", value: "public, max-age=3600" }] },
       // Search and supplier listings render per query but contain nothing personal (per-user bits are client islands): a
       // short shared-cache window makes repeated queries CDN hits while Redis serves the rest.
       // With sponsored slots on, results carry per-visitor ads (frequency caps, buyer pincode): never share them via a CDN.
