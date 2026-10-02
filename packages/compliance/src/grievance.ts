@@ -6,7 +6,8 @@ import { grievancePolicy } from "./config";
 import { anonymizeCookieConsentReceipts } from "./consent";
 import { isUuid, maskEmail, parse } from "./util";
 
-export const GRIEVANCE_CATEGORIES = ["access", "correction", "erasure", "consent", "content", "other"] as const;
+export const GRIEVANCE_CATEGORIES = ["access", "correction", "erasure", "consent", "content", "report", "other"] as const;
+// "report" = abuse / IPR takedown notice filed from the public /report page (IT Rules 2021 r.3(1)(d)); same ticket queue.
 export type GrievanceCategory = (typeof GRIEVANCE_CATEGORIES)[number];
 /**
  * What the person is asking for. The first five are data-principal RIGHTS (DPDP Act ss.11-14: access, correction/erasure,
