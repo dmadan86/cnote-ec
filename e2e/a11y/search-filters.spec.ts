@@ -145,7 +145,7 @@ test.describe("sort", () => {
     // relevance is the default again
     await page.getByLabel("Sort by").selectOption("relevance");
     await page.getByRole("button", { name: "Apply sort" }).click();
-    await expect(page).not.toHaveURL(/sort=/);
+    await expect(page).toHaveURL(/sort=relevance/); // the form submits the select's value; the page treats it as the default
     await ready(page);
     expect(await hrefs(page)).toEqual(relevance);
   });
