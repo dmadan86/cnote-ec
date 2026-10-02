@@ -24,9 +24,7 @@ async function AiDesignPanel({ locale }: { locale: Locale }) {
             <Sparkles className="size-3" aria-hidden /> {ts("comingSoon")}
           </Badge>
         </div>
-        <Link href="/coming-soon/ai-design" className={`${buttonClasses("primary", "lg")} mt-4`}>
-          {t("promoAiCta")} <ArrowRight className="size-4" aria-hidden />
-        </Link>
+        {/* Honest placeholder: AI design is not built yet, so there is no CTA (the /coming-soon/ai-design route stays for direct links). */}
       </div>
       <svg viewBox="0 0 220 200" aria-hidden focusable="false" className="pointer-events-none absolute -bottom-2 right-0 h-40 w-auto opacity-90 @md:h-48 @xl:h-52">
         <ellipse cx="110" cy="188" rx="100" ry="10" fill="#5b2fd6" opacity=".12" />
