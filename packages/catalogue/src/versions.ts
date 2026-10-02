@@ -8,6 +8,7 @@ import { getTrustProfiles } from "@cnote/identity";
 import { bustListingCaches } from "./cache";
 import { getCategoryById } from "./categories";
 import { isUuid, listingInclude, type ListingRow } from "./mappers";
+import { compactTrade, parsePriceTiers, parseTrade, tradeOfRow, type PriceTier, type TradeInfo } from "./tiers";
 import { canonicalText, coerceAttributes, validateAttributes, validatePublishable } from "./validate";
 import type { ListingView } from "./index";
 
@@ -31,6 +32,9 @@ export interface VersionSnapshot {
   moq: number | null;
   moqUnit: string | null;
   hsn: string | null;
+  /** quantity slabs; absent on versions created before tiers existed */
+  priceTiers?: PriceTier[];
+  trade?: TradeInfo;
   language: string;
   /** approved, non-deleted images at submit time, in display order */
   imageIds: string[];
@@ -92,6 +96,8 @@ export function snapshotOf(l: ListingRow, categoryName: string, attributes = att
     moq: l.moq,
     moqUnit: l.moqUnit,
     hsn: l.hsn,
+    priceTiers: parsePriceTiers(l.priceTiers),
+    trade: tradeOfRow(l),
     language: l.language,
     imageIds: l.images.map((i) => i.id),
     imageUrls: l.imageUrls,
@@ -110,6 +116,17 @@ const SCALARS: { key: keyof VersionSnapshot; label: string }[] = [
   { key: "language", label: "Language" },
 ];
 
+const TRADE_FIELDS: [keyof TradeInfo, string][] = [
+  ["leadTimeDays", "Lead time (days)"],
+  ["packaging", "Packaging"],
+  ["sampleAvailable", "Sample available"],
+  ["samplePricePaise", "Sample price (paise)"],
+  ["supplyCapacityPerMonth", "Supply capacity / month"],
+  ["paymentTerms", "Payment terms"],
+  ["certifications", "Certifications"],
+];
+const summarise = (v: unknown): string | number | null => (v == null ? null : Array.isArray(v) ? v.join(", ") : typeof v === "boolean" ? (v ? "yes" : "no") : (v as string | number));
+
 /** Field-level diff (what a reviewer / the history UI shows). `before = null` means no earlier version. */
 export function diffSnapshots(before: VersionSnapshot | null, after: VersionSnapshot): FieldChange[] {
   const out: FieldChange[] = [];
@@ -124,6 +141,19 @@ export function diffSnapshots(before: VersionSnapshot | null, after: VersionSnap
     const x = ba[k] ?? null;
     const y = after.attributes[k] ?? null;
     if (x !== y) out.push({ field: `attributes.${k}`, label: k, before: x, after: y });
+  }
+  const tiersBefore = JSON.stringify(b?.priceTiers ?? []);
+  const tiersAfter = JSON.stringify(after.priceTiers ?? []);
+  if (tiersBefore !== tiersAfter) {
+    const n = (t: PriceTier[] | undefined) => `${t?.length ?? 0} tier${t?.length === 1 ? "" : "s"}`;
+    out.push({ field: "priceTiers", label: "Quantity price tiers", before: n(b?.priceTiers), after: n(after.priceTiers) });
+  }
+  const tb = compactTrade(b?.trade);
+  const ta = compactTrade(after.trade);
+  for (const [k, label] of TRADE_FIELDS) {
+    const x = JSON.stringify(tb[k] ?? null);
+    const y = JSON.stringify(ta[k] ?? null);
+    if (x !== y) out.push({ field: `trade.${k}`, label, before: summarise(tb[k]), after: summarise(ta[k]) });
   }
   const bi = b?.imageIds ?? [];
   if (JSON.stringify(bi) !== JSON.stringify(after.imageIds)) {
@@ -155,6 +185,8 @@ function coerceSnapshot(raw: unknown): VersionSnapshot {
     moq: s.moq ?? null,
     moqUnit: s.moqUnit ?? null,
     hsn: s.hsn ?? null,
+    priceTiers: parsePriceTiers(s.priceTiers),
+    trade: parseTrade(s.trade),
     language: s.language ?? "en",
     imageIds: Array.isArray(s.imageIds) ? s.imageIds : [],
     imageUrls: Array.isArray(s.imageUrls) ? s.imageUrls : [],
@@ -390,6 +422,8 @@ async function buildPreview(v: VersionRow): Promise<PreviewView> {
     moq: snap.moq,
     moqUnit: snap.moqUnit,
     hsn: snap.hsn,
+    priceTiers: snap.priceTiers ?? [],
+    trade: snap.trade ?? {},
     language: snap.language,
     imageUrls: snap.imageIds.length ? snap.imageIds.map((id) => `/media/listing-images/${id}`) : snap.imageUrls,
     aiGenerated: listing.aiGenerated,

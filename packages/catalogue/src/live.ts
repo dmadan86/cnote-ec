@@ -12,6 +12,7 @@ import { recordPrice } from "./price-history";
 import { getCategoryById } from "./categories";
 import { toPublicImage } from "./image-variants";
 import { isUuid, type LiveImage } from "./mappers";
+import { parsePriceTiers, tradeOfRow } from "./tiers";
 import { parseSnapshot, type VersionSnapshot } from "./versions";
 import { canonicalText } from "./validate";
 
@@ -74,18 +75,20 @@ export async function writeLive(p: Projection): Promise<void> {
   const attrs = JSON.stringify(p.snap.attributes);
   const images = JSON.stringify(p.images);
   const price = p.snap.pricePaise === null ? null : BigInt(p.snap.pricePaise);
+  const tiers = JSON.stringify(p.snap.priceTiers ?? []);
+  const trade = JSON.stringify(p.snap.trade ?? {});
   await liveDb.$transaction(async (tx) => {
     await tx.liveCategory.upsert({ where: { id: p.category.id }, create: p.category, update: { slug: p.category.slug, name: p.category.name } });
     await tx.$executeRaw`
       INSERT INTO live_listings (
         id, version_id, version, seller_business_id, category_id, category_slug, category_name, title, description, attributes,
-        price_paise, price_unit, moq, moq_unit, hsn, language, ai_generated, images,
+        price_paise, price_unit, moq, moq_unit, hsn, price_tiers, trade, language, ai_generated, images,
         seller_name, seller_city, seller_state, seller_tier, seller_trust_score, seller_badge_active,
         embedding, embedding_version, first_published_at, published_at, updated_at)
       VALUES (
         ${p.listingId}::uuid, ${p.versionId}::uuid, ${p.version}, ${p.sellerBusinessId}::uuid, ${p.category.id}::uuid, ${p.category.slug}, ${p.category.name},
         ${p.snap.title}, ${p.snap.description}, ${attrs}::jsonb,
-        ${price}, ${p.snap.priceUnit}, ${p.snap.moq}, ${p.snap.moqUnit}, ${p.snap.hsn}, ${p.snap.language}, ${p.aiGenerated}, ${images}::jsonb,
+        ${price}, ${p.snap.priceUnit}, ${p.snap.moq}, ${p.snap.moqUnit}, ${p.snap.hsn}, ${tiers}::jsonb, ${trade}::jsonb, ${p.snap.language}, ${p.aiGenerated}, ${images}::jsonb,
         ${p.seller.name}, ${p.seller.city}, ${p.seller.state}, ${p.seller.tier}, ${p.seller.trustScore}, ${p.seller.badgeActive},
         ${toVectorLiteral(p.embedding)}::vector, ${p.embeddingVersion}, ${p.publishedAt}, ${p.publishedAt}, now())
       ON CONFLICT (id) DO UPDATE SET
@@ -93,7 +96,7 @@ export async function writeLive(p: Projection): Promise<void> {
         category_id = EXCLUDED.category_id, category_slug = EXCLUDED.category_slug, category_name = EXCLUDED.category_name,
         title = EXCLUDED.title, description = EXCLUDED.description, attributes = EXCLUDED.attributes,
         price_paise = EXCLUDED.price_paise, price_unit = EXCLUDED.price_unit, moq = EXCLUDED.moq, moq_unit = EXCLUDED.moq_unit,
-        hsn = EXCLUDED.hsn, language = EXCLUDED.language, ai_generated = EXCLUDED.ai_generated, images = EXCLUDED.images,
+        hsn = EXCLUDED.hsn, price_tiers = EXCLUDED.price_tiers, trade = EXCLUDED.trade, language = EXCLUDED.language, ai_generated = EXCLUDED.ai_generated, images = EXCLUDED.images,
         seller_name = EXCLUDED.seller_name, seller_city = EXCLUDED.seller_city, seller_state = EXCLUDED.seller_state,
         seller_tier = EXCLUDED.seller_tier, seller_trust_score = EXCLUDED.seller_trust_score, seller_badge_active = EXCLUDED.seller_badge_active,
         embedding = EXCLUDED.embedding, embedding_version = EXCLUDED.embedding_version, published_at = EXCLUDED.published_at, updated_at = now()
@@ -330,6 +333,8 @@ export async function backfillLiveListings(opts: { listingIds?: string[] } = {})
         moq: l.moq,
         moqUnit: l.moqUnit,
         hsn: l.hsn,
+        priceTiers: parsePriceTiers(l.priceTiers),
+        trade: tradeOfRow(l),
         language: l.language,
         imageIds: l.images.map((i) => i.id),
         imageUrls: l.imageUrls,

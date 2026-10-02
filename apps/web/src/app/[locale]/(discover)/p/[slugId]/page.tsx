@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { notFound, permanentRedirect } from "next/navigation";
+import { Flag } from "lucide-react";
 import { Breadcrumbs, Container, Grid, Money, SectionHeader } from "@cnote/ui";
+import { absoluteUrl } from "@/lib/site-url";
 import { LOCALE_META, localizePath } from "@/i18n/config";
 import { LocaleLink as Link } from "@/i18n/link";
 import { resolveLocale } from "@/i18n/server";
@@ -13,7 +15,10 @@ import { ListingCard } from "@/features/search/cards";
 import { isPublic, loadCategory, loadHitsStatic, loadListing, loadListingIndex, loadRatingSummary, loadRatings, loadReviewsPage, loadSeller } from "@/features/search/data";
 import { getUiLabels } from "@/features/search/labels";
 import { moqText } from "@/features/search/format";
-import { ProductImage } from "@/features/search/product-image";
+import { Gallery } from "@/features/pdp/gallery";
+import { PurchasePanel } from "@/features/pdp/purchase-panel";
+import { ShareMenu } from "@/features/pdp/share-menu";
+import { TradeInfo } from "@/features/pdp/trade-info";
 import { ProductReviewsStatic } from "@/features/reviews";
 import { RatingStars } from "@/features/reviews/stars";
 import { LeadNudge } from "@/features/leadgen/nudge";
@@ -102,10 +107,11 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
       const f = fields.get(k);
       return [f?.label ?? prettify(k), `${String(v)}${f?.unit ? ` ${f.unit}` : ""}`];
     }),
-    ...(listing.hsn ? ([[t("hsn"), listing.hsn]] as [string, string][]) : []),
     [t("category"), listing.category.name],
-    ...(moq ? ([[t("minimumOrder"), moq]] as [string, string][]) : []),
   ];
+  const canonical = absoluteUrl(localizePath(productPath(listing), locale));
+  const pdp = await getTranslations({ locale, namespace: "pdp" });
+  const images = listing.imageUrls.slice(0, 10).map((src, i) => ({ src, blur: listing.imageBlurs?.[i] ?? null, alt: i === 0 ? listing.title : t("imageAlt", { title: listing.title, n: i + 1 }) }));
 
   return (
     <Container className="py-6 lg:py-8">
@@ -118,18 +124,7 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
       <Breadcrumbs linkComponent={Link} label={ui.breadcrumb} items={[{ label: ui.home, href: "/" }, { label: listing.category.name, href: categoryPath(listing.category.slug) }, { label: listing.title }]} />
       <div className="mt-5 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div>
-          <div className="relative aspect-square overflow-hidden rounded-card border border-line bg-surface">
-            <ProductImage src={listing.imageUrls[0]} blur={listing.imageBlurs?.[0]} sizes="(min-width: 1024px) 45vw, 100vw" priority preload alt={listing.title} />
-          </div>
-          {listing.imageUrls.length > 1 ? (
-            <ul className="mt-3 grid grid-cols-4 gap-3">
-              {listing.imageUrls.slice(1, 5).map((u, i) => (
-                <li key={u} className="relative aspect-square overflow-hidden rounded-lg border border-line bg-surface">
-                  <ProductImage src={u} blur={listing.imageBlurs?.[i + 1]} sizes="12vw" alt={t("imageAlt", { title: listing.title, n: i + 2 })} />
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          <Gallery images={images} title={listing.title} />
         </div>
 
         <div className="flex flex-col gap-5">
@@ -142,21 +137,33 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
                 </a>
               </p>
             ) : null}
-            <div className="mt-3">
-              {listing.pricePaise != null ? <Money paise={listing.pricePaise} unit={listing.priceUnit} className="text-3xl" /> : <span className="text-lg font-semibold text-muted">{t("priceOnRequest")}</span>}
-            </div>
-            {moq ? <p className="mt-1 text-sm text-muted">{t("minOrder", { value: moq })}</p> : null}
-            <p className="mt-1 text-xs text-muted">{t("indicative")}</p>
           </div>
 
-          {offer ? <OfferPanel offer={offer} unit={listing.priceUnit} locale={locale} /> : null}
+          <PurchasePanel
+            listingId={listing.id}
+            listingTitle={listing.title}
+            unit={listing.priceUnit}
+            basePaise={listing.pricePaise}
+            tiers={listing.priceTiers ?? []}
+            moq={listing.moq}
+            moqText={moq}
+            moqUnit={listing.moqUnit}
+            labels={{ priceOnRequest: t("priceOnRequest"), minOrder: moq ? t("minOrder", { value: moq }) : null, indicative: t("indicative"), getBestPrice: t("getBestPrice"), requestQuote: t("requestQuote") }}
+            offer={offer ? <OfferPanel offer={offer} unit={listing.priceUnit} locale={locale} /> : null}
+            actions={
+              <>
+                <SaveIsland id={listing.id} title={listing.title} className="size-12" />
+                <CompareIsland id={listing.id} title={listing.title} variant="button" />
+              </>
+            }
+          />
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Client islands: the dialog opens only on click (never on load), signed-in buyers skip it. */}
-            <UnlockButton trigger="pdp_best_price" unlock="enquiry" listingId={listing.id} listingTitle={listing.title} label={t("getBestPrice")} className="w-full sm:w-auto" />
-            <UnlockButton trigger="request_quote" unlock="quotes" listingId={listing.id} listingTitle={listing.title} label={t("requestQuote")} variant="outline-brand" className="w-full sm:w-auto" />
-            <SaveIsland id={listing.id} title={listing.title} className="size-12" />
-            <CompareIsland id={listing.id} title={listing.title} variant="button" />
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <ShareMenu url={canonical} title={listing.title} />
+            <Link href={`/report?url=${encodeURIComponent(canonical)}`} className="inline-flex min-h-11 items-center gap-1.5 text-sm text-muted underline-offset-2 hover:text-ink hover:underline">
+              <Flag className="size-4" aria-hidden />
+              {pdp("report")}
+            </Link>
           </div>
 
           <LeadNudge listingId={listing.id} listingTitle={listing.title} />
@@ -170,6 +177,8 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
               contact={<UnlockButton trigger="pdp_contact_seller" unlock="seller_contact" listingId={listing.id} listingTitle={listing.title} label={t("contactSeller")} variant="outline" size="md" />}
             />
           ) : null}
+
+          <TradeInfo listing={listing} locale={locale} />
 
           {listing.description ? (
             <section aria-labelledby="desc">
