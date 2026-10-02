@@ -1,43 +1,20 @@
 import { hasPrivilege } from "@cnote/admin";
-import { listGrievances, type GrievanceStatus, type GrievanceView } from "@cnote/compliance";
+import { listGrievances, type GrievanceStatus } from "@cnote/compliance";
 import { Alert, Badge, Card, CardBody, EmptyState, LinkTabs } from "@cnote/ui";
 import Link from "next/link";
 import { GrievanceResponseForm } from "@/features/compliance/forms";
+import { categoryLabel, FILTERS, slaBadges, TYPE_LABEL } from "@/features/compliance/grievance-labels";
 import { requireStaff } from "@/lib/auth";
 import { fmtDate, one, safe, shortId } from "@/lib/util";
 
 export const metadata = { title: "Grievances" };
-
-const FILTERS = [
-  { key: "open", label: "Open" },
-  { key: "rights", label: "Data rights requests" },
-  { key: "in_progress", label: "In progress" },
-  { key: "breached", label: "SLA breached" },
-  { key: "resolved", label: "Resolved" },
-  { key: "rejected", label: "Closed without action" },
-] as const;
-
-const TYPE_LABEL: Record<string, string> = {
-  access: "Access request", correction: "Correction request", erasure: "Erasure request", nomination: "Nomination", withdraw_consent: "Withdraw consent", complaint: "Complaint",
-};
-
-const slaBadge = (g: GrievanceView) => {
-  const out: React.ReactNode[] = [];
-  out.push(<Badge key="k" tone={g.sla.kind === "rights" ? "accent" : "neutral"}>{g.sla.kind === "rights" ? `Rights SLA ${g.slaDays}d` : `Complaint SLA ${g.slaDays}d`}</Badge>);
-  if (g.sla.daysLeft !== null && g.sla.resolution !== "breached") out.push(<Badge key="l">{g.sla.daysLeft} days left</Badge>);
-  if (g.sla.acknowledgement === "breached") out.push(<Badge key="a" tone="danger">Acknowledgement overdue</Badge>);
-  if (g.sla.resolution === "breached") out.push(<Badge key="r" tone="danger">Resolution overdue</Badge>);
-  else if (g.sla.resolution === "due_soon") out.push(<Badge key="d" tone="warning">Due within 3 days</Badge>);
-  else if (g.sla.resolution === "on_track" && g.sla.acknowledgement !== "breached") out.push(<Badge key="o" tone="success">On track</Badge>);
-  return out;
-};
 
 export default async function GrievancesPage({ searchParams }: PageProps<"/compliance">) {
   const sp = await searchParams;
   const f = FILTERS.find((x) => x.key === one(sp.filter))?.key ?? "open";
   const { staff } = await requireStaff("/compliance", "compliance.read");
   const canManage = hasPrivilege(staff, "compliance.manage");
-  const items = await safe("compliance.listGrievances", () => listGrievances(f === "breached" ? { breachedOnly: true } : f === "rights" ? { rightsOnly: true } : { status: f as GrievanceStatus }));
+  const items = await safe("compliance.listGrievances", () => listGrievances(f === "breached" ? { breachedOnly: true } : f === "rights" ? { rightsOnly: true } : f === "takedown" ? { category: "report", openOnly: true } : { status: f as GrievanceStatus }));
   const canConsent = hasPrivilege(staff, "compliance.consent");
 
   return (
@@ -53,9 +30,9 @@ export default async function GrievancesPage({ searchParams }: PageProps<"/compl
               <CardBody className="space-y-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone="brand">{TYPE_LABEL[g.requestType] ?? g.requestType}</Badge>
-                  <Badge>{g.category}</Badge>
+                  <Badge tone={g.category === "report" ? "danger" : "neutral"}>{categoryLabel(g.category)}</Badge>
                   <Badge>{g.status.replace("_", " ")}</Badge>
-                  {slaBadge(g)}
+                  {slaBadges(g).map((b) => <Badge key={b.key} tone={b.tone}>{b.text}</Badge>)}
                 </div>
                 <h2 className="text-base font-semibold text-ink">{g.subject}</h2>
                 <p className="text-xs text-muted">
@@ -67,6 +44,7 @@ export default async function GrievancesPage({ searchParams }: PageProps<"/compl
                     Cookie consent ID: {canConsent ? <Link className="text-brand-700 hover:underline" href={`/compliance/consent?q=${g.consentId}`}><code>{g.consentId}</code></Link> : <code>{g.consentId}</code>}
                   </p>
                 ) : null}
+                {g.category === "report" ? <p className="rounded-lg border border-line bg-canvas p-3 text-xs">Takedown notice (IT Rules 2021 r.3(1)(d)): acknowledge within 24 hours and act within 36 hours of receipt. Acknowledge by moving it to In progress; close it with the action taken.</p> : null}
                 {g.requestType === "erasure" ? <p className="rounded-lg border border-line bg-canvas p-3 text-xs">Erasure note: when you resolve this request, the person&apos;s cookie-consent receipts are detached from their account (person ID removed). The anonymous receipts stay as proof of notice and choice (DPDP s.8(7)).</p> : null}
                 {g.resolution ? <p className="rounded-lg border border-line bg-canvas p-3"><strong>Resolution:</strong> {g.resolution}</p> : null}
                 {canManage && (g.status === "open" || g.status === "in_progress") ? (

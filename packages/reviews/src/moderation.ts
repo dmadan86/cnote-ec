@@ -1,7 +1,8 @@
 import { DomainError, emit } from "@cnote/core";
 import { prisma, type Prisma } from "@cnote/db";
 import { PAGE_SIZE } from "./constants";
-import { bustReviewCaches } from "./cache";
+import { bustQaCaches, bustReviewCaches } from "./cache";
+import { syncAnswered } from "./qa-state";
 import { recomputeSummary } from "./summary";
 import type { ModerationItem, ModerationResult, ModerationSnapshot, Page, UgcKind, UgcStatus } from "./types";
 
@@ -36,9 +37,22 @@ const commentItem = (r: CommentRow): ModerationItem => ({
   authorPersonId: r.authorPersonId, authorBusinessId: r.authorBusinessId, moderationNote: r.moderationNote, createdAt: r.createdAt.toISOString(),
 });
 
+type QuestionRow = Prisma.ProductQuestionGetPayload<object>;
+type AnswerRow = Prisma.ProductAnswerGetPayload<{ include: { question: { select: { body: true; authorPersonId: true } } } }>;
+const questionItem = (r: QuestionRow): ModerationItem => ({
+  kind: "question", id: r.id, listingId: r.listingId, sellerBusinessId: r.sellerBusinessId, status: r.status, rating: null, title: null, body: r.body,
+  context: null, isSeller: false, parentId: null, aiVerdict: r.aiVerdict, reportCount: r.reportCount, authorPersonId: r.authorPersonId,
+  authorBusinessId: r.authorBusinessId, moderationNote: r.moderationNote, createdAt: r.createdAt.toISOString(),
+});
+const answerItem = (r: AnswerRow): ModerationItem => ({
+  kind: "answer", id: r.id, listingId: r.listingId, sellerBusinessId: r.sellerBusinessId, status: r.status, rating: null, title: null, body: r.body,
+  context: r.question.body, isSeller: true, parentId: r.questionId, aiVerdict: r.aiVerdict, reportCount: r.reportCount, authorPersonId: r.authorPersonId,
+  authorBusinessId: r.sellerBusinessId, moderationNote: r.moderationNote, createdAt: r.createdAt.toISOString(),
+});
+
 /**
  * Oldest first. kinds: "review" (product reviews), "comment" (questions and seller thread replies),
- * "reply" (a seller's reply to a review). Pending and flagged by default.
+ * "reply" (a seller's reply to a review), "question" / "answer" (product Q&A). Pending and flagged by default.
  */
 export async function listModerationQueue(f: QueueFilters): Promise<Page<ModerationItem>> {
   const take = Math.min(Math.max(f.limit ?? PAGE_SIZE * 2, 1), 100);
@@ -48,6 +62,10 @@ export async function listModerationQueue(f: QueueFilters): Promise<Page<Moderat
   let items: ModerationItem[];
   if (f.kind === "review") {
     items = (await prisma.productReview.findMany({ where: { status: { in: statuses } }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], ...paging })).map(reviewItem);
+  } else if (f.kind === "question") {
+    items = (await prisma.productQuestion.findMany({ where: { status: { in: statuses } }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], ...paging })).map(questionItem);
+  } else if (f.kind === "answer") {
+    items = (await prisma.productAnswer.findMany({ where: { status: { in: statuses } }, include: { question: { select: { body: true, authorPersonId: true } } }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], ...paging })).map(answerItem);
   } else if (f.kind === "reply") {
     items = (await prisma.productReview.findMany({ where: { sellerReplyStatus: { in: statuses } }, orderBy: [{ sellerRepliedAt: "asc" }, { id: "asc" }], ...paging })).map(replyItem);
   } else {
@@ -62,6 +80,14 @@ export async function getModerationItem(kind: UgcKind, id: string): Promise<Mode
   if (kind === "comment") {
     const r = await prisma.productComment.findUnique({ where: { id }, include: { parent: { select: { body: true } } } });
     return r ? commentItem(r) : null;
+  }
+  if (kind === "question") {
+    const r = await prisma.productQuestion.findUnique({ where: { id } });
+    return r ? questionItem(r) : null;
+  }
+  if (kind === "answer") {
+    const r = await prisma.productAnswer.findUnique({ where: { id }, include: { question: { select: { body: true, authorPersonId: true } } } });
+    return r ? answerItem(r) : null;
   }
   const r = await prisma.productReview.findUnique({ where: { id } });
   if (!r) return null;
@@ -80,6 +106,7 @@ const snap = (status: UgcStatus, moderationNote: string | null, reportCount: num
 export async function moderate(kind: UgcKind, id: string, decision: "approved" | "rejected", note: string | null, staffId: string): Promise<ModerationResult> {
   const result = await moderateInTx(kind, id, decision, note, staffId);
   await bustReviewCaches(result.listingId); // approved/rejected content must appear/disappear from cached pages immediately
+  if (kind === "question" || kind === "answer") await bustQaCaches(result.listingId);
   return result;
 }
 
@@ -90,6 +117,8 @@ async function moderateInTx(kind: UgcKind, id: string, decision: "approved" | "r
   const now = new Date();
 
   return prisma.$transaction(async (tx): Promise<ModerationResult> => {
+    if (kind === "question" || kind === "answer") return moderateQa(tx, kind, id, decision, cleanNote, staffId, now);
+
     if (kind === "comment") {
       const c = await tx.productComment.findUnique({ where: { id } });
       if (!c) throw new DomainError("not_found", "Comment not found.");
@@ -131,4 +160,34 @@ async function moderateInTx(kind: UgcKind, id: string, decision: "approved" | "r
     });
     return { kind, id, listingId: r.listingId, before, after: snap(u.status, u.moderationNote, u.reportCount) };
   });
+}
+
+/**
+ * Question/answer decisions. Approving a question or answer re-derives `answeredAt` (public = both approved); rejecting
+ * hides it. Emits ProductQaModerated in the same transaction so observers (cache purge, notifications) follow.
+ */
+async function moderateQa(tx: Prisma.TransactionClient, kind: "question" | "answer", id: string, decision: "approved" | "rejected", note: string | null, staffId: string, now: Date): Promise<ModerationResult> {
+  const data = { status: decision, moderationNote: decision === "rejected" ? note : null, moderatedBy: staffId, moderatedAt: now, ...(decision === "approved" ? { reportCount: 0 } : {}) };
+  if (kind === "question") {
+    const q = await tx.productQuestion.findUnique({ where: { id } });
+    if (!q) throw new DomainError("not_found", "Question not found.");
+    const before = snap(q.status, q.moderationNote, q.reportCount);
+    if (q.status === decision) return { kind, id, listingId: q.listingId, before, after: before };
+    const u = await tx.productQuestion.update({ where: { id }, data });
+    await syncAnswered(tx, id);
+    await emit(tx, "ProductQaModerated", { type: "product_question", id: q.id }, {
+      kind, id, questionId: q.id, listingId: q.listingId, sellerBusinessId: q.sellerBusinessId, askerPersonId: q.authorPersonId, status: decision, moderatedBy: staffId,
+    });
+    return { kind, id, listingId: q.listingId, before, after: snap(u.status, u.moderationNote, u.reportCount) };
+  }
+  const a = await tx.productAnswer.findUnique({ where: { id }, include: { question: { select: { authorPersonId: true } } } });
+  if (!a) throw new DomainError("not_found", "Answer not found.");
+  const before = snap(a.status, a.moderationNote, a.reportCount);
+  if (a.status === decision) return { kind, id, listingId: a.listingId, before, after: before };
+  const u = await tx.productAnswer.update({ where: { id }, data });
+  await syncAnswered(tx, a.questionId);
+  await emit(tx, "ProductQaModerated", { type: "product_question", id: a.questionId }, {
+    kind, id, questionId: a.questionId, listingId: a.listingId, sellerBusinessId: a.sellerBusinessId, askerPersonId: a.question.authorPersonId, status: decision, moderatedBy: staffId,
+  });
+  return { kind, id, listingId: a.listingId, before, after: snap(u.status, u.moderationNote, u.reportCount) };
 }

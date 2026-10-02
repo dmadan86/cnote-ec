@@ -119,3 +119,21 @@ export function sellerLd(s: TrustProfile, locale: Locale = DEFAULT_LOCALE, ratin
     ],
   };
 }
+
+/**
+ * FAQPage for a product's answered Q&A. Only approved questions with approved answers reach this (the module's public
+ * list), so nothing held for moderation or private to its asker is ever exposed to crawlers.
+ */
+export const faqLd = (items: { question: string; answer: string; date?: string }[]): Json | null =>
+  items.length === 0
+    ? null
+    : {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: items.map((i) => ({
+          "@type": "Question",
+          name: i.question,
+          ...(i.date ? { dateCreated: i.date } : {}),
+          acceptedAnswer: { "@type": "Answer", text: i.answer },
+        })),
+      };

@@ -34,7 +34,9 @@
       "settings": "సెట్టింగ్‌లు",
       "prices": "ధరల అంతర్దృష్టి",
       "credit": "క్రెడిట్",
-      "agents": "కొటేషన్ ఏజెంట్"
-    }
+      "agents": "కొటేషన్ ఏజెంట్",
+      "questions": "ప్రశ్నలు"
+    },
+    "questionsUnanswered": "{count} సమాధానం ఇవ్వలేదు"
   }
 }

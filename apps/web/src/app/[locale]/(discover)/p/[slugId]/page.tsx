@@ -9,16 +9,17 @@ import { LocaleLink as Link } from "@/i18n/link";
 import { resolveLocale } from "@/i18n/server";
 import { JsonLd } from "@/lib/json-ld";
 import { categoryPath, parseProductParam, productPath } from "@/lib/paths";
-import { breadcrumbLd, productLd } from "@/lib/schema";
+import { breadcrumbLd, faqLd, productLd } from "@/lib/schema";
 import { localizedAlternates } from "@/lib/seo-i18n";
 import { ListingCard } from "@/features/search/cards";
-import { isPublic, loadCategory, loadHitsStatic, loadListing, loadListingIndex, loadRatingSummary, loadRatings, loadReviewsPage, loadSeller } from "@/features/search/data";
+import { isPublic, loadCategory, loadHitsStatic, loadListing, loadListingIndex, loadQaPage, loadRatingSummary, loadRatings, loadReviewsPage, loadSeller } from "@/features/search/data";
 import { getUiLabels } from "@/features/search/labels";
 import { moqText } from "@/features/search/format";
 import { Gallery } from "@/features/pdp/gallery";
 import { PurchasePanel } from "@/features/pdp/purchase-panel";
 import { ShareMenu } from "@/features/pdp/share-menu";
 import { TradeInfo } from "@/features/pdp/trade-info";
+import { ProductQa } from "@/features/qa/section";
 import { ProductReviewsStatic } from "@/features/reviews";
 import { RatingStars } from "@/features/reviews/stars";
 import { LeadNudge } from "@/features/leadgen/nudge";
@@ -86,7 +87,7 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
   // Self-healing canonical URL: wrong / missing / stale slug (title edited) -> 308 to /p/<current-slug>-<id>.
   if (parsed.slug !== productPath(listing).slice("/p/".length, -37)) permanentRedirect(localizePath(productPath(listing), locale));
 
-  const [seller, category, similar, summary, reviews, offer, supplierTrust] = await Promise.all([
+  const [seller, category, similar, summary, reviews, offer, supplierTrust, qa] = await Promise.all([
     loadSeller(listing.sellerBusinessId),
     loadCategory(listing.category.slug),
     loadHitsStatic({ q: listing.title, limit: 9 }, [`listing:${listing.id}`]),
@@ -94,6 +95,7 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
     loadReviewsPage(listing.id),
     loadOffer(listing.id),
     loadSupplierTrust(listing.sellerBusinessId),
+    loadQaPage(listing.id),
   ]);
   const others = similar.hits.filter((h) => h.listing.id !== listing.id).slice(0, 4);
   const sellerState = seller ? await stateLabelFor(locale, seller.state) : "";
@@ -120,6 +122,7 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
       <JsonLd
         data={[
           productLd(listing, seller, rating, reviews.items.slice(0, 5).map((v) => ({ rating: v.rating, author: v.authorName, body: v.body.slice(0, 500), date: v.createdAt.slice(0, 10) })), locale),
+          ...[faqLd(qa.items.slice(0, 10).map((q) => ({ question: q.body, answer: q.answer.body, date: q.askedAt.slice(0, 10) })))].filter((x): x is NonNullable<typeof x> => x !== null),
           breadcrumbLd([{ name: ui.home, path: localizePath("/", locale) }, { name: listing.category.name, path: localizePath(categoryPath(listing.category.slug), locale) }, { name: listing.title }]),
         ]}
       />
@@ -231,6 +234,10 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
 
       <div className="mt-12">
         <ProductReviewsStatic listingId={listing.id} />
+      </div>
+
+      <div className="mt-12">
+        <ProductQa listingId={listing.id} locale={locale} />
       </div>
 
       {others.length ? (

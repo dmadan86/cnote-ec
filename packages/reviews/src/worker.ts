@@ -1,7 +1,7 @@
 import type { ModuleWorker } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { createHash } from "node:crypto";
-import { bustAllReviewCaches } from "./cache";
+import { bustAllQaCaches, bustAllReviewCaches } from "./cache";
 import { TOMBSTONE_PERSON_ID } from "./constants";
 
 /**
@@ -28,6 +28,15 @@ export async function anonymisePerson(personId: string): Promise<void> {
     // Unpublished comments with replies must stay (FK); they're anonymised below like approved ones.
     await tx.productComment.deleteMany({ where: { authorPersonId: personId, status: { not: "approved" }, replies: { none: {} } } });
     await tx.productComment.updateMany({ where: { authorPersonId: personId }, data: { authorPersonId: TOMBSTONE_PERSON_ID, authorBusinessId: null } });
+    // Questions: never-public ones (not approved, or approved but unanswered) go with their unpublished answers; public Q&A is anonymised.
+    const dropQuestions = await tx.productQuestion.findMany({ where: { authorPersonId: personId, OR: [{ status: { not: "approved" } }, { answeredAt: null }] }, select: { id: true } });
+    if (dropQuestions.length) {
+      const ids = dropQuestions.map((q) => q.id);
+      await tx.productAnswer.deleteMany({ where: { questionId: { in: ids } } });
+      await tx.productQuestion.deleteMany({ where: { id: { in: ids } } });
+    }
+    await tx.productQuestion.updateMany({ where: { authorPersonId: personId }, data: { authorPersonId: TOMBSTONE_PERSON_ID, authorBusinessId: null } });
+    await tx.productAnswer.updateMany({ where: { authorPersonId: personId }, data: { authorPersonId: TOMBSTONE_PERSON_ID } });
   });
 }
 
@@ -37,6 +46,7 @@ export const worker: ModuleWorker = {
     DataErasureRequested: async (event) => {
       await anonymisePerson(event.payload.personId);
       await bustAllReviewCaches();
+      await bustAllQaCaches();
     },
     // Listing pages 404 once archived, so nothing to hide; kept explicit to document the decision.
     ListingArchived: async () => {},

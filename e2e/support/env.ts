@@ -29,6 +29,8 @@ export const e2eEnv: Record<string, string> = {
   AI_PROVIDER: "heuristic",
   QUEUE_DRIVER: "memory",
   OTP_DEV_ECHO: "true",
+  // Lets a spec purge the web ISR cache the way the cache worker would (POST /api/revalidate), e.g. e2e/a11y/product-qa.spec.ts.
+  REVALIDATE_SECRET: "e2e-revalidate-secret-not-for-production",
   JWT_SECRET: "q7Xk2mP9vLr4Tn8Bw3Zc6Hd1Fy5Js0Ag-e2e-signing-key",
   FIELD_ENCRYPTION_KEYS: `e2e1:${FIELD_KEY}`,
   FIELD_ENCRYPTION_ACTIVE_KID: "e2e1",
@@ -44,6 +46,9 @@ export const e2eEnv: Record<string, string> = {
   NEXT_PUBLIC_CLARITY_PROJECT_ID: "",
   GOOGLE_CLIENT_ID: "",
   NEXT_TELEMETRY_DISABLED: "1",
+  // The e2e servers run NODE_ENV=production, where missing legal entity details are fatal. CI sets them (.github/workflows/ci.yml);
+  // a local run without them opts out explicitly instead.
+  ...(process.env.PLATFORM_LEGAL_NAME ? {} : { LEGAL_ENTITY_STRICT: "false" }),
 };
 
 /** Seeded demo accounts (apps/worker/src/seed.ts). */

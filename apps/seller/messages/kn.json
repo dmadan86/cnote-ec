@@ -34,7 +34,9 @@
       "settings": "ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
       "prices": "ಬೆಲೆ ಒಳನೋಟ",
       "credit": "ಸಾಲ",
-      "agents": "ಕೋಟ್ ಏಜೆಂಟ್"
-    }
+      "agents": "ಕೋಟ್ ಏಜೆಂಟ್",
+      "questions": "ಪ್ರಶ್ನೆಗಳು"
+    },
+    "questionsUnanswered": "{count} ಉತ್ತರಿಸಿಲ್ಲ"
   }
 }

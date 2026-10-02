@@ -10,7 +10,8 @@ function useActive() {
   return (href: string) => pathname === href || pathname.startsWith(`${href}/`) || (href === "/leads" && pathname.startsWith("/conversations"));
 }
 
-export function SidebarNav() {
+/** `unanswered`: buyer questions waiting on the seller (badge on the Questions item). */
+export function SidebarNav({ unanswered = 0 }: { unanswered?: number }) {
   const isActive = useActive();
   const t = useTranslations("shell");
   return (
@@ -28,6 +29,12 @@ export function SidebarNav() {
             )}
           >
             <Icon className="size-4" aria-hidden /> {t(`nav.${key}`)}
+            {key === "questions" && unanswered > 0 ? (
+              <span className="ml-auto min-w-6 rounded-full bg-brand-600 px-1.5 text-center text-xs font-semibold text-white">
+                <span aria-hidden>{unanswered > 99 ? "99+" : unanswered}</span>
+                <span className="sr-only">{t("questionsUnanswered", { count: unanswered })}</span>
+              </span>
+            ) : null}
           </Link>
         );
       })}

@@ -103,6 +103,7 @@ model Business {
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   members       BusinessMember[]
+  addresses     BusinessAddress[]
   verifications VerificationRecord[]
   listings      Listing[]
   enquiries     Enquiry[]
@@ -134,6 +135,31 @@ model BusinessMember {
 
   @@id([businessId, personId])
   @@map("business_members")
+}
+
+/// Saved delivery address of a business (buyer role). Personal data under DPDP: included in the data export and
+/// deleted on erasure. `state` is derived from the pincode server-side; at most one default per business (kept in code).
+model BusinessAddress {
+  id          String   @id @default(uuid()) @db.Uuid
+  businessId  String   @map("business_id") @db.Uuid
+  label       String
+  contactName String?  @map("contact_name")
+  phone       String?
+  line1       String
+  line2       String?
+  city        String
+  state       String
+  /// GST state code (01-38)
+  stateCode   String   @map("state_code")
+  pincode     String
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@index([businessId, isDefault])
+  @@map("business_addresses")
 }
 
 model VerificationRecord {

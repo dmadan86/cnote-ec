@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertLegalEntity, dialable, ENTITY_ENV_KEYS, isPlaceholder, legalEntity, missingEntityEnv } from "@/features/legal/entity";
+import { assertLegalEntity, dialable, ENTITY_ENV_KEYS, isLegalEntityStrict, isPlaceholder, legalEntity, missingEntityEnv } from "@/features/legal/entity";
 
 const FULL = {
   PLATFORM_LEGAL_NAME: "Example Commerce Pvt Ltd",
@@ -40,6 +40,16 @@ describe("legal entity config", () => {
   it("never throws outside production", () => {
     expect(() => assertLegalEntity({ NODE_ENV: "development" })).not.toThrow();
     expect(() => assertLegalEntity({ NODE_ENV: "test" })).not.toThrow();
+  });
+
+  it("strict is the default in production, with an explicit opt-out; never strict elsewhere", () => {
+    expect(isLegalEntityStrict({ NODE_ENV: "production" })).toBe(true);
+    expect(isLegalEntityStrict({ NODE_ENV: "production", LEGAL_ENTITY_STRICT: "true" })).toBe(true);
+    expect(isLegalEntityStrict({ NODE_ENV: "production", LEGAL_ENTITY_STRICT: "" })).toBe(true);
+    expect(isLegalEntityStrict({ NODE_ENV: "production", LEGAL_ENTITY_STRICT: "false" })).toBe(false);
+    expect(isLegalEntityStrict({ NODE_ENV: "production", LEGAL_ENTITY_STRICT: " FALSE " })).toBe(false);
+    expect(isLegalEntityStrict({ NODE_ENV: "development" })).toBe(false);
+    expect(isLegalEntityStrict({ NODE_ENV: "test", LEGAL_ENTITY_STRICT: "true" })).toBe(false);
   });
 
   it("dialable strips formatting for tel: and wa.me links", () => {

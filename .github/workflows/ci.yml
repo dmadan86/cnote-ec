@@ -108,6 +108,16 @@ jobs:
       # postinstall runs prisma generate for both schemas, which resolves these at config-load time (the e2e databases)
       DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote_e2e
       LIVE_DATABASE_URL: postgres://cnote:cnote@localhost:5432/cnote_live_e2e
+      # Legal entity details: the e2e web server runs NODE_ENV=production, where they are required (features/legal/entity.ts).
+      PLATFORM_LEGAL_NAME: Example Commerce Private Limited
+      PLATFORM_CIN: U74999KA2026PTC000001
+      PLATFORM_GSTIN: 29ABCDE1234F1Z5
+      PLATFORM_ADDRESS: 1 MG Road, Bengaluru, Karnataka 560001
+      SUPPORT_EMAIL: support@example.in
+      SUPPORT_PHONE: "+91 80 1234 5678"
+      SUPPORT_WHATSAPP: "+91 98765 43210"
+      SUPPORT_HOURS: Mon-Sat, 9:00 to 18:00 IST
+      SECURITY_CONTACT_EMAIL: security@example.in
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
