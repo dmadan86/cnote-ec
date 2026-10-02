@@ -84,13 +84,20 @@ export async function pickSellers(actor: Actor, enquiryId: string, sellerIds: st
   const byId = new Map(ranked.map((r) => [r.sellerBusinessId, r]));
   const picks = chosen.map((id) => byId.get(id));
   if (picks.some((p) => !p)) throw new DomainError("validation", "One of the selected sellers is no longer available.", undefined, "enquiries.oneSelectedSellersNoLonger");
-  const usedRanks = new Set(active.map((m) => m.rank));
-  const freeRanks: number[] = [];
-  for (let r = 1; freeRanks.length < picks.length && r <= cap; r++) if (!usedRanks.has(r)) freeRanks.push(r);
   await prisma.$transaction(async (tx) => {
     await lockRow(tx, "enquiries", enquiryId);
     const fresh = await tx.enquiry.findUnique({ where: { id: enquiryId } });
     if (!fresh || !["scoring", "matched", "unmatched"].includes(fresh.status)) throw new DomainError("conflict", "This requirement is not open for picking.");
+    // Security audit: the cap is re-checked against the matches as they are NOW, under the row lock. The pre-lock count above is
+    // only a fast path: two parallel picks would each see "free slots" and together exceed the cap.
+    const current = await tx.match.findMany({ where: { enquiryId } });
+    const activeNow = current.filter((m) => m.status === "offered" || m.status === "accepted");
+    if (activeNow.length + picks.length > cap) throw new DomainError("validation", `You can pick up to ${Math.max(0, cap - activeNow.length)} more seller(s).`, undefined, "enquiries.pickUpMoreSellerS", { count: Math.max(0, cap - activeNow.length) });
+    const taken = new Set(current.map((m) => m.sellerBusinessId));
+    if (picks.some((p) => taken.has(p!.sellerBusinessId))) throw new DomainError("validation", "One of the selected sellers is no longer available.", undefined, "enquiries.oneSelectedSellersNoLonger");
+    const usedRanks = new Set(activeNow.map((m) => m.rank));
+    const freeRanks: number[] = [];
+    for (let r = 1; freeRanks.length < picks.length && r <= cap; r++) if (!usedRanks.has(r)) freeRanks.push(r);
     await offerMatches(tx, enq, picks.map((candidate, i) => ({ rank: freeRanks[i]!, candidate: candidate! })));
     await tx.enquiry.update({ where: { id: enquiryId }, data: { sellerCap: cap, status: "matched" } });
   });

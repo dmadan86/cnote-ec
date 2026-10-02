@@ -143,6 +143,23 @@ describe("createEnquiry", () => {
     await expect(createEnquiry(buyer, { title: "One more", requirement: "One more requirement" })).rejects.toMatchObject({ code: "rate_limited" });
   });
 
+  it("security: also limited per person (15/h across businesses) and per client IP (30/h across people)", async () => {
+    await pool(1);
+    // one person fronting two businesses cannot dodge the per-business key
+    const a = await party("rl-a");
+    const b = await party("rl-b");
+    const second = { personId: a.personId, businessId: b.businessId };
+    for (let i = 0; i < 8; i++) await post(a);
+    for (let i = 0; i < 7; i++) await post(second);
+    await expect(createEnquiry(second, { title: "One more", requirement: "One more requirement" })).rejects.toMatchObject({ code: "rate_limited" });
+    // many people behind one IP
+    const ip = `203.0.113.${Math.floor(Math.random() * 200) + 1}`;
+    for (let i = 0; i < 30; i++) await post(await party(`rl-ip${i}`), {}, { ip });
+    await expect(createEnquiry(await party("rl-ip-last"), { title: "One more", requirement: "One more requirement" }, { ip })).rejects.toMatchObject({ code: "rate_limited" });
+    // another IP is unaffected
+    await expect(post(await party("rl-ip-ok"), {}, { ip: "198.51.100.7" })).resolves.toBeTruthy();
+  });
+
   it("caps offers per category leadCap and records sellerCap; top-N by score, own business excluded", async () => {
     const buyer = await party("buyer");
     const cat2 = await makeCat("cap2", 2);
@@ -294,6 +311,20 @@ describe("buyer picks mode", () => {
     // freed slot can be re-picked into rank 1
     const again = await pickSellers(buyer, e.id, [sellers[2]!.businessId]);
     expect(again.matches.find((m) => m.sellerBusinessId === sellers[2]!.businessId)!.rank).toBe(1);
+  });
+
+  it("security: parallel picks cannot exceed the seller cap (the cap is re-checked under the row lock)", async () => {
+    const buyer = await party("buyer");
+    const sellers = await pool(6);
+    const e = await post(buyer, { buyerPicks: true });
+    // each call alone fits the cap (3); together 4 sellers x 2 = 8 would be offered without the in-lock recount
+    const out = await Promise.allSettled([
+      pickSellers(buyer, e.id, [sellers[0]!.businessId, sellers[1]!.businessId]),
+      pickSellers(buyer, e.id, [sellers[2]!.businessId, sellers[3]!.businessId]),
+      pickSellers(buyer, e.id, [sellers[4]!.businessId, sellers[5]!.businessId]),
+    ]);
+    expect(out.filter((o) => o.status === "fulfilled")).toHaveLength(1);
+    expect((await rows(e.id)).filter((m) => isActive(m.status)).length).toBeLessThanOrEqual(3);
   });
 
   it("rejects non-owners, non-picks enquiries, non-open statuses; candidates empty for auto enquiries", async () => {

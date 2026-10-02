@@ -1,3 +1,4 @@
+import { clientIp } from "@cnote/security/client-ip";
 import { z } from "@hono/zod-openapi";
 import * as ops from "../../ops";
 import {
@@ -20,7 +21,7 @@ buyerRoutes.openapi(
       responses: { 201: json(Enquiry, "Created enquiry with its matches") },
     },
   }),
-  async (c) => c.json(await ops.newEnquiry(c.get("principal"), c.req.valid("json")), 201),
+  async (c) => c.json(await ops.newEnquiry(c.get("principal"), c.req.valid("json"), clientIp(c.req.raw.headers)), 201),
 );
 
 buyerRoutes.openapi(

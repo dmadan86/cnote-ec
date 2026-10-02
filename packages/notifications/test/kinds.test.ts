@@ -59,6 +59,7 @@ const TABLE: Row[] = [
   { key: "business.verified", event: ev("BusinessVerified", { businessId: SB, tier: "gst" }), people: ["s-owner"], vars: { tier: "gst" }, href: "/verification" },
   { key: "trust.badge_revoked", event: ev("TrustScoreChanged", { businessId: SB, from: 50, to: 30, badgeActive: false }), people: ["s-owner"], vars: { score: 30 } },
   { key: "lead.reachability_result", event: ev("ReachabilityChecked", { checkId: "c", enquiryId: "e", matchId: "m", channel: "sms", status: "responded", sellerBusinessId: SB }), people: ["s1", "s2"], href: "/leads" },
+  { key: "message.digest", event: ev("MessageSent", { conversationId: "c", senderPersonId: "s1" }), people: [] }, // pipeline-only digest kind: never resolved from an event
   { key: "deal.confirm_requested", event: ev("DealClaimedBySeller", { matchId: "m", sellerBusinessId: SB, buyerBusinessId: BB, conversationId: "c" }), people: ["b1"], vars: { sellerName: "Sharma", enquiryTitle: "Yarn" }, href: "/conversations/c" },
 ];
 const NONE: { key: string; event: ReturnType<typeof ev>; note: string }[] = [

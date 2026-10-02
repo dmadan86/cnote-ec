@@ -37,6 +37,8 @@ export interface Actor {
 /** Optional request context the caller knows but the actor does not. */
 export interface CreateEnquiryContext {
   buyerPhoneVerified?: boolean;
+  /** Client IP from clientIp() (never parsed from X-Forwarded-For here); adds an IP-keyed posting limit (security audit). */
+  ip?: string | null;
 }
 
 export interface SellerSummary {
