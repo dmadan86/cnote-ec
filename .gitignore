@@ -64,3 +64,6 @@ graphify-out/
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# AI eval run output (committed baselines live in packages/ai/evals/baseline)
+packages/ai/evals/reports/
