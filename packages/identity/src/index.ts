@@ -13,7 +13,7 @@ export { googleAuthorizationUrl, completeGoogleSignIn, isGoogleConfigured } from
 export { refreshSession, getSession, signOut, signOutAllSessions, listAuthSessions } from "./sessions";
 export { requestPhoneOtp, verifyPhoneOtp } from "./otp";
 export * from "./evidence";
-export { createBusiness, ensureSystemBuyerBusiness, updateProfile, getTrustProfiles, listSellers, listSellerIndex, bustSellerCaches, verifyGstin, listVerificationRecords, getBuyerBusinessProfile, type BuyerBusinessProfile } from "./business";
+export { createBusiness, ensureSystemBuyerBusiness, updateProfile, getTrustProfiles, listSellers, listSellerIndex, bustSellerCaches, listVerificationRecords, getBuyerBusinessProfile, type BuyerBusinessProfile } from "./business";
 export { hasConsent, setConsent, getConsents, getConsentStates, type ConsentLedgerState } from "./consent";
 export { exportPersonalData, erasePerson, erasePersonWithStepUp, verifyErasureStepUp, listPersonBusinessIds, STEP_UP_WINDOW_MS, type ErasureStepUp } from "./privacy";
 
@@ -21,6 +21,7 @@ export { computeTrustScore, BADGE_THRESHOLD, type TrustSignals } from "./trust";
 export { isValidGstin, isValidUdyam, setGstnProvider, type GstnProvider, type GstnRecord } from "./gstin";
 export { getSmsSender, setMailer, setSmsSender, type Mailer, type SmsSender } from "./mailer";
 export { passwordProblem } from "./password";
+export { enqueueAccountMail, type AccountMail } from "./mail-queue";
 
 /** Consumes lead/dispute/moderation events to recompute trust scores; decay job. */
 export { worker } from "./trust-worker";

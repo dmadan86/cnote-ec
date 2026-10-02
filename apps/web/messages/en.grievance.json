@@ -60,6 +60,11 @@
     "consentId": "Cookie consent ID (optional)",
     "consentIdHint": "Add it if this is about your cookie choice. We fill it in when this browser has one.",
     "slaRights": "Requests to use your data rights are answered within {days} days.",
-    "rightsRequest": "Data rights request"
+    "rightsRequest": "Data rights request",
+    "verifyEmailSent": "Check your email: we sent a confirmation link to the address you gave. We can only act on your data request once you open it (within 7 days).",
+    "verifyTitle": "Confirm your request",
+    "verifyDone": "Thank you, your email is confirmed. Your request is now with our Grievance Officer.",
+    "verifyInvalid": "This confirmation link is invalid or has expired. File your request again if you still need it.",
+    "verifyHome": "Back to home"
   }
 }

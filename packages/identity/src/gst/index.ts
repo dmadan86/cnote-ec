@@ -7,7 +7,8 @@ export {
   type CompanyActor, type CompanyProfileInput, type CompanyProfileView, type CompanyType, type RegisteredAddress,
 } from "./company";
 export {
-  verifyCompanyGst, evaluateGstChecks, listPendingGstReviews, resolveGstReview, setListingHsnSource, getGstEvidence, type GstEvidence,
+  verifyCompanyGst, verifyGstin, releaseGstinClaim, evaluateGstChecks, listPendingGstReviews, resolveGstReview, setListingHsnSource, getGstEvidence, type GstEvidence,
   type VerificationOutcome, type GstCheck, type CheckId, type GstReviewItem,
 } from "./verify";
 export { recheckGstStatus, runGstRecheck, isRecheckDue, gstWorkerJobs, type RecheckResult } from "./continuous";
+export { getGstControlProvider, setGstControlProvider, mockGstControlProvider, type GstControlProvider, type GstControlChallenge } from "./control";

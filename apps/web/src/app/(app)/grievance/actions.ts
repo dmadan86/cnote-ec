@@ -13,6 +13,8 @@ const str = (fd: FormData, k: string) => {
 export interface FiledGrievance {
   id: string;
   dueAt: string;
+  /** an anonymous data-rights request: we emailed a signed link and cannot act until it is used */
+  verificationRequired: boolean;
 }
 
 /** Public grievance filing (DPDP Act grievance redressal; IT Rules 2021 r.3(2)). Works signed-in or anonymous. */
@@ -38,6 +40,6 @@ export async function fileGrievanceAction(_prev: ActionResult<FiledGrievance> | 
       subject: str(fd, "subject"),
       body: str(fd, "body"),
     });
-    return { id: g.id, dueAt: g.dueAt };
+    return { id: g.id, dueAt: g.dueAt, verificationRequired: !g.requesterVerified };
   });
 }

@@ -27,7 +27,7 @@ export async function proxy(req: NextRequest) {
     }
   }
   res.headers.set("Cache-Control", "no-store");
-  return withSecurityHeaders(res, { app: "admin", nonce });
+  return withSecurityHeaders(res, { app: "admin", nonce }, req.nextUrl.pathname);
 }
 
 export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };

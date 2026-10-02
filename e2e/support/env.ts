@@ -32,6 +32,8 @@ export const e2eEnv: Record<string, string> = {
   AI_PROVIDER: "heuristic",
   QUEUE_DRIVER: "memory",
   OTP_DEV_ECHO: "true",
+  // The specs send a per-context cf-connecting-ip (see fixtures.ts) so rate limits do not collide; clientIp honours it only with this flag.
+  TRUST_CLOUDFLARE: "1",
   // The servers run NODE_ENV=production, where startup validation (packages/security/src/secrets.ts) rejects the OTP echo and requires the
   // webhook secret of every enabled provider (escrow is on below). The OTP echo opt-out is for e2e/dev only: never set it on a real deployment.
   ALLOW_OTP_ECHO_IN_PRODUCTION: "1",

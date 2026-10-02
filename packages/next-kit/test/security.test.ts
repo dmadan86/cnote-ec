@@ -18,6 +18,14 @@ describe("withSecurityHeaders", () => {
     expect(res.headers.get("x-frame-options")).toBe("DENY");
     expect(res.headers.get("x-robots-tag")).toContain("noindex");
   });
+  it("reset-password (token in the URL) is always no-referrer, other pages keep the app policy", () => {
+    const reset = withSecurityHeaders(NextResponse.next(), { app: "web" }, "/reset-password");
+    expect(reset.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(withSecurityHeaders(NextResponse.next(), { app: "seller" }, "/reset-password").headers.get("referrer-policy")).toBe("no-referrer");
+    expect(withSecurityHeaders(NextResponse.next(), { app: "web" }, "/grievance/verify").headers.get("referrer-policy")).toBe("no-referrer");
+    expect(withSecurityHeaders(NextResponse.next(), { app: "web" }, "/account").headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
+    expect(withSecurityHeaders(NextResponse.next(), { app: "web" }).headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
+  });
   it("static mode has no nonce", () => {
     const res = withSecurityHeaders(NextResponse.next(), { app: "web" });
     expect(res.headers.get("content-security-policy")).toContain("script-src 'self' 'unsafe-inline'");

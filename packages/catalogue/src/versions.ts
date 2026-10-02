@@ -1,6 +1,6 @@
 // Listing versioning: seller working copy → immutable ListingVersion → (auto/staff) review → publisher → LIVE db.
 // See docs/design/listing-versioning-and-live-db.md. ADR-003 (moderation), ADR-007 (events), ADR-008 (HITL).
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, hkdfSync, timingSafeEqual } from "node:crypto";
 import * as ai from "@cnote/ai";
 import { DomainError, emit } from "@cnote/core";
 import { prisma, type Prisma } from "@cnote/db";
@@ -498,7 +498,13 @@ function previewSecret(): string {
   if (!s) throw new Error("PREVIEW_TOKEN_SECRET (or JWT_SECRET) is not set");
   return s;
 }
-const sign = (payload: string) => createHmac("sha256", previewSecret()).update(`listing-preview:${payload}`).digest("base64url");
+/**
+ * The preview MAC key is DERIVED (HKDF-SHA256, purpose label), never the raw secret: PREVIEW_TOKEN_SECRET may fall back to
+ * JWT_SECRET, and using that value directly as an HMAC key would let anything signed with it elsewhere double as a preview token
+ * (same construction as packages/storefront/src/preview.ts).
+ */
+const previewKey = () => Buffer.from(hkdfSync("sha256", previewSecret(), "cnote-catalogue", "listing-preview-v1", 32));
+const sign = (payload: string) => createHmac("sha256", previewKey()).update(`listing-preview:${payload}`).digest("base64url");
 
 /** Short-lived (1h) HMAC token that lets anyone holding the link view one version's preview. */
 export function createPreviewToken(versionId: string, now = Date.now()): string {

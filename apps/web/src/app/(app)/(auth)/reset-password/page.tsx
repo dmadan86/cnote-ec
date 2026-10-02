@@ -7,7 +7,7 @@ import { AuthHeading, first } from "@/features/identity/auth-page";
 
 export async function generateMetadata() {
   const t = await getTranslations({ locale: await getRequestLocale(), namespace: "titles" });
-  return { title: t("reset") };
+  return { title: t("reset"), referrer: "no-referrer" as const };
 }
 
 export default async function ResetPasswordPage({ searchParams }: PageProps<"/reset-password">) {

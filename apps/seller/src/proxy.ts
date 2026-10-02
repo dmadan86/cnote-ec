@@ -27,7 +27,7 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
   // consent manager posts the code to /api/consent/ref (docs/design/cookie-consent.md).
   const ref = req.nextUrl.searchParams.get("ref");
   if (ref && REF_RE.test(ref) && requireSellerConsent(req, "marketing")) res.cookies.set(REF_COOKIE, ref, { path: "/", maxAge: 60 * 60 * 24 * 30, sameSite: "lax", httpOnly: true, secure: process.env.NODE_ENV === "production" });
-  return withSecurityHeaders(res, { app: "seller", nonce, microphone });
+  return withSecurityHeaders(res, { app: "seller", nonce, microphone }, req.nextUrl.pathname);
 }
 
 export const config = { matcher: ["/((?!_next/|favicon.ico|api/auth/|.*\\..*).*)"] };

@@ -82,6 +82,7 @@ export function msg91OtpSender(env: Env = process.env, o?: OtpSenderOptions): Ot
   const ro = resolveOpts(o);
   const seen = new Map<string, number>();
   return {
+    real: true,
     async send({ to, code, ttlMinutes }) {
       const idem = otpIdempotencyKey(to, code, "sms");
       if ((seen.get(idem) ?? 0) > Date.now()) return;
@@ -116,6 +117,7 @@ export function whatsappCloudOtpSender(env: Env = process.env, o?: OtpSenderOpti
   const ro = resolveOpts(o);
   const seen = new Map<string, number>();
   return {
+    real: true,
     async send({ to, code }) {
       const idem = otpIdempotencyKey(to, code, "whatsapp");
       if ((seen.get(idem) ?? 0) > Date.now()) return;
@@ -145,6 +147,7 @@ export function whatsappCloudOtpSender(env: Env = process.env, o?: OtpSenderOpti
 /** Requests for channel "whatsapp" try WhatsApp first and fall back to SMS on any failure; "sms" goes straight to SMS. */
 export function fallbackOtpSender(whatsapp: OtpSender, sms: OtpSender, log: (l: string) => void = (l) => console.warn(l)): OtpSender {
   return {
+    real: true,
     async send(msg) {
       if (msg.channel === "sms") return sms.send(msg);
       try {

@@ -1,6 +1,6 @@
 import { hasPrivilege } from "@cnote/admin";
 import { listPendingGstReviews } from "@cnote/identity";
-import { Alert, EmptyState, PageHeader } from "@cnote/ui";
+import { Alert, Badge, EmptyState, PageHeader } from "@cnote/ui";
 import Link from "next/link";
 import { Mono, Table, Td, Th } from "@/components/table";
 import { requireStaff } from "@/lib/auth";
@@ -22,7 +22,7 @@ export default async function GstReviewsPage() {
             {items.map((r) => (
               <tr key={r.id}>
                 <Td className="whitespace-nowrap">{fmtDate(r.createdAt)}</Td>
-                <Td className="font-medium">{r.businessName}</Td>
+                <Td className="font-medium">{r.businessName}{r.dispute ? <> <Badge tone="warning">GSTIN dispute</Badge></> : null}</Td>
                 <Td><Mono>{r.gstin ?? "—"}</Mono></Td>
                 <Td>{r.score ?? "—"}</Td>
                 <Td className="max-w-sm text-sm text-muted">{r.reasons.join(" ") || "—"}</Td>

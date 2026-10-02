@@ -271,7 +271,7 @@ describe("phone login (supplement)", () => {
 
     const phone2 = newPhone();
     await requestLoginOtp(phone2, lctx());
-    await expect(verifyLoginOtp(phone2, loginSent.at(-1)!.code, lctx({ realm: "admin", allowPerson: async () => false }))).rejects.toMatchObject({ message: "Invalid email or password" });
+    await expect(verifyLoginOtp(phone2, loginSent.at(-1)!.code, lctx({ realm: "seller", allowPerson: async () => false }))).rejects.toMatchObject({ message: "Invalid email or password" }); // the admin realm is refused outright (security-hardening.test.ts)
   });
   it("new person: PersonRegistered emitted, realm-bound session, phone shown as verified", async () => {
     setOtpSender(otpSender);

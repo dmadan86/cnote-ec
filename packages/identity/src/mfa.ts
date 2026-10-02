@@ -6,6 +6,7 @@ import { randomBytes, randomInt } from "node:crypto";
 import { DomainError } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { decryptField, encryptField, logSecurityEvent } from "@cnote/security";
+import { backoffRemaining, clearFailures, MFA_FREE_FAILURES, recordFailure, throwBackedOff } from "./auth-guard";
 import { enforceLimit } from "./limits";
 import { sha256 } from "./tokens";
 import { base32Decode, base32Encode, otpauthUri, verifyTotp } from "./totp";
@@ -110,6 +111,9 @@ export type MfaVerification = { method: "totp" | "recovery"; recoveryCodesLeft: 
  */
 export async function verifyMfa(personId: string, input: string): Promise<MfaVerification> {
   await enforceLimit(`mfa:verify:${personId}`, 8, 300, "Too many attempts. Please wait a few minutes.");
+  // Progressive per-account backoff on top of the fixed window (auth-guard.ts); cleared by a successful code.
+  const wait = await backoffRemaining("mfa", personId);
+  if (wait > 0) throwBackedOff(wait);
   const loaded = await loadSecret(personId, true);
   if (!loaded) throw bad();
   const value = input.trim();
@@ -118,6 +122,7 @@ export async function verifyMfa(personId: string, input: string): Promise<MfaVer
     const step = verifyTotp(loaded.secret, value.replace(/\s/g, ""));
     if (step !== null && (await consumeStep(personId, step))) {
       logSecurityEvent("mfa.verified", { personId, method: "totp" });
+      await clearFailures("mfa", personId);
       return { method: "totp", recoveryCodesLeft: loaded.row.recoveryCodeHashes.length };
     }
   } else if (normaliseRecovery(value).length === 10) {
@@ -126,10 +131,12 @@ export async function verifyMfa(personId: string, input: string): Promise<MfaVer
     const removed = await prisma.$executeRaw`UPDATE person_mfa SET recovery_code_hashes = array_remove(recovery_code_hashes, ${hash}), updated_at = now() WHERE person_id = ${personId}::uuid AND ${hash} = ANY(recovery_code_hashes)`;
     if (removed === 1) {
       logSecurityEvent("mfa.recovery_used", { personId });
+      await clearFailures("mfa", personId);
       return { method: "recovery", recoveryCodesLeft: Math.max(0, loaded.row.recoveryCodeHashes.length - 1) };
     }
   }
   logSecurityEvent("mfa.failed", { personId });
+  await recordFailure("mfa", personId, "mfa.failed", MFA_FREE_FAILURES);
   throw bad();
 }
 

@@ -155,6 +155,11 @@ export function UnlockDialog({ open, onClose, captureId, visitorId, heading, onU
       setFieldErrors(r.fieldErrors ?? {});
       return;
     }
+    if ("mfaRequired" in r.data) {
+      // The person has a second factor: finish sign-in on the MFA step; the unlock completes afterwards.
+      window.location.assign(r.data.path);
+      return;
+    }
     onUnlocked(r.data.result);
     close();
   }

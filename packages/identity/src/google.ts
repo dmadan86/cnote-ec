@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { DomainError } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
-import { issueTokens } from "./sessions";
+import { issueTokens, markSessionsRevoked, revokeAllSessionsTx } from "./sessions";
 import { randomToken } from "./tokens";
 import type { AuthContext, AuthTokens } from "./types";
 
@@ -96,16 +96,20 @@ export async function upsertGoogleUser(c: GoogleClaims): Promise<{ personId: str
     if (linked.person.erasedAt) throw new DomainError("unauthenticated", "This account has been deleted.");
     return { personId: linked.personId, isNew: false };
   }
-  return prisma.$transaction(async (tx) => {
+  const revokedIds: string[] = [];
+  const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.person.findUnique({ where: { email: c.email } });
     if (existing) {
       await tx.authIdentity.create({ data: { personId: existing.id, provider: "google", providerSubject: c.sub, email: c.email } });
-      // A password set while the email was unverified could belong to an impostor: drop it on first verified link.
+      const wasUnverified = !existing.emailVerifiedAt;
+      // A password set while the email was unverified could belong to an impostor (account pre-hijack): drop it on first
+      // verified link AND end every session that impostor may already hold, in the same transaction.
+      if (wasUnverified) revokedIds.push(...(await revokeAllSessionsTx(tx, existing.id)));
       await tx.person.update({
         where: { id: existing.id },
         data: {
           emailVerifiedAt: existing.emailVerifiedAt ?? new Date(),
-          ...(existing.emailVerifiedAt ? {} : { passwordHash: null }),
+          ...(wasUnverified ? { passwordHash: null } : {}),
           name: existing.name ?? c.name,
           avatarUrl: existing.avatarUrl ?? c.picture,
         },
@@ -124,6 +128,9 @@ export async function upsertGoogleUser(c: GoogleClaims): Promise<{ personId: str
     });
     return { personId: person.id, isNew: true };
   });
+  // Committed: flip the Redis "valid" markers so already-minted access tokens stop working immediately.
+  await markSessionsRevoked(revokedIds);
+  return result;
 }
 
 /** Exchanges the code, verifies the ID token, links/creates the Person. */

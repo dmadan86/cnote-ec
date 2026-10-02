@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, hkdfSync, randomUUID } from "node:crypto";
 import fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
 
@@ -269,6 +269,16 @@ describe("preview tokens", () => {
     expect(ver.verifyPreviewToken(t)).toBeNull();
     process.env.PREVIEW_TOKEN_SECRET = old;
     expect(ver.verifyPreviewToken(t)).toEqual({ versionId: id });
+  });
+  it("the MAC key is HKDF-derived with a purpose label, never the raw secret: a raw-secret HMAC does not verify", () => {
+    const secret = process.env.PREVIEW_TOKEN_SECRET!;
+    const exp = Math.floor(Date.now() / 1000) + 600;
+    const payload = `${id}.${exp}`;
+    const rawSig = createHmac("sha256", secret).update(`listing-preview:${payload}`).digest("base64url"); // the old construction
+    expect(ver.verifyPreviewToken(`${payload}.${rawSig}`)).toBeNull();
+    const derived = createHmac("sha256", Buffer.from(hkdfSync("sha256", secret, "cnote-catalogue", "listing-preview-v1", 32))).update(`listing-preview:${payload}`).digest("base64url");
+    expect(ver.verifyPreviewToken(`${payload}.${derived}`)).toEqual({ versionId: id });
+    expect(ver.createPreviewToken(id, Date.now()).split(".")[2]).not.toBe(createHmac("sha256", secret).update(`listing-preview:${id}.${exp}`).digest("base64url"));
   });
   it("throws without any secret", () => {
     const a = process.env.PREVIEW_TOKEN_SECRET, b = process.env.JWT_SECRET;

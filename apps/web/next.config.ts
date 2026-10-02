@@ -54,6 +54,9 @@ const nextConfig: NextConfig = {
       // Security headers + static-mode CSP for every route (public pages skip the proxy's header work). Proxy-handled
       // dynamic routes override the CSP with a per-request nonce policy.
       { source: "/:path*", headers: staticHeaderList({ app: "web" }) },
+      // The reset token is in the URL: no Referer, ever (declared after the catch-all so it wins for the same header key).
+      { source: "/reset-password", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
+      { source: "/grievance/verify", headers: [{ key: "Referrer-Policy", value: "no-referrer" }, { key: "Cache-Control", value: "private, no-store, max-age=0" }] },
       // Account / transactional areas: never stored by a browser cache, proxy or CDN, never indexed.
       ...PRIVATE_AREAS.map((p) => ({
         source: `${p}/:path*`,

@@ -5,7 +5,7 @@ import { redis } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
-  bustSellerCaches, createBusiness, createMockGstnProvider, evaluateGstChecks, getCompanyProfile, getGstEvidence, getPersonBusinesses, getTrustProfiles, gstinCheckChar, isRecheckDue,
+  bustSellerCaches, createBusiness, releaseGstinClaim, createMockGstnProvider, evaluateGstChecks, getCompanyProfile, getGstEvidence, getPersonBusinesses, getTrustProfiles, gstinCheckChar, isRecheckDue,
   listPendingGstReviews, listSellerIndex, listSellers, listVerificationRecords, panFromGstin, recheckGstStatus, resolveGstReview, runGstRecheck, setGstnProvider,
   setListingHsnSource, updateCompanyProfile, updateProfile, verifyCompanyGst, verifyGstin, GstnProviderError, type GstnRecord,
 } from "../src";
@@ -202,17 +202,104 @@ describe("verifyCompanyGst flows", () => {
     expect(o.reasons[0]).toContain("temporarily unavailable");
     expect((await prisma.business.findUniqueOrThrow({ where: { id: businessId } })).verificationTier).toBe(0);
   });
-  it("a GSTIN already verified for another business is refused (no tier change, failed record)", async () => {
-    const a = await seller("Dup A");
-    const b = await seller("Dup B");
+  it("a GSTIN held by another VERIFIED, name-matching business is not taken over: claimant goes to a staff dispute item, no tier change", async () => {
+    const a = await seller("Dup Traders");
+    const b = await seller("Dup Traders");
     const g = gstin();
-    await updateCompanyProfile(a.actor, profile("Dup A Pvt Ltd"));
-    await updateCompanyProfile(b.actor, profile("Dup B Pvt Ltd"));
+    await updateCompanyProfile(a.actor, profile("Dup Traders Pvt Ltd"));
+    await updateCompanyProfile(b.actor, profile("Dup Traders Pvt Ltd"));
     expect((await verifyCompanyGst(a.businessId, { gstin: g })).decision).toBe("passed");
     const o = await verifyCompanyGst(b.businessId, { gstin: g });
-    expect(o.decision).toBe("failed");
-    expect(o.reasons).toContain("This GSTIN is already registered to another business.");
+    expect(o.decision).toBe("review");
+    expect(o.reasons[0]).toContain("already registered to another verified business");
     expect((await prisma.business.findUniqueOrThrow({ where: { id: b.businessId } })).verificationTier).toBe(0);
+    expect((await prisma.business.findUniqueOrThrow({ where: { id: a.businessId } })).gstin).toBe(g); // holder untouched
+    const item = await prisma.verificationRecord.findFirstOrThrow({ where: { businessId: b.businessId, kind: "gstin", status: "pending" } });
+    expect(item.details).toMatchObject({ dispute: true, heldBy: a.businessId });
+    // staff approving the dispute moves the GSTIN: holder released with an event, claimant verified
+    expect(await resolveGstReview(item.id, "approved", "staff-1", "owner proved control")).toMatchObject({ status: "passed", tier: 1 });
+    const holder = await prisma.business.findUniqueOrThrow({ where: { id: a.businessId } });
+    expect(holder).toMatchObject({ gstin: null, gstVerifiedAt: null, verificationTier: 0 });
+    expect(await prisma.domainEvent.count({ where: { aggregateId: a.businessId, type: "GstinClaimReleased" } })).toBe(1);
+  });
+  it("GSTIN squatting: an UNVERIFIED holder is displaced by the verified, name-matching real owner (event + failed record on the squatter)", async () => {
+    const squatter = await seller("Totally Different Name");
+    const owner = await seller("Real Owner Traders");
+    const g = gstin();
+    await updateCompanyProfile(owner.actor, profile("Real Owner Traders Pvt Ltd"));
+    await prisma.business.update({ where: { id: squatter.businessId }, data: { gstin: g, verificationTier: 1 } }); // claimed, never verified
+    const o = await verifyCompanyGst(owner.businessId, { gstin: g });
+    expect(o.decision).toBe("passed");
+    expect((await prisma.business.findUniqueOrThrow({ where: { id: owner.businessId } })).gstin).toBe(g);
+    const sq = await prisma.business.findUniqueOrThrow({ where: { id: squatter.businessId } });
+    expect(sq).toMatchObject({ gstin: null, verificationTier: 0 });
+    expect(await prisma.domainEvent.count({ where: { aggregateId: squatter.businessId, type: "GstinClaimReleased" } })).toBe(1);
+    const rec = await prisma.verificationRecord.findFirstOrThrow({ where: { businessId: squatter.businessId, kind: "gstin", status: "failed" } });
+    expect(rec.details).toMatchObject({ released: true, reason: "superseded", byBusinessId: owner.businessId });
+  });
+  it("a VERIFIED holder whose name does not match the registry is also displaced by the matching owner", async () => {
+    const holder = await seller("Mismatch Holder");
+    const owner = await seller("Genuine Fabricators");
+    const g = gstin();
+    await updateCompanyProfile(owner.actor, profile("Genuine Fabricators Pvt Ltd"));
+    await prisma.business.update({ where: { id: holder.businessId }, data: { gstin: g, gstVerifiedAt: new Date(), verificationTier: 1 } }); // legacy "verified" without a name check
+    expect((await verifyCompanyGst(owner.businessId, { gstin: g })).decision).toBe("passed");
+    expect((await prisma.business.findUniqueOrThrow({ where: { id: holder.businessId } })).gstin).toBeNull();
+  });
+  it("a claimant whose name does NOT match never displaces anyone and fails", async () => {
+    const holder = await seller("Honest Holder");
+    const squatter = await seller("Squat Pretender");
+    const g = gstin();
+    mock.setFixture(g, rec({ legalName: "Honest Holder Private Limited" }));
+    await prisma.business.update({ where: { id: holder.businessId }, data: { gstin: g, gstVerifiedAt: new Date(), verificationTier: 1 } });
+    await updateCompanyProfile(squatter.actor, profile("Squat Pretender Pvt Ltd"));
+    const o = await verifyCompanyGst(squatter.businessId, { gstin: g });
+    expect(o.decision).toBe("failed");
+    expect((await prisma.business.findUniqueOrThrow({ where: { id: holder.businessId } })).gstin).toBe(g);
+    expect((await prisma.business.findUniqueOrThrow({ where: { id: squatter.businessId } })).verificationTier).toBe(0);
+  });
+  it("staff dispute: releaseGstinClaim drops the claim and GST-derived tier, emits an event, and needs a reason", async () => {
+    const s = await seller("Release Me");
+    const g = gstin();
+    await updateCompanyProfile(s.actor, profile("Release Me Pvt Ltd"));
+    expect((await verifyCompanyGst(s.businessId, { gstin: g })).decision).toBe("passed");
+    await expect(releaseGstinClaim(s.businessId, "staff-1", "x")).rejects.toMatchObject({ code: "validation" });
+    expect(await releaseGstinClaim(s.businessId, "staff-1", "Reported by the real owner")).toEqual({ gstin: g });
+    expect(await prisma.business.findUniqueOrThrow({ where: { id: s.businessId } })).toMatchObject({ gstin: null, gstVerifiedAt: null, verificationTier: 0 });
+    expect(await prisma.domainEvent.count({ where: { aggregateId: s.businessId, type: "GstinClaimReleased" } })).toBe(1);
+    await expect(releaseGstinClaim(s.businessId, "staff-1", "again and again")).rejects.toMatchObject({ code: "conflict" });
+    await expect(releaseGstinClaim(randomUUID(), "staff-1", "no such business")).rejects.toMatchObject({ code: "not_found" });
+  });
+  it("never overwrites a declared legal name from the registry; adopts it only after a match when none was declared", async () => {
+    const declared = await seller("Declared Name Co");
+    const g1 = gstin();
+    await updateCompanyProfile(declared.actor, profile("Declared Name Co Pvt Ltd"));
+    mock.setFixture(g1, rec({ legalName: "Declared Name Co Private Limited" }));
+    expect((await verifyCompanyGst(declared.businessId, { gstin: g1 })).decision).toBe("passed");
+    expect((await prisma.business.findUniqueOrThrow({ where: { id: declared.businessId } })).legalName).toBe("Declared Name Co Pvt Ltd");
+    const bare = await seller("Bare Name Co");
+    const g2 = gstin();
+    mock.setFixture(g2, rec({ legalName: "Bare Name Co Private Limited" }));
+    await prisma.business.update({ where: { id: bare.businessId }, data: { state: "Maharashtra" } });
+    expect((await verifyGstin(bare.businessId, g2)).passed).toBe(true);
+    expect((await prisma.business.findUniqueOrThrow({ where: { id: bare.businessId } })).legalName).toBe("Bare Name Co Private Limited");
+    // a registry name that does not match the declared one is a failure and changes nothing
+    const liar = await seller("Liar Industries");
+    const g3 = gstin();
+    mock.setFixture(g3, rec({ legalName: "Unrelated Exports Private Limited" }));
+    await prisma.business.update({ where: { id: liar.businessId }, data: { state: "Maharashtra" } });
+    expect(await verifyGstin(liar.businessId, g3)).toMatchObject({ passed: false, tier: 0 });
+    expect(await prisma.business.findUniqueOrThrow({ where: { id: liar.businessId } })).toMatchObject({ legalName: null, gstin: null });
+  });
+  it("verifyGstin: borderline name/state -> staff review item (pending), tier unchanged; mismatch -> fail", async () => {
+    const s = await seller("Borderline Co");
+    const g = gstin();
+    // no declared state at all: cannot be proven automatically
+    expect(await verifyGstin(s.businessId, g)).toMatchObject({ passed: false, pending: true, tier: 0 });
+    expect(await prisma.verificationRecord.count({ where: { businessId: s.businessId, kind: "gstin", status: "pending" } })).toBe(1);
+    await prisma.business.update({ where: { id: s.businessId }, data: { state: "Karnataka" } });
+    expect(await verifyGstin(s.businessId, g)).toMatchObject({ passed: false, pending: true }); // GSTIN is Maharashtra, business says Karnataka
+    expect(await prisma.verificationRecord.count({ where: { businessId: s.businessId, kind: "gstin", status: "pending" } })).toBe(1); // refreshed, not stacked
   });
   it("PAN mismatch (declared vs GSTIN) is a hard fail even though the provider says Active", async () => {
     const { actor, businessId } = await seller("Pan Mismatch");
@@ -316,8 +403,9 @@ describe("manual GST review queue", () => {
     const noG = await prisma.verificationRecord.create({ data: { businessId: s.businessId, tier: 1, kind: "gstin", status: "pending", provider: "mock", details: {} } });
     await expect(resolveGstReview(noG.id, "approved", "s")).rejects.toMatchObject({ code: "validation" });
     const p = await pending();
-    const other = await seller();
-    await prisma.business.update({ where: { id: other.businessId }, data: { gstin: p.g } });
+    // a VERIFIED business whose name matches the registry holds it (an unverified/mismatched holder would be released instead)
+    const other = await seller("Gamma Tool Works Traders");
+    await prisma.business.update({ where: { id: other.businessId }, data: { gstin: p.g, gstVerifiedAt: new Date(), verificationTier: 1 } });
     await expect(resolveGstReview(p.item.id, "approved", "s")).rejects.toMatchObject({ code: "conflict", message: expect.stringContaining("already registered") });
     // failed approvals release the claim: staff can still decide (reject) afterwards
     expect(await resolveGstReview(p.item.id, "rejected", "s", "GSTIN belongs to another business")).toEqual({ status: "failed" });
@@ -511,10 +599,12 @@ describe("business + directory APIs", () => {
     expect(await verifyGstin(s.businessId, gstin("N"))).toMatchObject({ passed: false, reason: expect.stringContaining("not found") });
     expect(await verifyGstin(s.businessId, gstin("C"))).toMatchObject({ passed: false, reason: "GSTIN is cancelled." });
     const g = gstin();
+    await prisma.business.update({ where: { id: s.businessId }, data: { state: "Maharashtra" } }); // state must match the GSTIN's state code (27)
     expect(await verifyGstin(s.businessId, ` ${g.toLowerCase()} `, " udyam-mh-12-1234567 ")).toMatchObject({ passed: true, tier: 1 });
     expect(await prisma.verificationRecord.count({ where: { businessId: s.businessId, kind: "udyam", status: "passed" } })).toBe(1);
-    const other = await seller();
-    expect(await verifyGstin(other.businessId, g)).toMatchObject({ passed: false, reason: expect.stringContaining("already registered") });
+    const other = await seller(s.name); // same declared name: a genuine contest over a verified holder
+    await prisma.business.update({ where: { id: other.businessId }, data: { state: "Maharashtra" } });
+    expect(await verifyGstin(other.businessId, g)).toMatchObject({ passed: false, pending: true, reason: expect.stringContaining("already registered") });
     const recs = await listVerificationRecords(s.businessId);
     expect(recs.length).toBe(6);
     expect(recs.filter((r) => r.status === "failed")).toHaveLength(4);
@@ -556,4 +646,28 @@ describe("directory lookups honour DPDP", () => {
 
 it("redis is reachable for cache-busting helpers", async () => {
   expect(await redis.ping()).toBe("PONG");
+});
+
+describe("GSTIN unique-index races", () => {
+  it("verifyCompanyGst: a unique violation at commit time (another claim landed between check and write) fails cleanly", async () => {
+    const s = await seller("Race Co");
+    await updateCompanyProfile(s.actor, profile("Race Co Pvt Ltd"));
+    vi.spyOn(prisma, "$transaction").mockRejectedValueOnce(Object.assign(new Error("unique"), { code: "P2002" }));
+    const o = await verifyCompanyGst(s.businessId, { gstin: gstin() });
+    expect(o.decision).toBe("failed");
+    expect(o.reasons).toContain("This GSTIN is already registered to another business.");
+    expect((await prisma.business.findUniqueOrThrow({ where: { id: s.businessId } })).verificationTier).toBe(0);
+  });
+  it("resolveGstReview approval hitting the unique index is a conflict and releases the claim so staff can still reject", async () => {
+    const s = await seller("Gamma Race");
+    const g = gstin();
+    mock.setFixture(g, rec({ legalName: "Gamma Race Traders" }));
+    await updateCompanyProfile(s.actor, profile("Gamma Race Enterprises"));
+    expect((await verifyCompanyGst(s.businessId, { gstin: g })).decision).toBe("review");
+    const item = (await listPendingGstReviews(200)).find((r) => r.businessId === s.businessId)!;
+    vi.spyOn(prisma, "$transaction").mockRejectedValueOnce(Object.assign(new Error("unique"), { code: "P2002" }));
+    await expect(resolveGstReview(item.id, "approved", "staff-x")).rejects.toMatchObject({ code: "conflict", message: expect.stringContaining("already registered") });
+    vi.restoreAllMocks();
+    expect(await resolveGstReview(item.id, "rejected", "staff-x")).toEqual({ status: "failed" });
+  });
 });

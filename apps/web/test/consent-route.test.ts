@@ -28,6 +28,7 @@ const req = (body: unknown, headers: Record<string, string> = {}) =>
 const setCookies = (r: Response) => r.headers.getSetCookie().join("|");
 
 beforeEach(() => {
+  vi.stubEnv("TRUST_CLOUDFLARE", "1"); // clientIp honours cf-connecting-ip only when the deploy trusts Cloudflare
   h.record.mockReset().mockResolvedValue({ id: "r1", createdAt: "2026-09-30T00:00:00.000Z" });
   h.rate.mockReset().mockResolvedValue(true);
   h.session.mockReset().mockResolvedValue(null);

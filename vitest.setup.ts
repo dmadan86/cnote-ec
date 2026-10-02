@@ -14,6 +14,8 @@ if (!process.env.FIELD_ENCRYPTION_KEYS) {
   process.env.FIELD_ENCRYPTION_KEYS = `test1:${Buffer.alloc(32, 7).toString("base64")}`;
   process.env.FIELD_ENCRYPTION_ACTIVE_KID = "test1";
 }
+// Unit tests send cf-connecting-ip to key rate limits per test; clientIp honours it only with TRUST_CLOUDFLARE=1 (client-ip.test.ts passes env explicitly).
+process.env.TRUST_CLOUDFLARE ||= "1";
 // Partner webhook secrets have NO built-in default (security audit H1: unset = verification fails closed), so tests set them.
 process.env.ESCROW_WEBHOOK_SECRET ||= "test-escrow-webhook-secret";
 process.env.CREDIT_WEBHOOK_SECRET ||= "test-credit-webhook-secret";

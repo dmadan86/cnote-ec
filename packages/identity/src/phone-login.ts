@@ -3,6 +3,7 @@
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import { DomainError, emit, redis } from "@cnote/core";
 import { prisma } from "@cnote/db";
+import { devEchoEnabled } from "./dev-echo";
 import { enforceLimit } from "./limits";
 import { normalisePhone } from "./otp";
 import { issueTokens } from "./sessions";
@@ -13,6 +14,8 @@ export type OtpChannel = "sms" | "whatsapp";
 
 /** Port for delivering a login OTP. Providers implement this; the console adapter is the dev default. */
 export interface OtpSender {
+  /** true for adapters that deliver real SMS/WhatsApp (never echo a code from these, see dev-echo.ts) */
+  readonly real?: boolean;
   send(msg: { to: string; code: string; channel: OtpChannel; ttlMinutes: number }): Promise<void>;
 }
 
@@ -63,11 +66,17 @@ const digest = (phone: string, code: string) => createHmac("sha256", jwtKey()).u
 
 export type LoginContext = AuthContext & { visitorId?: string | null };
 
+/** Back-office accounts sign in with password/Google + MFA only; an SMS code must never mint an admin session. */
+const refuseAdminRealm = (ctx: Pick<AuthContext, "realm">) => {
+  if (ctx.realm === "admin") throw new DomainError("forbidden", "Phone sign-in is not available here.");
+};
+
 export async function requestLoginOtp(
   phoneInput: string,
   ctx: LoginContext,
   opts: { channel?: OtpChannel } = {},
 ): Promise<{ sent: true; phone: string; phoneHash: string; channel: OtpChannel; resendAfterSeconds: number; devCode?: string }> {
+  refuseAdminRealm(ctx);
   const phone = normalisePhone(phoneInput);
   const channel: OtpChannel = opts.channel === "whatsapp" ? "whatsapp" : "sms";
   await enforceLimit(`lotp:cool:${sha256(phone)}`, 1, RESEND_COOLDOWN, "Please wait a few seconds before requesting another code.");
@@ -79,9 +88,10 @@ export async function requestLoginOtp(
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const k = key(phone);
   await redis.multi().hset(k, { hash: digest(phone, code), attempts: 0 }).expire(k, OTP_TTL).exec();
-  await (await resolveOtpSender()).send({ to: phone, code, channel, ttlMinutes: OTP_TTL / 60 });
+  const otpSender = await resolveOtpSender();
+  await otpSender.send({ to: phone, code, channel, ttlMinutes: OTP_TTL / 60 });
   const base = { sent: true as const, phone, phoneHash: sha256(phone), channel, resendAfterSeconds: RESEND_COOLDOWN };
-  return process.env.OTP_DEV_ECHO === "true" ? { ...base, devCode: code } : base;
+  return devEchoEnabled(otpSender) ? { ...base, devCode: code } : base;
 }
 
 /**
@@ -94,6 +104,7 @@ export async function verifyLoginOtp(
   ctx: LoginContext,
   opts: { consents?: Partial<Record<ConsentPurpose, boolean>> } = {},
 ): Promise<AuthTokens> {
+  refuseAdminRealm(ctx);
   const phone = normalisePhone(phoneInput);
   await enforceLimit(`lotp:verify-ip:${ctx.ip ?? "unknown"}`, 30, 600, "Too many attempts. Try again later.");
   const bad = () => new DomainError("validation", "That code is incorrect or has expired.");

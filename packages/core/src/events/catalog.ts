@@ -7,6 +7,8 @@ export interface DomainEventPayloads {
   PersonRegistered: { personId: string; phone: string };
   BusinessCreated: { businessId: string; personId: string; isSeller: boolean };
   BusinessVerified: { businessId: string; tier: number; kind: string };
+  /** A business's claim on a GSTIN was released (superseded by a verified, name-matching claimant, or by staff after a dispute). ADR-003. */
+  GstinClaimReleased: { businessId: string; gstin: string; reason: "superseded" | "staff_dispute"; byBusinessId?: string; staffId?: string };
   TrustScoreChanged: { businessId: string; from: number; to: number; badgeActive: boolean };
   ConsentChanged: { personId: string; purpose: string; granted: boolean };
   DataErasureRequested: { personId: string };
@@ -195,6 +197,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   PersonRegistered: 1,
   BusinessCreated: 1,
   BusinessVerified: 1,
+  GstinClaimReleased: 1,
   TrustScoreChanged: 1,
   ConsentChanged: 1,
   DataErasureRequested: 1,

@@ -64,7 +64,7 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
 
   const nonce = pathMatches(req.nextUrl.pathname, NONCE_PATHS) ? createNonce() : undefined;
   const res = await authProxy(nonce ? withNonceRequest(req, nonce, WEB_NONCE_SECURITY) : req);
-  return withSecurityHeaders(res, nonce ? { ...WEB_NONCE_SECURITY, nonce } : { app: "web" });
+  return withSecurityHeaders(res, nonce ? { ...WEB_NONCE_SECURITY, nonce } : { app: "web" }, req.nextUrl.pathname);
 }
 
 // Runs on every page request: storefront custom domains/subdomains can hit ANY path, and host matching can't be

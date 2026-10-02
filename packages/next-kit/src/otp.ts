@@ -8,13 +8,21 @@ import { cookies } from "next/headers";
 import { runAction, type ActionResult } from "./action-result";
 import { setAuthCookies } from "./cookies";
 import { verifyHumanTokenOrThrow } from "./human";
+import { beginMfaChallenge } from "./mfa-flow";
+import { appRealm } from "./realm";
 import { currentSession, requestContext } from "./session";
 
 export type StartUnlockResult =
   | { signedIn: true; captureId: string; result: UnlockResult }
   | { signedIn: false; captureId: string };
 export type SendOtpResult = { resendAfterSeconds: number; channel: OtpChannel; devCode?: string };
-export type VerifyOtpResult = { result: UnlockResult; isNew: boolean };
+/** `mfaRequired`: the person has a second factor, so the session is parked behind the MFA step and nothing is unlocked yet. */
+export type VerifyOtpResult = { result: UnlockResult; isNew: boolean } | { mfaRequired: true; path: string };
+
+/** Phone OTP is a visitor/buyer/seller sign-in only. Back-office accounts must use password/Google + MFA, never an SMS code. */
+function refuseAdminRealm() {
+  if (appRealm() === "admin") throw new DomainError("forbidden", "Phone sign-in is not available here.");
+}
 
 /**
  * Opens a capture. Signed-in buyers with a verified phone skip the dialog entirely: the unlock completes here.
@@ -37,6 +45,7 @@ export async function startUnlock(input: StartCaptureInput, details?: UnlockDeta
 
 export async function sendOtp(captureId: string, phone: string, channel: OtpChannel, followUpConsent = false, humanToken?: string, visitorId?: string): Promise<ActionResult<SendOtpResult>> {
   return runAction(async () => {
+    refuseAdminRealm();
     // OTP sends cost money and are the favourite target of SMS-pumping bots: require the human check first.
     await verifyHumanTokenOrThrow(humanToken);
     const ctx = { ...(await requestContext()), visitorId: visitorId ?? null };
@@ -62,6 +71,7 @@ export async function verifyOtp(captureId: string, phone: string, code: string, 
     return { ok: false, error: "Please fix the highlighted fields.", fieldErrors: { consent_matching: "Consent to share your requirement with matched suppliers is needed to continue." } };
   }
   return runAction(async () => {
+    refuseAdminRealm();
     const s = await currentSession();
     if (s && !s.phoneVerified) {
       const v = await verifyPhoneOtp(s.personId, phone, code);
@@ -70,7 +80,15 @@ export async function verifyOtp(captureId: string, phone: string, code: string, 
       return { result: await completeUnlock(s.personId, captureId, details), isNew: false };
     }
     const tokens = await verifyLoginOtp(phone, code, { ...(await requestContext()), visitorId: visitorId ?? null }, { consents: { matching: true, marketing: consents.marketing === true } });
-    setAuthCookies(await cookies(), tokens);
+    const store = await cookies();
+    // Same second-factor gate as password and Google sign-in: a person with MFA enabled does not get a session (or an
+    // unlock) from an SMS code alone. The tokens are parked behind the MFA step; the unlock completes after it.
+    const challenge = await beginMfaChallenge(tokens, null);
+    if (challenge) {
+      store.set(challenge.cookie);
+      return { mfaRequired: true as const, path: challenge.path };
+    }
+    setAuthCookies(store, tokens);
     await markVerified(captureId, tokens.personId, tokens.isNew, phone);
     return { result: await completeUnlock(tokens.personId, captureId, details), isNew: tokens.isNew };
   });
