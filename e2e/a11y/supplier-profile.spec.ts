@@ -51,9 +51,11 @@ test.describe("supplier profile", () => {
     await page.goto(await supplierProfileHref(page));
     await settle(page);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Request quote" }).first()).toHaveAttribute("href", /\/rfq\/new\?seller=/);
-    await expect(page.getByRole("link", { name: "Report" })).toHaveAttribute("href", /\/report\?url=/);
-    await expect(page.getByRole("button", { name: "Share" })).toBeVisible();
+    // Scoped to the profile actions: the site header has its own (unprefilled) Request quote link.
+    const actions = page.getByRole("group", { name: "Supplier actions" });
+    await expect(actions.getByRole("link", { name: "Request quote" })).toHaveAttribute("href", /\/rfq\/new\?seller=[0-9a-f-]{36}$/);
+    await expect(actions.getByRole("link", { name: "Report" })).toHaveAttribute("href", /\/report\?url=/);
+    await expect(actions.getByRole("button", { name: "Share" })).toBeVisible();
     await expectNoBlockingViolations(page, info);
   });
 
@@ -70,7 +72,8 @@ test.describe("supplier profile", () => {
       const tab = list.getByRole("tab", { name: new RegExp(`^${TABS[i]}`) });
       await expect(tab).toHaveAttribute("aria-selected", "true");
       await expect(tab).toBeFocused();
-      await expect(page).toHaveURL(new RegExp(`#${TABS[i]!.toLowerCase()}$`));
+      // The first tab is the default (no hash yet); every keyboard activation writes the hash.
+      if (i > 0) await expect(page).toHaveURL(new RegExp(`#${TABS[i]!.toLowerCase()}$`));
       const panel = page.getByRole("tabpanel");
       await expect(panel).toBeVisible();
       await expectNoBlockingViolations(page, info);
