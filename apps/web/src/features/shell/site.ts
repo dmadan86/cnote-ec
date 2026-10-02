@@ -18,6 +18,8 @@ export interface NavGroup {
   /** Key under messages `shell.nav` for the group label. */
   key: string;
   items: NavItem[];
+  /** When set the group is a plain link (no dropdown); `items` is then ignored. */
+  href?: string;
 }
 
 /** Header/mobile navigation (labels live in messages/*.json). "Coming soon" entries are not in the ADRs yet (DESIGN.md). */
@@ -53,5 +55,17 @@ export const NAV: NavGroup[] = [
     ],
   },
   { key: "services", items: [{ key: "services", href: "/coming-soon/business-services", soon: true }] },
-  { key: "resources", items: [{ key: "guides", href: "/coming-soon/resources", soon: true }] },
+  { key: "help", href: "/help", items: [] },
 ];
+
+/**
+ * What the header, mobile menu and rail actually show: "coming soon" items are hidden, and so is any dropdown whose
+ * items are all "coming soon". The /coming-soon/* routes stay in place for direct links (and the promo panels).
+ */
+export function visibleNav(groups: readonly NavGroup[] = NAV): NavGroup[] {
+  return groups.flatMap((g) => {
+    if (g.href) return [g];
+    const items = g.items.filter((i) => !i.soon);
+    return items.length ? [{ ...g, items }] : [];
+  });
+}

@@ -22,7 +22,7 @@ function merge(base: Json, over: Json): Json {
  * best-effort directory scan (server only, `messages/` next to the app) decides which names to try. A file whose top
  * level already has a `<namespace>` key is merged as-is; otherwise its content is placed under that namespace.
  */
-const KNOWN_NAMESPACE_FILES = ["a2a", "account", "actions", "ads", "buyer", "compare", "credit", "disputes", "escrow", "negotiation", "prices", "promotions", "quality", "rail", "reachability", "search", "errors", "states", "grievance", "notif", "orderTracking", "pdp", "titles", "wishlist"];
+const KNOWN_NAMESPACE_FILES = ["a2a", "account", "actions", "ads", "buyer", "compare", "credit", "disputes", "escrow", "help", "negotiation", "prices", "promotions", "quality", "rail", "reachability", "search", "errors", "states", "grievance", "notif", "orderTracking", "pdp", "titles", "wishlist"];
 
 function discoverNamespaces(): string[] {
   const found = new Set(KNOWN_NAMESPACE_FILES);
