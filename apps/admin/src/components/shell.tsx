@@ -55,7 +55,7 @@ export function Shell({ staff, name, children }: { staff: StaffView; name: strin
           </div>
           <span className="rounded bg-accent-500 px-1.5 py-0.5 text-[10px] font-extrabold tracking-widest text-white">ADMIN</span>
         </div>
-        <nav aria-label="Main" className="flex flex-row flex-wrap gap-1 md:flex-col">
+        <nav aria-label="Main" className="flex flex-row flex-wrap gap-1 md:-mx-1 md:min-h-0 md:flex-1 md:flex-col md:flex-nowrap md:overflow-y-auto md:overscroll-contain md:px-1 md:py-0.5">
           {items.map((n) => (
             <NavLink key={n.href} href={n.href}>
               {n.icon}
@@ -63,7 +63,8 @@ export function Shell({ staff, name, children }: { staff: StaffView; name: strin
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto hidden flex-col gap-2 border-t border-white/10 px-2 pt-3 text-xs text-brand-200 md:flex">
+        {/* The nav scrolls inside the full-height sticky sidebar (35+ entries outgrow short screens); the account block stays pinned. */}
+        <div className="mt-auto hidden shrink-0 flex-col gap-2 border-t border-white/10 px-2 pt-3 text-xs text-brand-200 md:flex">
           <p className="truncate font-medium text-white">{name}</p>
           <p className="truncate">{staff.roles.join(", ") || "no roles"}</p>
           <form action={signOutAction}>
