@@ -1,7 +1,7 @@
 import { MemoryJobQueue, setJobQueue } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import * as negotiation from "@cnote/negotiation";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { addListing, cleanup, events, matchFor, party, validUntil, type Party } from "./helpers";
 
 vi.mock("@cnote/catalogue", async (orig) => {
@@ -35,6 +35,8 @@ afterAll(async () => {
   await cleanup();
 });
 beforeEach(() => vi.stubEnv("A2A_ENABLED", "true"));
+
+afterEach(() => vi.useRealTimers());
 
 describe("suspension", () => {
   it("suspending a mandate withdraws its negotiations, blocks new ones, and lifting returns it paused", async () => {
@@ -86,6 +88,7 @@ describe("suspension", () => {
 
 describe("rate limits and anomaly flags", () => {
   it("per-key limit returns rate_limited; per-business limit too; internal agents are not throttled by the key limit", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); // fixed-window limiter: a real minute/hour boundary mid-test would reset the counter
     vi.stubEnv("A2A_KEY_MSGS_PER_MIN", "2");
     const w = await world2();
     const n = await a2a.startNegotiation(w.b, { mandateId: w.bmd.id, matchId: w.matchId });
@@ -107,6 +110,7 @@ describe("rate limits and anomaly flags", () => {
     await expect(a2a.startNegotiation(w3.b, { mandateId: w3.bmd.id, matchId: again.matchId })).rejects.toMatchObject({ code: "rate_limited" });
   });
   it("flags the 3rd identical message in a minute, refuses the 6th; repeated out-of-bounds attempts are flagged", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); // fixed-window limiter: a real minute/hour boundary mid-test would reset the counter
     const w = await world2();
     const n = await a2a.startNegotiation(w.b, { mandateId: w.bmd.id, matchId: w.matchId });
     const via = { kind: "external_agent" as const, apiKeyId: "anom-key" };

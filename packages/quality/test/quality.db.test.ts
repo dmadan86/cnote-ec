@@ -46,6 +46,8 @@ afterAll(async () => {
   await prisma.$executeRaw`DELETE FROM domain_events WHERE type = 'QualityCheckCompleted' AND aggregate_id::text = ANY(${orders})`;
 });
 
+afterEach(() => vi.useRealTimers());
+
 describe("eligibility", () => {
   it("is hidden when the flag is off, and unknown orders are not found", async () => {
     process.env.QUALITY_CHECKS_ENABLED = "false";
@@ -117,6 +119,7 @@ describe("submitDispatchPhotos", () => {
   });
 
   it("rate limits submissions per person", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); // fixed-window limiter: a real minute/hour boundary mid-test would reset the counter
     vi.spyOn(getJobQueue(), "enqueue").mockResolvedValue("1");
     const a = actor();
     let limited = false;

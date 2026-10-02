@@ -1,6 +1,6 @@
 import { prisma } from "@cnote/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { consumeCredit, expireLapsedCredits, getBalance, grantCredits, listPlans, refundCredit, subscribe, cancelSubscriptionWithQuote, getActiveSubscription } from "../src";
+import { consumeCredit, expireLapsedCredits, getBalance, grantCredits, listPlans, refundCredit, seedPlans, subscribe, cancelSubscriptionWithQuote, getActiveSubscription } from "../src";
 
 let bizId: string;
 const uniq = `billing-test-${Date.now()}`;
@@ -21,6 +21,11 @@ describe("ledger (DB)", () => {
   it("seeds plans lazily", async () => {
     const plans = await listPlans();
     expect(plans.map((p) => p.code)).toEqual(expect.arrayContaining(["free", "starter", "pro"]));
+  });
+
+  it("concurrent first-time seeding never fails and never exposes a partial catalogue", async () => {
+    await Promise.all(Array.from({ length: 6 }, () => seedPlans()));
+    expect((await prisma.plan.findMany({ where: { code: { in: ["free", "starter", "pro"] } } })).length).toBe(3);
   });
 
   it("concurrent consume on a 1-credit balance: exactly one succeeds", async () => {

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@cnote/db";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { evaluateSla, fileGrievance, REQUEST_TYPES, getGrievance, getMyGrievance, listGrievances, listMyGrievances, respondToGrievance, sweepGrievanceSla } from "../src";
 
 const H = 3_600_000;
@@ -26,6 +26,8 @@ afterAll(async () => {
   await prisma.person.deleteMany({ where: { id: { in: personIds } } });
 });
 
+afterEach(() => vi.useRealTimers());
+
 describe("fileGrievance", () => {
   it("validates input and requires a way to reply", async () => {
     await expect(fileGrievance({ ...valid, subject: "x", contactEmail: email("a") })).rejects.toMatchObject({ code: "validation" });
@@ -47,6 +49,7 @@ describe("fileGrievance", () => {
   });
 
   it("rate limits per raiser", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); // fixed-window limiter: a real minute/hour boundary mid-test would reset the counter
     const p = await person();
     for (let i = 0; i < 5; i++) ticketIds.push((await fileGrievance({ ...valid, personId: p })).id);
     await expect(fileGrievance({ ...valid, personId: p })).rejects.toMatchObject({ code: "rate_limited" });

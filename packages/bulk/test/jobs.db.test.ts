@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { strFromU8, unzipSync } from "fflate";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { MemoryJobQueue, setJobQueue, redis } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { LocalMediaStore, setMediaStore } from "@cnote/media";
@@ -74,6 +74,8 @@ afterAll(async () => {
   setJobQueue(undefined);
   await rm(dir, { recursive: true, force: true });
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe("catalogue sku support", () => {
   it("stores sku, rejects duplicates per seller, allows the same sku for another seller", async () => {
@@ -181,6 +183,7 @@ describe("import lifecycle", () => {
   });
 
   it("limits imports to 10 per hour", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); // fixed-window limiter: a real minute/hour boundary mid-test would reset the counter
     const a = await actor();
     for (let i = 0; i < 10; i++) await bulk.createImportJob(a, up(file(line(`L-${i}`)), "l.csv"), OPTS);
     await expect(bulk.createImportJob(a, up(file(line("L-x")), "l.csv"), OPTS)).rejects.toMatchObject({ code: "rate_limited" });

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { redis } from "@cnote/core";
 import { prisma } from "@cnote/db";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { enforceLimit } from "../src/limits";
 import { getSession, refreshSession, signInWithPassword, signOut, signUpWithPassword, getConsents, setConsent, erasePerson, resetPassword, requestPasswordReset, setMailer } from "../src";
 import { sha256 } from "../src/tokens";
@@ -28,6 +28,8 @@ const signUp = async (email = newEmail()) => {
   created.push(t.personId);
   return { email, t };
 };
+
+afterEach(() => vi.useRealTimers());
 
 describe("sessions", () => {
   it("signs up, resolves session, rotates refresh and detects reuse", async () => {
@@ -106,6 +108,7 @@ describe("password sign-in", () => {
     await expect(signInWithPassword({ email: newEmail(), password: PW }, c)).rejects.toThrow("Invalid email or password");
   });
   it("rate-limits 5/min per email", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); // fixed-window limiter: a real minute/hour boundary mid-test would reset the counter
     const email = newEmail();
     const c = { ...ctx, ip: randomUUID() };
     for (let i = 0; i < 5; i++) await expect(signInWithPassword({ email, password: "x" }, c)).rejects.toThrow("Invalid email or password");
@@ -119,6 +122,7 @@ describe("password sign-in", () => {
 
 describe("rate limit helper", () => {
   it("allows up to the limit then throws rate_limited", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); // fixed-window limiter: a real minute/hour boundary mid-test would reset the counter
     const key = `test:${randomUUID()}`;
     for (let i = 0; i < 3; i++) await enforceLimit(key, 3, 60);
     await expect(enforceLimit(key, 3, 60)).rejects.toMatchObject({ code: "rate_limited" });
