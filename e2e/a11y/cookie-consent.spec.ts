@@ -255,7 +255,7 @@ test.describe("cookie policy page", () => {
     await page.goto("/cookies");
     await settle(page);
     await expect(page.getByRole("heading", { level: 1, name: "Cookie policy" })).toBeVisible();
-    await expect(page.getByRole("rowheader", { name: /cnote_consent/ })).toBeVisible();
+    await expect(page.getByRole("rowheader", { name: /cnote_consent(?!_)/ })).toBeVisible();
     await expect(page.getByRole("rowheader", { name: /_clck/ })).toBeVisible();
     await expect(page.getByRole("rowheader", { name: /cnote_ad_click/ })).toBeVisible();
     await expect(page.getByText(/Policy version \d+, last updated/)).toBeVisible();

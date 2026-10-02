@@ -20,8 +20,14 @@ const file = `${dir}v${CONSENT_POLICY_VERSION}.json`;
 const live = buildSnapshot(STORAGE_REGISTRY, { en: en.consent, hi: hi.consent });
 
 // The generator: writes only a MISSING file (snapshots are immutable); "overwrite" is for a version that has not shipped yet.
-if (process.env.UPDATE_CONSENT_SNAPSHOT && (!existsSync(file) || process.env.UPDATE_CONSENT_SNAPSHOT === "overwrite")) {
-  writeFileSync(file, `${JSON.stringify(JSON.parse(stableStringify(live)), null, 2)}\n`);
+if (process.env.UPDATE_CONSENT_SNAPSHOT) {
+  const body = `${JSON.stringify(JSON.parse(stableStringify(live)), null, 2)}\n`;
+  try {
+    // "wx" creates atomically and fails if the file exists: no check-then-write race, and an existing snapshot is never replaced.
+    writeFileSync(file, body, { flag: process.env.UPDATE_CONSENT_SNAPSHOT === "overwrite" ? "w" : "wx" });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+  }
 }
 
 const HOW = `Bump CONSENT_POLICY_VERSION and CONSENT_POLICY_UPDATED in apps/web/src/features/consent/state.ts, then run

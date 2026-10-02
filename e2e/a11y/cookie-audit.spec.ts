@@ -12,6 +12,8 @@ import { settle } from "../support/a11y";
 import { firstProductHref } from "../support/pages";
 
 test.use({ consent: false });
+// Each test walks four pages (plus a search to find a product); allow for a cold CI server.
+test.setTimeout(180_000);
 
 // Production prefixes the auth cookies with `__Host-` (packages/identity cookieNames); the registry lists the bare names.
 const bare = (name: string) => name.replace(/^__Host-/, "");
@@ -43,11 +45,13 @@ function audit(where: string, h: Held): { key: string; kind: StorageKind; catego
   return out;
 }
 
+const pdpHref = new WeakMap<Page, string>();
 async function pagesToVisit(page: Page): Promise<{ name: string; path: string }[]> {
+  if (!pdpHref.has(page)) pdpHref.set(page, await firstProductHref(page));
   return [
     { name: "home", path: "/" },
     { name: "search", path: "/search?q=box" },
-    { name: "product page", path: await firstProductHref(page) },
+    { name: "product page", path: pdpHref.get(page)! },
     { name: "cookie policy", path: "/cookies" },
   ];
 }
@@ -93,7 +97,7 @@ test.describe("runtime cookie audit", () => {
     await expect(page.getByRole("region", { name: "Cookie notice" })).toHaveCount(0);
     await browse(page, "accept all");
     // exercise the marketing writers too: using a lead CTA creates the visitor id (features/leadgen/visitor.ts)
-    await page.goto(await firstProductHref(page));
+    await page.goto(pdpHref.get(page)!);
     await settle(page);
     await page.getByRole("button", { name: /get best price|contact seller/i }).first().click();
     const seen = audit("accept all / after lead CTA", await held(page));
