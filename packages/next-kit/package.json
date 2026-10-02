@@ -11,7 +11,8 @@
     "./errors": "./src/error-catalogue.ts",
     "./mfa-labels": "./src/mfa-labels.ts",
     "./proxy": "./src/proxy.ts",
-    "./security": "./src/security.ts"
+    "./security": "./src/security.ts",
+    "./upload-client": "./src/upload-client.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

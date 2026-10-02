@@ -4,3 +4,4 @@ export * from "./money";
 export * from "./errors";
 export * from "./worker";
 export * from "./queue";
+export * from "./personal-export";

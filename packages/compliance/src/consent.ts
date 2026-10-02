@@ -10,7 +10,7 @@
 // Erasure (DPDP s.12(3)/s.8(7)): the receipt carries no direct identifier, so when a person is erased we only NULL its
 // `person_id` (anonymizeCookieConsentReceipts) and keep the anonymous proof of what the browser was told and chose.
 import { DomainError } from "@cnote/core";
-import { prisma, Prisma } from "@cnote/db";
+import { prisma, Prisma, withPurge } from "@cnote/db";
 import { z } from "zod";
 import { isUuid, parse } from "./util";
 
@@ -281,5 +281,6 @@ export async function anonymizeCookieConsentReceipts(personId: string, tx: Pick<
 export async function purgeCookieConsentReceipts(before: Date, opts: { dryRun?: boolean } = {}): Promise<number> {
   const where = { createdAt: { lt: before } };
   if (opts.dryRun) return prisma.cookieConsentReceipt.count({ where });
-  return (await prisma.cookieConsentReceipt.deleteMany({ where })).count;
+  // The table is append-only at the DB level (trigger); the retention purge is the one sanctioned DELETE.
+  return withPurge(async (tx) => (await tx.cookieConsentReceipt.deleteMany({ where })).count);
 }

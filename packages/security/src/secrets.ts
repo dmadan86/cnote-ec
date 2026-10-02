@@ -54,6 +54,67 @@ export function isWeakSecret(value: string): boolean {
 const REALM_ENV = { web: "JWT_SECRET_WEB", seller: "JWT_SECRET_SELLER", admin: "JWT_SECRET_ADMIN" } as const;
 const APP_REALM: Partial<Record<SecretsApp, keyof typeof REALM_ENV>> = { web: "web", seller: "seller", studio: "seller", admin: "admin" };
 
+const truthy = (v: string | undefined): boolean => ["1", "true", "yes", "on"].includes((v ?? "").trim().toLowerCase());
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+function urlOf(raw: string | undefined): URL | undefined {
+  if (!raw) return undefined;
+  try {
+    return new URL(raw);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Transport security for the data stores (audit M8): TLS to Postgres and Redis unless on loopback or explicitly waived. */
+function validateTransport(env: Env, errors: string[]): void {
+  for (const key of ["DATABASE_URL", "LIVE_DATABASE_URL"] as const) {
+    const u = urlOf(env[key]);
+    if (!u || LOCAL_HOSTS.has(u.hostname)) continue;
+    const mode = (u.searchParams.get("sslmode") ?? "").toLowerCase();
+    if (!["require", "verify-full", "verify-ca"].includes(mode) && !truthy(env.DB_TLS_OPTIONAL)) {
+      errors.push(`${key} has no TLS: add ?sslmode=require (or verify-full), or set DB_TLS_OPTIONAL=1 if the database is on a private network and that is documented`);
+    }
+  }
+  const redis = urlOf(env.REDIS_URL);
+  if (redis && !LOCAL_HOSTS.has(redis.hostname) && redis.protocol !== "rediss:" && !truthy(env.REDIS_TLS_OPTIONAL)) {
+    errors.push("REDIS_URL must be rediss:// (TLS), or set REDIS_TLS_OPTIONAL=1 if Redis is on a private network and that is documented");
+  }
+}
+
+/** Production-only checks on dev conveniences and on the secrets that enabled providers need to verify their webhooks. */
+function validateProductionFlags(env: Env, errors: string[], warnings: string[]): void {
+  if (truthy(env.OTP_DEV_ECHO)) {
+    // Non-production deployments that run NODE_ENV=production (the Playwright e2e servers read the OTP off the screen; the dev k8s
+    // overlay) opt out explicitly. A real deployment must never set ALLOW_OTP_ECHO_IN_PRODUCTION.
+    const msg = "OTP_DEV_ECHO=true returns one-time codes in API responses: never enable it in production";
+    if (truthy(env.ALLOW_OTP_ECHO_IN_PRODUCTION)) warnings.push(`${msg} (allowed by ALLOW_OTP_ECHO_IN_PRODUCTION=1: e2e/dev only)`);
+    else errors.push(msg);
+  }
+
+  const need = (cond: boolean, what: string, ...keys: string[]) => {
+    if (!cond) return;
+    for (const k of keys) if (!env[k]) errors.push(`${k} is not set: ${what} cannot verify webhooks without it`);
+  };
+  const payments = (env.PAYMENTS_PROVIDER ?? "mock").trim().toLowerCase();
+  need(payments === "razorpay", "the Razorpay payments provider", "RAZORPAY_WEBHOOK_SECRET");
+  need(payments === "cashfree", "the Cashfree payments provider", "CASHFREE_WEBHOOK_SECRET");
+  need(truthy(env.ESCROW_ENABLED), "escrow (ESCROW_ENABLED)", "ESCROW_WEBHOOK_SECRET");
+  need(truthy(env.CREDIT_ENABLED), "credit (CREDIT_ENABLED)", "CREDIT_WEBHOOK_SECRET");
+  need(!!env.KYC_PROVIDER && env.KYC_PROVIDER.trim().toLowerCase() !== "mock", "the KYC provider", "KYC_WEBHOOK_SECRET");
+  const whatsappOn = (env.WHATSAPP_PROVIDER ?? (env.WHATSAPP_ACCESS_TOKEN ? "meta_cloud" : "mock")).toLowerCase() === "meta_cloud";
+  need(whatsappOn, "the WhatsApp channel", "WHATSAPP_APP_SECRET", "WHATSAPP_VERIFY_TOKEN");
+
+  if (env.REVALIDATE_SECRET && env.REVALIDATE_SECRET.length < 32) errors.push("REVALIDATE_SECRET is weak (need 32+ random characters)");
+  const customDomains = ["cloudflare", "vercel", "aws"].includes((env.EDGE_PROVIDER ?? "mock").trim().toLowerCase()) || truthy(env.DOMAINS_HTTP_PROBE);
+  need(customDomains, "custom domains (EDGE_PROVIDER / DOMAINS_HTTP_PROBE)", "DOMAIN_CHECK_SECRET");
+
+  if (env.CSP_REPORT_ONLY === "1") {
+    if (truthy(env.CSP_REPORT_ONLY_ACK)) warnings.push("CSP_REPORT_ONLY=1 (acknowledged): the CSP is not being enforced");
+    else errors.push("CSP_REPORT_ONLY=1 leaves the CSP unenforced: finish the rollout, or set CSP_REPORT_ONLY_ACK=1 to acknowledge it");
+  }
+}
+
 export function validateSecrets(app: SecretsApp, env: Env = process.env): SecretsReport {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -81,6 +142,8 @@ export function validateSecrets(app: SecretsApp, env: Env = process.env): Secret
   if (prod) {
     if (!env.DATABASE_URL) errors.push("DATABASE_URL is not set");
     if (!env.REDIS_URL) errors.push("REDIS_URL is not set (sessions, rate limits and queues need it)");
+    validateTransport(env, errors);
+    validateProductionFlags(env, errors, warnings);
   }
 
   const usesFieldCrypto = app !== "studio";
@@ -112,7 +175,6 @@ export function validateSecrets(app: SecretsApp, env: Env = process.env): Secret
     if (!env[key]) errors.push(`${key} is not set: sign-up and OTP requests will be rejected (set HUMAN_VERIFIER=off to disable bot protection explicitly)`);
     if (!env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && key === "TURNSTILE_SECRET") errors.push("NEXT_PUBLIC_TURNSTILE_SITE_KEY is not set: the widget cannot render");
   }
-  if (prod && env.CSP_REPORT_ONLY === "1") warnings.push("CSP_REPORT_ONLY=1: the CSP is not being enforced");
   return { errors, warnings };
 }
 

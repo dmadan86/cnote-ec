@@ -145,7 +145,7 @@ describe("validateSecrets matrix", () => {
   const KEYS = `k1:${Buffer.alloc(32, 7).toString("base64")}`;
   const BI = Buffer.alloc(32, 9).toString("base64");
   const prod = (over: Record<string, string | undefined> = {}) => ({
-    NODE_ENV: "production", DATABASE_URL: "postgres://x", REDIS_URL: "redis://x", JWT_SECRET_WEB: STRONG, JWT_SECRET_SELLER: STRONG2, JWT_SECRET_ADMIN: STRONG3,
+    NODE_ENV: "production", DATABASE_URL: "postgres://x/db?sslmode=require", REDIS_URL: "rediss://x", JWT_SECRET_WEB: STRONG, JWT_SECRET_SELLER: STRONG2, JWT_SECRET_ADMIN: STRONG3,
     FIELD_ENCRYPTION_KEYS: KEYS, BLIND_INDEX_KEY: BI, TURNSTILE_SECRET: "t", NEXT_PUBLIC_TURNSTILE_SITE_KEY: "s", ...over,
   });
   const apps: SecretsApp[] = ["web", "seller", "admin", "studio", "api", "worker"];
@@ -226,9 +226,51 @@ describe("validateSecrets matrix", () => {
   it("bot protection is not an error outside production", () => {
     expect(errs("web", { NODE_ENV: "development" })).toBe("");
   });
-  it("CSP_REPORT_ONLY in production warns", () => {
-    expect(validateSecrets("api", prod({ CSP_REPORT_ONLY: "1" })).warnings.join()).toMatch(/not being enforced/);
+  it("CSP_REPORT_ONLY in production is an error unless CSP_REPORT_ONLY_ACK=1 (then a warning)", () => {
+    expect(errs("api", prod({ CSP_REPORT_ONLY: "1" }))).toMatch(/CSP_REPORT_ONLY_ACK/);
+    const acked = validateSecrets("api", prod({ CSP_REPORT_ONLY: "1", CSP_REPORT_ONLY_ACK: "1" }));
+    expect(acked.errors).toEqual([]);
+    expect(acked.warnings.join()).toMatch(/not being enforced/);
     expect(validateSecrets("api", { ...prod(), NODE_ENV: "development", CSP_REPORT_ONLY: "1" }).warnings.join()).not.toMatch(/not being enforced/);
+  });
+  it("production rejects OTP_DEV_ECHO (only the e2e opt-out downgrades it to a warning)", () => {
+    expect(errs("api", prod({ OTP_DEV_ECHO: "true" }))).toMatch(/OTP_DEV_ECHO/);
+    expect(errs("api", prod({ OTP_DEV_ECHO: "false" }))).toBe("");
+    const e2e = validateSecrets("api", prod({ OTP_DEV_ECHO: "true", ALLOW_OTP_ECHO_IN_PRODUCTION: "1" }));
+    expect(e2e.errors).toEqual([]);
+    expect(e2e.warnings.join()).toMatch(/OTP_DEV_ECHO/);
+    expect(errs("api", { ...prod({ OTP_DEV_ECHO: "true" }), NODE_ENV: "development" })).toBe("");
+  });
+  it("production requires the webhook secret of every ENABLED provider", () => {
+    const cases: [Record<string, string>, RegExp][] = [
+      [{ PAYMENTS_PROVIDER: "razorpay" }, /RAZORPAY_WEBHOOK_SECRET/],
+      [{ PAYMENTS_PROVIDER: "cashfree" }, /CASHFREE_WEBHOOK_SECRET/],
+      [{ ESCROW_ENABLED: "true" }, /ESCROW_WEBHOOK_SECRET/],
+      [{ CREDIT_ENABLED: "1" }, /CREDIT_WEBHOOK_SECRET/],
+      [{ KYC_PROVIDER: "signzy" }, /KYC_WEBHOOK_SECRET/],
+      [{ WHATSAPP_ACCESS_TOKEN: "tok" }, /WHATSAPP_APP_SECRET/],
+      [{ WHATSAPP_ACCESS_TOKEN: "tok" }, /WHATSAPP_VERIFY_TOKEN/],
+    ];
+    for (const [env, re] of cases) expect(errs("api", prod(env))).toMatch(re);
+    // satisfied, or not enabled: no error
+    expect(errs("api", prod({ PAYMENTS_PROVIDER: "razorpay", RAZORPAY_WEBHOOK_SECRET: "s" }))).toBe("");
+    expect(errs("api", prod({ ESCROW_ENABLED: "false", CREDIT_ENABLED: "false", KYC_PROVIDER: "mock" }))).toBe("");
+  });
+  it("production rejects a weak REVALIDATE_SECRET and requires DOMAIN_CHECK_SECRET with custom domains", () => {
+    expect(errs("web", prod({ REVALIDATE_SECRET: "short" }))).toMatch(/REVALIDATE_SECRET/);
+    expect(errs("web", prod({ REVALIDATE_SECRET: "x".repeat(32) }))).toBe("");
+    expect(errs("web", prod({ EDGE_PROVIDER: "cloudflare" }))).toMatch(/DOMAIN_CHECK_SECRET/);
+    expect(errs("web", prod({ EDGE_PROVIDER: "cloudflare", DOMAIN_CHECK_SECRET: "d" }))).toBe("");
+  });
+  it("production requires TLS to Postgres and Redis unless loopback or explicitly waived", () => {
+    expect(errs("api", prod({ DATABASE_URL: "postgres://u:p@db.internal/cnote" }))).toMatch(/DATABASE_URL has no TLS/);
+    expect(errs("api", prod({ LIVE_DATABASE_URL: "postgres://u:p@db.internal/live?sslmode=prefer" }))).toMatch(/LIVE_DATABASE_URL has no TLS/);
+    expect(errs("api", prod({ DATABASE_URL: "postgres://u:p@db.internal/cnote?sslmode=verify-full" }))).toBe("");
+    expect(errs("api", prod({ DATABASE_URL: "postgres://u:p@localhost/cnote" }))).toBe("");
+    expect(errs("api", prod({ DATABASE_URL: "postgres://u:p@db.internal/cnote", DB_TLS_OPTIONAL: "1" }))).toBe("");
+    expect(errs("api", prod({ REDIS_URL: "redis://cache.internal:6379" }))).toMatch(/rediss/);
+    expect(errs("api", prod({ REDIS_URL: "redis://cache.internal:6379", REDIS_TLS_OPTIONAL: "1" }))).toBe("");
+    expect(errs("api", prod({ REDIS_URL: "redis://127.0.0.1:6379" }))).toBe("");
   });
   it("outside production every secret problem is only a warning", () => {
     const r = validateSecrets("web", { NODE_ENV: "development", JWT_SECRET_WEB: "weak", BLIND_INDEX_KEY: "x" });

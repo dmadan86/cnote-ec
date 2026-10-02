@@ -29,8 +29,10 @@ const nextConfig: NextConfig = {
   // Auth realm is baked in at build time: this app only ever accepts its own sessions/cookies.
   // A2A_ENABLED is baked in for the (static) account menu link; the /buyer/agents pages re-check it on the server.
   env: { CNOTE_AUTH_REALM: "web", NEXT_PUBLIC_A2A_ENABLED: process.env.A2A_ENABLED ?? "", STOREFRONT_EMBEDS_ENABLED: process.env.STOREFRONT_EMBEDS_ENABLED ?? "" },
-  // Dispute evidence (photos, voice notes; 8 MB per file, ADR-013) is posted through server actions; the default is 1 MB.
-  experimental: { serverActions: { bodySizeLimit: "56mb" } },
+  // Server actions share ONE body limit, and every page route accepts an action POST, so it stays small (security audit): file-bearing
+  // forms (RFQ drawings, dispute evidence: 8-10 MB per file) post to dedicated route handlers with their own caps instead
+  // (app/api/rfq, app/api/disputes; @cnote/next-kit readBoundedFormData). Those routes are excluded from the proxy matcher.
+  experimental: { serverActions: { bodySizeLimit: "2mb" } },
   // Workspace packages ship TypeScript source.
   transpilePackages: ["@cnote/credit", "@cnote/a2a", "@cnote/prices", "@cnote/escrow", "@cnote/quality", "@cnote/disputes", "@cnote/negotiation", "@cnote/verticals", "@cnote/ondc", "@cnote/ads", "@cnote/promotions", "@cnote/compliance", "@cnote/metrics", "@cnote/whatsapp", "@cnote/storefront", "@cnote/domains", "@cnote/security", "@cnote/leadgen", "@cnote/templates", "@cnote/email", "@cnote/notifications", "@cnote/developer", "@cnote/observability", "@cnote/media", "@cnote/wishlist", "@cnote/reviews", "@cnote/next-kit", "@cnote/consent", "@cnote/ui", "@cnote/core", "@cnote/ai", "@cnote/identity", "@cnote/catalogue", "@cnote/billing", "@cnote/enquiry", "@cnote/search"],
   serverExternalPackages: ["pdf-lib", "@cnote/live-db", "juice", "sanitize-html", "mustache", "@cnote/db", "@prisma/client", "@prisma/adapter-pg", "pg", "ioredis"],

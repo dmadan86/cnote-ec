@@ -41,3 +41,19 @@ updates:
     schedule:
       interval: weekly
     labels: ["dependencies"]
+  # Base images are pinned by digest (node:22-bookworm-slim@sha256:...): Dependabot bumps the tag and the digest together.
+  - package-ecosystem: docker
+    directories:
+      - /apps/web
+      - /apps/seller
+      - /apps/admin
+      - /apps/studio
+      - /apps/api
+      - /apps/worker
+      - /apps/ai-service
+      - /apps/search-service
+      - /deploy/docker
+      - /infra/docker
+    schedule:
+      interval: weekly
+    labels: ["dependencies"]

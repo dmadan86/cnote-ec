@@ -1,5 +1,8 @@
-import { emit } from "@cnote/core";
+import { DomainError, emit } from "@cnote/core";
 import { Prisma, prisma } from "@cnote/db";
+import { enforceLimit } from "./limits";
+import { isMfaEnabled, verifyMfa } from "./mfa";
+import { verifyPassword } from "./password";
 import { revokeAllSessions } from "./sessions";
 import { CONSENT_PURPOSES } from "./types";
 
@@ -56,4 +59,53 @@ export async function erasePerson(personId: string): Promise<void> {
     await emit(tx, "DataErasureRequested", { type: "Person", id: personId }, { personId });
   });
   await revokeAllSessions(personId);
+}
+
+/** Business ids the person belongs to: context for the cross-module export registry (@cnote/compliance). */
+export async function listPersonBusinessIds(personId: string): Promise<string[]> {
+  return (await prisma.businessMember.findMany({ where: { personId }, select: { businessId: true } })).map((m) => m.businessId);
+}
+
+// ---- Step-up for irreversible account erasure (security audit M10) ----------------------------------------------------
+
+/** A step-up proof is only good for this long: a password / MFA code is checked at the moment of the request, a phone OTP may be at most this old. */
+export const STEP_UP_WINDOW_MS = 5 * 60_000;
+
+/** Proof that the person at the keyboard is the account owner right now. Provide the strongest factor the account has. */
+export interface ErasureStepUp {
+  password?: string;
+  /** TOTP or recovery code. Required when the account has MFA enabled (a password alone is then not enough). */
+  mfaCode?: string;
+}
+
+const STEP_UP_REQUIRED = () => new DomainError("forbidden", "Confirm it's you to continue: re-enter your password, or a fresh verification code.");
+
+/**
+ * Throws unless the caller proves identity within the last 5 minutes: the account password, an MFA code, or a phone OTP verified
+ * in the last 5 minutes (`phoneVerifiedAt`, set by `verifyPhoneOtp`). Accounts with MFA enabled need the MFA code.
+ * Rate-limited per person so the erase form cannot be used to brute-force the password.
+ */
+export async function verifyErasureStepUp(personId: string, proof: ErasureStepUp = {}, now = new Date()): Promise<"mfa" | "password" | "otp"> {
+  await enforceLimit(`erase:stepup:${personId}`, 5, 600, "Too many attempts. Please wait a few minutes and try again.");
+  const person = await prisma.person.findUnique({ where: { id: personId }, select: { passwordHash: true, phoneVerifiedAt: true, erasedAt: true } });
+  if (!person || person.erasedAt) throw new DomainError("not_found", "Account not found");
+  const mfaCode = proof.mfaCode?.trim();
+  if (mfaCode) {
+    await verifyMfa(personId, mfaCode); // throws on a wrong code
+    return "mfa";
+  }
+  if (await isMfaEnabled(personId)) throw new DomainError("forbidden", "Enter your authenticator or recovery code to continue.");
+  const password = proof.password ? String(proof.password).slice(0, 256) : "";
+  if (password && person.passwordHash) {
+    if (await verifyPassword(password, person.passwordHash)) return "password";
+    throw new DomainError("forbidden", "That password is not correct.");
+  }
+  if (person.phoneVerifiedAt && now.getTime() - person.phoneVerifiedAt.getTime() <= STEP_UP_WINDOW_MS) return "otp";
+  throw STEP_UP_REQUIRED();
+}
+
+/** Account erasure behind step-up. The web action calls this; `erasePerson` stays for staff-driven and system erasure. */
+export async function erasePersonWithStepUp(personId: string, proof: ErasureStepUp): Promise<void> {
+  await verifyErasureStepUp(personId, proof);
+  await erasePerson(personId);
 }

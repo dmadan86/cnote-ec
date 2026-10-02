@@ -98,10 +98,10 @@ describe("retention", () => {
   it("purges only receipts older than the cut-off (dry run counts without deleting)", async () => {
     const oldId = cid();
     const freshId = cid();
-    const old = await recordCookieConsent(base(oldId));
-    await recordCookieConsent(base(freshId));
+    // The table is append-only at the DB level (M5): backdate by inserting an old row, never by updating one.
     const backdated = new Date(Date.now() - 1100 * 86_400_000);
-    await prisma.cookieConsentReceipt.update({ where: { id: old.id }, data: { createdAt: backdated } });
+    await prisma.cookieConsentReceipt.create({ data: { consentId: oldId, policyVersion: 1, analytics: true, marketing: false, gpc: false, action: "custom", locale: "en", createdAt: backdated } });
+    await recordCookieConsent(base(freshId));
     const cutoff = new Date(Date.now() - 1095 * 86_400_000);
     const dry = await purgeCookieConsentReceipts(cutoff, { dryRun: true });
     expect(dry).toBeGreaterThanOrEqual(1);
