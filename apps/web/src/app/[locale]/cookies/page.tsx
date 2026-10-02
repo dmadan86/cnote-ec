@@ -3,6 +3,7 @@ import { Container, PageHeader, buttonClasses } from "@cnote/ui";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ConsentRecord, CookieSettingsButton, CookieTable, CATEGORIES, CONSENT_POLICY_UPDATED, CONSENT_POLICY_VERSION, type StorageCategory } from "@/features/consent";
+import { EMBEDS_ENABLED } from "@/features/consent/embeds-flag";
 import { SITE_NAME } from "@/features/shell/site";
 import { formatDate } from "@/i18n/config";
 import { resolveLocale } from "@/i18n/server";
@@ -35,7 +36,7 @@ export default async function CookiePolicyPage(props: { params: Promise<{ locale
       <section className="mt-8" aria-labelledby="ck-cats">
         <h2 id="ck-cats" className="text-lg font-semibold text-ink">{t("categoriesTitle")}</h2>
         <p className="mt-1 text-sm text-muted">{t("categoriesBody", { site: SITE_NAME })}</p>
-        <p className="mt-2 text-sm text-muted">{t("embedsNote")}</p>
+        {EMBEDS_ENABLED ? <p className="mt-2 text-sm text-muted">{t("embedsNote")}</p> : null}
       </section>
 
       <section className="mt-8" aria-labelledby="ck-table">

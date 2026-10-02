@@ -220,7 +220,38 @@ Reject all. It complements the source-grep unit test, which cannot see what the 
    necessary key or a reworded purpose; a bump asks everybody again, which is the safe default for proof.
 5. `pnpm --filter @cnote/web test` (registry completeness and the snapshot) must pass.
 
-## Policy version 4 (embeds)
+## Feature flag: `STOREFRONT_EMBEDS_ENABLED` (default off)
+
+The embed block is a seller-facing feature whose content is **not moderated yet** (ADR-003: all seller content is moderated), so it ships dark
+(documented in `.env.example`). While the flag is off:
+
+- Studio does not offer the block (the editor gets the flag as a server prop and filters "Add section").
+- `@cnote/storefront` rejects it server-side: `saveDraft`, `replaceDraft` (templates / AI builders), `restoreVersion` and `publish` throw a `validation`
+  error ("Video and map blocks are not available yet. Remove them to continue.") for any document that contains one. The schema itself still accepts
+  the block, so documents already stored keep loading.
+- A stored document that already has an embed block renders **nothing** for it (no heading, no link, no frame), on the web and in Studio's preview.
+- `ConsentGate`, `StoreEmbed`, the CSP `frame-src` hosts and the iframe lint test stay as they are (they are inert without the block).
+- The buyer-web consent notice stays at **policy v3**: the only notice change in this work is the embeds sentence, so with the flag off nobody
+  is re-asked. `CONSENT_POLICY_VERSION = EMBEDS_ENABLED ? 4 : 3` and `embedsNote` is in `NOTICE_KEYS` only with the flag on (`v3.json` is untouched,
+  `v4.json` is the flag-on snapshot; the snapshot test passes in both modes).
+
+Runtime vs build time: the server checks read the runtime env; the consent code runs in the browser, so the web inlines the flag at build time
+(`apps/web/next.config.ts` `env`). Turning the feature on therefore needs a rebuild of the web, and **is** a notice change: the re-prompt to v4 is
+intended, because the marketing and preferences categories then also cover embedded third-party content.
+
+e2e: the flag is on only for `e2e/a11y/storefront-embed.spec.ts`, which runs in its own Playwright project against a second web build
+(`.next-embeds`, `STOREFRONT_EMBEDS_ENABLED=1`, port 3006); every other spec runs with the flag off like production.
+
+### Moderation follow-up (before the flag is turned on)
+
+1. Resolve the video's title (YouTube oEmbed: `https://www.youtube.com/oembed?url=...`, title + author, no API key) when the seller saves the block and
+   run it, with the block title, through `ai.moderate` (ADR-008: log prompt version and model, route low confidence to the ops queue). Block saving on a
+   `block` verdict; map blocks need only the title.
+2. Add the embed block to `collectText` for the publish pre-screen (title is already there) and send any storefront with an embed to **staff review**
+   (`in_review`) regardless of the AI verdict, until the false-positive rate is known.
+3. Re-check the oEmbed title periodically (the video can change after approval) and unpublish the block on a `block` verdict.
+
+## Policy version 4 (embeds, only with the flag on)
 
 Adds the sentence about third-party embeds (`consent.embedsNote`, in `NOTICE_KEYS`) to the dialog and `/cookies`, so the snapshot is `policy-snapshots/v4.json`
 and everybody is asked again. No registry entry changed: YouTube and OpenStreetMap set their own cookies on their own hosts and only after the gate
@@ -372,7 +403,7 @@ six other catalogues), and **does not create the children**: no iframe, so no re
 - Granting the category in the dialog loads every embed of that category **live** (the `cnote:consent` event); withdrawing removes them again.
 - **Load it** shows that one item for this page view. It is a specific, informed act for one named provider (DPDP s.6(1); EDPB 05/2020), not a stored
   choice: it writes nothing and the banner keeps asking. After the click focus moves to the loaded content.
-- The cookie notice names the embeds (`consent.embedsNote`, in the dialog and on `/cookies`), which is why this change is **policy version 4**.
+- The cookie notice names the embeds (`consent.embedsNote`, in the dialog and on `/cookies`) **only while the feature flag is on**; that sentence is why the policy moves to **version 4** then (see "Feature flag").
 
 Where it is used: the storefront **`embed` block** (new; there were no third-party iframes in the codebase before). A seller picks a **YouTube video**
 (paste a link; we keep only the 11-character id, `youtubeIdFromInput`) or a **map** (latitude, longitude, zoom). The seller never supplies a URL or HTML:

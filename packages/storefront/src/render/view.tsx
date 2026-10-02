@@ -1,5 +1,6 @@
 import type { EmbedComponent, EmbedProps, ImageProps, LinkProps, RenderData, RenderHrefs, ImageComponent, LinkComponent } from "./types";
 import { type Page, type StorefrontDocument, type Section } from "../document/schema";
+import { embedsEnabled } from "../document/embed";
 import { STOREFRONT_CSS } from "./css";
 import { Pic, SectionView, type Ctx } from "./sections";
 import { themeVars } from "./util";
@@ -28,6 +29,8 @@ export interface StorefrontViewProps {
   Image?: ImageComponent;
   /** third-party video/map frame (the buyer web passes a consent-gated one); default: a plain link, no frame */
   Embed?: EmbedComponent;
+  /** render `embed` blocks (STOREFRONT_EMBEDS_ENABLED). Default: the server env. The Studio editor is client-side and gets it as a prop. */
+  embedsEnabled?: boolean;
   /** editor/preview affordances (explains empty platform-driven blocks) */
   preview?: boolean;
 }
@@ -39,9 +42,9 @@ export const findPage = (doc: StorefrontDocument, slug?: string): Page => doc.pa
  * Web passes next/link + next/image; Studio's preview passes inert equivalents. The platform trust strip is always
  * present: if a page does not place one, it is prepended, so a seller cannot hide verification status.
  */
-export function StorefrontView({ document: doc, pageSlug, data, hrefs, Link = PlainLink, Image = PlainImage, Embed = PlainEmbed, preview = false }: StorefrontViewProps) {
+export function StorefrontView({ document: doc, pageSlug, data, hrefs, Link = PlainLink, Image = PlainImage, Embed = PlainEmbed, embedsEnabled: embeds = embedsEnabled(), preview = false }: StorefrontViewProps) {
   const page = findPage(doc, pageSlug);
-  const ctx: Ctx = { doc, page, data, hrefs, Link, Image, Embed, preview, h1Taken: { current: false } };
+  const ctx: Ctx = { doc, page, data, hrefs, Link, Image, Embed, embeds, preview, h1Taken: { current: false } };
   const hasHero = page.sections.some((s) => s.type === "hero");
   const sections: Section[] = page.sections.some((s) => s.type === "trustStrip") ? page.sections : [{ id: "platform-trust", type: "trustStrip", tone: "default" }, ...page.sections];
   const multi = doc.pages.length > 1;

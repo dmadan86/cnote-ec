@@ -9,6 +9,7 @@
 // Design + standards: docs/design/cookie-consent.md.
 import * as core from "@cnote/consent";
 import type { ConsentChoices, ConsentState } from "@cnote/consent";
+import { EMBEDS_ENABLED } from "./embeds-flag";
 
 export {
   acceptAllChoices, cookieValue, consentIdFromCookieValue, deriveAction, isConsentId, isGranted, needsPrompt, newConsentId, serializeConsent, REJECT_ALL,
@@ -22,7 +23,8 @@ export const CONSENT_COOKIE = "cnote_consent";
  * Bump when a NEW non-essential purpose or provider is added, or an existing one changes materially: every stored
  * choice with an older version is treated as "no choice" and everybody is asked again (fresh, specific consent).
  */
-export const CONSENT_POLICY_VERSION = 4;
+// v4 = v3 + the embeds notice, in force only while STOREFRONT_EMBEDS_ENABLED is on (embeds-flag.ts); flag off = v3, nobody is re-asked.
+export const CONSENT_POLICY_VERSION = EMBEDS_ENABLED ? 4 : 3;
 /** Shown on the cookie policy page. Update together with CONSENT_POLICY_VERSION. */
 export const CONSENT_POLICY_UPDATED = "2026-10-02";
 

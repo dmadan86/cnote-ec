@@ -14,4 +14,7 @@ const run = (cmd: string, args: string[]) => execFileSync(cmd, args, { cwd: root
 run("pnpm", ["exec", "tsx", "e2e/setup/prepare-db.ts"]);
 // Sequential on purpose: two parallel `next build`s need several GB of RAM.
 run("pnpm", ["--filter", "@cnote/web", "build"]);
+// The video/map embed block is behind STOREFRONT_EMBEDS_ENABLED (default off); the consent notice is inlined at build time, so the embed
+// spec runs against its own build (distDir .next-embeds) and server. Every other spec runs with the flag off, like production.
+execFileSync("pnpm", ["--filter", "@cnote/web", "build"], { cwd: root, env: { ...env, STOREFRONT_EMBEDS_ENABLED: "1", NEXT_DIST_DIR: ".next-embeds" }, stdio: "inherit" });
 run("pnpm", ["--filter", "@cnote/seller-app", "build"]);

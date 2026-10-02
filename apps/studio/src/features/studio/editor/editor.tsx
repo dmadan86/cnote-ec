@@ -50,7 +50,7 @@ const summaryOf = (s: Section): string => {
 const tabBtn = (on: boolean) => cn("inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-sm font-medium focus-visible:outline-2 focus-visible:outline-brand-600", on ? "bg-brand-600 text-white" : "text-ink hover:bg-canvas");
 const toolBtn = "inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-canvas focus-visible:outline-2 focus-visible:outline-brand-600 disabled:pointer-events-none disabled:opacity-40";
 
-export function Editor({ initial, editor }: { initial: EditorInitial; editor: EditorData }) {
+export function Editor({ initial, editor, embedsEnabled = false }: { initial: EditorInitial; editor: EditorData; /** STOREFRONT_EMBEDS_ENABLED: offer the video/map block */ embedsEnabled?: boolean }) {
   const { data, images } = editor;
   const [h, setH] = useState<Hist>({ doc: initial.document, past: [], future: [], at: 0, reset: 0 });
   const doc = h.doc;
@@ -298,7 +298,7 @@ export function Editor({ initial, editor }: { initial: EditorInitial; editor: Ed
                   <label htmlFor="add-type" className="text-sm font-medium text-ink">Add a section</label>
                   <div className="flex gap-2">
                     <Select id="add-type" value={addType} onChange={(e) => setAddType(e.target.value as SectionType)}>
-                      {SECTION_TYPES.map((t) => <option key={t} value={t} disabled={t === "trustStrip" && page.sections.some((s) => s.type === "trustStrip")}>{SECTION_LABELS[t]}</option>)}
+                      {SECTION_TYPES.filter((t) => t !== "embed" || embedsEnabled).map((t) => <option key={t} value={t} disabled={t === "trustStrip" && page.sections.some((s) => s.type === "trustStrip")}>{SECTION_LABELS[t]}</option>)}
                     </Select>
                     <button type="button" className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50" onClick={add} disabled={page.sections.length >= LIMITS.sectionsPerPage}><Plus className="size-4" aria-hidden /> Add</button>
                   </div>
@@ -328,7 +328,7 @@ export function Editor({ initial, editor }: { initial: EditorInitial; editor: Ed
             <div className="p-3">
               {/* the preview is a click-to-select surface; sections stay reachable by keyboard from the list on the left */}
               <div className={cn("mx-auto overflow-hidden rounded-card border border-line bg-surface shadow-sm", device === "mobile" ? "max-w-[390px]" : "max-w-[1200px]")} onClickCapture={onPreviewClick}>
-                <StorefrontView document={validation.ok ? validation.document : doc} pageSlug={page.slug} data={data} hrefs={hrefs} Link={PreviewLink} preview />
+                <StorefrontView document={validation.ok ? validation.document : doc} pageSlug={page.slug} data={data} hrefs={hrefs} Link={PreviewLink} embedsEnabled={embedsEnabled} preview />
               </div>
             </div>
           </section>

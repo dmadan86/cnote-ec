@@ -186,6 +186,26 @@ describe("storefront lifecycle", () => {
     await expect(getDraftByPreviewToken(`${token}x`)).rejects.toMatchObject({ code: "forbidden" });
   });
 
+  it("STOREFRONT_EMBEDS_ENABLED (default off): saving, restoring and publishing an embed block is rejected server-side; allowed when on", async () => {
+    const { b } = await fresh();
+    const d = await getDraft(b);
+    const withEmbed = structuredClone(d.document);
+    withEmbed.pages[0]!.sections.push({ id: "v1", type: "embed", tone: "default", title: "Tour", source: { kind: "youtube", videoId: "dQw4w9WgXcQ" } });
+    vi.stubEnv("STOREFRONT_EMBEDS_ENABLED", "");
+    await expect(saveDraft(b, person, withEmbed, d.etag)).rejects.toMatchObject({ code: "validation" });
+    vi.stubEnv("STOREFRONT_EMBEDS_ENABLED", "false");
+    await expect(saveDraft(b, person, withEmbed, d.etag)).rejects.toMatchObject({ code: "validation" });
+    vi.stubEnv("STOREFRONT_EMBEDS_ENABLED", "1");
+    const saved = await saveDraft(b, person, withEmbed, d.etag);
+    // flag turned off again with an embed in the draft: it cannot be published...
+    vi.stubEnv("STOREFRONT_EMBEDS_ENABLED", "");
+    await expect(publish(b, person)).rejects.toMatchObject({ code: "validation" });
+    // ...and an older version that contains one cannot be restored into the draft
+    const v = (await listVersions(b)).find((x) => x.id === saved.versionId)!;
+    await expect(restoreVersion(b, person, v.id)).rejects.toMatchObject({ code: "validation" });
+    vi.unstubAllEnvs();
+  });
+
   it("worker handlers purge without throwing for unknown sellers", async () => {
     await expect(worker.handlers.TrustScoreChanged!({ payload: { businessId: randomUUID() } } as never)).resolves.toBeUndefined();
     expect(Object.keys(worker.handlers)).toEqual(expect.arrayContaining(["StorefrontPublished", "ListingModerated", "ReviewModerated"]));

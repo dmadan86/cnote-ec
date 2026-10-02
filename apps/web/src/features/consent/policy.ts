@@ -9,13 +9,16 @@ import type { StorageEntry } from "./registry";
 import v1 from "./policy-snapshots/v1.json";
 import v3 from "./policy-snapshots/v3.json";
 import v4 from "./policy-snapshots/v4.json";
+import { EMBEDS_ENABLED } from "./embeds-flag";
 import { CONSENT_POLICY_UPDATED, CONSENT_POLICY_VERSION } from "./state";
 
 /** `consent.*` message keys that make up the notice a visitor reads: banner, dialog, category copy, tables, proof text. */
 export const NOTICE_KEYS = [
   "bannerText", "acceptAll", "rejectAll", "customise", "dialogTitle", "dialogIntro", "saveChoices", "alwaysActive", "on", "off", "gpcNote",
   "necessaryTitle", "necessaryDesc", "analyticsTitle", "analyticsDesc", "marketingTitle", "marketingDesc", "functionalTitle", "functionalDesc",
-  "kind", "provider", "duration", "purpose", "proofBody", "embedsNote",
+  "kind", "provider", "duration", "purpose", "proofBody",
+  // v4 only (STOREFRONT_EMBEDS_ENABLED): the notice sentence about third-party embeds
+  ...(EMBEDS_ENABLED ? (["embedsNote"] as const) : ([] as const)),
 ] as const;
 export const SNAPSHOT_LOCALES = ["en", "hi"] as const;
 

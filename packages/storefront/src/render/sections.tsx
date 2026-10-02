@@ -13,6 +13,8 @@ export interface Ctx {
   Link: LinkComponent;
   Image: ImageComponent;
   Embed: EmbedComponent;
+  /** STOREFRONT_EMBEDS_ENABLED: while off, a stored embed block renders nothing */
+  embeds: boolean;
   /** editor preview: empty platform-driven blocks explain themselves instead of vanishing */
   preview: boolean;
   /** heading level for the block title; the first hero on a page owns the h1 */
@@ -218,6 +220,7 @@ export function SectionView({ s, ctx, index }: { s: Section; ctx: Ctx; index: nu
         </Band>
       );
     case "embed": {
+      if (!ctx.embeds) return null;
       const spec = embedSpec(s.source);
       const E = ctx.Embed;
       return (

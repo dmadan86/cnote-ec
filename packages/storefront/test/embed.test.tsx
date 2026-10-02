@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
-import { blankDocument, collectText, defaultSection, EMBED_FRAME_ORIGINS, embedSourceSchema, embedSpec, newSectionId, sectionSchema, validateDocument, youtubeIdFromInput, type StorefrontDocument } from "../src/document";
+import { describe, expect, it, vi } from "vitest";
+import { blankDocument, collectText, documentHasEmbeds, embedsEnabled, defaultSection, EMBED_FRAME_ORIGINS, embedSourceSchema, embedSpec, newSectionId, sectionSchema, validateDocument, youtubeIdFromInput, type StorefrontDocument } from "../src/document";
 import { StorefrontView } from "../src/render/view";
 import type { EmbedProps, RenderData } from "../src/render/types";
 
@@ -83,8 +83,26 @@ describe("embed block in the document", () => {
 });
 
 describe("embed block rendering", () => {
-  const render = (d: StorefrontDocument, Embed?: (p: EmbedProps) => React.ReactNode) => renderToStaticMarkup(<StorefrontView document={d} data={data} hrefs={hrefs} Embed={Embed} />);
+  const render = (d: StorefrontDocument, Embed?: (p: EmbedProps) => React.ReactNode, embedsEnabled = true) => renderToStaticMarkup(<StorefrontView document={d} data={data} hrefs={hrefs} Embed={Embed} embedsEnabled={embedsEnabled} />);
 
+  it("renders nothing for a stored embed block while STOREFRONT_EMBEDS_ENABLED is off (no heading, no link, no frame)", () => {
+    const html = render(doc({ kind: "youtube", videoId: ID }), () => <span data-embed="x" />, false);
+    expect(html).not.toMatch(/Our workshop|data-embed|youtube|class="sf-embed"|id="sf-h-e1"/);
+    expect(render(doc({ kind: "youtube", videoId: ID }), undefined, false)).not.toContain("open on YouTube");
+  });
+  it("the default follows the server env flag (off unless 1 / true)", () => {
+    const d = doc({ kind: "youtube", videoId: ID });
+    expect(renderToStaticMarkup(<StorefrontView document={d} data={data} hrefs={hrefs} />)).not.toContain("Our workshop");
+    vi.stubEnv("STOREFRONT_EMBEDS_ENABLED", "true");
+    expect(renderToStaticMarkup(<StorefrontView document={d} data={data} hrefs={hrefs} />)).toContain("Our workshop");
+    vi.unstubAllEnvs();
+  });
+  it("embedsEnabled / documentHasEmbeds", () => {
+    expect([undefined, "", "0", "false", "yes"].map((v) => embedsEnabled({ STOREFRONT_EMBEDS_ENABLED: v }))).toEqual([false, false, false, false, false]);
+    expect([embedsEnabled({ STOREFRONT_EMBEDS_ENABLED: "1" }), embedsEnabled({ STOREFRONT_EMBEDS_ENABLED: "TRUE" })]).toEqual([true, true]);
+    expect(documentHasEmbeds(doc({ kind: "youtube", videoId: ID }))).toBe(true);
+    expect(documentHasEmbeds(blankDocument({ name: "A", city: null }))).toBe(false);
+  });
   it("by default renders NO third-party frame: only a link the visitor chooses to follow", () => {
     const html = render(doc({ kind: "youtube", videoId: ID }));
     expect(html).not.toMatch(/<iframe/i);

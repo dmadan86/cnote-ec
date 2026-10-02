@@ -8,6 +8,18 @@ import { z } from "zod";
 /** Origins an embed iframe may use. The buyer web's CSP `frame-src` must allow exactly these (see packages/security csp.ts and its test). */
 export const EMBED_FRAME_ORIGINS = ["https://www.youtube-nocookie.com", "https://www.openstreetmap.org"] as const;
 
+/**
+ * Feature flag `STOREFRONT_EMBEDS_ENABLED` (default OFF). The embed block is seller-facing and its content (a video id, coordinates)
+ * is not moderated yet (ADR-003: all seller content is moderated; follow-up in docs/design/cookie-consent.md). While it is off:
+ * Studio does not offer the block, the service rejects saving / restoring / publishing a document that contains one (a seller-facing
+ * validation error), and a stored document that already has one renders nothing for it. Read on the server (no NEXT_PUBLIC); the
+ * Studio editor gets the value as a prop.
+ */
+export const embedsEnabled = (env: Record<string, string | undefined> = typeof process === "undefined" ? {} : process.env): boolean => ["1", "true"].includes((env.STOREFRONT_EMBEDS_ENABLED ?? "").toLowerCase());
+
+/** True when any page of the document has an `embed` block. */
+export const documentHasEmbeds = (doc: { pages: { sections: { type: string }[] }[] }): boolean => doc.pages.some((p) => p.sections.some((s) => s.type === "embed"));
+
 export type EmbedCategory = "marketing" | "functional";
 export type EmbedKind = "youtube" | "map";
 

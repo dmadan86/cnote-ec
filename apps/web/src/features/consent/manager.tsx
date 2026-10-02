@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useSyncExternalStore } from "react";
 import { LocaleLink } from "@/i18n/link";
 import { SITE_NAME } from "@/features/shell/site";
+import { EMBEDS_ENABLED } from "./embeds-flag";
 import { ConsentRecord } from "./consent-record";
 import { syncFromAccount, WEB_CONSENT_CONFIG } from "./client";
 
@@ -26,7 +27,7 @@ export function ConsentManager({ siteOrigin }: { siteOrigin?: string }) {
     <KitManager
       config={WEB_CONSENT_CONFIG}
       siteName={SITE_NAME}
-      note={t("embedsNote")}
+      note={EMBEDS_ENABLED ? t("embedsNote") : undefined}
       record={<ConsentRecord className="mt-4 border-t border-line pt-4" />}
       afterFlush={afterFlush}
       policyLink={(chunks) =>

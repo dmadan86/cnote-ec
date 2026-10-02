@@ -7,7 +7,7 @@ import { prisma, type Prisma, type Tx } from "@cnote/db";
 import { getTrustProfiles } from "@cnote/identity";
 import { purgeStorefront, storefrontTag } from "./cache";
 import { listApprovedSellerImages, loadRenderData } from "./data";
-import { blankDocument, collectImages, collectText, imageIdOf, validateDocument, SCHEMA_VERSION, type StorefrontDocument } from "./document";
+import { blankDocument, collectImages, collectText, documentHasEmbeds, embedsEnabled, imageIdOf, validateDocument, SCHEMA_VERSION, type StorefrontDocument } from "./document";
 import { signPreviewToken, verifyPreviewToken } from "./preview";
 import type { RenderData } from "./render/types";
 import { assertValidSlug, slugProblem, suggestSlug, SLUG_MAX } from "./slug";
@@ -105,6 +105,13 @@ function canonical(v: unknown): string {
 }
 /** Order-independent content hash (Postgres jsonb reorders keys, so never hash the raw string). */
 export const documentEtag = (doc: unknown): string => createHash("sha1").update(canonical(doc)).digest("hex").slice(0, 16);
+
+/** The embed block is behind STOREFRONT_EMBEDS_ENABLED (default off): refuse to store or publish one while the flag is off. */
+function assertEmbedsAllowed(doc: StorefrontDocument): void {
+  if (!embedsEnabled() && documentHasEmbeds(doc)) {
+    throw new DomainError("validation", "Video and map blocks are not available yet. Remove them to continue.", { issues: [{ path: "pages", message: "Video and map blocks are not available yet." }] });
+  }
+}
 
 const isUniqueViolation = (e: unknown) => typeof e === "object" && e !== null && (e as { code?: string }).code === "P2002";
 const asJson = (d: StorefrontDocument) => d as unknown as Prisma.InputJsonValue;
@@ -238,6 +245,7 @@ export async function saveDraft(sellerBusinessId: string, personId: string, inpu
   if (!(await rateLimit(`storefront:save:${sellerBusinessId}`, 90, 60))) throw new DomainError("rate_limited", "Saving too fast. Please wait a moment.", undefined, "storefront.savingTooFastWaitMoment");
   const v = validateDocument(input);
   if (!v.ok) throw new DomainError("validation", "Some fields need attention before this can be saved.", { issues: v.issues }, "storefront.someFieldsNeedAttentionBefore");
+  assertEmbedsAllowed(v.document);
   const sf = await storefrontOf(sellerBusinessId);
   const draft = await ensureDraftRow(sf.id, personId);
   return prisma.$transaction(async (tx) => {
@@ -264,6 +272,7 @@ export async function restoreVersion(sellerBusinessId: string, personId: string,
   const src = await prisma.storefrontVersion.findFirst({ where: { id: versionId, storefrontId: sf.id } });
   if (!src) throw new DomainError("not_found", "Version not found.", undefined, "storefront.versionNotFound");
   const doc = parseStored(src.document);
+  assertEmbedsAllowed(doc);
   const draft = await ensureDraftRow(sf.id, personId);
   await prisma.storefrontVersion.update({ where: { id: draft.id }, data: { document: asJson(doc), createdBy: personId } });
   return getDraft(sellerBusinessId, personId);
@@ -274,6 +283,7 @@ export async function restoreVersion(sellerBusinessId: string, personId: string,
  * applyTemplate and by future AI builders. Bypasses optimistic concurrency deliberately: it is an explicit reset.
  */
 export async function replaceDraft(sellerBusinessId: string, personId: string, doc: StorefrontDocument, opts: { templateKey?: string | null } = {}): Promise<DraftState> {
+  assertEmbedsAllowed(doc);
   const sf = await storefrontOf(sellerBusinessId);
   await prisma.$transaction(async (tx) => {
     await lockStorefront(tx, sf.id);
@@ -376,6 +386,7 @@ export async function publish(sellerBusinessId: string, personId: string): Promi
   if (!(await rateLimit(`storefront:publish:${sellerBusinessId}`, 10, 3600))) throw new DomainError("rate_limited", "Too many publish attempts. Try again later.", undefined, "storefront.tooManyPublishAttemptsTry");
   const draftRow = await ensureDraftRow(sf.id, personId);
   const doc = parseStored(draftRow.document);
+  assertEmbedsAllowed(doc);
   await assertImagesApproved(sellerBusinessId, doc);
   const screen = await screenText(sellerBusinessId, doc);
   const clean = screen.verdict === "allow";
