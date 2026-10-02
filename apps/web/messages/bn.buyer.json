@@ -138,7 +138,7 @@
     "send": "পাঠান",
     "dealTitle": "এই চুক্তিটি কি সম্পন্ন হয়েছে?",
     "dealLast": "শেষ উত্তর: <strong>{answer}</strong>। আপনি যেকোনো সময় এটি বদলাতে পারেন।",
-    "dealSellerClaimed": "The seller says this deal closed. It is only recorded once you confirm it below.",
+    "dealSellerClaimed": "বিক্রেতা বলছেন এই ডিল সম্পন্ন হয়েছে। আপনি নিচে নিশ্চিত করলেই এটি নথিভুক্ত হবে।",
     "deal": {
       "won": "হ্যাঁ, চুক্তি হয়েছে",
       "lost": "না, হয়নি",

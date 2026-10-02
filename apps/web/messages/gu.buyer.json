@@ -138,7 +138,7 @@
     "send": "મોકલો",
     "dealTitle": "શું આ સોદો પાકો થયો?",
     "dealLast": "છેલ્લો જવાબ: <strong>{answer}</strong>. તમે તેને ગમે ત્યારે બદલી શકો છો.",
-    "dealSellerClaimed": "The seller says this deal closed. It is only recorded once you confirm it below.",
+    "dealSellerClaimed": "વિક્રેતા કહે છે કે આ ડીલ પૂરી થઈ ગઈ. તમે નીચે પુષ્ટિ કરો પછી જ તે નોંધાશે.",
     "deal": {
       "won": "હા, સોદો થયો",
       "lost": "ના, પડી ભાંગ્યો",
