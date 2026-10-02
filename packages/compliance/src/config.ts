@@ -18,6 +18,8 @@ export interface GrievancePolicy {
   resolveDays: number;
   /** tickets per raiser per hour (abuse guard) */
   perHourLimit: number;
+  /** days to answer a data-principal RIGHTS request (access, correction, erasure, nomination, withdraw consent) */
+  rightsRequestDays: number;
 }
 
 export function grievancePolicy(env: NodeJS.ProcessEnv = process.env): GrievancePolicy {
@@ -25,6 +27,8 @@ export function grievancePolicy(env: NodeJS.ProcessEnv = process.env): Grievance
     ackHours: num(env.GRIEVANCE_ACK_HOURS, 24),
     resolveDays: num(env.GRIEVANCE_RESOLVE_DAYS, 15),
     perHourLimit: num(env.GRIEVANCE_RATE_LIMIT_PER_HOUR, 5),
+    // DPDP Rules 2025: a request to exercise a right (ss.11-14) is answered within the grievance window, at most 90 days.
+    rightsRequestDays: num(env.GRIEVANCE_RIGHTS_REQUEST_DAYS, 90),
   };
 }
 

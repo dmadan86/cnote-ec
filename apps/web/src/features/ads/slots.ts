@@ -3,7 +3,7 @@ import { attributeEnquiry, getSponsoredSlots, isAdsEnabled, type SponsoredSlot }
 import { cookies } from "next/headers";
 import { safe } from "@/features/search/data";
 import { buyerLocation } from "@/features/search/geo";
-import { CONSENT_COOKIE, isGranted, parseConsent } from "@/features/consent/state";
+import { requireConsent } from "@/features/consent/server";
 import { PINCODE_COOKIE } from "@/features/shell/site";
 
 export const VISITOR_COOKIE = "cnote_vid";
@@ -15,7 +15,7 @@ export async function loadSponsoredForResults(o: { query: string; categoryId?: s
   return safe("ads.getSponsoredSlots", async () => {
     const jar = await cookies();
     // marketing storage: only read with the visitor's marketing consent
-    const visitorId = isGranted(parseConsent(jar.get(CONSENT_COOKIE)?.value), "marketing") ? (jar.get(VISITOR_COOKIE)?.value ?? null) : null;
+    const visitorId = requireConsent(jar, "marketing") ? (jar.get(VISITOR_COOKIE)?.value ?? null) : null;
     // "Deliver to" pincode -> geo-targeted campaigns (ads geoOk); unknown location matches only unrestricted campaigns
     return getSponsoredSlots({ ...o, visitorId, ...buyerLocation(jar.get(PINCODE_COOKIE)?.value) });
   }, [] as SponsoredSlot[]);
@@ -25,7 +25,7 @@ export async function loadSponsoredForResults(o: { query: string; categoryId?: s
 export async function attributeEnquiryFromCookie(i: { enquiryId: string; buyerBusinessId: string; listingId?: string | null }): Promise<void> {
   if (!isAdsEnabled()) return;
   const jar = await cookies();
-  if (!isGranted(parseConsent(jar.get(CONSENT_COOKIE)?.value), "marketing")) return;
+  if (!requireConsent(jar, "marketing")) return;
   const clickId = jar.get(AD_CLICK_COOKIE)?.value;
   if (!clickId) return;
   await safe("ads.attributeEnquiry", async () => void (await attributeEnquiry({ ...i, clickId })), undefined);

@@ -3,12 +3,18 @@ import { DomainError, rateLimit } from "@cnote/core";
 import { currentSession } from "@cnote/next-kit";
 import { clientIp } from "@cnote/security/client-ip";
 import { NextResponse, type NextRequest } from "next/server";
+import { syncCookieConsentToLedger } from "@/features/consent/ledger";
+import { registryHashFor } from "@/features/consent/policy";
 import { serverClearable } from "@/features/consent/registry";
 
 // Cookie-consent receipt + server-side withdrawal (DPDP s.6(10) proof of consent; docs/design/cookie-consent.md).
 // Called by the consent manager after every choice (client fetch with keepalive, so it works from the static pages).
 //  1. Persists a receipt: consent id, policy version, per-category choices, GPC flag, action, locale, time, and the
 //     personId when signed in. NO IP address and NO user agent are stored (the IP is only the rate-limit key).
+//     Idempotent on (consentId, at): the client keeps an unacknowledged receipt in localStorage and resends it until 200.
+//     The policy snapshot hash (what the visitor was shown) is added server-side from the committed snapshot.
+//  1b. Signed in: mirrors the choice into the identity consent ledger (analytics_cookies / marketing_cookies) so it follows
+//     the person across devices; the newer of ledger and receipt wins per purpose (features/consent/ledger.ts).
 //  2. When marketing is not granted, expires the httpOnly cookies the browser cannot delete itself (cnote_vid, cnote_ad_click).
 // Same-origin only, JSON only, tiny body, rate-limited per client IP. Never cached.
 export const dynamic = "force-dynamic";
@@ -53,10 +59,18 @@ export async function POST(req: NextRequest) {
   const session = await currentSession().catch(() => null);
   let saved: { id: string } | null = null;
   try {
-    saved = await recordCookieConsent(input, { personId: session?.personId ?? null });
+    const version = typeof input.policyVersion === "number" ? input.policyVersion : 0;
+    saved = await recordCookieConsent(input, { personId: session?.personId ?? null, registryHash: registryHashFor(version) });
   } catch (err) {
     if (err instanceof DomainError && err.code === "validation") return json(400, { error: "invalid", field: (err.details as { field?: string } | undefined)?.field ?? null });
     console.error("[web] /api/consent failed:", err instanceof Error ? err.message : err);
+  }
+
+  if (saved && session?.personId && typeof input.analytics === "boolean" && typeof input.marketing === "boolean") {
+    // Best effort: the receipt is the proof, the ledger is a convenience for other devices. Never fail the request over it.
+    await syncCookieConsentToLedger(session.personId, { analytics: input.analytics, marketing: input.marketing }, { clientAt: typeof input.at === "number" ? input.at : undefined }).catch((err) =>
+      console.error("[web] /api/consent ledger sync failed:", err instanceof Error ? err.message : err),
+    );
   }
 
   const res = json(saved ? 200 : 503, saved ? { ok: true } : { error: "unavailable" });

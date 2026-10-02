@@ -29,25 +29,29 @@ export interface StorageEntry {
   alsoServerSet?: boolean;
 }
 
-const fp = (name: string, category: StorageCategory, kind: StorageKind, purpose: string, duration: Duration, httpOnly = false): StorageEntry => ({
+const firstParty = (name: string, category: StorageCategory, kind: StorageKind, purpose: string, duration: Duration, httpOnly = false): StorageEntry => ({
   name, category, kind, provider: "firstParty", purpose, duration, ...(httpOnly ? { httpOnly } : {}),
 });
 const clarity = (name: string, purpose: string, duration: Duration): StorageEntry => ({ name, category: "analytics", kind: "cookie", provider: "clarity", purpose, duration });
 
 export const STORAGE_REGISTRY: readonly StorageEntry[] = [
   // --- strictly necessary -------------------------------------------------------------------------------------------
-  fp("cnote_consent", "necessary", "cookie", "consent", { unit: "months", n: 12 }),
+  firstParty("cnote_consent", "necessary", "cookie", "consent", { unit: "months", n: 12 }),
   // Auth cookies carry a `__Host-` prefix in production (packages/identity cookieNames). httpOnly, set by the server.
-  fp("cnote_web_at", "necessary", "cookie", "auth", { unit: "minutes", n: 15 }, true),
-  fp("cnote_web_rt", "necessary", "cookie", "session", { unit: "days", n: 30 }, true),
-  fp("cnote_web_oauth", "necessary", "cookie", "oauth", { unit: "minutes", n: 10 }, true),
-  fp("cnote_web_mfa", "necessary", "cookie", "mfa", { unit: "minutes", n: 5 }, true),
-  fp("cnote_locale", "necessary", "cookie", "locale", { unit: "years", n: 1 }),
-  fp("cnote_rail", "necessary", "cookie", "rail", { unit: "years", n: 1 }),
-  fp("cnote_pincode", "necessary", "cookie", "pincode", { unit: "years", n: 1 }),
-  fp("cnote_compare", "necessary", "cookie", "compare", { unit: "days", n: 7 }),
-  fp("cnote_lang_suggestion_dismissed", "necessary", "localStorage", "langSuggestion", { unit: "persistent" }),
-  fp("cnote_voice_consent_v1", "necessary", "localStorage", "voiceConsent", { unit: "persistent" }),
+  // The consent record itself, so strictly necessary (DPDP s.6(10) proof): the receipt not yet acknowledged by the server
+  // (resent on the next load until it gets a 200, then deleted) and the once-per-visit "checked against your account" flag.
+  firstParty("cnote_consent_pending", "necessary", "localStorage", "consentPending", { unit: "persistent" }),
+  firstParty("cnote_consent_sync", "necessary", "sessionStorage", "consentSync", { unit: "session" }),
+  firstParty("cnote_web_at", "necessary", "cookie", "auth", { unit: "minutes", n: 15 }, true),
+  firstParty("cnote_web_rt", "necessary", "cookie", "session", { unit: "days", n: 30 }, true),
+  firstParty("cnote_web_oauth", "necessary", "cookie", "oauth", { unit: "minutes", n: 10 }, true),
+  firstParty("cnote_web_mfa", "necessary", "cookie", "mfa", { unit: "minutes", n: 5 }, true),
+  firstParty("cnote_locale", "necessary", "cookie", "locale", { unit: "years", n: 1 }),
+  firstParty("cnote_rail", "necessary", "cookie", "rail", { unit: "years", n: 1 }),
+  firstParty("cnote_pincode", "necessary", "cookie", "pincode", { unit: "years", n: 1 }),
+  firstParty("cnote_compare", "necessary", "cookie", "compare", { unit: "days", n: 7 }),
+  firstParty("cnote_lang_suggestion_dismissed", "necessary", "localStorage", "langSuggestion", { unit: "persistent" }),
+  firstParty("cnote_voice_consent_v1", "necessary", "localStorage", "voiceConsent", { unit: "persistent" }),
   // --- analytics: Microsoft Clarity (only when NEXT_PUBLIC_CLARITY_PROJECT_ID is set AND analytics is granted) ----------
   clarity("_clck", "clarityId", { unit: "years", n: 1 }),
   clarity("_clsk", "claritySession", { unit: "days", n: 1 }),
@@ -58,12 +62,12 @@ export const STORAGE_REGISTRY: readonly StorageEntry[] = [
   clarity("SM", "clarityMs", { unit: "session" }),
   // --- marketing and attribution ------------------------------------------------------------------------------------
   // Written by the client (features/leadgen/visitor.ts) and, on ad clicks / similar-products, by the server as httpOnly.
-  { ...fp("cnote_vid", "marketing", "cookie", "visitor", { unit: "days", n: 30 }), alsoServerSet: true },
-  fp("cnote_ad_click", "marketing", "cookie", "adClick", { unit: "days", n: 7 }, true),
-  fp("cnote_attr", "marketing", "sessionStorage", "attribution", { unit: "session" }),
-  fp("cnote_lg_v1", "marketing", "localStorage", "nudgeHistory", { unit: "persistent" }),
-  fp("cnote_lg_views", "marketing", "sessionStorage", "nudgeViews", { unit: "session" }),
-  fp("cnote_lg_session", "marketing", "sessionStorage", "nudgeSession", { unit: "session" }),
+  { ...firstParty("cnote_vid", "marketing", "cookie", "visitor", { unit: "days", n: 30 }), alsoServerSet: true },
+  firstParty("cnote_ad_click", "marketing", "cookie", "adClick", { unit: "days", n: 7 }, true),
+  firstParty("cnote_attr", "marketing", "sessionStorage", "attribution", { unit: "session" }),
+  firstParty("cnote_lg_v1", "marketing", "localStorage", "nudgeHistory", { unit: "persistent" }),
+  firstParty("cnote_lg_views", "marketing", "sessionStorage", "nudgeViews", { unit: "session" }),
+  firstParty("cnote_lg_session", "marketing", "sessionStorage", "nudgeSession", { unit: "session" }),
 ];
 
 export const CATEGORIES: readonly StorageCategory[] = ["necessary", "analytics", "marketing"];

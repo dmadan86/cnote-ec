@@ -24,8 +24,9 @@ describe("util + config", () => {
     }
   });
   it("policy defaults and env overrides (invalid values fall back)", () => {
-    expect(grievancePolicy({})).toEqual({ ackHours: 24, resolveDays: 15, perHourLimit: 5 });
-    expect(grievancePolicy({ GRIEVANCE_ACK_HOURS: "12", GRIEVANCE_RESOLVE_DAYS: "30", GRIEVANCE_RATE_LIMIT_PER_HOUR: "x" })).toEqual({ ackHours: 12, resolveDays: 30, perHourLimit: 5 });
+    expect(grievancePolicy({})).toEqual({ ackHours: 24, resolveDays: 15, perHourLimit: 5, rightsRequestDays: 90 });
+    expect(grievancePolicy({ GRIEVANCE_ACK_HOURS: "12", GRIEVANCE_RESOLVE_DAYS: "30", GRIEVANCE_RATE_LIMIT_PER_HOUR: "x" })).toEqual({ ackHours: 12, resolveDays: 30, perHourLimit: 5, rightsRequestDays: 90 });
+    expect(grievancePolicy({ GRIEVANCE_RIGHTS_REQUEST_DAYS: "45" }).rightsRequestDays).toBe(45);
     expect(numFromEnv("0", 7)).toBe(7);
     expect(numFromEnv("", 7)).toBe(7);
     expect(grievancePolicy().ackHours).toBe(24);

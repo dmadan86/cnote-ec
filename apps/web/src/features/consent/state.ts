@@ -48,6 +48,20 @@ const ID_RE = /^[a-f0-9]{32}$/;
 /** Tolerated clock skew between the browser that wrote the cookie and the reader. */
 const SKEW_SECONDS = 300;
 
+/**
+ * The consent id inside a `cnote_consent` cookie VALUE, WITHOUT the version / age checks of parseConsent: a visitor whose
+ * choice expired or whose policy version moved on can still look up and download the record of what they chose.
+ */
+export function consentIdFromCookieValue(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const id = new URLSearchParams(decodeURIComponent(raw)).get("id");
+    return id && ID_RE.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 export const isConsentId = (v: unknown): v is string => typeof v === "string" && ID_RE.test(v);
 
 export function newConsentId(): string {
@@ -136,14 +150,21 @@ export function deriveAction(requested: Exclude<ConsentAction, "withdraw">, prev
   return withdrew ? "withdraw" : requested;
 }
 
-export function buildConsent(choices: ConsentChoices, o: { gpc: boolean; prev?: ConsentState | null; now?: number }): ConsentState {
+export function buildConsent(
+  choices: ConsentChoices,
+  o: { gpc: boolean; prev?: ConsentState | null; now?: number; /** unix seconds; overrides the clock (account sync adopts the ledger's time) */ at?: number },
+): ConsentState {
+  // `at` is strictly increasing per consent id: the server dedupes receipts on (id, at), so two different choices must
+  // never share a second (a double click, a scripted test).
+  const stamp = o.at ?? Math.floor((o.now ?? Date.now()) / 1000);
+  const at = o.prev && stamp <= o.prev.at ? o.prev.at + 1 : stamp;
   return {
     version: CONSENT_POLICY_VERSION,
     id: o.prev?.id ?? newConsentId(),
     analytics: choices.analytics,
     marketing: choices.marketing,
     gpc: o.gpc,
-    at: Math.floor((o.now ?? Date.now()) / 1000),
+    at,
   };
 }
 

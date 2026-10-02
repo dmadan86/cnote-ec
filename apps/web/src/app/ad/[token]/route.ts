@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { isLocale, localizePath } from "@/i18n/config";
 import { AD_CLICK_COOKIE, VISITOR_COOKIE } from "@/features/ads/slots";
-import { CONSENT_COOKIE, isGranted, parseConsent } from "@/features/consent/state";
+import { requireConsent } from "@/features/consent/server";
 
 // Sponsored click redirect (ADR-024): verifies the signed single-use token, records the click (valid / pending / invalid,
 // charged only when valid), then 302s to the product. Never cached, never indexed, and it always redirects, even on failure.
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
   const locale = isLocale(lp) ? lp : "en";
   // ePrivacy Art 5(3) / DPDP s.6: cnote_vid and cnote_ad_click are marketing storage. Read or set them only with the
   // visitor's "marketing" consent (cnote_consent); the click is still recorded and the redirect still works without it.
-  const marketing = isGranted(parseConsent(req.cookies.get(CONSENT_COOKIE)?.value), "marketing");
+  const marketing = requireConsent(req, "marketing");
   const existing = marketing ? req.cookies.get(VISITOR_COOKIE)?.value : undefined;
   const visitorId = existing ?? randomUUID();
   let target = localizePath("/", locale);

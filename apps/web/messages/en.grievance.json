@@ -45,6 +45,21 @@
     },
     "filed": "Filed {date} · Reference <code>{id}</code>",
     "respondBy": "We will respond by {date}",
-    "officerResponse": "Response from our Grievance Officer"
+    "officerResponse": "Response from our Grievance Officer",
+    "requestType": "What would you like to do?",
+    "chooseRequestType": "Choose one",
+    "type": {
+      "access": "Get a copy of my personal data",
+      "correction": "Correct my personal data",
+      "erasure": "Erase my personal data",
+      "nomination": "Nominate someone to act for me (nominee)",
+      "withdraw_consent": "Withdraw my consent",
+      "complaint": "Make a complaint"
+    },
+    "complaintCategory": "What is the complaint about?",
+    "consentId": "Cookie consent ID (optional)",
+    "consentIdHint": "Add it if this is about your cookie choice. We fill it in when this browser has one.",
+    "slaRights": "Requests to use your data rights are answered within {days} days.",
+    "rightsRequest": "Data rights request"
   }
 }

@@ -38,7 +38,10 @@ export default async function MyGrievancesPage() {
                 <CardBody className="flex flex-col gap-2 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h2 className="text-base font-semibold text-ink">{g.subject}</h2>
-                    <Badge tone={TONE[g.status]}>{t(`status.${g.status}`)}</Badge>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone="brand">{t(`type.${g.requestType}`)}</Badge>
+                      <Badge tone={TONE[g.status]}>{t(`status.${g.status}`)}</Badge>
+                    </div>
                   </div>
                   <p className="text-muted">
                     {t.rich("filed", { date: day(g.createdAt), id: g.id, code: (c) => <code className="break-all">{c}</code> })}

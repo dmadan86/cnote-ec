@@ -41,6 +41,7 @@ export default async function GrievancePage() {
                 <p className="text-muted">{t("officerFallback")}</p>
               )}
               <p className="text-muted">{t("sla", { hours: policy.ackHours, days: policy.resolveDays })}</p>
+              <p className="text-muted">{t("slaRights", { days: policy.rightsRequestDays })}</p>
             </CardBody>
           </Card>
           {s ? (

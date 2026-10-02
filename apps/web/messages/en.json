@@ -398,7 +398,9 @@
       "attribution": "Records the campaign link (UTM) or website you came from, for this visit.",
       "nudgeHistory": "Counts how often we showed a supplier-quote prompt, so we do not repeat it too often.",
       "nudgeViews": "Counts the products you viewed in this visit, to decide when to show a quote prompt.",
-      "nudgeSession": "Marks the start of this visit for the quote prompt."
+      "nudgeSession": "Marks the start of this visit for the quote prompt.",
+      "consentPending": "Holds your latest cookie choice until our server confirms it has saved the record of it.",
+      "consentSync": "Remembers, for this visit only, that your cookie choice was checked against your account."
     },
     "policyTitle": "Cookie policy",
     "policyDescription": "Which cookies and similar storage {site} uses, why, for how long, and how to change your choice.",
@@ -418,7 +420,14 @@
     "grievanceTitle": "Questions or complaints",
     "grievanceBody": "Contact our Grievance Officer if you have a question or complaint about how we use cookies or your personal data.",
     "grievanceLink": "Grievance redressal",
-    "accountBody": "Change your cookie choices for analytics and marketing on this device at any time."
+    "accountBody": "Change your cookie choices for analytics and marketing on this device at any time.",
+    "consentIdLabel": "Your consent ID:",
+    "consentIdHelp": "Quote this ID if you contact us about your cookie choice. It identifies this browser, not you.",
+    "copyId": "Copy ID",
+    "idCopied": "Consent ID copied.",
+    "idCopyFailed": "Could not copy. Select the ID and copy it by hand.",
+    "noChoiceYet": "You have not made a choice yet, so there is no consent ID.",
+    "downloadRecord": "Download my consent record"
   },
   "leadgen": {
     "nudgeAria": "Get prices from suppliers",
