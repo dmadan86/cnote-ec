@@ -64,11 +64,17 @@ const digest = (phone: string, code: string) => createHmac("sha256", jwtKey()).u
 
 export type LoginContext = AuthContext & { visitorId?: string | null };
 
+/** Back-office accounts sign in with password/Google + MFA only; an SMS code must never mint an admin session. */
+const refuseAdminRealm = (ctx: Pick<AuthContext, "realm">) => {
+  if (ctx.realm === "admin") throw new DomainError("forbidden", "Phone sign-in is not available here.");
+};
+
 export async function requestLoginOtp(
   phoneInput: string,
   ctx: LoginContext,
   opts: { channel?: OtpChannel } = {},
 ): Promise<{ sent: true; phone: string; phoneHash: string; channel: OtpChannel; resendAfterSeconds: number; devCode?: string }> {
+  refuseAdminRealm(ctx);
   const phone = normalisePhone(phoneInput);
   const channel: OtpChannel = opts.channel === "whatsapp" ? "whatsapp" : "sms";
   await enforceLimit(`lotp:cool:${sha256(phone)}`, 1, RESEND_COOLDOWN, "Please wait a few seconds before requesting another code.");
@@ -95,6 +101,7 @@ export async function verifyLoginOtp(
   ctx: LoginContext,
   opts: { consents?: Partial<Record<ConsentPurpose, boolean>> } = {},
 ): Promise<AuthTokens> {
+  refuseAdminRealm(ctx);
   const phone = normalisePhone(phoneInput);
   await enforceLimit(`lotp:verify-ip:${ctx.ip ?? "unknown"}`, 30, 600, "Too many attempts. Try again later.");
   const bad = () => new DomainError("validation", "That code is incorrect or has expired.");

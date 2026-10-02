@@ -6,7 +6,7 @@ import { prisma } from "@cnote/db";
 import { setSecurityEventSink, type SecurityEvent } from "@cnote/security";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  getSession, passwordProblem, refreshSession, requestLoginOtp, requestPasswordReset, requestPhoneOtp, resetPassword, setMailer, setOtpSender, signInWithPassword, signOut, signUpWithPassword,
+  getSession, passwordProblem, refreshSession, requestLoginOtp, verifyLoginOtp, requestPasswordReset, requestPhoneOtp, resetPassword, setMailer, setOtpSender, signInWithPassword, signOut, signUpWithPassword,
   type OtpSender,
 } from "../src";
 import { ACCOUNT_BURST_THRESHOLD, FREE_FAILURES, MFA_FREE_FAILURES, backoffRemaining, backoffSeconds, clearFailures, knownIp, recordFailure } from "../src/auth-guard";
@@ -70,6 +70,18 @@ describe("OTP_DEV_ECHO is never honoured in production", () => {
     expect(sent.at(-1)!.code).toMatch(/^\d{6}$/); // the code still went out through the sender
     const login = await requestLoginOtp(`+9171${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}`, { ip: uid(), userAgent: null, visitorId: uid() });
     expect(login).not.toHaveProperty("devCode");
+    setOtpSender(undefined);
+  });
+});
+
+describe("phone login is refused for the admin realm", () => {
+  it("requestLoginOtp and verifyLoginOtp throw before sending or verifying anything", async () => {
+    const sent: unknown[] = [];
+    setOtpSender({ async send(m) { sent.push(m); } });
+    const ctx = { ip: uid(), userAgent: null, realm: "admin" as const };
+    await expect(requestLoginOtp("+917000000001", ctx)).rejects.toMatchObject({ code: "forbidden" });
+    await expect(verifyLoginOtp("+917000000001", "123456", ctx)).rejects.toMatchObject({ code: "forbidden" });
+    expect(sent).toHaveLength(0);
     setOtpSender(undefined);
   });
 });
