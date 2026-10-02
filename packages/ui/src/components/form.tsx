@@ -6,7 +6,7 @@ const control =
   "focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:bg-canvas aria-invalid:border-danger";
 
 export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn(control, "h-10", className)} {...rest} />;
+  return <input className={cn(control, "h-11 lg:h-10", className)} {...rest} />;
 }
 
 export function Textarea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
@@ -14,7 +14,7 @@ export function Textarea({ className, ...rest }: TextareaHTMLAttributes<HTMLText
 }
 
 export function Select({ className, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn(control, "h-10", className)} {...rest} />;
+  return <select className={cn(control, "h-11 lg:h-10", className)} {...rest} />;
 }
 
 export function Label({ className, ...rest }: LabelHTMLAttributes<HTMLLabelElement>) {

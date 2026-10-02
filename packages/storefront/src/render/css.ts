@@ -50,7 +50,7 @@ export const STOREFRONT_CSS = `
 .sf-tone-brand .sf-card a{color:var(--sf-primary)}
 .sf-card .sf-img,.sf-card .sf-ph{border-radius:0;aspect-ratio:1/1;border:0}
 .sf-card-body{padding:12px 14px 16px;display:flex;flex-direction:column;gap:4px}
-.sf-card a.sf-title{color:var(--sf-text);text-decoration:none;font-weight:650;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sf-card a.sf-title{min-height:44px;color:var(--sf-text);text-decoration:none;font-weight:650;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .sf-card a.sf-title:hover{text-decoration:underline}
 .sf-price{font-weight:700}
 .sf-stats{display:grid;gap:16px;grid-template-columns:repeat(2,minmax(0,1fr));list-style:none;padding:0}

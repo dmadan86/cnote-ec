@@ -71,7 +71,7 @@ export default async function HelpArticlePage(props: Props) {
             <ul className="mt-2 flex flex-col gap-1">
               {a.links.map((l) => (
                 <li key={l}>
-                  <Link href={LINKS[l]} className="inline-flex min-h-8 items-center font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-900">
+                  <Link href={LINKS[l]} className="inline-flex min-h-11 items-center lg:min-h-8 font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-900">
                     {t(`link.${l}`)}
                   </Link>
                 </li>
@@ -107,7 +107,7 @@ export default async function HelpArticlePage(props: Props) {
       ) : null}
 
       <p className="mt-8">
-        <Link href={`/help/${a.topic}`} className="inline-flex min-h-8 items-center font-semibold text-brand-700 underline underline-offset-2">
+        <Link href={`/help/${a.topic}`} className="inline-flex min-h-11 items-center lg:min-h-8 font-semibold text-brand-700 underline underline-offset-2">
           {t("backToTopic", { topic: topicTitle })}
         </Link>
       </p>
