@@ -48,7 +48,7 @@ describe("consent policy snapshots", () => {
 
   it("the snapshot hash a receipt stores is the sha256 of the live notice", () => {
     expect(registryHashFor(CONSENT_POLICY_VERSION)).toMatch(/^[a-f0-9]{64}$/);
-    expect(registryHashFor(CONSENT_POLICY_VERSION)).toBe(hashSnapshot(JSON.parse(stableStringify(live))));
+    expect(registryHashFor(CONSENT_POLICY_VERSION)).toBe(hashSnapshot(POLICY_SNAPSHOTS[CONSENT_POLICY_VERSION])); // live == committed is asserted above, so this is the live notice too
     expect(registryHashFor(9_999)).toBeNull();
   });
 
