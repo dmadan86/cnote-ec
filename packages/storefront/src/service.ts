@@ -2,7 +2,7 @@
 // staff review queue, suspension and cached public reads. Owns only the Storefront* tables.
 import { createHash, randomBytes } from "node:crypto";
 import * as ai from "@cnote/ai";
-import { cachedTagged, cacheTags, DomainError, emit, rateLimit } from "@cnote/core";
+import { cachedManyTagged, cachedTagged, cacheTags, DomainError, emit, rateLimit } from "@cnote/core";
 import { prisma, type Prisma, type Tx } from "@cnote/db";
 import { getTrustProfiles } from "@cnote/identity";
 import { purgeStorefront, storefrontTag } from "./cache";
@@ -591,6 +591,30 @@ export async function listLiveStorefrontSlugs(limit = 100): Promise<{ slug: stri
 export async function storefrontSlugForBusiness(sellerBusinessId: string): Promise<string | null> {
   const r = await prisma.storefront.findUnique({ where: { sellerBusinessId }, select: { slug: true } });
   return r?.slug ?? null;
+}
+
+/**
+ * Slug of each seller's LIVE (published, non-suspended) storefront, for linking from the supplier profile.
+ * Sellers without a live storefront are absent. Cached per seller (5 min + SWR); publish/suspend purge `seller:<id>`.
+ */
+export async function getLiveStorefrontSlugs(sellerBusinessIds: string[]): Promise<Map<string, string>> {
+  const found = await cachedManyTagged<{ slug: string | null }>(sellerBusinessIds, {
+    prefix: "storefront:live-slug:v1",
+    tags: (id) => [cacheTags.seller(id)],
+    ttlSeconds: 300,
+    staleSeconds: 900,
+    load: async (missing) => {
+      const rows = await prisma.storefront.findMany({
+        where: { sellerBusinessId: { in: missing }, status: "live", publishedVersionId: { not: null } },
+        select: { sellerBusinessId: true, slug: true },
+      });
+      const by = new Map(rows.map((r) => [r.sellerBusinessId, r.slug]));
+      return new Map(missing.map((id) => [id, { slug: by.get(id) ?? null }]));
+    },
+  });
+  const out = new Map<string, string>();
+  for (const [id, v] of found) if (v.slug) out.set(id, v.slug);
+  return out;
 }
 
 export async function storefrontSlugById(id: string): Promise<string | null> {

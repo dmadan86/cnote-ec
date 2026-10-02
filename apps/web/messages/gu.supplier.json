@@ -1,0 +1,112 @@
+{
+  "supplier": {
+    "card": {
+      "heading": "સપ્લાયર",
+      "whatsVerified": "શું ચકાસાયેલ છે",
+      "checksPassed": "{passed, plural, one {# તપાસ પૂર્ણ} other {# તપાસો પૂર્ણ}}",
+      "responseTime": "પ્રતિસાદ સમય",
+      "acceptRate": "લીડ સ્વીકાર દર",
+      "onPlatform": "પ્લેટફોર્મ પર",
+      "location": "સ્થળ",
+      "rating": "રેટિંગ",
+      "noReviews": "હજી કોઈ સમીક્ષા નથી",
+      "newSupplier": "નવા સપ્લાયર",
+      "newSupplierHint": "પૂરતી તાજેતરની લીડ પછી પ્રતિસાદના આંકડા દેખાશે.",
+      "viewProfile": "પ્રોફાઇલ જુઓ",
+      "contact": "સપ્લાયરનો સંપર્ક કરો",
+      "india": "ભારત",
+      "products": "લાઇવ ઉત્પાદનો"
+    },
+    "values": {
+      "minutes": "{n, plural, one {# મિનિટ} other {# મિનિટ}}",
+      "hours": "{n, plural, one {# કલાક} other {# કલાક}}",
+      "days": "{n, plural, one {# દિવસ} other {# દિવસ}}",
+      "typical": "સામાન્ય રીતે {duration}માં જવાબ આપે છે",
+      "noReplies": "હજી કોઈ જવાબ નથી",
+      "acceptPct": "{pct}% સ્વીકાર્યા",
+      "years": "{years, plural, one {# વર્ષ} other {# વર્ષ}}",
+      "joinedYear": "{year}માં જોડાયા",
+      "ratingValue": "5માંથી {average} ({count, plural, one {# સમીક્ષા} other {# સમીક્ષાઓ}})",
+      "window": "છેલ્લા 90 દિવસ"
+    },
+    "checks": {
+      "phone": "ફોન નંબર ચકાસાયેલ",
+      "gstin": "GST રજિસ્ટ્રીમાં GSTIN ચકાસાયેલ",
+      "gstin_name_match": "GST નામ વ્યવસાયના નામ સાથે મેળ ખાય છે",
+      "udyam": "ઉદ્યમ નોંધણી",
+      "documents": "દસ્તાવેજો અને KYC તપાસાયા",
+      "audit": "સ્વતંત્ર ઓડિટ"
+    },
+    "checkDesc": {
+      "phone": "માલિકના ફોન પર એકવારનો કોડ પુષ્ટિ થયો.",
+      "gstin": "GSTIN GST રજિસ્ટ્રીમાં સક્રિય છે.",
+      "gstin_name_match": "GST નોંધણીનું નામ અહીં બતાવેલા વ્યવસાયના નામ સાથે મેળ ખાય છે.",
+      "udyam": "ઉદ્યમ નોંધણી નંબર નોંધાયેલો છે.",
+      "documents": "વ્યવસાયના દસ્તાવેજો અને વિડિયો KYC ચકાસાયા.",
+      "audit": "ત્રીજા પક્ષના ઓડિટ ભાગીદારે વ્યવસાયનું નિરીક્ષણ કર્યું."
+    },
+    "evidence": {
+      "passedOn": "{date}એ પૂર્ણ",
+      "notDone": "પૂર્ણ થયું નથી",
+      "gstinOnFile": "નોંધાયેલ GSTIN: {gstin}",
+      "list": "ચકાસણીની તપાસો"
+    },
+    "profile": {
+      "tabsLabel": "સપ્લાયર વિભાગો",
+      "about": "પરિચય",
+      "products": "ઉત્પાદનો",
+      "reviews": "સમીક્ષાઓ",
+      "verification": "ચકાસણી",
+      "requestQuote": "ક્વોટેશન માગો",
+      "contact": "સંપર્ક કરો",
+      "share": "શેર કરો",
+      "shareCopied": "લિંક કૉપી થઈ",
+      "report": "રિપોર્ટ કરો",
+      "storefront": "સ્ટોરફ્રન્ટ જુઓ",
+      "actions": "સપ્લાયર ક્રિયાઓ"
+    },
+    "about": {
+      "title": "આ સપ્લાયર વિશે",
+      "categories": "ઉત્પાદન શ્રેણીઓ",
+      "languages": "ભાષાઓ",
+      "location": "સ્થળ",
+      "memberSince": "પ્લેટફોર્મ પર જોડાયાનું વર્ષ",
+      "listings": "લાઇવ ઉત્પાદનો"
+    },
+    "products": {
+      "filterLabel": "શ્રેણી મુજબ ઉત્પાદનો ફિલ્ટર કરો",
+      "all": "બધા",
+      "showing": "{count, plural, one {# ઉત્પાદન} other {# ઉત્પાદનો}} બતાવી રહ્યા છીએ"
+    },
+    "reviews": {
+      "title": "સમીક્ષાઓ",
+      "summary": "રેટિંગ સારાંશ",
+      "forProduct": "{product} પર",
+      "verifiedEnquiry": "ચકાસાયેલ પૂછપરછ",
+      "sellerReply": "સપ્લાયરનો જવાબ",
+      "none": "હજી કોઈ સમીક્ષા નથી.",
+      "starsRow": "{stars}-સ્ટાર સમીક્ષાઓ: {count}"
+    },
+    "verification": {
+      "title": "ચકાસણીનો પુરાવો",
+      "intro": "નીચેની દરેક તપાસ બતાવેલી તારીખે પૂર્ણ થઈ. પૂર્ણ ન થયેલી પણ સૂચિબદ્ધ છે.",
+      "explainer": "ચકાસણી કેવી રીતે કામ કરે છે",
+      "level": "ચકાસણી સ્તર: {tier}",
+      "notice": "બેજ ફક્ત પૂર્ણ થયેલી તપાસો દર્શાવે છે. તે વેચાતા નથી અને ચૂકવણીવાળા પ્લાન પર આધારિત નથી."
+    },
+    "compare": {
+      "highlight": "તફાવતો હાઇલાઇટ કરો",
+      "differs": "અલગ",
+      "tier": "ચકાસણી",
+      "location": "સ્થળ",
+      "response": "પ્રતિસાદ સમય",
+      "accept": "લીડ સ્વીકાર દર",
+      "rating": "સપ્લાયર રેટિંગ",
+      "years": "પ્લેટફોર્મ પર વર્ષો",
+      "listings": "લાઇવ ઉત્પાદનો",
+      "priceTiers": "ભાવ સ્તરો",
+      "tierQty": "{qty}+ એકમો",
+      "checks": "{count, plural, one {# તપાસ પૂર્ણ} other {# તપાસો પૂર્ણ}}"
+    }
+  }
+}

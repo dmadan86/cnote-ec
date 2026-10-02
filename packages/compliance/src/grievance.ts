@@ -5,7 +5,8 @@ import { z } from "zod";
 import { grievancePolicy } from "./config";
 import { isUuid, maskEmail, parse } from "./util";
 
-export const GRIEVANCE_CATEGORIES = ["access", "correction", "erasure", "consent", "content", "other"] as const;
+export const GRIEVANCE_CATEGORIES = ["access", "correction", "erasure", "consent", "content", "report", "other"] as const;
+// "report" = abuse / IPR takedown notice filed from the public /report page (IT Rules 2021 r.3(1)(d)); same ticket queue.
 export type GrievanceCategory = (typeof GRIEVANCE_CATEGORIES)[number];
 export type GrievanceStatus = "open" | "in_progress" | "resolved" | "rejected";
 

@@ -50,13 +50,16 @@ afterAll(async () => {
   const ids = (await prisma.listing.findMany({ where: { sellerBusinessId: { in: biz } }, select: { id: true } })).map((l) => l.id);
   await prisma.domainEvent.deleteMany({ where: { aggregateId: { in: ids } } }).catch(() => {});
   await liveDb.liveListing.deleteMany({ where: { id: { in: ids } } });
-  await liveDb.projectionCheckpoint.deleteMany({});
+  // scoped to OUR version ids: a global delete would erase another file's checkpoint mid-test (lifecycle.db reads its own)
+  const versionIds = (await prisma.listingVersion.findMany({ where: { listingId: { in: ids } }, select: { id: true } })).map((v) => v.id);
+  await liveDb.projectionCheckpoint.deleteMany({ where: { key: { in: versionIds } } });
   await prisma.listing.updateMany({ where: { id: { in: ids } }, data: { liveVersionId: null } });
   await prisma.listingVersion.deleteMany({ where: { listingId: { in: ids } } });
   await prisma.listingPriceHistory.deleteMany({ where: { listing: { sellerBusinessId: { in: biz } } } }).catch(() => {});
   await prisma.listing.deleteMany({ where: { sellerBusinessId: { in: biz } } });
   await prisma.business.deleteMany({ where: { id: { in: biz } } });
-  await prisma.category.deleteMany({ where: { slug: { endsWith: tag } } });
+  // tolerate a foreign draft: draftListingFromText/Photos fall back to the first category in the DB, so a parallel file may still reference this one
+  await prisma.category.deleteMany({ where: { slug: { endsWith: tag } } }).catch(() => {});
 });
 
 describe("findSellerCandidates", () => {
