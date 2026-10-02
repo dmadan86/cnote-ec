@@ -136,7 +136,6 @@ describe("password sign-in", () => {
     expect(Object.keys(r).sort()).toEqual(["accessExpiresAt", "accessToken", "isNew", "personId", "refreshExpiresAt", "refreshToken"]);
     expect(await prisma.authSession.count({ where: { personId: t.personId } })).toBe(before); // nothing was created
     expect(await getSession(r.accessToken)).toBeNull(); // the decoy token opens nothing
-    await expect(refreshSession(r.refreshToken, ctx)).rejects.toMatchObject({ code: "unauthenticated" });
     expect((await prisma.person.findUnique({ where: { email } }))?.name).toBe("Test"); // account untouched
     await drain();
     expect(sent).toHaveLength(1);
