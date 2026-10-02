@@ -12,12 +12,14 @@ export const CATEGORY_META: Record<NotificationCategory, { label: string; descri
   billing: { label: "Billing and credits", description: "Credits, plans, payments, escrow, financing and ad campaign/wallet alerts." },
   security: { label: "Security", description: "Sign-in and account security alerts." },
   marketing: { label: "Offers and product news", description: "Tips, offers and announcements." },
+  alerts: { label: "Alerts you turned on", description: "Price drops and back-in-stock on saved items, new listings from suppliers you follow and saved-search matches. Each alert type is opt-in." },
 };
 
 export const CHANNEL_LABEL: Record<NotificationChannel, string> = { in_app: "In-app", email: "Email", whatsapp: "WhatsApp", sms: "SMS" };
 
 const DEFAULT_EMAIL: Record<NotificationCategory, boolean> = {
   leads: true, messages: true, security: true, billing: true, reviews: false, listings: false, marketing: false,
+  alerts: true, // each alert TYPE is opt-in in @cnote/alerts; this only picks the channel
 };
 
 export function defaultPreference(category: NotificationCategory): Record<NotificationChannel, boolean> {

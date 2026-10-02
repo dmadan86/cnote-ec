@@ -25,6 +25,9 @@
     "manufacturers": "உற்பத்தியாளர்கள்",
     "pricing": "விலை",
     "requestQuote": "விலைப்புள்ளி கோரு",
-    "signIn": "உள்நுழை"
+    "signIn": "உள்நுழை",
+    "suppliers": "பின்தொடரும் சப்ளையர்கள்",
+    "savedSearches": "சேமித்த தேடல்கள்",
+    "alerts": "அறிவிப்புகள்"
   }
 }

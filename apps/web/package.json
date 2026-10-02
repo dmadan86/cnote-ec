@@ -14,6 +14,7 @@
     "@cnote/a2a": "workspace:*",
     "@cnote/ads": "workspace:*",
     "@cnote/ai": "workspace:*",
+    "@cnote/alerts": "workspace:*",
     "@cnote/billing": "workspace:*",
     "@cnote/catalogue": "workspace:*",
     "@cnote/compliance": "workspace:*",

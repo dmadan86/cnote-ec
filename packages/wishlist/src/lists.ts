@@ -262,6 +262,29 @@ export async function savedCountFor(listingIds: string[]): Promise<Map<string, n
   return out;
 }
 
+/**
+ * People who currently have `listingId` saved, with the price they saw when they saved it (for price-drop alerts). Distinct per
+ * person; capped. Feeds an event handler only, never a seller-facing view (buyers stay anonymous).
+ */
+export async function listSaversOfListing(listingId: string, limit = 5000): Promise<{ personId: string; savedPricePaise: number | null }[]> {
+  if (!UUID.test(listingId)) return [];
+  const rows = await prisma.wishlistItem.findMany({
+    where: { listingId },
+    select: { savedPricePaise: true, wishlist: { select: { personId: true } } },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+  });
+  const out = new Map<string, number | null>();
+  for (const r of rows) {
+    const p = r.wishlist.personId;
+    const price = r.savedPricePaise === null ? null : Number(r.savedPricePaise);
+    const prev = out.get(p);
+    // a person with the listing in several lists: keep the highest price they saw
+    if (!out.has(p) || (price !== null && (prev === null || (prev !== undefined && price > prev)))) out.set(p, price);
+  }
+  return [...out].map(([personId, savedPricePaise]) => ({ personId, savedPricePaise }));
+}
+
 /** Erasure (ADR-010): deletes all of the person's lists and items. Idempotent. */
 export async function erasePersonWishlists(personId: string): Promise<void> {
   await prisma.wishlist.deleteMany({ where: { personId } });

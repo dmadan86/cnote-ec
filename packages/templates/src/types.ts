@@ -1,5 +1,5 @@
 export type TemplateChannel = "email" | "in_app" | "sms" | "whatsapp";
-export type TemplateCategory = "transactional" | "security" | "marketing";
+export type TemplateCategory = "transactional" | "security" | "marketing" | "alert";
 
 export interface TemplateVariable {
   name: string; // "buyerName" → {{buyerName}}

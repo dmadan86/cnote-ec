@@ -5,7 +5,7 @@ export type { WishlistSummary, WishlistDetail, WishlistItemView } from "./types"
 export { DEFAULT_LIST_NAME, MAX_LISTS_PER_PERSON, MAX_ITEMS_PER_LIST, MAX_NOTE_LENGTH, MAX_NAME_LENGTH } from "./constants";
 export {
   getOrCreateDefaultList, listLists, getList, createList, renameList, deleteList,
-  addItem, removeItem, removeFromAll, moveItem, updateNote, isSaved, listSavedListingIds, countSaved, savedCountFor, erasePersonWishlists,
+  addItem, removeItem, removeFromAll, moveItem, updateNote, isSaved, listSavedListingIds, countSaved, savedCountFor, erasePersonWishlists, listSaversOfListing,
 } from "./lists";
 export {
   COMPARE_COOKIE, COMPARE_MAX, COMPARE_COOKIE_MAX_AGE, parseCompareIds, serializeCompareIds, addToCompare, type CompareAddResult,

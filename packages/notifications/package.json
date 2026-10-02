@@ -11,6 +11,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@cnote/alerts": "workspace:*",
     "@cnote/catalogue": "workspace:*",
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",

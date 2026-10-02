@@ -5,7 +5,7 @@ import type { TemplateVariable } from "@cnote/templates";
 export const NOTIFICATION_APPS = ["web", "seller", "admin"] as const;
 export type NotificationApp = (typeof NOTIFICATION_APPS)[number];
 
-export const CATEGORIES = ["leads", "messages", "reviews", "listings", "billing", "security", "marketing"] as const;
+export const CATEGORIES = ["leads", "messages", "reviews", "listings", "billing", "security", "marketing", "alerts"] as const;
 export type NotificationCategory = (typeof CATEGORIES)[number];
 
 export const CHANNELS = ["in_app", "email", "whatsapp", "sms"] as const;

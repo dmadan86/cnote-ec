@@ -14,7 +14,9 @@
       "responseHint": "Leads you answered before they expired",
       "noData": "No data yet",
       "trust": "Trust score",
-      "loadFail": "Some numbers could not be loaded. Refresh in a moment."
+      "loadFail": "Some numbers could not be loaded. Refresh in a moment.",
+      "followers": "Followers",
+      "followersHint": "Buyers who follow you (a count only, never who)"
     },
     "verification": {
       "title": "Verification",

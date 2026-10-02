@@ -11,6 +11,7 @@ import { TrackingTimeline } from "@/features/orders/tracking-timeline";
 import { OrderActions } from "@/features/orders/order-actions";
 import { EscrowPanel } from "@/features/escrow/escrow-panel";
 import { OrderStatusBadge } from "@/features/orders/status";
+import { RequestAgain } from "@/features/retention/request-again";
 import { ReportProblem } from "@/features/disputes/report-problem";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -29,7 +30,7 @@ export default async function BuyerOrderPage(props: { params: Promise<{ id: stri
   return (
     <Container className="max-w-3xl py-8">
       <Link href="/buyer/orders" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-700 underline">{t("backToOrders")}</Link>
-      <PageHeader title={o.enquiryTitle} description={t("orderWith", { name: o.counterparty.name })} actions={<OrderStatusBadge status={o.status} />} />
+      <PageHeader title={o.enquiryTitle} description={t("orderWith", { name: o.counterparty.name })} actions={<><RequestAgain enquiryId={o.enquiryId} orderId={o.id} locale={locale} /><OrderStatusBadge status={o.status} /></>} />
       <div className="mt-6 flex flex-col gap-6">
         {o.status === "recorded" ? (
           <Alert tone="info">

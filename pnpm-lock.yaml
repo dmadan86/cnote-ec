@@ -375,6 +375,9 @@ importers:
       '@cnote/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@cnote/alerts':
+        specifier: workspace:*
+        version: link:../../packages/alerts
       '@cnote/billing':
         specifier: workspace:*
         version: link:../../packages/billing
@@ -599,6 +602,9 @@ importers:
       '@cnote/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@cnote/alerts':
+        specifier: workspace:*
+        version: link:../../packages/alerts
       '@cnote/billing':
         specifier: workspace:*
         version: link:../../packages/billing
@@ -747,6 +753,9 @@ importers:
       '@cnote/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@cnote/alerts':
+        specifier: workspace:*
+        version: link:../../packages/alerts
       '@cnote/analytics':
         specifier: workspace:*
         version: link:../../packages/analytics
@@ -931,6 +940,30 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
 
+  packages/alerts:
+    dependencies:
+      '@cnote/catalogue':
+        specifier: workspace:*
+        version: link:../catalogue
+      '@cnote/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cnote/db':
+        specifier: workspace:*
+        version: link:../db
+      '@cnote/identity':
+        specifier: workspace:*
+        version: link:../identity
+      '@cnote/search':
+        specifier: workspace:*
+        version: link:../search
+      '@cnote/wishlist':
+        specifier: workspace:*
+        version: link:../wishlist
+      zod:
+        specifier: ^4.1.0
+        version: 4.6.5
+
   packages/analytics:
     dependencies:
       '@cnote/core':
@@ -1020,6 +1053,9 @@ importers:
 
   packages/compliance:
     dependencies:
+      '@cnote/alerts':
+        specifier: workspace:*
+        version: link:../alerts
       '@cnote/catalogue':
         specifier: workspace:*
         version: link:../catalogue
@@ -1424,6 +1460,9 @@ importers:
 
   packages/notifications:
     dependencies:
+      '@cnote/alerts':
+        specifier: workspace:*
+        version: link:../alerts
       '@cnote/catalogue':
         specifier: workspace:*
         version: link:../catalogue
