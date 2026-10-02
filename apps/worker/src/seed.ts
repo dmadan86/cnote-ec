@@ -420,8 +420,9 @@ async function seedSellers(): Promise<SeededSeller[]> {
     if (tier >= 1) {
       await prisma.verificationRecord.upsert({
         where: { id: stableId(`vr:gstin:${i}`) },
-        update: {},
-        create: { id: stableId(`vr:gstin:${i}`), businessId: bizId, tier: 1, kind: "gstin", status: "passed", provider: "seed-mock", details: { gstin } },
+        // legalName lets the public evidence panel show "GST name matches" (identity/evidence.ts), as a real GST check would.
+        update: { details: { gstin, legalName: name } },
+        create: { id: stableId(`vr:gstin:${i}`), businessId: bizId, tier: 1, kind: "gstin", status: "passed", provider: "seed-mock", details: { gstin, legalName: name } },
       });
     }
     if (tier >= 2) {
@@ -429,6 +430,12 @@ async function seedSellers(): Promise<SeededSeller[]> {
         where: { id: stableId(`vr:doc:${i}`) },
         update: {},
         create: { id: stableId(`vr:doc:${i}`), businessId: bizId, tier: 2, kind: "document", status: "passed", provider: "seed-mock", details: {} },
+      });
+      // T2 evidence needs documents AND video KYC (identity/evidence.ts); without it a "KYC verified" badge had no T2 check behind it.
+      await prisma.verificationRecord.upsert({
+        where: { id: stableId(`vr:kyc:${i}`) },
+        update: {},
+        create: { id: stableId(`vr:kyc:${i}`), businessId: bizId, tier: 2, kind: "video_kyc", status: "passed", provider: "seed-mock", details: {} },
       });
     }
     out.push({ id: bizId, name, city, cats, tier });
