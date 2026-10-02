@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from "@cnote/db";
 import { DomainError } from "@cnote/core";
-import type { ProviderResult } from "./types";
+import { getShadowProviders } from "./registry";
+import type { ProviderResult, Providers } from "./types";
 import type { AiResult, Subject } from "./index";
 
 /** Below these confidences an output goes to the human review queue (ADR-002, ADR-008). */
@@ -21,6 +22,8 @@ export async function runLogged<T extends object>(
   forceReview?: (out: T) => string | null,
   /** what to persist as the decision's output when the raw output holds personal data (e.g. a transcript) */
   auditOutput: (out: T) => unknown = (o) => o,
+  /** ADR-008 shadow mode: re-runs the capability on the candidate providers (AI_SHADOW_PROVIDER), logged with shadow=true, never user-visible */
+  shadow?: (p: Providers) => Promise<ProviderResult<T>>,
 ): Promise<AiResult<T>> {
   const started = performance.now();
   const r = await run();
@@ -47,7 +50,43 @@ export async function runLogged<T extends object>(
     },
     select: { id: true },
   });
+  if (shadow) startShadow(capability, subject, inputRedacted, row.id, shadow, auditOutput);
   return { ...r.output, decisionId: row.id, confidence: r.confidence, needsReview: reason !== null };
+}
+
+// ---- Shadow mode (ADR-008) ----
+const pendingShadows = new Set<Promise<void>>();
+
+/** Fire-and-forget: the candidate never delays or changes the live answer, and its failures are logged as shadow rows, not thrown. */
+function startShadow<T extends object>(
+  capability: Capability, subject: Subject, inputRedacted: unknown, liveId: string,
+  run: (p: Providers) => Promise<ProviderResult<T>>, auditOutput: (out: T) => unknown,
+): void {
+  const candidate = getShadowProviders();
+  if (!candidate) return;
+  const task = logShadow(capability, subject, inputRedacted, liveId, () => run(candidate), auditOutput)
+    .catch((err) => console.warn("[ai] shadow logging failed:", err instanceof Error ? err.message : err))
+    .finally(() => pendingShadows.delete(task));
+  pendingShadows.add(task);
+}
+
+async function logShadow<T extends object>(
+  capability: Capability, subject: Subject, inputRedacted: unknown, liveId: string,
+  run: () => Promise<ProviderResult<T>>, auditOutput: (out: T) => unknown,
+): Promise<void> {
+  const started = performance.now();
+  const base = { capability, inputRedacted: json(inputRedacted), subjectType: subject.type, subjectId: subject.id, shadow: true, shadowOfId: liveId };
+  try {
+    const r = await run();
+    await prisma.aiDecision.create({ data: { ...base, provider: r.provider, modelId: r.modelId, promptVersion: r.promptVersion, output: json(auditOutput(r.output)), confidence: r.confidence, latencyMs: Math.round(performance.now() - started) } });
+  } catch (err) {
+    await prisma.aiDecision.create({ data: { ...base, provider: process.env.AI_SHADOW_PROVIDER ?? "shadow", modelId: process.env.AI_SHADOW_MODEL_REASONING || "unknown", promptVersion: "n/a", output: json({ shadowError: err instanceof Error ? err.message : String(err) }), confidence: 0, latencyMs: Math.round(performance.now() - started) } });
+  }
+}
+
+/** Resolves when every in-flight shadow decision has been written (graceful shutdown, tests, the eval CLI). */
+export async function flushShadowDecisions(): Promise<void> {
+  while (pendingShadows.size) await Promise.all([...pendingShadows]);
 }
 
 // ---- Review queue ----

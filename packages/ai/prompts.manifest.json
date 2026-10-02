@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "prompts": [
+    {
+      "id": "intent",
+      "version": "intent-v1",
+      "sha256": "0790e323581b209b65a13fc48bbd0ae974df8f108fe89515df6191acfe1961e9"
+    },
+    {
+      "id": "extract",
+      "version": "extract-v1",
+      "sha256": "1ba6c9e0494e8b3ac0b96d749bd26f1b97513a089f80f9cd3274dcef4fdd2d3d"
+    },
+    {
+      "id": "extract_image",
+      "version": "extract-image-v1",
+      "sha256": "0701b83fee782250266da6a0a0ddc30d96180e3e14057896abe8ff905becffc1"
+    },
+    {
+      "id": "moderate",
+      "version": "moderate-v1",
+      "sha256": "72e7f72a09c102f5452489f765a2cadbc150990534027d04dd80c0eddce99fb6"
+    },
+    {
+      "id": "extract_document",
+      "version": "extract-document-v1",
+      "sha256": "69f6cb651e85dc1ca237fd1a2e4eef7a6d02966a633318cf617d09689af815a6"
+    },
+    {
+      "id": "dispute_brief",
+      "version": "dispute-brief-v1",
+      "sha256": "5855f5632de6d8337424ec436f15118265c0ef11daa9ad94e8fd60ded656b43d"
+    },
+    {
+      "id": "inspect_dispatch",
+      "version": "inspect-dispatch-v1",
+      "sha256": "be68de2bb9b0663ea23603c0247f419a89025ac7daecd02e9dbe01c5fae5f8f4"
+    },
+    {
+      "id": "draft_quote",
+      "version": "draft-quote-v1",
+      "sha256": "61e8ea4c1245c9ef56b5ee124424719a8975d24174ccd9bd11e05d6832427229"
+    },
+    {
+      "id": "normalise_quotes",
+      "version": "normalise-quotes-v1",
+      "sha256": "b017d3095c843df632385f3a7835582e580353e8c73d34383b5ccfb83595873a"
+    },
+    {
+      "id": "propose_counter",
+      "version": "propose-counter-v1",
+      "sha256": "bde4c9287885cfb2e48874a6077b3e26d972d112915b8e012fba39c3933ff546"
+    }
+  ],
+  "models": {
+    "ids": [
+      "claude-haiku-4-5",
+      "claude-sonnet-5-5"
+    ],
+    "sha256": "38d7c8d1522daa6257f871b5d76174720c041776e815e0057e0f17ed00558d0e"
+  }
+}

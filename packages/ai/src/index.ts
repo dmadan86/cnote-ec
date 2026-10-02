@@ -108,7 +108,7 @@ export interface ModerateOutput {
 }
 
 export async function scoreIntent(input: IntentInput, subject: Subject): Promise<AiResult<IntentOutput>> {
-  return runLogged("intent", subject, redactDeep(input), () => getProviders().intent.score(input));
+  return runLogged("intent", subject, redactDeep(input), () => getProviders().intent.score(input), undefined, undefined, (p) => p.intent.score(input));
 }
 
 /** Embeddings in the platform vector space (EMBEDDING_DIM from @cnote/db). Not logged as decisions. */
@@ -119,7 +119,7 @@ export async function embed(texts: string[]): Promise<{ vectors: number[][]; ver
 
 export async function extractListing(input: ExtractListingInput, subject: Subject): Promise<AiResult<ExtractListingOutput>> {
   const audit = { text: input.text, language: input.language, categories: input.categories.map((c) => c.slug) };
-  return runLogged("extract", subject, redactDeep(audit), () => getProviders().extractor.extract(input));
+  return runLogged("extract", subject, redactDeep(audit), () => getProviders().extractor.extract(input), undefined, undefined, (p) => p.extractor.extract(input));
 }
 
 /** Photos (+ optional hint) → structured draft fields. Always reviewed by the seller; low confidence also goes to the ops queue. */
@@ -127,7 +127,7 @@ export async function extractListingFromImages(input: ExtractListingFromImagesIn
   assertVisionImages(input.images);
   const p = getProviders();
   const run = () => (p.imageExtractor ?? heuristicProviders.imageExtractor!).extract(input);
-  return runLogged("extract_image", subject, redactDeep(imageAudit(input)), run);
+  return runLogged("extract_image", subject, redactDeep(imageAudit(input)), run, undefined, undefined, (sp) => (sp.imageExtractor ?? heuristicProviders.imageExtractor!).extract(input));
 }
 
 /** Audio → transcript via the ASR port (ASR_PROVIDER). The logged output holds the redacted transcript only. */
@@ -144,7 +144,8 @@ export async function transcribe(input: TranscribeInput, subject: Subject): Prom
 export async function moderate(input: ModerateInput, subject: Subject): Promise<AiResult<ModerateOutput>> {
   return runLogged("moderate", subject, redactDeep(input), () => getProviders().moderator.moderate(input),
     // ADR-003: a "review" verdict always goes to a human, whatever the confidence
-    (o) => (o.verdict === "review" ? `Moderation needs review: ${o.reason ?? o.flags.join(", ")}` : null));
+    (o) => (o.verdict === "review" ? `Moderation needs review: ${o.reason ?? o.flags.join(", ")}` : null), undefined,
+    (p) => p.moderator.moderate(input));
 }
 
 /** Cosine similarity helper for callers comparing embeddings in memory. */
@@ -179,11 +180,12 @@ export async function resolveReview(id: string, outcome: "approved" | "rejected"
 
 // ---- Additions (non-breaking) ----
 export { redactPii, redactDeep } from "./redact";
-export { REVIEW_THRESHOLDS, purgeOldDecisionInputs, getDecisionMeta } from "./decisions";
+export { REVIEW_THRESHOLDS, purgeOldDecisionInputs, getDecisionMeta, flushShadowDecisions } from "./decisions";
+export { compareShadowDecisions, summariseShadowPairs, type ShadowPair, type ShadowComparison } from "./shadow-report";
 export { EMBEDDER_VERSION, embedText } from "./embedder";
 export { getSpeechToText, setSpeechToTextForTests, MockSpeechToText, SarvamSpeechToText, MOCK_TRANSCRIPT_PREFIX, MAX_AUDIO_BYTES, MAX_AUDIO_MS, AUDIO_EXT, assertAudio, type SarvamOptions } from "./speech";
 export { MAX_VISION_IMAGES, VISION_MAX_LONG_EDGE, VISION_MIMES } from "./vision";
-export { getProviders, setProvidersForTests, heuristicProviders, anthropicProviders } from "./registry";
+export { getProviders, setProvidersForTests, setShadowProvidersForTests, getShadowProviders, heuristicProviders, anthropicProviders } from "./registry";
 export type { Providers, IntentScorer, ListingExtractor, ImageListingExtractor, SpeechToText, Moderator, Embedder, ProviderResult } from "./types";
 
 const DAY_MS = 86_400_000;
