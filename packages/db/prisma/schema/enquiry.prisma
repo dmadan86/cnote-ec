@@ -56,12 +56,20 @@ model Enquiry {
   sellerCap        Int              @default(3) @map("seller_cap")
   /// ADR-002 option 4: buyer picks sellers manually from a ranked list
   buyerPicks       Boolean          @default(false) @map("buyer_picks")
+  /// Optional budget range per unit, integer paise (min <= max enforced in code).
+  budgetMinPaise   BigInt?          @map("budget_min_paise")
+  budgetMaxPaise   BigInt?          @map("budget_max_paise")
+  /// Quote expiry: after this the requirement is "expired" on the buyer board and sellers can no longer accept it. Null = legacy rows (no expiry).
+  expiresAt        DateTime?        @map("expires_at") @db.Timestamptz
+  /// Preferred supplier tier: only sellers at this verification tier or above are matched. Null = any.
+  minSellerTier    Int?             @map("min_seller_tier")
   createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
 
   buyer       Business  @relation(fields: [buyerBusinessId], references: [id])
   buyerPerson Person    @relation(fields: [buyerPersonId], references: [id])
   category    Category? @relation(fields: [categoryId], references: [id])
   matches     Match[]
+  attachments EnquiryAttachment[]
 
   @@index([buyerBusinessId, createdAt])
   @@map("enquiries")
@@ -142,14 +150,38 @@ model Quote {
   paymentTerms        String?  @map("payment_terms")
   paymentNote         String?  @map("payment_note")
   gstIncluded         Boolean? @map("gst_included")
+  /// Set when the buyer shortlists this quote on the comparison table; null = not shortlisted. Buyer-only state.
+  shortlistedAt    DateTime? @map("shortlisted_at") @db.Timestamptz
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   conversation Conversation @relation(fields: [conversationId], references: [id])
   seller       Business     @relation(fields: [sellerBusinessId], references: [id])
+  attachments  EnquiryAttachment[]
 
   /// Seller quote history, keyset-paged (createdAt desc, id desc).
   @@index([sellerBusinessId, createdAt(sort: Desc), id(sort: Desc)])
   @@map("quotes")
+}
+
+/// Drawings/specs on a requirement (quoteId null, uploaded by the buyer) or on a seller's quote (quoteId set).
+/// Bytes live in the PRIVATE media bucket under `rfq/<enquiryId>/<id>.<ext>`; read via authorised, short-lived URLs only.
+model EnquiryAttachment {
+  id                 String   @id @default(uuid()) @db.Uuid
+  enquiryId          String   @map("enquiry_id") @db.Uuid
+  quoteId            String?  @map("quote_id") @db.Uuid
+  uploadedByBusiness String   @map("uploaded_by_business") @db.Uuid
+  key                String   @unique
+  fileName           String   @map("file_name")
+  mimeType           String   @map("mime_type")
+  sizeBytes          Int      @map("size_bytes")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  enquiry Enquiry @relation(fields: [enquiryId], references: [id])
+  quote   Quote?  @relation(fields: [quoteId], references: [id])
+
+  @@index([enquiryId])
+  @@index([quoteId])
+  @@map("enquiry_attachments")
 }
 
 /// One-tap "did this close?" reports for off-platform deals (ADR-007).

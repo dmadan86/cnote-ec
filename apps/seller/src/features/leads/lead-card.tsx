@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useSyncExternalStore } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { MapPin, MessageSquare, Phone } from "lucide-react";
 import { Alert, Badge, Card, CardBody, IntentScore, TrustBadge, buttonClasses } from "@cnote/ui";
@@ -116,12 +116,28 @@ function AcceptedPanel({ lead }: { lead: LeadView }) {
   );
 }
 
+/** Deadline date, or "Deadline passed". The clock is read in an effect-free external store so render stays pure. */
+function DeadlineText({ expiresAt, locale }: { expiresAt: string; locale: Parameters<typeof formatDate>[1] }) {
+  const tr = useTranslations("rfqLead");
+  const minute = () => Math.floor(Date.now() / 60_000);
+  const now = useSyncExternalStore(subscribeMinute, minute, minute);
+  return <>{new Date(expiresAt).getTime() < now * 60_000 ? tr("deadlinePassed") : formatDate(expiresAt, locale)}</>;
+}
+function subscribeMinute(cb: () => void) {
+  const t = setInterval(cb, 60_000);
+  return () => clearInterval(t);
+}
+
 export function LeadCard({ lead, balance }: { lead: LeadView; balance: number | null }) {
   const t = useTranslations("leads");
   const loc = useLocale();
   const locale = isLocale(loc) ? loc : "en";
   const e = lead.enquiry;
+  const tr = useTranslations("rfqLead");
   const st = STATUS[lead.status];
+  const rupees = (p: number) => `₹${(p / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+  const budget = [e.budgetMinPaise ? rupees(e.budgetMinPaise) : null, e.budgetMaxPaise ? rupees(e.budgetMaxPaise) : null].filter(Boolean).join(" – ");
+  const hasRfqDetails = !!(e.targetPricePaise || budget || e.deliveryPincode || e.expiresAt || e.minSellerTier || e.attachments.length);
   return (
     <Card>
       <CardBody className="space-y-4">
@@ -148,6 +164,54 @@ export function LeadCard({ lead, balance }: { lead: LeadView; balance: number | 
             <dd className="font-medium text-ink">{e.category?.name ?? t("any")}</dd>
           </div>
         </dl>
+        {hasRfqDetails ? (
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4" data-testid="rfq-details">
+            {e.targetPricePaise ? (
+              <div>
+                <dt className="text-xs text-muted">{tr("targetPrice")}</dt>
+                <dd className="font-medium text-ink">{rupees(e.targetPricePaise)}</dd>
+              </div>
+            ) : null}
+            {budget ? (
+              <div>
+                <dt className="text-xs text-muted">{tr("budget")}</dt>
+                <dd className="font-medium text-ink">{budget}</dd>
+              </div>
+            ) : null}
+            {e.deliveryPincode ? (
+              <div>
+                <dt className="text-xs text-muted">{tr("pincode")}</dt>
+                <dd className="font-medium text-ink">{e.deliveryPincode}</dd>
+              </div>
+            ) : null}
+            {e.expiresAt ? (
+              <div>
+                <dt className="text-xs text-muted">{tr("quoteDeadline")}</dt>
+                <dd className="font-medium text-ink"><DeadlineText expiresAt={e.expiresAt} locale={locale} /></dd>
+              </div>
+            ) : null}
+            {e.minSellerTier ? (
+              <div>
+                <dt className="text-xs text-muted">{tr("preferredTier")}</dt>
+                <dd className="font-medium text-ink">{tr("tierPlus", { tier: e.minSellerTier })}</dd>
+              </div>
+            ) : null}
+          </dl>
+        ) : null}
+        {e.attachments.length ? (
+          <div className="text-sm">
+            <p className="text-xs text-muted">{tr("attachments")}</p>
+            <ul className="mt-1 flex flex-col gap-1">
+              {e.attachments.map((a) => (
+                <li key={a.id}>
+                  <a href={`/api/rfq-attachments/${a.id}`} className="inline-flex min-h-11 items-center break-all font-medium text-brand-700 underline" download>
+                    {tr("download", { name: a.fileName })}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <p className="line-clamp-3 text-sm text-muted">{e.requirement}</p>
 
         <div className="flex flex-wrap items-center gap-2">

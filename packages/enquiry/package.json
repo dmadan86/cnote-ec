@@ -17,6 +17,7 @@
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",
     "@cnote/identity": "workspace:*",
+    "@cnote/media": "workspace:*",
     "zod": "^4.6.5"
   }
 }
