@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import fc from "fast-check";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   assertSameOrigin, enforceRateLimit, handleCspReport, isSameOrigin, logSecurityEvent, RATE_LIMITS, safeRedirectPath, safeRedirectUrl, setSecurityEventSink,
   type SecurityEvent,
@@ -17,6 +17,8 @@ beforeEach(() => {
 afterEach(() => setSecurityEventSink(prev));
 
 const req = (method: string, headers: Record<string, string> = {}, url = "https://app.example.in/api/x") => new Request(url, { method, headers });
+
+afterEach(() => vi.useRealTimers());
 
 describe("CSRF / same-origin", () => {
   it.each(["GET", "HEAD", "OPTIONS"])("%s is always allowed, even with a hostile Origin", (m) => {
@@ -151,6 +153,7 @@ describe("rate-limit presets", () => {
   });
 
   it("enforceRateLimit allows exactly `limit` calls, then throws rate_limited with the preset message; subjects are independent", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); // fixed-window limiter: a real minute/hour boundary mid-test would reset the counter
     const subject = `t-${randomUUID()}`;
     for (let i = 0; i < RATE_LIMITS.passwordReset.limit; i++) await expect(enforceRateLimit("passwordReset", subject)).resolves.toBeUndefined();
     await expect(enforceRateLimit("passwordReset", subject)).rejects.toMatchObject({ code: "rate_limited", message: RATE_LIMITS.passwordReset.message });
@@ -159,6 +162,7 @@ describe("rate-limit presets", () => {
   });
 
   it("does not put an email subject into the security log", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); // fixed-window limiter: a real minute/hour boundary mid-test would reset the counter
     const email = `${randomUUID()}@victim.example.com`;
     for (let i = 0; i < RATE_LIMITS.passwordReset.limit; i++) await enforceRateLimit("passwordReset", email);
     await expect(enforceRateLimit("passwordReset", email)).rejects.toThrow();
@@ -267,6 +271,7 @@ describe("handleCspReport", () => {
   });
 
   it("is rate-limited per client IP: after the budget, reports are dropped silently", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); // fixed-window limiter: a real minute/hour boundary mid-test would reset the counter
     const ip = { "x-forwarded-for": `172.31.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}` };
     const body = JSON.stringify({ "csp-report": { "effective-directive": "script-src" } });
     for (let i = 0; i < RATE_LIMITS.cspReport.limit; i++) await handleCspReport(post(body, ip));

@@ -34,7 +34,9 @@ export function installPorts(over: Partial<CreditPorts> = {}): Fakes {
   const escrows = new Map<string, EscrowFacts>();
   const fund = vi.fn(async () => true);
   const ports: Partial<CreditPorts> = {
-    gst: async () => ({ verified: true, status: "Active", lastCheckedAt: new Date(Date.now() - 10 * DAY), filings: Array.from({ length: 6 }, () => ({ filed: true })) }),
+    // 10.5 days, not exactly 10: this port runs a few ms after computeAndStoreScore took its `now`, so "exactly 10 days ago"
+    // floors to 9 whenever a millisecond ticks in between, changing the feature hash between two identical computes.
+    gst: async () => ({ verified: true, status: "Active", lastCheckedAt: new Date(Date.now() - 10.5 * DAY), filings: Array.from({ length: 6 }, () => ({ filed: true })) }),
     trust: async () => ({ trustScore: 85, badgeActive: true }),
     escrowHistory: async () => ({ completed: 25, completedPaise: 600_000_000, clean: 25, refunded: 0 }),
     disputes: async () => ({ lost: 0, open: 0 }),

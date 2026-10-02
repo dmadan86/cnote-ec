@@ -102,11 +102,14 @@ describe("organic integrity (ADR-024 rule 1)", () => {
     process.env.ADS_ENABLED = "true";
     setSearchIndexForTests(fakeIndex(7));
     const organicIds = ["o1", "o2", "o3", "o4", "o5", "o6", "o7", "o8", "o9", "o10"];
-    const a = await getSponsoredSlots({ query: "cosmetic box", surface: "search", organicListingIds: organicIds, visitorId: "x", random: () => 0, now: new Date("2026-09-30T05:00:00Z") });
+    // A fresh visitor per run: serving records a per-(visitor, listing) frequency counter in Redis (cap 5 per window), so a fixed id
+    // would hit its cap after a few runs against the same Redis and the "winner" would legitimately move to the next ad.
+    const visitorId = `x-${globalThis.crypto.randomUUID()}`;
+    const a = await getSponsoredSlots({ query: "cosmetic box", surface: "search", organicListingIds: organicIds, visitorId, random: () => 0, now: new Date("2026-09-30T05:00:00Z") });
     // reshuffle every advertiser's price (the snapshot is read live): winner selection must not move
     const original = candidates.map((c) => c.cpc.search);
     candidates.forEach((c, i) => (c.cpc.search = 300 + ((i * 7919) % 50) * 1000));
-    const b = await getSponsoredSlots({ query: "cosmetic box", surface: "search", organicListingIds: organicIds, visitorId: "x", random: () => 0, now: new Date("2026-09-30T05:00:00Z") });
+    const b = await getSponsoredSlots({ query: "cosmetic box", surface: "search", organicListingIds: organicIds, visitorId, random: () => 0, now: new Date("2026-09-30T05:00:00Z") });
     candidates.forEach((c, i) => (c.cpc.search = original[i]!));
     expect(a.length).toBeGreaterThan(0);
     expect(b.map((s) => s.listing.id)).toEqual(a.map((s) => s.listing.id));

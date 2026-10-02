@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@cnote/db";
 import { getBalance } from "@cnote/billing";
 import { activateCoupon, computeDiscount, couponPort, createCoupon, expireCoupons, listCoupons, listRedemptions, normaliseCode, pauseCoupon, quoteCoupon, randomCode, redeemCoupon, requiresSecondApprover, setGstinLookup, voidRedemption, type CouponInput } from "../src/index";
@@ -21,6 +21,8 @@ const mk = async (o: Partial<CouponInput> = {}, live = true) => {
   return live ? activateCoupon(c.id, approver.staffId) : c;
 };
 const q = (code: string, businessId: string, amountPaise = 99_900, extra: object = {}) => quoteCoupon(code, { businessId, planCode: "starter", amountPaise, isFirstPurchase: true, ...extra });
+
+afterEach(() => vi.useRealTimers());
 
 describe("discount maths", () => {
   it("percent honours the cap; flat never exceeds the amount; credits add no discount", () => {
@@ -106,6 +108,7 @@ describe("quote", () => {
     await expect(q(ad.code, t1.id)).rejects.toMatchObject({ message: "This code is not valid." });
   });
   it("attempts are rate limited per business", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); // fixed-window limiter: a real minute/hour boundary mid-test would reset the counter
     const b = await mkBusiness(1);
     let limited = false;
     for (let i = 0; i < 20 && !limited; i++) {

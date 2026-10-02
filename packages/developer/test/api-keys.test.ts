@@ -1,7 +1,7 @@
 import { DomainError, redis } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { randomUUID } from "node:crypto";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import {
   createApiKey, EXPIRY_OPTIONS, expiryToDate, flushApiKeyUsage, getKeyUsage, hasScope, listApiKeys, listApiKeysForStaff,
   revokeApiKey, revokeApiKeyAsStaff, verifyApiKey, recordApiError, SCOPE_GROUPS, scopesFromAccess,
@@ -22,6 +22,8 @@ afterAll(async () => {
     if (ks.length) await redis.del(...ks);
   }
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe("secret format", () => {
   it("has prefix, length and stores only the hash", async () => {
@@ -121,6 +123,7 @@ describe("verify", () => {
   });
 
   it("rate limits per key", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); // fixed-window limiter: a real minute/hour boundary mid-test would reset the counter
     const p = newPerson();
     const { secret } = await createApiKey(p, { name: "rl", scopes: ["profile:read"], expiry: "1d" });
     const prev = process.env.API_KEY_RATE_MCP;

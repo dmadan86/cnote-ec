@@ -372,6 +372,9 @@ describe("TOTP / base32 (property)", () => {
       const secret = Buffer.from(raw);
       const code = totp(secret, t);
       const step = totpStep(t);
+      // A 6-digit code repeats at another nearby step with probability ~1e-6 per step; then "verifies at the neighbouring
+      // step" / "rejected beyond the window" are legitimately different. Only generate inputs where the code is unique in range.
+      fc.pre([-4, -3, -2, -1, 1, 2, 3, 4].every((d) => totp(secret, t + d * 30_000) !== code));
       expect(verifyTotp(secret, code, { nowMs: t })).toBe(step);
       expect(verifyTotp(secret, code, { nowMs: t + 30_000 })).toBe(step);
       expect(verifyTotp(secret, code, { nowMs: t - 30_000 })).toBe(step);
