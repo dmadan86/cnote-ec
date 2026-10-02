@@ -41,6 +41,12 @@ export const e2eEnv: Record<string, string> = {
   MEDIA_DRIVER: "local",
   MEDIA_DIR: ".data/media-e2e",
   // Feature flags stay at their defaults (off). A spec that needs one must set it here on purpose and say why.
+  // Phase-2/3 buyer screens (order escrow panel, dispute pages, agent mandates) render only with these on; the a11y gate
+  // (e2e/a11y/remaining-screens.spec.ts) has to scan them. Nothing here moves money: the escrow partner is the mock.
+  ESCROW_ENABLED: "true",
+  ESCROW_PARTNER: "mock",
+  DISPUTES_ENABLED: "true",
+  A2A_ENABLED: "true",
   // The servers run in production mode, where the mock payment gateway is refused. The seller billing spec cancels a seeded
   // annual plan and needs the mock provider's refund to succeed (ADR-005); nothing here charges money.
   PAYMENTS_ALLOW_MOCK_IN_PRODUCTION: "1",

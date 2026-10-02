@@ -32,6 +32,7 @@ e2e/
     keyboard.spec.ts          skip link, focus visible, popovers, no traps (desktop)
     cookie-consent.spec.ts    consent banner + preferences dialog (opts out of the pre-seeded consent cookie with `consent: false`)
     mobile.mobile.spec.ts     axe at 412px, touch targets, menu dialog (mobile project)
+    remaining-screens(.mobile).spec.ts  axe + keyboard + form errors for every other buyer screen (orders, disputes, agents, account, auth, storefront); Phase-2/3 flags on in support/env.ts, rows seeded by support/phase2-db.ts
   functional/               pnpm test:e2e
     buyer.spec.ts             sign up / in, search -> product -> save/compare, RFQ, language switch
     seller.spec.ts            sign up, onboarding, listing -> review, portal, language switch
