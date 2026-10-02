@@ -53,13 +53,19 @@ export function createApp(deps: AppDeps = {}) {
 
   app.get("/health", (c) => c.json({ status: "ok" }));
 
+  // Readiness answers only a status to anonymous callers (orchestrator probes use the status code): the list of configuration problems
+  // reveals which providers/keys are (not) configured, so it is returned only to a caller holding a valid service token (security audit).
   app.get("/ready", (c) => {
+    const auth = c.req.header("authorization") ?? "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    const privileged = !!config.tokenSecret && !!token && verifyServiceToken(token, { secret: config.tokenSecret, audience: AI_SERVICE_AUDIENCE, nowMs: now() }).ok;
     const problems: string[] = [];
     if (!config.tokenSecret) problems.push("AI_SERVICE_TOKEN_SECRET not set");
     if (env.AI_PROVIDER === "anthropic" && !env.ANTHROPIC_API_KEY) problems.push("AI_PROVIDER=anthropic but ANTHROPIC_API_KEY not set");
     if (env.ASR_PROVIDER === "sarvam" && !env.SARVAM_API_KEY) problems.push("ASR_PROVIDER=sarvam but SARVAM_API_KEY not set");
     if (inflight >= config.maxInflight) problems.push("shedding load");
-    return problems.length ? c.json({ status: "not_ready", problems }, 503) : c.json({ status: "ready", provider: env.AI_PROVIDER || "heuristic", asr: env.ASR_PROVIDER || "mock", capabilities: CAPABILITY_NAMES.length });
+    if (problems.length) return c.json(privileged ? { status: "not_ready", problems } : { status: "not_ready" }, 503);
+    return c.json(privileged ? { status: "ready", provider: env.AI_PROVIDER || "heuristic", asr: env.ASR_PROVIDER || "mock", capabilities: CAPABILITY_NAMES.length } : { status: "ready" });
   });
 
   app.get("/openapi.json", (c) => c.json(buildOpenApi()));

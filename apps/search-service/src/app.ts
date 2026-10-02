@@ -57,7 +57,12 @@ export function createApp(deps: AppDeps = {}) {
 
   app.get("/health", (c) => c.json({ status: "ok" }));
 
+  // Anonymous callers get only a status (orchestrator probes use the status code); the problems list (which dependency is down, which
+  // secret is unset) needs a valid service token (security audit).
   app.get("/ready", async (c) => {
+    const auth = c.req.header("authorization") ?? "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    const privileged = !!config.tokenSecret && !!token && verifyServiceToken(token, { secret: config.tokenSecret, audience: SEARCH_SERVICE_AUDIENCE, nowMs: now() }).ok;
     const problems: string[] = [];
     if (!config.tokenSecret) problems.push("SEARCH_SERVICE_TOKEN_SECRET not set");
     if (inflight >= config.maxInflight) problems.push("shedding load");
@@ -68,7 +73,8 @@ export function createApp(deps: AppDeps = {}) {
         problems.push(`${name} unreachable`);
       }
     }));
-    return problems.length ? c.json({ status: "not_ready", problems }, 503) : c.json({ status: "ready", backend: env.SEARCH_BACKEND || "postgres" });
+    if (problems.length) return c.json(privileged ? { status: "not_ready", problems } : { status: "not_ready" }, 503);
+    return c.json(privileged ? { status: "ready", backend: env.SEARCH_BACKEND || "postgres" } : { status: "ready" });
   });
 
   app.get("/openapi.json", (c) => c.json(buildOpenApi()));

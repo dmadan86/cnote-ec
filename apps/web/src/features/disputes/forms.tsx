@@ -2,11 +2,18 @@
 import type { ActionResult } from "@cnote/next-kit";
 import { Alert, Button, Field, Input, Textarea } from "@cnote/ui";
 import { useActionState, useId, type ReactNode } from "react";
+import { hasFileEntries, submitFormAsAction } from "@cnote/next-kit/upload-client";
 import { disputeAction } from "./actions";
 import { DISPUTE_TYPES, type DisputeLabels } from "./types";
 
 type L = DisputeLabels;
-const useDispute = () => useActionState<ActionResult | null, FormData>(disputeAction, null);
+// Text-only intents use the server action; submissions WITH evidence files go to POST /api/disputes (server actions are capped at 2 MB app-wide).
+const useDispute = () =>
+  useActionState<ActionResult | null, FormData>(async (prev, fd) => {
+    if (!hasFileEntries(fd)) return disputeAction(prev, fd);
+    const r = await submitFormAsAction<{ created: string | null }>("/api/disputes", fd, { refreshUrl: "/api/me" });
+    return r.ok ? { ok: true, data: undefined } : r;
+  }, null);
 const FileInput = ({ name, label, accept, multiple, hint }: { name: string; label: string; accept: string; multiple?: boolean; hint?: string }) => {
   const id = useId();
   return (

@@ -11,8 +11,9 @@
 # The Next.js apps (web, seller, admin) keep their own multi-stage Dockerfiles (apps/{web,seller,admin}/Dockerfile: build
 # stage + non-root runtime), because `next start` needs the built .next output.
 
-ARG NODE_VERSION=22
-FROM node:${NODE_VERSION}-bookworm-slim AS base
+# Pinned by digest (supply chain). Refresh: docker buildx imagetools inspect node:22-bookworm-slim, or let Dependabot (docker) do it.
+ARG NODE_IMAGE=node:22-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c
+FROM ${NODE_IMAGE} AS base
 ENV PNPM_HOME=/pnpm PNPM_STORE_DIR=/pnpm/store CI=true
 ENV PATH=$PNPM_HOME:$PATH
 RUN apt-get update \
@@ -41,7 +42,7 @@ RUN pnpm --filter "${PKG}" deploy --legacy --prod /out \
  && cp -r /repo/node_modules/tsx /out/node_modules/tsx 2>/dev/null || true
 RUN cd /out && pnpm add --offline tsx@^4.20.0 --ignore-workspace 2>/dev/null || true
 
-FROM node:${NODE_VERSION}-bookworm-slim AS runtime
+FROM ${NODE_IMAGE} AS runtime
 ARG PORT=3000
 ENV NODE_ENV=production PORT=${PORT}
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*

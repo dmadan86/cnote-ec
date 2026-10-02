@@ -26,3 +26,6 @@ export { COLLECT_TOPIC, BRIEF_TOPIC } from "./jobs";
 export { worker } from "./worker";
 export { escrowAdapter, qualityAdapter, wireDisputeAdapters } from "./adapters";
 export { disputeRecordForBusiness } from "./record";
+
+// DPDP access right: registered with @cnote/compliance's export registry (security audit M10).
+export { exportPersonalData } from "./privacy";

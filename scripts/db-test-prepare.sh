@@ -10,3 +10,4 @@ export LIVE_DATABASE_URL="${TEST_LIVE_DATABASE_URL:-${live%/*}/$(basename "${liv
 echo "authoring: $DATABASE_URL"; echo "live:      $LIVE_DATABASE_URL"
 pnpm --filter @cnote/db exec prisma migrate deploy
 pnpm --filter @cnote/live-db migrate:deploy
+bash scripts/allow-test-purge.sh "$DATABASE_URL"   # test cleanup deletes from the DB-level append-only tables (M5)

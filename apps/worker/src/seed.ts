@@ -14,7 +14,7 @@
 import * as ai from "@cnote/ai";
 import * as billing from "@cnote/billing";
 import * as catalogue from "@cnote/catalogue";
-import { prisma, toVectorLiteral } from "@cnote/db";
+import { prisma, toVectorLiteral, withPurge } from "@cnote/db";
 import * as identity from "@cnote/identity";
 import { createHash, randomBytes, scrypt as scryptCb } from "node:crypto";
 import { promisify } from "node:util";
@@ -351,11 +351,12 @@ async function cleanSeed() {
   }
   for (const id of personIds) {
     try {
-      await prisma.$transaction([
-        prisma.authSession.deleteMany({ where: { personId: id } }),
-        prisma.consent.deleteMany({ where: { personId: id } }),
-        prisma.person.delete({ where: { id } }),
-      ]);
+      // dev-only reset: the consent ledger is append-only at the DB level, so the delete runs as a purge (M5)
+      await withPurge(async (tx) => {
+        await tx.authSession.deleteMany({ where: { personId: id } });
+        await tx.consent.deleteMany({ where: { personId: id } });
+        await tx.person.delete({ where: { id } });
+      });
     } catch {
       /* person still referenced (e.g. enquiries): leave */
     }

@@ -2,9 +2,12 @@
 import { useActionState, useId } from "react";
 import { useTranslations } from "next-intl";
 import { Alert, Button, Field, Textarea } from "@cnote/ui";
+import { hasFileEntries, submitFormAsAction } from "@cnote/next-kit/upload-client";
 import { disputeAction, type DisputeResult } from "./actions";
 
-const useDispute = () => useActionState<DisputeResult | null, FormData>(disputeAction, null);
+// Text-only intents use the server action; submissions WITH evidence files go to POST /api/disputes (server actions are capped at 2 MB app-wide).
+const useDispute = () =>
+  useActionState<DisputeResult | null, FormData>(async (prev, fd) => (hasFileEntries(fd) ? submitFormAsAction<null>("/api/disputes", fd) : disputeAction(prev, fd)), null);
 function Head({ intent, disputeId, state }: { intent: string; disputeId: string; state: DisputeResult | null }) {
   const t = useTranslations("disputes");
   return (

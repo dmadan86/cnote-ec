@@ -4,8 +4,9 @@
 # horizontally scalable; runs as the unprivileged "node" user with PID 1 = node so SIGTERM drains in-flight requests.
 # A slimmer 'pnpm deploy' variant lives in infra/docker/Dockerfile.deploy.
 
-ARG NODE_VERSION=22
-FROM node:${NODE_VERSION}-bookworm-slim AS base
+# Pinned by digest (supply chain). Refresh: docker buildx imagetools inspect node:22-bookworm-slim, or let Dependabot (docker) do it.
+ARG NODE_IMAGE=node:22-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c
+FROM ${NODE_IMAGE} AS base
 ENV PNPM_HOME=/pnpm \
     PNPM_STORE_DIR=/pnpm/store \
     CI=true

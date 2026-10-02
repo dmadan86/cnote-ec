@@ -4,8 +4,9 @@
 # ADR-026), so a `tsc` build would need every package bundled first. tsx keeps dev and prod identical; cost is ~1s
 # extra cold start and ~60 MB RAM. Follow-up: esbuild bundle per entrypoint (externals: @prisma/client, pg, ioredis, sharp).
 
-ARG NODE_VERSION=22
-FROM node:${NODE_VERSION}-bookworm-slim AS base
+# Pinned by digest (supply chain). Refresh: docker buildx imagetools inspect node:22-bookworm-slim, or let Dependabot (docker) do it.
+ARG NODE_IMAGE=node:22-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c
+FROM ${NODE_IMAGE} AS base
 ENV PNPM_HOME=/pnpm \
     PNPM_STORE_DIR=/pnpm/store \
     CI=true
