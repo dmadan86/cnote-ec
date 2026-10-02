@@ -61,3 +61,6 @@ graphify-out/
 
 # alternate Next distDirs (e.g. a second dev server for e2e)
 .next-*/
+
+# Claude Code agent worktrees
+.claude/worktrees/

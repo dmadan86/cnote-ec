@@ -1,5 +1,6 @@
 import { getConsents, listAuthSessions } from "@cnote/identity";
 import { requireSession, signOutAction } from "@cnote/next-kit";
+import Link from "next/link";
 import { Badge, Button, buttonClasses, Card, CardBody, CardHeader, CardTitle, Container, PageHeader } from "@cnote/ui";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -17,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AccountPage() {
   const s = await requireSession("/account");
   const locale = await getRequestLocale();
-  const [t, tc, consents, sessions] = await Promise.all([getTranslations({ locale, namespace: "account" }), getTranslations({ locale, namespace: "consent" }), getConsents(s.personId), listAuthSessions(s.personId, s.sessionId, "web")]);
+  const [t, t2, tc, consents, sessions] = await Promise.all([getTranslations({ locale, namespace: "account" }), getTranslations({ locale, namespace: "account2" }), getTranslations({ locale, namespace: "consent" }), getConsents(s.personId), listAuthSessions(s.personId, s.sessionId, "web")]);
   const when = (iso: string) => formatDate(iso, locale, { dateStyle: "medium", timeStyle: "short" });
 
   return (
@@ -27,6 +28,14 @@ export default async function AccountPage() {
         <Card>
           <CardHeader><CardTitle>{t("profile")}</CardTitle></CardHeader>
           <CardBody><ProfileForm name={s.name} preferredLanguage={s.preferredLanguage} email={s.email} /></CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>{t2("businessNavTitle")}</CardTitle></CardHeader>
+          <CardBody className="flex flex-col gap-3">
+            <p className="text-sm text-muted">{t2("businessNavBody")}</p>
+            <Link href="/account/business" className={buttonClasses("outline", "md", "self-start")}>{t2("businessNavLink")}</Link>
+          </CardBody>
         </Card>
 
         <Card>

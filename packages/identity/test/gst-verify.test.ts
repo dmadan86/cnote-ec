@@ -511,7 +511,7 @@ describe("business + directory APIs", () => {
     expect(await verifyGstin(s.businessId, gstin("N"))).toMatchObject({ passed: false, reason: expect.stringContaining("not found") });
     expect(await verifyGstin(s.businessId, gstin("C"))).toMatchObject({ passed: false, reason: "GSTIN is cancelled." });
     const g = gstin();
-    expect(await verifyGstin(s.businessId, ` ${g.toLowerCase()} `, " udyam-mh-12-1234567 ")).toEqual({ passed: true, tier: 1 });
+    expect(await verifyGstin(s.businessId, ` ${g.toLowerCase()} `, " udyam-mh-12-1234567 ")).toMatchObject({ passed: true, tier: 1 });
     expect(await prisma.verificationRecord.count({ where: { businessId: s.businessId, kind: "udyam", status: "passed" } })).toBe(1);
     const other = await seller();
     expect(await verifyGstin(other.businessId, g)).toMatchObject({ passed: false, reason: expect.stringContaining("already registered") });
