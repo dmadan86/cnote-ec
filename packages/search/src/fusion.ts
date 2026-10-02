@@ -37,6 +37,15 @@ export function locationBoost(sellerCity: string | null, hint: string | null): n
   return sellerCity.trim().toLowerCase() === hint ? LOCATION_BOOST : 1;
 }
 
+/**
+ * The organic relevance score of one hit: fused relevance x trust x location. This is the ONLY place the three combine, and
+ * its inputs are exactly relevance, trustScore, badge, city and the buyer's location hint. No plan, ad spend or sponsorship
+ * can reach it (ADR-005/009); test/plan-invariance.props.test.ts holds that line.
+ */
+export function organicScore(relevance: number, seller: { trustScore: number; badgeActive: boolean; city: string | null }, locationHint: string | null): number {
+  return relevance * trustFactor(seller) * locationBoost(seller.city, locationHint);
+}
+
 /** Port hits → fusion candidates. Shared by every backend so ranking is identical (RRF parity). */
 export function toCandidates(hits: { listingId: string; sellerBusinessId: string; lexicalScore: number; vectorScore: number }[]): Candidate[] {
   return hits.map((h) => ({ listingId: h.listingId, sellerBusinessId: h.sellerBusinessId, lexicalRank: h.lexicalScore, similarity: h.vectorScore }));
