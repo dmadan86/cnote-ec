@@ -499,6 +499,7 @@
     "haveAccount": "Already have an account?",
     "forgotSent": "If an account exists for that email, we've sent a link to reset your password. It expires in 30 minutes.",
     "sendReset": "Send reset link",
+    "emailInvalid": "Enter a valid email address, like name@company.com.",
     "sending": "Sending…",
     "backToSignIn": "Back to sign in",
     "newPassword": "New password",

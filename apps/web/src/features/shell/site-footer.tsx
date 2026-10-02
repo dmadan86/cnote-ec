@@ -78,7 +78,7 @@ const TRUST = [
 
 // On brand-900: white 14:1, brand-200 10:1, brand-100 12:1 (all AA). Focus ring is white for 3:1+ against the footer.
 const linkCls =
-  "inline-flex min-h-8 items-center text-brand-200 underline-offset-4 hover:text-white hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+  "inline-flex min-h-11 items-center lg:min-h-8 text-brand-200 underline-offset-4 hover:text-white hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
 export async function SiteFooter({ locale }: { locale: Locale }) {
   const t = await getTranslations({ locale, namespace: "shell" });

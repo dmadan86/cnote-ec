@@ -31,7 +31,7 @@ export default async function ConversationPage(props: PageProps<"/conversations/
           <>
             {t("about", { title: convo.enquiryTitle })}
             {convo.role === "buyer" && convo.enquiryId ? (
-              <> · <Link href={`/buyer/enquiries/${convo.enquiryId}`} className="text-brand-700 hover:underline">{t("viewRequirement")}</Link></>
+              <> · <Link href={`/buyer/enquiries/${convo.enquiryId}`} className="text-brand-700 underline hover:no-underline">{t("viewRequirement")}</Link></>
             ) : null}
           </>
         }

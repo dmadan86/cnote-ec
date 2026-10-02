@@ -33,7 +33,7 @@ export function LinkTabs({
               href={t.href}
               aria-current={t.active ? "page" : undefined}
               className={cn(
-                "inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap px-3.5 py-1.5 text-sm font-medium transition-colors",
+                "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap lg:min-h-9 px-3.5 py-1.5 text-sm font-medium transition-colors",
                 "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600",
                 variant === "pill"
                   ? cn("rounded-lg", t.active ? "bg-brand-100 text-brand-700" : "text-muted hover:bg-canvas hover:text-ink")
