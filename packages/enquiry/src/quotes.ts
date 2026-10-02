@@ -2,6 +2,7 @@
 import { DomainError } from "@cnote/core";
 import { prisma, type Quote } from "@cnote/db";
 import { z } from "zod";
+import type { AttachmentView } from "./attachments";
 import { categoryById } from "./support";
 import type { Actor } from "./types";
 
@@ -55,6 +56,10 @@ export interface QuoteView {
   paymentTerms: PaymentTerms | null;
   paymentNote: string | null;
   gstIncluded: boolean | null;
+  /** Seller-attached files (comparison view only). */
+  attachments?: AttachmentView[];
+  /** Buyer's shortlist flag (comparison view only; never shown to the seller). */
+  shortlisted?: boolean;
 }
 
 const asDelivery = (v: string | null) => ((DELIVERY_TERMS as readonly string[]).includes(v ?? "") ? (v as DeliveryTerms) : v ? "other" : null);

@@ -41,6 +41,16 @@ const quoteSchema = (t: Awaited<ReturnType<typeof getTranslations>>) =>
     gstIncluded: z.boolean().nullable(),
   });
 
+/** Quote attachments (drawings, spec sheets): an empty file input submits one zero-byte entry, which is skipped. */
+async function files(fd: FormData, field: string) {
+  const out: { fileName: string; bytes: Uint8Array }[] = [];
+  for (const v of fd.getAll(field)) {
+    if (typeof v === "string" || v.size === 0) continue;
+    out.push({ fileName: v.name, bytes: new Uint8Array(await v.arrayBuffer()) });
+  }
+  return out;
+}
+
 export async function sendQuoteAction(_prev: ConvResult | null, fd: FormData): Promise<ConvResult> {
   const conversationId = str(fd, "conversationId");
   const session = await requireSeller(`/conversations/${conversationId}`);
@@ -76,6 +86,7 @@ export async function sendQuoteAction(_prev: ConvResult | null, fd: FormData): P
       paymentTerms: q.paymentTerms,
       paymentNote: q.paymentNote || null,
       gstIncluded: q.gstIncluded,
+      attachments: await files(fd, "attachments"),
     });
     logEvent("seller.quote_sent", { businessId: session.business.id, conversationId });
     revalidatePath(`/conversations/${conversationId}`);

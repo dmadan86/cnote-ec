@@ -1,6 +1,7 @@
 // Conversations between the buyer business and the matched seller business (ADR-007).
 import { DomainError, emit, rateLimit } from "@cnote/core";
 import { prisma, type Conversation, type Enquiry, type Match } from "@cnote/db";
+import { checkAttachments, discardStored, MAX_QUOTE_ATTACHMENTS, MAX_QUOTE_ATTACHMENT_BYTES, storeAttachmentBytes, type AttachmentUpload } from "./attachments";
 import { recordOrderTx } from "./orders";
 import { messageSchema } from "./schemas";
 import { quoteSchema, toQuoteView, type QuoteTermsInput } from "./quotes";
@@ -63,12 +64,15 @@ export async function sendMessage(actor: Actor, conversationId: string, body: st
 export async function sendQuote(
   actor: Actor,
   conversationId: string,
-  quote: { pricePaise: number; quantity: number; unit: string; leadTimeDays?: number | null; notes?: string | null; validUntil?: string | null } & QuoteTermsInput,
+  quote: { pricePaise: number; quantity: number; unit: string; leadTimeDays?: number | null; notes?: string | null; validUntil?: string | null; attachments?: AttachmentUpload[] | null } & QuoteTermsInput,
 ): Promise<{ quoteId: string }> {
   const q = quoteSchema.parse(quote);
-  const { role } = await requireParticipant(actor, conversationId);
+  const files = checkAttachments(quote.attachments, MAX_QUOTE_ATTACHMENTS, MAX_QUOTE_ATTACHMENT_BYTES);
+  const { c, role } = await requireParticipant(actor, conversationId);
   if (role !== "seller") throw new DomainError("forbidden", "Only the seller can send a quote.");
-  return prisma.$transaction(async (tx) => {
+  const stored = await storeAttachmentBytes(c.match.enquiryId, files);
+  try {
+  return await prisma.$transaction(async (tx) => {
     const row = await tx.quote.create({
       data: {
         conversationId,
@@ -89,11 +93,20 @@ export async function sendQuote(
         gstIncluded: q.gstIncluded,
       },
     });
+    if (stored.length) {
+      await tx.enquiryAttachment.createMany({
+        data: stored.map((s) => ({ id: s.id, enquiryId: c.match.enquiryId, quoteId: row.id, uploadedByBusiness: actor.businessId, key: s.key, fileName: s.fileName, mimeType: s.mimeType, sizeBytes: s.sizeBytes, createdAt: s.createdAt })),
+      });
+    }
     await emit(tx, "QuoteSent", { type: "conversation", id: conversationId }, {
       quoteId: row.id, conversationId, sellerBusinessId: actor.businessId, pricePaise: q.pricePaise, quantity: q.quantity,
     });
     return { quoteId: row.id };
   });
+  } catch (err) {
+    await discardStored(stored);
+    throw err;
+  }
 }
 
 /** One-tap "did this close?" (ADR-007). Either party; append-only, latest report wins in the UI. */

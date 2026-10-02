@@ -1,0 +1,18 @@
+{
+  "rfqLead": {
+    "_meta": {
+      "review": "machine-drafted; needs native review"
+    },
+    "targetPrice": "ಪ್ರತಿ ಯೂನಿಟ್‌ಗೆ ಗುರಿ ಬೆಲೆ",
+    "budget": "ಪ್ರತಿ ಯೂನಿಟ್‌ಗೆ ಬಜೆಟ್",
+    "pincode": "ತಲುಪಿಸುವ ಪಿನ್‌ಕೋಡ್",
+    "quoteDeadline": "ಕೋಟ್ ಸಲ್ಲಿಸಲು ಕೊನೆಯ ದಿನಾಂಕ",
+    "deadlinePassed": "ಗಡುವು ಮುಗಿದಿದೆ",
+    "preferredTier": "ಖರೀದಿದಾರರ ಆದ್ಯತೆ",
+    "tierPlus": "ಟಿಯರ್ {tier} ಅಥವಾ ಹೆಚ್ಚು",
+    "attachments": "ಡ್ರಾಯಿಂಗ್‌ಗಳು ಮತ್ತು ಸ್ಪೆಸಿಫಿಕೇಶನ್‌ಗಳು",
+    "download": "{name} ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ",
+    "quoteAttachments": "ಫೈಲ್‌ಗಳನ್ನು ಲಗತ್ತಿಸಿ (ಐಚ್ಛಿಕ)",
+    "quoteAttachmentsHint": "ಗರಿಷ್ಠ 3 ಫೈಲ್‌ಗಳು, PDF, JPG ಅಥವಾ PNG, ಪ್ರತಿಯೊಂದು 5 MB ವರೆಗೆ. ಖರೀದಿದಾರರು ಇವನ್ನು ನಿಮ್ಮ ಕೋಟ್ ಜೊತೆಗೆ ನೋಡುತ್ತಾರೆ."
+  }
+}

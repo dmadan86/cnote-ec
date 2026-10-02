@@ -1,0 +1,18 @@
+{
+  "rfqLead": {
+    "_meta": {
+      "review": "machine-drafted; needs native review"
+    },
+    "targetPrice": "प्रति युनिट लक्ष्य किंमत",
+    "budget": "प्रति युनिट बजेट",
+    "pincode": "डिलिव्हरी पिनकोड",
+    "quoteDeadline": "कोट देण्याची शेवटची तारीख",
+    "deadlinePassed": "मुदत संपली",
+    "preferredTier": "खरेदीदाराची पसंती",
+    "tierPlus": "टियर {tier} किंवा त्याहून जास्त",
+    "attachments": "ड्रॉइंग आणि स्पेसिफिकेशन",
+    "download": "{name} डाउनलोड करा",
+    "quoteAttachments": "फाइल जोडा (ऐच्छिक)",
+    "quoteAttachmentsHint": "जास्तीत जास्त 3 फाइल, PDF, JPG किंवा PNG, प्रत्येकी 5 MB पर्यंत. खरेदीदार या फाइल तुमच्या कोटसोबत पाहतो."
+  }
+}

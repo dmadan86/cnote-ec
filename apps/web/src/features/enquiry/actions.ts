@@ -1,6 +1,6 @@
 "use server";
 // Buyer-side server actions. Each re-checks the session: server actions are reachable by direct POST.
-import { pickSellers, createEnquiry, reportDeal, sendMessage, type EnquiryView } from "@cnote/enquiry";
+import { pickSellers, createEnquiry, decideQuote, reportDeal, sendMessage, setQuoteShortlisted, type AttachmentUpload, type EnquiryView } from "@cnote/enquiry";
 import { actorOf, requireBusiness, type ActionResult } from "@cnote/next-kit";
 import { runLocalized } from "@/i18n/errors";
 import { revalidatePath } from "next/cache";
@@ -15,7 +15,18 @@ const num = (f: FormData, k: string) => {
   return v === undefined ? undefined : Number(v);
 };
 
-/** "Post your requirement". Target price is entered in ₹ and stored as integer paise. */
+const paise = (rupees: number | undefined) => (rupees === undefined || Number.isNaN(rupees) ? undefined : Math.round(rupees * 100));
+
+async function files(f: FormData, field: string): Promise<AttachmentUpload[]> {
+  const out: AttachmentUpload[] = [];
+  for (const v of f.getAll(field)) {
+    if (typeof v === "string" || v.size === 0) continue; // an empty file input submits one zero-byte entry
+    out.push({ fileName: v.name, bytes: new Uint8Array(await v.arrayBuffer()) });
+  }
+  return out;
+}
+
+/** "Post your requirement". Prices are entered in ₹ and stored as integer paise; drawings go to private storage. */
 export async function postRfqAction(_prev: ActionResult<EnquiryView> | null, f: FormData): Promise<ActionResult<EnquiryView>> {
   const s = await requireBusiness("/rfq/new");
   const rupees = num(f, "targetPrice");
@@ -28,7 +39,12 @@ export async function postRfqAction(_prev: ActionResult<EnquiryView> | null, f: 
         categorySlug: str(f, "categorySlug"),
         quantity: num(f, "quantity"),
         quantityUnit: str(f, "quantityUnit"),
-        targetPricePaise: rupees === undefined || Number.isNaN(rupees) ? undefined : Math.round(rupees * 100),
+        targetPricePaise: paise(rupees),
+        budgetMinPaise: paise(num(f, "budgetMin")),
+        budgetMaxPaise: paise(num(f, "budgetMax")),
+        expiresInDays: num(f, "expiresInDays"),
+        minSellerTier: num(f, "minSellerTier"),
+        attachments: await files(f, "attachments"),
         deliveryCity: str(f, "deliveryCity"),
         deliveryPincode: str(f, "deliveryPincode"),
         neededBy: str(f, "neededBy"),
@@ -71,5 +87,26 @@ export async function reportDealAction(_prev: ActionResult | null, f: FormData):
     if (outcome !== "won" && outcome !== "lost" && outcome !== "pending") throw new Error("invalid outcome");
     await reportDeal(actorOf(s), str(f, "matchId") ?? "", outcome);
     revalidatePath(`/conversations/${conversationId}`);
+  });
+}
+
+/** Quote comparison actions (buyer). The deal value is computed server-side from the stored quote. */
+export async function quoteDecisionAction(_prev: ActionResult | null, f: FormData): Promise<ActionResult> {
+  const enquiryId = str(f, "enquiryId") ?? "";
+  const s = await requireBusiness(`/buyer/enquiries/${enquiryId}`);
+  const decision = str(f, "decision");
+  return runLocalized(async () => {
+    if (decision !== "accept" && decision !== "decline") throw new Error("invalid decision");
+    await decideQuote(actorOf(s), str(f, "quoteId") ?? "", decision);
+    revalidatePath(`/buyer/enquiries/${enquiryId}`);
+  });
+}
+
+export async function shortlistQuoteAction(_prev: ActionResult | null, f: FormData): Promise<ActionResult> {
+  const enquiryId = str(f, "enquiryId") ?? "";
+  const s = await requireBusiness(`/buyer/enquiries/${enquiryId}`);
+  return runLocalized(async () => {
+    await setQuoteShortlisted(actorOf(s), str(f, "quoteId") ?? "", f.get("shortlisted") === "true");
+    revalidatePath(`/buyer/enquiries/${enquiryId}`);
   });
 }

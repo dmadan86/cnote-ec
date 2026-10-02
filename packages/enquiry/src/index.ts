@@ -19,3 +19,5 @@ export * from "./benchmarks";
 export * from "./response-stats";
 export * from "./quotes";
 export * from "./fulfilment";
+export * from "./attachments";
+export * from "./comparison";

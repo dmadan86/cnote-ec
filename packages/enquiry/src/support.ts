@@ -4,6 +4,7 @@ import * as identity from "@cnote/identity";
 import type { TrustProfile } from "@cnote/identity";
 import type { Enquiry, Match, Tx } from "@cnote/db";
 import type { CategoryView } from "@cnote/catalogue";
+import type { AttachmentView } from "./attachments";
 import type { EnquiryView, MatchView } from "./types";
 
 export const RESPOND_WINDOW_MS = 2 * 60 * 60 * 1000; // ADR-002: decline/respond within 2h
@@ -43,7 +44,7 @@ export async function lockRow(tx: Pick<Tx, "$queryRaw">, table: "matches" | "enq
 
 export const strArr = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 
-export function enquiryBase(e: Enquiry, cat: CategoryView | null): Omit<EnquiryView, "matches"> {
+export function enquiryBase(e: Enquiry, cat: CategoryView | null, attachments: AttachmentView[] = []): Omit<EnquiryView, "matches"> {
   return {
     id: e.id,
     title: e.title,
@@ -61,6 +62,11 @@ export function enquiryBase(e: Enquiry, cat: CategoryView | null): Omit<EnquiryV
     createdAt: e.createdAt.toISOString(),
     buyerPicks: e.buyerPicks,
     sellerCap: e.sellerCap,
+    budgetMinPaise: e.budgetMinPaise === null ? null : Number(e.budgetMinPaise),
+    budgetMaxPaise: e.budgetMaxPaise === null ? null : Number(e.budgetMaxPaise),
+    expiresAt: e.expiresAt ? e.expiresAt.toISOString() : null,
+    minSellerTier: e.minSellerTier,
+    attachments,
   };
 }
 

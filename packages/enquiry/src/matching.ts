@@ -28,6 +28,8 @@ export async function rankedCandidates(
     excludeSellerIds: exclude,
   });
   const profs = await profiles([enq.buyerBusinessId, ...candidates.map((c) => c.sellerBusinessId)]);
+  // Buyer's preferred supplier tier: a hard floor on the verification tier (ADR-003 real tiers), applied before ranking.
+  const eligible = enq.minSellerTier ? candidates.filter((c) => (profs.get(c.sellerBusinessId)?.verificationTier ?? 0) >= enq.minSellerTier!) : candidates;
   const buyerProfile = profs.get(enq.buyerBusinessId);
   // Delivery location wins; fall back to the buyer's business location.
   const buyerGeo: Geo = {
@@ -36,7 +38,7 @@ export async function rankedCandidates(
     state: enq.deliveryCity && enq.deliveryCity !== buyerProfile?.city ? null : buyerProfile?.state,
   };
   const signals = new Map<string, SellerSignals>(profs);
-  return rankCandidates(candidates, signals, buyerGeo, { exclude, preferredSellerId: opts.preferredSellerId });
+  return rankCandidates(eligible, signals, buyerGeo, { exclude, preferredSellerId: opts.preferredSellerId });
 }
 
 /** Creates offered Match rows (+ LeadMatched) in the caller's tx. */

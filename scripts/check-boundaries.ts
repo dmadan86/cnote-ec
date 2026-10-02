@@ -68,7 +68,7 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   "@cnote/developer": ["@cnote/core", "@cnote/db", "@cnote/identity"],
   "@cnote/catalogue": ["@cnote/ai", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media", "@cnote/live-db"],
   "@cnote/search": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity"],
-  "@cnote/enquiry": ["@cnote/ai", "@cnote/billing", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity"],
+  "@cnote/enquiry": ["@cnote/ai", "@cnote/billing", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media"],
   "@cnote/wishlist": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity"],
   "@cnote/bulk": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media"],
   "@cnote/reviews": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity"],
