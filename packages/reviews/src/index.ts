@@ -18,6 +18,7 @@ export type { ReviewInput, CommentInput } from "./validate";
 // public reads
 export { listApprovedReviews, listApprovedComments, getMyReview, listMyPendingComments, listSellerUgc, type SellerUgcFilters } from "./read";
 export { getRatingSummary, getRatingSummaries } from "./summary";
+export { getSellerRatingSummaries, listApprovedSellerReviews, toSellerSummary, type SellerRatingSummary, type SellerReview } from "./seller";
 
 // back office (call moderate() inside admin.audited(ctx, "ugc.moderate", ...))
 export { listModerationQueue, getModerationItem, moderate, type QueueFilters } from "./moderation";

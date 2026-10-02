@@ -12,9 +12,9 @@ Rendered on every buyer web page (`apps/web/src/features/shell/site-footer.tsx`)
 
 1. **Closing call to action**: "Can't find what you need?" with Post a requirement (accent, the buyer's main job) and Sell on (outline).
 2. **Brand block**: logo, mission line, three trust promises that mirror the ADRs: real verification tier (ADR-003), at most 3 suppliers per requirement (ADR-002), public pricing with no auto-renewal (ADR-005).
-3. **Links**: one `nav` landmark ("Footer") with four headed lists: Buy, Sell, Explore, Trust & legal. Trust & legal carries how ranking and ads work, the dispute policy, grievance redressal (DPDP / IT Rules), the cookie policy and the Cookie settings button (withdrawal as easy as consent). 2 columns on phones, 4 from `sm`.
-4. **Legal bar**: copyright and data notice, llms.txt, and the language switcher.
+3. **Links**: one `nav` landmark ("Footer") with four headed lists: Buy, Sell, Company (About, Contact, Help, Trust & Safety, Sitemap) and Legal (Terms, Privacy, Cookie policy, Refund policy, Prohibited items, Dispute policy, How ranking & ads work, Grievance redressal, Report abuse, Accessibility, Security, plus the Cookie settings button, so withdrawal is as easy as consent). 2 columns on phones, 4 from `sm`. The four `/coming-soon` links were removed; those pages stay reachable from the header menus. New link labels live in the `legal` message namespace (`messages/<locale>.legal.json`, `legal.footer.*`).
+4. **Bottom bar**: legal entity line (legal name, CIN, GSTIN, registered office, from env via `features/legal/entity.ts`; dev shows `[... not configured]` placeholders), then the copyright and data notice, a small `llms.txt` link and the language switcher.
 
 ## Accessibility
 
-On `brand-900`: white text is 14:1, `brand-200` links 10:1, `brand-100` body 12:1. Focus rings are white. Links are at least 32px tall and buttons 44px. There is one footer landmark and one footer nav, with column titles as `h2`.
+On `brand-900`: white text is 14:1, `brand-200` links 10:1, `brand-100` body 12:1. Focus rings are white. Links are at least 32px tall (24px in the bottom bar) and buttons 44px. There is one footer landmark and one footer nav, with column titles as `h2`.

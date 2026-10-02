@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { notFound, permanentRedirect } from "next/navigation";
-import { Flag, MapPin } from "lucide-react";
-import { Avatar, Breadcrumbs, Card, CardBody, Container, Grid, Money, SectionHeader, TrustBadge } from "@cnote/ui";
+import { Flag } from "lucide-react";
+import { Breadcrumbs, Container, Grid, Money, SectionHeader } from "@cnote/ui";
 import { absoluteUrl } from "@/lib/site-url";
 import { LOCALE_META, localizePath } from "@/i18n/config";
 import { LocaleLink as Link } from "@/i18n/link";
 import { resolveLocale } from "@/i18n/server";
 import { JsonLd } from "@/lib/json-ld";
-import { categoryPath, parseProductParam, productPath, sellerPath } from "@/lib/paths";
+import { categoryPath, parseProductParam, productPath } from "@/lib/paths";
 import { breadcrumbLd, productLd } from "@/lib/schema";
 import { localizedAlternates } from "@/lib/seo-i18n";
 import { ListingCard } from "@/features/search/cards";
@@ -28,6 +28,8 @@ import { UnlockButton } from "@/features/leadgen/unlock-buttons";
 import { CompareIsland, SaveIsland } from "@/features/user-state/islands";
 import { SponsoredSimilar } from "@/features/ads/similar";
 import { stateLabel } from "@/features/identity/states";
+import { loadSupplierTrust } from "@/features/supplier/data";
+import { SellerCard } from "@/features/supplier/seller-card";
 
 // Product pages are static: the top 100 listings are prerendered at build time, everything else renders on first
 // request and is then cached (ISR). Regenerated at most every 5 min, and immediately (stale-while-revalidate, or
@@ -82,13 +84,14 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
   // Self-healing canonical URL: wrong / missing / stale slug (title edited) -> 308 to /p/<current-slug>-<id>.
   if (parsed.slug !== productPath(listing).slice("/p/".length, -37)) permanentRedirect(localizePath(productPath(listing), locale));
 
-  const [seller, category, similar, summary, reviews, offer] = await Promise.all([
+  const [seller, category, similar, summary, reviews, offer, supplierTrust] = await Promise.all([
     loadSeller(listing.sellerBusinessId),
     loadCategory(listing.category.slug),
     loadHitsStatic({ q: listing.title, limit: 9 }, [`listing:${listing.id}`]),
     loadRatingSummary(listing.id),
     loadReviewsPage(listing.id),
     loadOffer(listing.id),
+    loadSupplierTrust(listing.sellerBusinessId),
   ]);
   const others = similar.hits.filter((h) => h.listing.id !== listing.id).slice(0, 4);
   const sellerState = seller ? await stateLabelFor(locale, seller.state) : "";
@@ -166,29 +169,13 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
           <LeadNudge listingId={listing.id} listingTitle={listing.title} />
 
           {seller ? (
-            <Card>
-              <CardBody className="flex items-start gap-3">
-                <Avatar name={seller.name} size="lg" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted">{t("supplier")}</p>
-                  <h2 className="truncate text-base font-semibold text-ink">
-                    <Link href={sellerPath(seller.businessId)} className="hover:text-brand-700 hover:underline">
-                      {seller.name}
-                    </Link>
-                  </h2>
-                  <p className="mt-0.5 inline-flex items-center gap-1 text-sm text-muted">
-                    <MapPin className="size-3.5" aria-hidden /> {[seller.city, sellerState].filter(Boolean).join(", ") || t("india")}
-                  </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <TrustBadge tier={seller.verificationTier} badgeActive={seller.badgeActive} labels={ui.trust} />
-                    <span className="text-xs text-muted">{t("trustScore", { score: seller.trustScore })}</span>
-                  </div>
-                  <div className="mt-3">
-                    <UnlockButton trigger="pdp_contact_seller" unlock="seller_contact" listingId={listing.id} listingTitle={listing.title} label={t("contactSeller")} variant="outline" size="md" />
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
+            <SellerCard
+              seller={seller}
+              trust={supplierTrust}
+              locale={locale}
+              place={[seller.city, sellerState].filter(Boolean).join(", ")}
+              contact={<UnlockButton trigger="pdp_contact_seller" unlock="seller_contact" listingId={listing.id} listingTitle={listing.title} label={t("contactSeller")} variant="outline" size="md" />}
+            />
           ) : null}
 
           <TradeInfo listing={listing} locale={locale} />

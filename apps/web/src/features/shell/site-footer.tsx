@@ -5,6 +5,7 @@ import { CookieSettingsButton } from "@/features/consent";
 import type { Locale } from "@/i18n/config";
 import { LanguageSwitcher } from "@/i18n/language-switcher";
 import { LocaleLink } from "@/i18n/link";
+import { legalEntity } from "@/features/legal/entity";
 import { SELLER_APP_URL, SITE_NAME } from "./site";
 
 // Layout research (Mobbin, docs/design/footer.md): Codecademy / Shop (brand + mission left, balanced link columns right,
@@ -12,12 +13,14 @@ import { SELLER_APP_URL, SITE_NAME } from "./site";
 // Fiverr / Amazon (a closing call to action above the links for visitors who scrolled to the end without finding it).
 
 interface FooterLink {
+  /** Key under messages `shell` (default) or `legal` (when `legal` is set). */
   key: string;
   href: string;
   external?: boolean;
+  legal?: boolean;
 }
-type ColKey = "buy" | "sell" | "explore" | "legal";
-const COLS: { key: ColKey; links: FooterLink[] }[] = [
+type ColKey = "buy" | "sell" | "company" | "legal";
+const COLS: { key: ColKey; legal?: boolean; links: FooterLink[] }[] = [
   {
     key: "buy",
     links: [
@@ -36,24 +39,33 @@ const COLS: { key: ColKey; links: FooterLink[] }[] = [
     ],
   },
   {
-    key: "explore",
+    key: "company",
+    legal: true,
     links: [
-      { key: "nav.aiDesign", href: "/coming-soon/ai-design" },
-      { key: "nav.templates", href: "/coming-soon/templates-design" },
-      { key: "footer.businessServices", href: "/coming-soon/business-services" },
-      { key: "nav.resources", href: "/coming-soon/resources" },
+      { key: "footer.about", href: "/about", legal: true },
+      { key: "footer.contact", href: "/contact", legal: true },
+      { key: "footer.help", href: "/help", legal: true },
+      { key: "footer.trust", href: "/trust", legal: true },
+      { key: "footer.sitemap", href: "/sitemap", legal: true },
     ],
   },
   {
     // Trust is the product (ADR-002/005): how ranking and ads work and how disputes are handled sit beside the legal links.
+    // IT Rules 2021 r.3(1) / DPDP Act / E-Commerce Rules 2020: terms, privacy, grievance officer and report-abuse are reachable from every page.
     key: "legal",
     links: [
-      { key: "footer.ranking", href: "/ranking-and-ads" },
-      { key: "footer.disputePolicy", href: "/dispute-policy" },
-      // DPDP Act / IT Rules: grievance officer contact and complaint form must be reachable from every page.
-      { key: "footer.grievance", href: "/grievance" },
-      // ePrivacy Art 5(3) / DPDP s.5: the cookie notice is reachable from every page; withdrawal is the button below it.
+      { key: "footer.terms", href: "/terms", legal: true },
+      { key: "footer.privacy", href: "/privacy", legal: true },
+      // ePrivacy Art 5(3) / DPDP s.5: the cookie notice is reachable from every page; withdrawal is the button below the list.
       { key: "footer.cookiePolicy", href: "/cookies" },
+      { key: "footer.refund", href: "/refund-policy", legal: true },
+      { key: "footer.prohibited", href: "/prohibited-items", legal: true },
+      { key: "footer.disputePolicy", href: "/dispute-policy" },
+      { key: "footer.ranking", href: "/ranking-and-ads" },
+      { key: "footer.grievance", href: "/grievance" },
+      { key: "footer.report", href: "/report", legal: true },
+      { key: "footer.accessibility", href: "/accessibility", legal: true },
+      { key: "footer.security", href: "/security", legal: true },
     ],
   },
 ];
@@ -70,8 +82,10 @@ const linkCls =
 
 export async function SiteFooter({ locale }: { locale: Locale }) {
   const t = await getTranslations({ locale, namespace: "shell" });
+  const tl = await getTranslations({ locale, namespace: "legal" });
+  const entity = legalEntity();
   const tagline = (await getTranslations({ locale, namespace: "meta" }))("tagline");
-  const label = (key: string) => (key === "sellOnPlain" ? t("sellOnPlain", { site: SITE_NAME }) : t(key));
+  const label = (l: FooterLink) => (l.legal ? tl(l.key) : l.key === "sellOnPlain" ? t("sellOnPlain", { site: SITE_NAME }) : t(l.key));
 
   return (
     <footer className="mt-16 bg-brand-900 text-white">
@@ -116,17 +130,17 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
           <nav aria-label={t("footer.navLabel")} className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4 lg:col-span-8">
             {COLS.map((c) => (
               <div key={c.key}>
-                <h2 className="text-xs font-bold tracking-wider text-white uppercase">{t(`footer.${c.key}`)}</h2>
+                <h2 className="text-xs font-bold tracking-wider text-white uppercase">{c.legal ? tl(`footer.${c.key}`) : t(`footer.${c.key}`)}</h2>
                 <ul className="mt-3 space-y-1.5 text-sm">
                   {c.links.map((l) => (
                     <li key={l.key}>
                       {l.external ? (
                         <a href={l.href} className={linkCls}>
-                          {label(l.key)}
+                          {label(l)}
                         </a>
                       ) : (
                         <LocaleLink href={l.href} className={linkCls}>
-                          {label(l.key)}
+                          {label(l)}
                         </LocaleLink>
                       )}
                     </li>
@@ -145,16 +159,28 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
       </Container>
 
       <div className="border-t border-white/15">
-        <Container className="flex flex-col gap-3 py-5 text-xs text-brand-200 md:flex-row md:items-center md:justify-between">
+        <Container className="flex flex-col gap-4 py-5 text-xs text-brand-200">
+          {/* Company details (Consumer Protection (E-Commerce) Rules 2020): legal name, CIN, GSTIN and registered office on every page. */}
           <p>
-            {t("footer.copyright", { year: new Date().getFullYear(), site: SITE_NAME })}{" "}
-            <a href="/llms.txt" className={`${linkCls} min-h-6 underline`}>
-              llms.txt
-            </a>
+            <span className="font-semibold text-white">{entity.legalName}</span>
+            <span aria-hidden> · </span>
+            {tl("footer.cin")}: {entity.cin}
+            <span aria-hidden> · </span>
+            {tl("footer.gstin")}: {entity.gstin}
+            <br />
+            {tl("footer.registeredOffice")}: {entity.address}
           </p>
-          <div className="flex items-center gap-2 text-white">
-            <Globe className="size-4 text-brand-200" aria-hidden />
-            <LanguageSwitcher className="flex items-center [&_select]:border-white/40 [&_select]:focus-visible:outline-white" />
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <p>{t("footer.copyright", { year: new Date().getFullYear(), site: SITE_NAME })}</p>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-white">
+              <a href="/llms.txt" className={`${linkCls} min-h-6 text-xs`}>
+                llms.txt
+              </a>
+              <span className="flex items-center gap-2">
+                <Globe className="size-4 text-brand-200" aria-hidden />
+                <LanguageSwitcher className="flex items-center [&_select]:border-white/40 [&_select]:focus-visible:outline-white" />
+              </span>
+            </div>
           </div>
         </Container>
       </div>
