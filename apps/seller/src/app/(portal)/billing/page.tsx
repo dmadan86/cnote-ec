@@ -7,15 +7,21 @@ import { isLocale } from "@/i18n/config";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { load } from "@/lib/safe";
 import { billing } from "@/lib/services";
-import { CancelPlan, SubscribeButton } from "@/features/billing/plan-actions";
+import { formatPaise } from "@/features/billing/format-paise";
+import { SubscribeButton } from "@/features/billing/plan-actions";
+import { PricingCalculator } from "@/features/billing/pricing-calculator";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("billing"))("metaTitle") };
 }
 
-export default async function BillingPage() {
+const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
+
+export default async function BillingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await requireSeller("/billing");
+  const sp = await searchParams;
   const t = await getTranslations("billing");
+  const ta = await getTranslations("billingAnnual");
   const loc = await getLocale();
   const locale = isLocale(loc) ? loc : "en";
   const id = session.business.id;
@@ -27,12 +33,21 @@ export default async function BillingPage() {
     load(() => billing.listInvoices({ businessId: id }, { limit: 20 })),
   ]);
   const packs = billing.listCreditPacks();
+  const refundedPaise = Math.max(0, Number.parseInt(one(sp.refund) ?? "0", 10) || 0);
+  const gstRateBps = billing.platformSupplier().gstRateBps;
   const activeCode = sub.ok && sub.data?.status === "active" ? sub.data.planCode : null;
   const activePlan = plans.ok ? plans.data.find((p) => p.code === activeCode) : undefined;
 
   return (
     <div className="space-y-8">
       <PageHeader title={t("title")} description={t("description")} />
+
+      {one(sp.cancelled) === "1" ? (
+        <Alert tone="success">
+          <p className="font-semibold">{ta("cancelled.title")}</p>
+          <p>{refundedPaise > 0 ? ta("cancelled.refund", { amount: formatPaise(refundedPaise) }) : ta("cancelled.noRefund")} {ta("cancelled.creditsKept")}</p>
+        </Alert>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Stat label={t("leadCredits")} value={balance.ok ? balance.data : "-"} hint={t("leadCreditsHint")} />
@@ -45,7 +60,7 @@ export default async function BillingPage() {
       {!balance.ok ? <Alert tone="danger">{balance.error}</Alert> : null}
 
       {sub.ok && sub.data?.status === "active" && activeCode && activePlan && activePlan.monthlyPricePaise > 0 ? (
-        <CancelPlan endsOn={formatDate(sub.data.periodEnd, locale)} />
+        <Link href="/billing/cancel" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line px-4 text-sm font-semibold text-ink hover:bg-canvas">{t("cancelPlan")}</Link>
       ) : null}
 
       <section aria-labelledby="plans" className="space-y-3">
@@ -63,8 +78,14 @@ export default async function BillingPage() {
                     <p>{p.monthlyPricePaise === 0 ? <span className="text-2xl font-bold text-ink">{t("free")}</span> : <Money paise={p.monthlyPricePaise} unit="month" className="text-2xl" />}</p>
                     <p className="text-sm text-ink">{t("perMonthCredits", { count: p.monthlyCredits })}</p>
                     <ul className="list-disc space-y-1 pl-5 text-sm text-muted">{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
-                    <div className="mt-auto pt-2">
+                    <div className="mt-auto space-y-2 pt-2">
                       <SubscribeButton planCode={p.code} current={p.code === activeCode} label={p.monthlyPricePaise === 0 ? t("switchFree") : t("buyPlan", { name: p.name })} />
+                      {p.monthlyPricePaise > 0 ? (
+                        <>
+                          <p className="text-xs text-muted">{ta("annualOffer", { price: formatPaise(p.annualPricePaise), percent: p.annualDiscountBps / 100 })}</p>
+                          <Link href={`/billing/checkout?plan=${encodeURIComponent(p.code)}&interval=annual`} className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-line px-4 text-sm font-semibold text-ink hover:bg-canvas">{ta("buyAnnual", { name: p.name })}</Link>
+                        </>
+                      ) : null}
                     </div>
                   </CardBody>
                 </Card>
@@ -74,6 +95,12 @@ export default async function BillingPage() {
         )}
         <p className="text-xs text-muted">{t("priceNote")}</p>
       </section>
+
+      {plans.ok ? (
+        <section aria-label={ta("calc.title")} className="max-w-xl">
+          <PricingCalculator plans={plans.data.map((p) => ({ code: p.code, name: p.name, monthlyPricePaise: p.monthlyPricePaise, monthlyCredits: p.monthlyCredits, annualDiscountBps: p.annualDiscountBps }))} gstRateBps={gstRateBps} />
+        </section>
+      ) : null}
 
       <section aria-labelledby="packs" className="space-y-3">
         <h2 id="packs" className="text-lg font-bold text-ink">{t("buyCredits")}</h2>

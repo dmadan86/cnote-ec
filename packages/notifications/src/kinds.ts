@@ -271,13 +271,35 @@ export const KINDS: NotificationKind[] = [
     category: "billing",
     app: "seller",
     event: "SubscriptionCancelled",
-    variables: [v("planCode", "Plan code", "growth"), RECIPIENT_NAME, HREF],
+    variables: [v("planCode", "Plan code", "growth"), v("refund", "Refund line, empty when nothing is refunded", "₹12,000 is being refunded to your original payment method."), RECIPIENT_NAME, HREF],
     defaults: {
-      in_app: { subject: "Your {{planCode}} plan was cancelled", body: "You can subscribe again any time from Billing." },
-      email: { subject: "Your {{planCode}} plan was cancelled", body: "Hi {{recipientName}},\n\nYour {{planCode}} plan was cancelled.\n\nBilling: {{href}}" },
+      in_app: { subject: "Your {{planCode}} plan was cancelled", body: "{{refund}} Credits you already have stay spendable until their own expiry. You can subscribe again any time from Billing." },
+      email: { subject: "Your {{planCode}} plan was cancelled", body: "Hi {{recipientName}},\n\nYour {{planCode}} plan was cancelled. {{refund}}\nCredits you already have stay spendable until their own expiry.\n\nBilling: {{href}}" },
     },
     async resolve(e: DomainEvent<"SubscriptionCancelled">, dir) {
-      return fan(await membersOf(dir, e.payload.businessId, { ownersOnly: true }), { businessId: e.payload.businessId, vars: { planCode: e.payload.planCode }, href: "/billing" });
+      const refund = e.payload.refundPaise > 0 ? `${inr(e.payload.refundPaise)} is being refunded to your original payment method.` : "";
+      return fan(await membersOf(dir, e.payload.businessId, { ownersOnly: true }), { businessId: e.payload.businessId, vars: { planCode: e.payload.planCode, refund }, href: "/billing" });
+    },
+  }),
+  kind({
+    key: "billing.renewal_due",
+    name: "Plan ending: confirm renewal",
+    description: "A paid plan ends soon and will not renew by itself (ADR-005). Asks the owner to confirm a renewal; nothing is charged unless they do.",
+    category: "billing",
+    app: "seller",
+    event: "SubscriptionRenewalDue",
+    variables: [v("planCode", "Plan code", "growth"), v("endsOn", "Date the paid period ends", "12 Nov 2026"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "Your {{planCode}} plan ends on {{endsOn}}", body: "It will not renew automatically and you will not be charged. Confirm a renewal from Billing if you want to keep it." },
+      email: {
+        subject: "Your {{planCode}} plan ends on {{endsOn}}",
+        body: "Hi {{recipientName}},\n\nYour {{planCode}} plan ends on {{endsOn}}. It will NOT renew automatically and we will not charge you unless you confirm.\n\nTo keep the plan, confirm the renewal here: {{href}}\nIf you do nothing, you move to the Free plan and keep any credits you already have until their expiry.",
+      },
+    },
+    async resolve(e: DomainEvent<"SubscriptionRenewalDue">, dir) {
+      const endsOn = new Date(e.payload.periodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+      const href = `/billing/checkout?plan=${encodeURIComponent(e.payload.planCode)}${e.payload.billingInterval === "annual" ? "&interval=annual" : ""}`;
+      return fan(await membersOf(dir, e.payload.businessId, { ownersOnly: true }), { businessId: e.payload.businessId, vars: { planCode: e.payload.planCode, endsOn }, href });
     },
   }),
   kind({

@@ -190,7 +190,7 @@ describe("moderation, UGC, leadgen and volume counters", () => {
       ev("OrderRecorded", { orderId: "o1", matchId: "m", enquiryId: "e", buyerBusinessId: "b", sellerBusinessId: "s", totalPaise: 1 }, at(d)),
       ev("OrderRecorded", { orderId: "o2", matchId: "m", enquiryId: "e", buyerBusinessId: "b", sellerBusinessId: "s", totalPaise: null }, at(d)),
       ev("SubscriptionStarted", { businessId: "b", subscriptionId: "s", planCode: "pro" }, at(d)),
-      ev("SubscriptionCancelled", { businessId: "b", subscriptionId: "s", planCode: "pro" }, at(d)),
+      ev("SubscriptionCancelled", { businessId: "b", subscriptionId: "s", planCode: "pro", billingInterval: "monthly", refundPaise: 0, unusedMonths: 0, effectiveAt: at(d).toISOString(), reason: null }, at(d)),
       ev("CreditConsumed", { businessId: "b", txnId: "t", refType: "match", refId: "m" }, at(d)),
       ev("CreditConsumed", { businessId: "b", txnId: "t2", refType: "match", refId: "m2" }, at(d)),
       ev("CreditRefunded", { businessId: "b", txnId: "t", refType: "match", refId: "m" }, at(d)),

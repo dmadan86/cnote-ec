@@ -1,0 +1,26 @@
+{
+  "pricing2": {
+    "calc": {
+      "title": "Estimate your cost",
+      "plan": "Plan",
+      "billing": "Billing",
+      "monthly": "Monthly",
+      "annual": "Annual (save {percent}%)",
+      "leads": "Leads you expect to accept each month",
+      "leadsHint": "You spend one credit only when you accept a lead.",
+      "resultsLabel": "Estimated cost",
+      "priceMonthly": "{total} a month including GST ({ex} + {gst} GST).",
+      "priceAnnual": "{total} once a year including GST ({ex} + {gst} GST). That is {perMonth} a month, and saves {saving} before GST compared with paying monthly.",
+      "perLead": "About {amount} per lead you accept. The plan covers {covered} of your {leads} leads each month.",
+      "freePlan": "The Free plan costs nothing and adds {credits} lead credits every month.",
+      "noLeads": "Enter how many leads you expect to see the cost per lead.",
+      "shortfall": "{count, plural, one {# lead a month is more than this plan covers. Top up with a credit pack or pick a bigger plan.} other {# leads a month are more than this plan covers. Top up with a credit pack or pick a bigger plan.}}",
+      "spare": "{count, plural, one {# spare credit a month rolls over.} other {# spare credits a month roll over.}}",
+      "expiry": "Credits added each month stay usable for {days} days from the day they are added, then expire.",
+      "expiryAnnual": "On the annual plan, credits are added month by month. Each month's credits stay usable for {days} days.",
+      "noAutoRenew": "Nothing renews on its own. We ask you before every renewal.",
+      "recommend": "Cheapest plan for {leads} leads a month: {plan}."
+    },
+    "annualLine": "Annual: {price} a year + GST (save {percent}%)"
+  }
+}

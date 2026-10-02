@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { SubmitButton, FormAlert } from "@/features/shell/form-bits";
 import { checkoutAction, mockPayAction, type BillingResult } from "./actions";
 
-export function ConfirmPayForm({ planCode, packId, couponCode }: { planCode?: string; packId?: string; couponCode?: string }) {
+export function ConfirmPayForm({ planCode, packId, couponCode, interval }: { planCode?: string; packId?: string; couponCode?: string; interval?: "monthly" | "annual" }) {
   const t = useTranslations("billing.checkout");
   const [state, action] = useActionState<BillingResult | null, FormData>(checkoutAction, null);
   return (
@@ -13,6 +13,7 @@ export function ConfirmPayForm({ planCode, packId, couponCode }: { planCode?: st
       {planCode ? <input type="hidden" name="planCode" value={planCode} /> : null}
       {packId ? <input type="hidden" name="packId" value={packId} /> : null}
       {couponCode ? <input type="hidden" name="couponCode" value={couponCode} /> : null}
+      {planCode && interval === "annual" ? <input type="hidden" name="interval" value="annual" /> : null}
       <SubmitButton className="w-full" pendingText={t("opening")}>{t("continue")}</SubmitButton>
       <FormAlert state={state} />
     </form>

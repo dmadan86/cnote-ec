@@ -25,6 +25,8 @@ model Plan {
   monthlyCredits    Int    @map("monthly_credits")
   features          Json   @default("[]")
   sortOrder         Int    @default(0) @map("sort_order")
+  /// Annual billing discount in basis points off 12 x monthly (ADR-005). Configurable per plan.
+  annualDiscountBps Int    @default(2000) @map("annual_discount_bps")
 
   subscriptions Subscription[]
 
@@ -42,6 +44,14 @@ model Subscription {
   autoRenew   Boolean            @default(false) @map("auto_renew")
   cancelledAt DateTime?          @map("cancelled_at") @db.Timestamptz
   createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  /// "monthly" | "annual" (annual = 12 calendar months, credits granted monthly, ADR-005)
+  billingInterval String         @default("monthly") @map("billing_interval")
+  /// The PaymentOrder that paid for this period (refund basis on cancel); null for free/dev plans
+  paymentOrderId  String?        @map("payment_order_id") @db.Uuid
+  /// Annual plans: when the next monthly credit grant is due
+  nextGrantAt     DateTime?      @map("next_grant_at") @db.Timestamptz
+  /// Set once the "confirm your renewal" reminder was emitted for this period
+  renewalRemindedAt DateTime?    @map("renewal_reminded_at") @db.Timestamptz
 
   business Business @relation(fields: [businessId], references: [id])
   plan     Plan     @relation(fields: [planCode], references: [code])

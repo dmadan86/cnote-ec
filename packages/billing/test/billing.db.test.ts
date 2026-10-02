@@ -163,7 +163,7 @@ describe("plans", () => {
   });
   it("getPlan unknown -> not_found; toPlanView tolerates non-array features", async () => {
     await expect(getPlan("nope-zzz")).rejects.toMatchObject({ code: "not_found" });
-    expect(toPlanView({ code: "x", name: "X", monthlyPricePaise: 5n, monthlyCredits: 1, features: { a: 1 } })).toEqual({ code: "x", name: "X", monthlyPricePaise: 5, monthlyCredits: 1, features: [] });
+    expect(toPlanView({ code: "x", name: "X", monthlyPricePaise: 5n, monthlyCredits: 1, annualDiscountBps: 2000, features: { a: 1 } })).toEqual({ code: "x", name: "X", monthlyPricePaise: 5, monthlyCredits: 1, annualDiscountBps: 2000, annualPricePaise: 48, features: [] });
   });
 });
 
@@ -237,10 +237,10 @@ async function countOtherLapsed(): Promise<number> {
 }
 
 describe("worker module", () => {
-  it("registers BusinessCreated handler and two jobs", async () => {
+  it("registers BusinessCreated handler and the scheduled jobs", async () => {
     expect(worker.name).toBe("billing");
     expect(Object.keys(worker.handlers ?? {})).toEqual(["BusinessCreated"]);
-    expect(worker.jobs!.map((j) => j.name)).toEqual(["billing.end-subscriptions", "billing.expire-credits"]);
+    expect(worker.jobs!.map((j) => j.name)).toEqual(["billing.end-subscriptions", "billing.annual-credits", "billing.renewal-reminders", "billing.expire-credits"]);
     await worker.handlers!.BusinessCreated!({ payload: { businessId: b } } as never);
     expect(await getBalance(b)).toBe(10);
     for (const j of worker.jobs!) await j.run();

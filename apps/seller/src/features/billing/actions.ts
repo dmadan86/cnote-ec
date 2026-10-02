@@ -51,9 +51,10 @@ export async function checkoutAction(_prev: BillingResult | null, fd: FormData):
     const couponCode = str(fd, "couponCode") || undefined;
     const planCode = str(fd, "planCode");
     const packId = str(fd, "packId");
+    const interval = str(fd, "interval") === "annual" ? "annual" : "monthly";
     const c = await billing.startCheckout(
       actor(session),
-      planCode ? { purpose: "subscription", planCode, couponCode } : { purpose: "credit_pack", packId: z.string().min(1, t("choosePack")).parse(packId), couponCode },
+      planCode ? { purpose: "subscription", planCode, couponCode, interval } : { purpose: "credit_pack", packId: z.string().min(1, t("choosePack")).parse(packId), couponCode },
     );
     logEvent("seller.checkout_started", { businessId: session.business.id, purpose: planCode ? "subscription" : "credit_pack", ref: planCode || packId });
     return c.redirectUrl;
@@ -76,13 +77,19 @@ export async function mockPayAction(_prev: BillingResult | null, fd: FormData): 
   return res;
 }
 
-export async function cancelPlanAction(_prev: BillingResult | null): Promise<BillingResult> {
-  void _prev;
+/**
+ * ADR-005: cancel in 3 taps. Billing -> "Cancel plan" (1) -> "Yes, cancel my plan" (2) -> back on Billing with the
+ * result. The reason is optional and there is no retention step.
+ */
+export async function cancelPlanAction(_prev: BillingResult | null, fd: FormData): Promise<BillingResult> {
   const session = await requireSeller("/billing");
-  return run(async () => {
-    await billing.cancelSubscription(session.business.id);
-    logEvent("seller.plan_cancelled", { businessId: session.business.id });
+  const reason = str(fd, "reason") || undefined;
+  const res = await run(async () => {
+    const q = await billing.cancelSubscriptionWithQuote(session.business.id, { reason });
+    logEvent("seller.plan_cancelled", { businessId: session.business.id, refundPaise: q.refundPaise });
     refresh();
-    return null;
+    return q.refundPaise;
   });
+  if (res.ok) redirect(`/billing?cancelled=1&refund=${res.data}`);
+  return res;
 }

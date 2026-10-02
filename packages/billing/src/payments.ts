@@ -10,7 +10,7 @@ import {
 } from "./payment-providers";
 import { issueInvoiceTx, isIntraState, placeOfSupply, platformSupplier, splitGst, type InvoiceLineInput, type InvoiceView } from "./invoices";
 import { loadParty } from "./parties";
-import type { CancellationQuote } from "./types";
+import { planPeriodPricePaise, type BillingInterval } from "./pricing";
 
 export { configuredProvider, type ProviderName, type PaymentProvider } from "./payment-providers";
 
@@ -55,7 +55,7 @@ export function registerPaymentPurpose(purpose: string, h: PurposeHandler): void
 
 export interface CheckoutActor extends CustomerInfo { businessId: string }
 export type CheckoutInput =
-  | { purpose: "subscription"; planCode: string; couponCode?: string }
+  | { purpose: "subscription"; planCode: string; couponCode?: string; interval?: BillingInterval }
   | { purpose: "credit_pack"; packId: string; couponCode?: string };
 export interface CheckoutQuote {
   description: string; listPaise: number; discountPaise: number; taxablePaise: number; gstPaise: number; totalPaise: number;
@@ -76,11 +76,22 @@ export function decodeRef(v: string | null): { ref: string; couponId: string | n
 
 // ---- quote + start checkout ----------------------------------------------------------------------------------------
 
+/** purposeRef for a subscription: "<planCode>" (monthly) or "<planCode>:annual". */
+const planRef = (code: string, interval: BillingInterval) => (interval === "annual" ? `${code}:annual` : code);
+export function parsePlanRef(ref: string): { planCode: string; interval: BillingInterval } {
+  const [planCode = "", i] = ref.split(":");
+  return { planCode, interval: i === "annual" ? "annual" : "monthly" };
+}
+
 async function resolveItem(input: CheckoutInput): Promise<{ ref: string; description: string; listPaise: number; planCode?: string }> {
   if (input.purpose === "subscription") {
     const plan = await getPlan(input.planCode);
     if (plan.monthlyPricePaise <= 0) throw new DomainError("validation", "The free plan needs no payment.");
-    return { ref: plan.code, description: `${plan.name} plan - 1 month (${plan.monthlyCredits} lead credits)`, listPaise: plan.monthlyPricePaise, planCode: plan.code };
+    const interval: BillingInterval = input.interval === "annual" ? "annual" : "monthly";
+    const description = interval === "annual"
+      ? `${plan.name} plan - 12 months (${plan.monthlyCredits} lead credits every month)`
+      : `${plan.name} plan - 1 month (${plan.monthlyCredits} lead credits)`;
+    return { ref: planRef(plan.code, interval), description, listPaise: planPeriodPricePaise(plan, interval), planCode: plan.code };
   }
   const pack = CREDIT_PACKS.find((p) => p.id === input.packId);
   if (!pack) throw new DomainError("not_found", "Credit pack not found");
@@ -113,7 +124,10 @@ const bn = (n: number) => BigInt(n);
 export async function startCheckout(actor: CheckoutActor, input: CheckoutInput): Promise<CheckoutResult> {
   if (input.purpose === "subscription") {
     const cur = await prisma.subscription.findFirst({ where: { businessId: actor.businessId, status: "active", periodEnd: { gt: new Date() } } });
-    if (cur?.planCode === input.planCode) throw new DomainError("conflict", "You are already on this plan.");
+    // Re-buying the same plan is allowed to switch the interval, or to renew explicitly shortly before the period ends (no auto-renew, ADR-005).
+    const wanted: BillingInterval = input.interval === "annual" ? "annual" : "monthly";
+    const renewing = !!cur && cur.periodEnd.getTime() - Date.now() <= 14 * 86_400_000;
+    if (cur?.planCode === input.planCode && cur.billingInterval === wanted && !renewing) throw new DomainError("conflict", "You are already on this plan.");
   }
   const q = await quoteCheckout(actor, input);
   return createProviderOrder(actor, {
@@ -177,9 +191,10 @@ export async function fulfilOrder(orderId: string, info: { providerPaymentId?: s
     let description = `${order.purpose} ${ref.ref}`;
     let sac = platformSupplier().sac;
     if (order.purpose === "subscription") {
-      const plan = await getPlan(ref.ref);
-      await activatePlanTx(tx, order.businessId, plan.code, { allowSame: true });
-      description = `${plan.name} plan - 1 month`;
+      const { planCode, interval } = parsePlanRef(ref.ref);
+      const plan = await getPlan(planCode);
+      await activatePlanTx(tx, order.businessId, plan.code, { allowSame: true, interval, paymentOrderId: order.id });
+      description = `${plan.name} plan - ${interval === "annual" ? "12 months" : "1 month"}`;
     } else if (order.purpose === "credit_pack") {
       const pack = CREDIT_PACKS.find((p) => p.id === ref.ref);
       if (!pack) throw new DomainError("not_found", "Credit pack not found");
@@ -394,17 +409,4 @@ export async function refundPayment(orderId: string, amountPaise: number, reason
     await emit(tx, "PaymentRefunded", { type: "payment_order", id: o.id }, { paymentOrderId: o.id, businessId: o.businessId, amountPaise, creditNoteNumber: noteNumber });
     return { refundId: refund.id, creditNoteNumber: noteNumber, status: providerRefund.status };
   });
-}
-
-/** Annual-plan cancel: refund the pro-rata share of what was actually paid (tax-inclusive, coupon-aware). */
-export async function refundForCancellation(businessId: string, quote: CancellationQuote): Promise<void> {
-  if (quote.refundPaise <= 0) return;
-  const plan = await getPlan(quote.planCode);
-  const order = await prisma.paymentOrder.findFirst({
-    where: { businessId, purpose: "subscription", status: { in: ["paid", "partially_refunded"] }, purposeRef: { startsWith: quote.planCode } },
-    orderBy: { fulfilledAt: "desc" },
-  });
-  if (!order || plan.monthlyPricePaise <= 0) return; // dev/manual subscriptions have nothing to refund
-  const amount = Math.floor((Number(order.totalPaise) * quote.refundPaise) / plan.monthlyPricePaise);
-  if (amount > 0) await refundPayment(order.id, amount, `Pro-rata refund on cancelling ${quote.planCode}`);
 }

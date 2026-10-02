@@ -2,7 +2,7 @@ import { prisma } from "@cnote/db";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cancelSubscriptionWithQuote, completeMockPayment, couponPortFromModule, CREDIT_PACKS, failOrder, fulfilOrder, getBalance, getActiveSubscription, getInvoicePdf, getPaymentOrderDetail,
-  getPaymentStatus, handlePaymentWebhook, listBusinessPayments, listCreditPacks, listInvoices, listPaymentOrders, quoteCheckout, refundForCancellation, refundPayment,
+  getPaymentStatus, handlePaymentWebhook, listBusinessPayments, listCreditPacks, listInvoices, listPaymentOrders, quoteCheckout, refundPayment,
   registerPaymentPurpose, setCouponPort, setInvoiceDocStore, startCheckout, subscribe, seedPlans,
 } from "../src";
 import { issueInvoiceTx, nextInvoiceNumber } from "../src/invoices";
@@ -251,22 +251,6 @@ describe("refunds + credit notes", () => {
     expect(await prisma.paymentRefund.count({ where: { paymentOrderId: c.orderId, status: "failed" } })).toBe(1);
     expect((await prisma.paymentOrder.findUnique({ where: { id: c.orderId } }))!.status).toBe("paid");
   });
-  it("annual pro-rata cancellation refunds via the payment path", async () => {
-    const b = await biz();
-    const c = await startCheckout({ businessId: b }, { purpose: "subscription", planCode: "pro" });
-    await completeMockPayment({ businessId: b }, c.orderId);
-    await refundForCancellation(b, { subscriptionId: "s", planCode: "pro", refundPaise: 0 });
-    await refundForCancellation(b, { subscriptionId: "s", planCode: "pro", refundPaise: 149_950 }); // half of 2,999
-    const rf = await prisma.paymentRefund.findMany({ where: { paymentOrderId: c.orderId } });
-    expect(rf).toHaveLength(1);
-    expect(Number(rf[0]!.amountPaise)).toBe(Math.floor((Number(c.totalPaise) * 149_950) / 299_900));
-    // nothing paid -> nothing refunded; monthly cancel path (refund 0) is a no-op
-    const b2 = await biz();
-    await subscribe(b2, "starter");
-    await refundForCancellation(b2, { subscriptionId: "s", planCode: "starter", refundPaise: 100 });
-    const q = await cancelSubscriptionWithQuote(b2);
-    expect(q.refundPaise).toBe(0);
-  });
 });
 
 describe("invoice numbering + access", () => {
@@ -356,34 +340,7 @@ describe("invoice numbering + access", () => {
   });
 });
 
-describe("annual cancel end to end", () => {
-  async function annual() {
-    const b = await biz();
-    const c = await startCheckout({ businessId: b }, { purpose: "subscription", planCode: "pro" });
-    await completeMockPayment({ businessId: b }, c.orderId);
-    const now = Date.now();
-    await prisma.subscription.updateMany({ where: { businessId: b, planCode: "pro", status: "active" }, data: { periodStart: new Date(now - 30 * 86_400_000), periodEnd: new Date(now + 335 * 86_400_000) } });
-    return { b, id: c.orderId };
-  }
-  it("cancelling an annual period refunds through the provider and issues a credit note", async () => {
-    const { b, id } = await annual();
-    const q = await cancelSubscriptionWithQuote(b);
-    expect(q.refundPaise).toBeGreaterThan(0);
-    const rf = await prisma.paymentRefund.findMany({ where: { paymentOrderId: id } });
-    expect(rf).toHaveLength(1);
-    expect(rf[0]!.creditNoteId).not.toBeNull();
-  });
-  it("a failing provider refund is logged and does not fail the cancellation", async () => {
-    const { b, id } = await annual();
-    await prisma.paymentOrder.update({ where: { id }, data: { provider: "cashfree" } });
-    process.env.CASHFREE_APP_ID = "a"; process.env.CASHFREE_SECRET_KEY = "s";
-    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 500, json: async () => ({}) }) as Response));
-    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const q = await cancelSubscriptionWithQuote(b);
-    expect(q.refundPaise).toBeGreaterThan(0);
-    expect(err).toHaveBeenCalled();
-    err.mockRestore();
-  });
+describe("status sync", () => {
   it("status sync tolerates provider errors", async () => {
     const b = await biz();
     process.env.PAYMENTS_PROVIDER = "razorpay";

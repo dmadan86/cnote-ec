@@ -1,5 +1,6 @@
 import { prisma } from "@cnote/db";
 import { cachedTagged, cacheTags, DomainError, invalidateTags } from "@cnote/core";
+import { DEFAULT_ANNUAL_DISCOUNT_BPS, planPeriodPricePaise } from "./pricing";
 import type { PlanView } from "./types";
 
 const DEFAULT_PLANS = [
@@ -17,32 +18,40 @@ const DEFAULT_PLANS = [
   },
 ];
 
+/** BILLING_ANNUAL_DISCOUNT_BPS seeds the discount of newly created plans; afterwards it is the plan row's value. */
+function defaultAnnualDiscountBps(env: NodeJS.ProcessEnv = process.env): number {
+  const n = Number(env.BILLING_ANNUAL_DISCOUNT_BPS ?? DEFAULT_ANNUAL_DISCOUNT_BPS);
+  return Number.isInteger(n) && n >= 0 && n <= 5000 ? n : DEFAULT_ANNUAL_DISCOUNT_BPS;
+}
+
 /** Idempotent upsert of the default plans. Never touches subscriptions. */
 export async function seedPlans(): Promise<void> {
   for (const p of DEFAULT_PLANS) {
     await prisma.plan.upsert({
       where: { code: p.code },
-      create: p,
+      create: { ...p, annualDiscountBps: defaultAnnualDiscountBps() }, // existing rows keep whatever finance configured
       update: { name: p.name, monthlyPricePaise: p.monthlyPricePaise, monthlyCredits: p.monthlyCredits, features: p.features, sortOrder: p.sortOrder },
     });
   }
   await invalidateTags([cacheTags.plans]);
 }
 
-type PlanRow = { code: string; name: string; monthlyPricePaise: bigint; monthlyCredits: number; features: unknown };
+type PlanRow = { code: string; name: string; monthlyPricePaise: bigint; monthlyCredits: number; annualDiscountBps: number; features: unknown };
 export function toPlanView(p: PlanRow): PlanView {
   return {
     code: p.code,
     name: p.name,
     monthlyPricePaise: Number(p.monthlyPricePaise),
     monthlyCredits: p.monthlyCredits,
+    annualDiscountBps: p.annualDiscountBps,
+    annualPricePaise: planPeriodPricePaise({ monthlyPricePaise: Number(p.monthlyPricePaise), annualDiscountBps: p.annualDiscountBps }, "annual"),
     features: Array.isArray(p.features) ? (p.features as string[]) : [],
   };
 }
 
 /** Public plan catalogue (pricing pages, onboarding). Cached 10 min + SWR; `seedPlans` invalidates. */
 export async function listPlans(): Promise<PlanView[]> {
-  return cachedTagged("billing:plans:v1", [cacheTags.plans], 600, loadPlans, { staleSeconds: 3600 });
+  return cachedTagged("billing:plans:v2", [cacheTags.plans], 600, loadPlans, { staleSeconds: 3600 });
 }
 
 async function loadPlans(): Promise<PlanView[]> {
