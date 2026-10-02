@@ -1,5 +1,5 @@
 import type Redis from "ioredis";
-import { redis as defaultRedis } from "../redis";
+import { blockingConnection, redis as defaultRedis } from "../redis";
 import type { DomainEvent } from "./catalog";
 
 /**
@@ -34,7 +34,9 @@ export class RedisEventTransport implements EventTransport {
     // Retry this consumer's own pending (unacked) messages first, then read new ones.
     let res = (await this.redis.xreadgroup("GROUP", group, consumer, "COUNT", opts.count ?? 50, "STREAMS", this.stream, "0")) as StreamRead;
     if (!res?.[0]?.[1]?.length) {
-      res = (await this.redis.xreadgroup("GROUP", group, consumer, "COUNT", opts.count ?? 50, "BLOCK", opts.blockMs ?? 1000, "STREAMS", this.stream, ">")) as StreamRead;
+      // Blocking read on its own connection: on the shared client it would stall publish (and everything else) until it returns.
+      const reader = blockingConnection(this.redis, `events:${group}:${consumer}`);
+      res = (await reader.xreadgroup("GROUP", group, consumer, "COUNT", opts.count ?? 50, "BLOCK", opts.blockMs ?? 1000, "STREAMS", this.stream, ">")) as StreamRead;
     }
     let handled = 0;
     for (const [id, fields] of res?.[0]?.[1] ?? []) {
