@@ -43,7 +43,7 @@ describe("POST /api/consent", () => {
     expect(h.record).toHaveBeenCalledTimes(1);
     const [input, ctx] = h.record.mock.calls[0]!;
     expect(input).toEqual(valid);
-    expect(ctx).toEqual({ personId: null, registryHash: expect.stringMatching(/^[a-f0-9]{64}$/) });
+    expect(ctx).toEqual({ app: "web", personId: null, registryHash: expect.stringMatching(/^[a-f0-9]{64}$/) });
     expect(JSON.stringify(h.record.mock.calls[0])).not.toMatch(/198\.18|Mozilla/);
   });
   it("attaches the personId when signed in", async () => {
@@ -53,7 +53,7 @@ describe("POST /api/consent", () => {
   });
   it("stores the sha256 of the committed policy snapshot, computed server-side (an unknown version gets none)", async () => {
     await POST(req({ ...valid, policyVersion: 9999 }));
-    expect(h.record.mock.calls[0]![1]).toEqual({ personId: null, registryHash: null });
+    expect(h.record.mock.calls[0]![1]).toEqual({ app: "web", personId: null, registryHash: null });
   });
   it("passes the browser timestamp through for idempotency", async () => {
     await POST(req({ ...valid, at: 1_790_000_000 }));

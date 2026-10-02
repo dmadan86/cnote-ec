@@ -10,7 +10,7 @@ export default {
     ...base.test,
     coverage: {
       ...base.test!.coverage,
-      exclude: [...(base.test!.coverage!.exclude as string[]), "src/client.ts", "src/**/*-client.tsx", "src/forms.tsx"],
+      exclude: [...(base.test!.coverage!.exclude as string[]), "src/client.ts", "src/**/*-client.tsx", "src/forms.tsx", "src/consent/**"],
     },
   },
 };

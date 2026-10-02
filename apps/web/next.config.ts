@@ -24,13 +24,15 @@ const SEARCH_CACHE = ADS_ON ? "private, no-store, max-age=0" : "public, s-maxage
 const SEARCH_PERMISSIONS = { key: "Permissions-Policy", value: securityHeaders({ app: "web", microphone: true, camera: true })["Permissions-Policy"]! };
 
 const nextConfig: NextConfig = {
+  // e2e only: a second build with STOREFRONT_EMBEDS_ENABLED=1 lives in .next-embeds (e2e/setup/build.ts) next to the default one.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   // Auth realm is baked in at build time: this app only ever accepts its own sessions/cookies.
   // A2A_ENABLED is baked in for the (static) account menu link; the /buyer/agents pages re-check it on the server.
-  env: { CNOTE_AUTH_REALM: "web", NEXT_PUBLIC_A2A_ENABLED: process.env.A2A_ENABLED ?? "" },
+  env: { CNOTE_AUTH_REALM: "web", NEXT_PUBLIC_A2A_ENABLED: process.env.A2A_ENABLED ?? "", STOREFRONT_EMBEDS_ENABLED: process.env.STOREFRONT_EMBEDS_ENABLED ?? "" },
   // Dispute evidence (photos, voice notes; 8 MB per file, ADR-013) is posted through server actions; the default is 1 MB.
   experimental: { serverActions: { bodySizeLimit: "56mb" } },
   // Workspace packages ship TypeScript source.
-  transpilePackages: ["@cnote/credit", "@cnote/a2a", "@cnote/prices", "@cnote/escrow", "@cnote/quality", "@cnote/disputes", "@cnote/negotiation", "@cnote/verticals", "@cnote/ondc", "@cnote/ads", "@cnote/promotions", "@cnote/compliance", "@cnote/metrics", "@cnote/whatsapp", "@cnote/storefront", "@cnote/domains", "@cnote/security", "@cnote/leadgen", "@cnote/templates", "@cnote/email", "@cnote/notifications", "@cnote/developer", "@cnote/observability", "@cnote/media", "@cnote/wishlist", "@cnote/reviews", "@cnote/next-kit", "@cnote/ui", "@cnote/core", "@cnote/ai", "@cnote/identity", "@cnote/catalogue", "@cnote/billing", "@cnote/enquiry", "@cnote/search"],
+  transpilePackages: ["@cnote/credit", "@cnote/a2a", "@cnote/prices", "@cnote/escrow", "@cnote/quality", "@cnote/disputes", "@cnote/negotiation", "@cnote/verticals", "@cnote/ondc", "@cnote/ads", "@cnote/promotions", "@cnote/compliance", "@cnote/metrics", "@cnote/whatsapp", "@cnote/storefront", "@cnote/domains", "@cnote/security", "@cnote/leadgen", "@cnote/templates", "@cnote/email", "@cnote/notifications", "@cnote/developer", "@cnote/observability", "@cnote/media", "@cnote/wishlist", "@cnote/reviews", "@cnote/next-kit", "@cnote/consent", "@cnote/ui", "@cnote/core", "@cnote/ai", "@cnote/identity", "@cnote/catalogue", "@cnote/billing", "@cnote/enquiry", "@cnote/search"],
   serverExternalPackages: ["pdf-lib", "@cnote/live-db", "juice", "sanitize-html", "mustache", "@cnote/db", "@prisma/client", "@prisma/adapter-pg", "pg", "ioredis"],
   poweredByHeader: false,
   images: {

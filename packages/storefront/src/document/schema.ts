@@ -5,6 +5,7 @@
 // from live data.
 import { z } from "zod";
 import { HEX_RE, themeContrastIssues } from "./contrast";
+import { embedSourceSchema } from "./embed";
 import { richTextSchema, type RichText } from "./richtext";
 
 export const SCHEMA_VERSION = 1 as const;
@@ -166,6 +167,12 @@ export const sectionSchema = z.discriminatedUnion("type", [
     ctaLabel: text(LIMITS.label, 1),
     showCity: z.boolean(),
   }),
+  /**
+   * A video or map from a fixed list of providers (see ./embed.ts). The seller never supplies a URL or HTML: the platform builds the
+   * privacy-enhanced iframe URL, and the buyer web loads it only after the visitor's consent (ConsentGate). `title` names the frame
+   * for screen readers.
+   */
+  z.strictObject({ ...base, type: z.literal("embed"), title: text(LIMITS.title, 1), source: embedSourceSchema }),
   /** Platform-injected and NOT editable: verification tier, trust score and GST status come from live data. */
   z.strictObject({ ...base, type: z.literal("trustStrip") }),
   z.strictObject({ ...base, type: z.literal("spacer"), size: z.enum(["sm", "md", "lg"]) }),
@@ -174,7 +181,7 @@ export const sectionSchema = z.discriminatedUnion("type", [
 export type Section = z.infer<typeof sectionSchema>;
 export type SectionType = Section["type"];
 export const SECTION_TYPES = [
-  "hero", "productGrid", "featuredProduct", "about", "certifications", "gallery", "stats", "testimonials", "faq", "contact", "trustStrip", "spacer", "divider",
+  "hero", "productGrid", "featuredProduct", "about", "certifications", "gallery", "embed", "stats", "testimonials", "faq", "contact", "trustStrip", "spacer", "divider",
 ] as const satisfies readonly SectionType[];
 export type SectionOf<T extends SectionType> = Extract<Section, { type: T }>;
 
@@ -280,6 +287,7 @@ export function collectText(doc: StorefrontDocument): string[] {
         case "about": add(s.title); add(richPlain(s.body)); add(s.image?.alt); break;
         case "certifications": add(s.title); for (const i of s.items) { add(i.name); add(i.issuer); add(i.year); } break;
         case "gallery": add(s.title); for (const i of s.images) add(i.alt); break;
+        case "embed": add(s.title); break;
         case "stats": for (const i of s.items) { add(i.value); add(i.label); } break;
         case "testimonials": add(s.title); break;
         case "faq": add(s.title); for (const i of s.items) { add(i.q); add(i.a); } break;
@@ -382,6 +390,8 @@ export function defaultSection(type: SectionType, id: string): Section {
     case "about": return { ...b, type, title: "About us", body: [{ type: "p", children: [{ text: "Tell buyers about your business." }] }], image: null };
     case "certifications": return { ...b, type, title: "Certifications", items: [{ name: "ISO 9001", issuer: "", year: "" }] };
     case "gallery": return { ...b, type, title: "Gallery", images: [] };
+    // A map of the middle of India as a harmless starting point; the seller sets their own location or a video.
+    case "embed": return { ...b, type, title: "Find us", source: { kind: "map", lat: 20.5937, lng: 78.9629, zoom: 5 } };
     case "stats": return { ...b, type, tone: "surface", items: [{ value: "10+", label: "Years in business" }] };
     case "testimonials": return { ...b, type, title: "What buyers say", limit: 3 };
     case "faq": return { ...b, type, title: "Frequently asked questions", items: [{ q: "What is your minimum order quantity?", a: "See each product for its minimum order." }] };
@@ -393,6 +403,6 @@ export function defaultSection(type: SectionType, id: string): Section {
 }
 
 export const SECTION_LABELS: Record<SectionType, string> = {
-  hero: "Hero", productGrid: "Product grid", featuredProduct: "Featured product", about: "About", certifications: "Certifications", gallery: "Gallery",
+  hero: "Hero", productGrid: "Product grid", featuredProduct: "Featured product", about: "About", certifications: "Certifications", gallery: "Gallery", embed: "Video or map",
   stats: "Key numbers", testimonials: "Buyer reviews (platform)", faq: "FAQ", contact: "Contact / RFQ", trustStrip: "Trust strip (platform)", spacer: "Spacer", divider: "Divider",
 };

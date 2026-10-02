@@ -1,0 +1,59 @@
+{
+  "consent": {
+    "aria": "కుకీ నోటీసు",
+    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie.",
+    "acceptAll": "అన్నింటినీ అంగీకరించు",
+    "rejectAll": "అన్నింటినీ తిరస్కరించు",
+    "customise": "ఎంచుకోండి",
+    "dialogTitle": "కుకీ ప్రాధాన్యతలు",
+    "dialogIntro": "{site} ఉపయోగించగల ఐచ్ఛిక కుకీలను, అలాంటి నిల్వను ఎంచుకోండి. అవసరమైనవి లేకుండా సైట్ పనిచేయదు కాబట్టి అవి ఎల్లప్పుడూ ఆన్‌లో ఉంటాయి. మీ ఎంపికను ఎప్పుడైనా ఫూటర్‌లోని \"కుకీ సెట్టింగ్‌లు\" ద్వారా మార్చవచ్చు.",
+    "close": "మూసివేయి",
+    "saveChoices": "ఎంపికలను సేవ్ చేయి",
+    "alwaysActive": "ఎల్లప్పుడూ క్రియాశీలం",
+    "on": "ఆన్",
+    "off": "ఆఫ్",
+    "gpcNote": "మీ బ్రౌజర్ గ్లోబల్ ప్రైవసీ కంట్రోల్ సిగ్నల్ ఆన్‌లో ఉంది, కాబట్టి మీరు ఇక్కడ ఆన్ చేస్తే తప్ప మార్కెటింగ్ ఆఫ్‌లో ఉంటుంది.",
+    "necessaryTitle": "తప్పనిసరి",
+    "analyticsTitle": "అనలిటిక్స్",
+    "marketingTitle": "మార్కెటింగ్ మరియు అట్రిబ్యూషన్",
+    "colName": "పేరు",
+    "colProvider": "అందించేవారు",
+    "colPurpose": "ప్రయోజనం",
+    "colDuration": "వ్యవధి",
+    "tableCaption": "{category}: కుకీలు మరియు నిల్వ కీలు",
+    "necessaryDesc": "Needed for sign-in, security, your language and your onboarding progress, and to remember this choice. They cannot be switched off.",
+    "analyticsDesc": "Records when you created your business, only to measure how long onboarding takes (time to your first listing and to finishing). Nothing else, and nothing is shared with other companies.",
+    "marketingDesc": "Remembers the referral code from the link you followed (for example from another seller), so the person who referred you can be credited when you create your business.",
+    "openSettings": "Cookie settings",
+    "kind": {
+      "cookie": "కుకీ",
+      "localStorage": "లోకల్ స్టోరేజ్",
+      "sessionStorage": "సెషన్ స్టోరేజ్"
+    },
+    "provider": {
+      "firstParty": "ఫస్ట్ పార్టీ"
+    },
+    "duration": {
+      "session": "సెషన్",
+      "persistent": "మీరు తొలగించే వరకు",
+      "minutes": "{count, plural, one {# నిమిషం} other {# నిమిషాలు}}",
+      "days": "{count, plural, one {# రోజు} other {# రోజులు}}",
+      "months": "{count, plural, one {# నెల} other {# నెలలు}}",
+      "years": "{count, plural, one {# సంవత్సరం} other {# సంవత్సరాలు}}"
+    },
+    "purpose": {
+      "consent": "మీ కుకీ ఎంపికను గుర్తుంచుకుంటుంది.",
+      "consentPending": "మీ తాజా కుకీ ఎంపిక రికార్డును మా సర్వర్ సేవ్ చేసిందని నిర్ధారించే వరకు దాన్ని ఉంచుతుంది.",
+      "auth": "కొన్ని నిమిషాల పాటు మిమ్మల్ని సైన్-ఇన్‌లో ఉంచుతుంది (స్వల్పకాలిక యాక్సెస్ టోకెన్).",
+      "session": "ఈ పరికరంలో మిమ్మల్ని సైన్-ఇన్‌లో ఉంచుతుంది (రిఫ్రెష్ టోకెన్, సైన్-అవుట్ చేసినప్పుడు రద్దవుతుంది).",
+      "oauth": "Google సైన్-ఇన్ ప్రక్రియను నకిలీ అభ్యర్థనల నుంచి రక్షిస్తుంది.",
+      "mfa": "పెండింగ్‌లో ఉన్న రెండు-దశల సైన్-ఇన్‌ను కొన్ని నిమిషాల పాటు ఉంచుతుంది.",
+      "locale": "మీరు ఎంచుకున్న భాషను గుర్తుంచుకుంటుంది.",
+      "onboardingDone": "Remembers that you finished onboarding.",
+      "onboardingSkip": "Remembers an onboarding step you chose to skip.",
+      "onboardingStart": "Records when you created your business, to measure how long onboarding takes.",
+      "onboardingFirstListing": "Remembers that you submitted your first listing, so onboarding can show you the result.",
+      "referral": "Remembers the referral code from the link you followed until you create your business."
+    }
+  }
+}

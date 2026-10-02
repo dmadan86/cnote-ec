@@ -1,5 +1,5 @@
 import { audited } from "@cnote/admin";
-import { COOKIE_CONSENT_ACTIONS, cookieConsentStats, searchCookieConsentReceipts, type CookieConsentStats } from "@cnote/compliance";
+import { COOKIE_CONSENT_ACTIONS, COOKIE_CONSENT_APPS, cookieConsentStats, searchCookieConsentReceipts, type CookieConsentStats } from "@cnote/compliance";
 import { DomainError } from "@cnote/core";
 import { Alert, Badge, Button, Card, CardBody, CardHeader, CardTitle, EmptyState, Input, Select } from "@cnote/ui";
 import Link from "next/link";
@@ -76,7 +76,7 @@ function StatsView({ stats }: { stats: CookieConsentStats }) {
 export default async function ConsentLogPage({ searchParams }: PageProps<"/compliance/consent">) {
   const { ctx } = await requireStaff("/compliance/consent", "compliance.consent");
   const sp = await searchParams;
-  const raw = { q: one(sp.q), from: one(sp.from), to: one(sp.to), v: one(sp.v), action: one(sp.action) };
+  const raw = { q: one(sp.q), from: one(sp.from), to: one(sp.to), v: one(sp.v), action: one(sp.action), app: one(sp.app) };
   const cursor = one(sp.cursor);
   const { filters, problem: filterProblem } = parseConsentFilters(raw);
 
@@ -86,7 +86,7 @@ export default async function ConsentLogPage({ searchParams }: PageProps<"/compl
     try {
       // Every search is audited: a result can carry a person id (personal-data adjacent).
       page = await audited(ctx, "compliance.consent", "consent.search", { type: "CookieConsentReceipt" }, () => searchCookieConsentReceipts({ ...filters, cursor, limit: 50 }), {
-        q: filters.q ?? null, from: filters.from?.toISOString() ?? null, to: filters.to?.toISOString() ?? null, policyVersion: filters.policyVersion ?? null, action: filters.action ?? null, paged: !!cursor,
+        q: filters.q ?? null, from: filters.from?.toISOString() ?? null, to: filters.to?.toISOString() ?? null, policyVersion: filters.policyVersion ?? null, action: filters.action ?? null, app: filters.app ?? null, paged: !!cursor,
       });
     } catch (e) {
       if (e instanceof DomainError && e.code === "validation") problem = e.message;
@@ -100,7 +100,7 @@ export default async function ConsentLogPage({ searchParams }: PageProps<"/compl
   return (
     <>
       <p className="text-sm text-muted">
-        Append-only proof of every cookie choice on the buyer site (DPDP s.6(10)). Search by consent ID (32 hex) or person ID. A receipt holds no IP address or browser details. Times in IST.
+        Append-only proof of every cookie choice on the buyer site and the seller app (DPDP s.6(10)); policy versions are per app. Search by consent ID (32 hex) or person ID. A receipt holds no IP address or browser details. Times in IST.
         Searching and exporting are audited.
       </p>
       {stats ? <StatsView stats={stats} /> : stats === null && !filterProblem ? <Alert tone="warning">Summary metrics are currently unavailable.</Alert> : null}
@@ -108,6 +108,12 @@ export default async function ConsentLogPage({ searchParams }: PageProps<"/compl
         <label className="flex flex-col gap-1 text-xs font-medium text-muted">Consent ID or person ID<Input name="q" defaultValue={raw.q} className="w-80 font-mono" placeholder="32 hex characters or a person UUID" /></label>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted">From<Input type="date" name="from" defaultValue={raw.from} className="w-40" /></label>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted">To<Input type="date" name="to" defaultValue={raw.to} className="w-40" /></label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted">App
+          <Select name="app" defaultValue={raw.app ?? ""} className="w-32">
+            <option value="">Any</option>
+            {COOKIE_CONSENT_APPS.map((a) => <option key={a} value={a}>{a}</option>)}
+          </Select>
+        </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted">Policy version<Input type="number" min={1} name="v" defaultValue={raw.v} className="w-28" /></label>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted">Action
           <Select name="action" defaultValue={raw.action ?? ""} className="w-40">
@@ -123,7 +129,7 @@ export default async function ConsentLogPage({ searchParams }: PageProps<"/compl
         <>
           <Table>
             <caption className="sr-only">Cookie consent receipts, newest first</caption>
-            <thead><tr><Th>Recorded</Th><Th>Action</Th><Th>Analytics</Th><Th>Marketing</Th><Th>Functional</Th><Th>GPC</Th><Th>Policy</Th><Th>Lang</Th><Th>Consent ID</Th><Th>Person</Th></tr></thead>
+            <thead><tr><Th>Recorded</Th><Th>Action</Th><Th>Analytics</Th><Th>Marketing</Th><Th>Functional</Th><Th>GPC</Th><Th>App</Th><Th>Policy</Th><Th>Lang</Th><Th>Consent ID</Th><Th>Person</Th></tr></thead>
             <tbody>
               {page.items.map((r) => (
                 <tr key={r.id}>
@@ -133,6 +139,7 @@ export default async function ConsentLogPage({ searchParams }: PageProps<"/compl
                   <Td>{r.marketing ? "On" : "Off"}</Td>
                   <Td>{r.functional ? "On" : "Off"}</Td>
                   <Td>{r.gpc ? "Yes" : "No"}</Td>
+                  <Td>{r.app}</Td>
                   <Td className="whitespace-nowrap">v{r.policyVersion}{r.registryHash ? <> <Mono>{r.registryHash.slice(0, 8)}</Mono></> : null}</Td>
                   <Td>{r.locale}</Td>
                   <Td><Link href={`/compliance/consent?${new URLSearchParams({ q: r.consentId }).toString()}`} className="hover:underline"><Mono>{r.consentId}</Mono></Link></Td>

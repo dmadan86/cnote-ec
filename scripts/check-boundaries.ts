@@ -32,6 +32,8 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   "@cnote/live-db": [],
   "@cnote/observability": [],
   "@cnote/ui": [],
+  // Framework-free cookie-consent core shared by every app (state, registry, browser logic, snapshots): depends on nothing.
+  "@cnote/consent": [],
   "@cnote/identity": ["@cnote/core", "@cnote/db", "@cnote/security"],
   // + identity (30 Sep 2026): GST invoices snapshot the recipient's legal name/GSTIN/address via getBusinessBillingProfile.
   // + media: rendered invoice PDFs cached in the private bucket (invoices/ keys are private-only).
@@ -83,7 +85,7 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   ],
   "@cnote/whatsapp": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media", "@cnote/templates"],
   // Next.js glue shared by the apps: the one package (besides ui) that may sit on top of many modules.
-  "@cnote/next-kit": ["@cnote/admin", "@cnote/core", "@cnote/email", "@cnote/identity", "@cnote/security", "@cnote/leadgen", "@cnote/ui"],
+  "@cnote/next-kit": ["@cnote/admin", "@cnote/consent", "@cnote/core", "@cnote/email", "@cnote/identity", "@cnote/security", "@cnote/leadgen", "@cnote/ui"],
 };
 
 /** Packages allowed to import next/* or react. Everything else outside apps/ must stay framework-free. */

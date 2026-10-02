@@ -1,5 +1,5 @@
 // Query-string filters of the cookie-consent log, shared by the page and the CSV export so both always select the same rows.
-import { COOKIE_CONSENT_ACTIONS, type CookieConsentAction, type CookieConsentSearch } from "@cnote/compliance";
+import { COOKIE_CONSENT_ACTIONS, COOKIE_CONSENT_APPS, type CookieConsentAction, type CookieConsentApp, type CookieConsentSearch } from "@cnote/compliance";
 
 const IST = "+05:30";
 const DAY_MS = 86_400_000;
@@ -10,6 +10,8 @@ export interface ConsentFilterInput {
   to?: string;
   v?: string;
   action?: string;
+  /** which app showed the notice (policy versions are per app) */
+  app?: string;
 }
 
 /** `to` is an inclusive IST calendar day in the UI and an exclusive instant (next midnight IST) in the query. */
@@ -41,6 +43,10 @@ export function parseConsentFilters(i: ConsentFilterInput): { filters: CookieCon
     if (!(COOKIE_CONSENT_ACTIONS as readonly string[]).includes(i.action)) return { filters, problem: "Unknown action." };
     filters.action = i.action as CookieConsentAction;
   }
+  if (i.app) {
+    if (!(COOKIE_CONSENT_APPS as readonly string[]).includes(i.app)) return { filters, problem: "Unknown app." };
+    filters.app = i.app as CookieConsentApp;
+  }
   return { filters, problem: null };
 }
 
@@ -52,8 +58,8 @@ export function csvCell(v: string | number | boolean | null | undefined): string
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-export const CSV_HEADER = ["receipt_id", "recorded_at", "choice_at", "consent_id", "person_id", "policy_version", "registry_hash", "action", "analytics", "marketing", "functional", "gpc", "locale"] as const;
+export const CSV_HEADER = ["receipt_id", "recorded_at", "choice_at", "consent_id", "person_id", "app", "policy_version", "registry_hash", "action", "analytics", "marketing", "functional", "gpc", "locale"] as const;
 
-export function csvRow(r: { id: string; createdAt: string; clientAt: number | null; consentId: string; personId: string | null; policyVersion: number; registryHash: string | null; action: string; analytics: boolean; marketing: boolean; functional: boolean; gpc: boolean; locale: string }): string {
-  return [r.id, r.createdAt, r.clientAt ? new Date(r.clientAt * 1000).toISOString() : "", r.consentId, r.personId, r.policyVersion, r.registryHash, r.action, r.analytics, r.marketing, r.functional, r.gpc, r.locale].map(csvCell).join(",");
+export function csvRow(r: { id: string; createdAt: string; clientAt: number | null; consentId: string; personId: string | null; app: string; policyVersion: number; registryHash: string | null; action: string; analytics: boolean; marketing: boolean; functional: boolean; gpc: boolean; locale: string }): string {
+  return [r.id, r.createdAt, r.clientAt ? new Date(r.clientAt * 1000).toISOString() : "", r.consentId, r.personId, r.app, r.policyVersion, r.registryHash, r.action, r.analytics, r.marketing, r.functional, r.gpc, r.locale].map(csvCell).join(",");
 }

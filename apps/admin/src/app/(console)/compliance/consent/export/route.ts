@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: code }, { status: code === "forbidden" ? 403 : 401, headers: HEADERS });
   }
   const sp = req.nextUrl.searchParams;
-  const { filters, problem } = parseConsentFilters({ q: sp.get("q") ?? undefined, from: sp.get("from") ?? undefined, to: sp.get("to") ?? undefined, v: sp.get("v") ?? undefined, action: sp.get("action") ?? undefined });
+  const { filters, problem } = parseConsentFilters({ q: sp.get("q") ?? undefined, from: sp.get("from") ?? undefined, to: sp.get("to") ?? undefined, v: sp.get("v") ?? undefined, action: sp.get("action") ?? undefined, app: sp.get("app") ?? undefined });
   if (problem) return NextResponse.json({ error: "invalid_filters", message: problem }, { status: 400, headers: HEADERS });
 
   let rows: AsyncGenerator<Parameters<typeof csvRow>[0]>;
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     // Authorises and writes the audit row BEFORE any data leaves; a denied attempt is audited too and throws forbidden.
     rows = await audited(ctx, "compliance.consent", "consent.export", { type: "CookieConsentReceipt" }, async () => iterateCookieConsentReceipts(filters, { maxRows: MAX_ROWS }), {
       format: "csv",
-      filters: { q: filters.q ?? null, from: filters.from?.toISOString() ?? null, to: filters.to?.toISOString() ?? null, policyVersion: filters.policyVersion ?? null, action: filters.action ?? null },
+      filters: { q: filters.q ?? null, from: filters.from?.toISOString() ?? null, to: filters.to?.toISOString() ?? null, policyVersion: filters.policyVersion ?? null, action: filters.action ?? null, app: filters.app ?? null },
     });
   } catch (err) {
     if (err instanceof DomainError && err.code === "forbidden") return NextResponse.json({ error: "forbidden" }, { status: 403, headers: HEADERS });

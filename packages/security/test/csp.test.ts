@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCsp, securityHeaders, staticHeaderList } from "../src";
+import { buildCsp, EMBED_FRAME_ORIGINS, securityHeaders, staticHeaderList } from "../src";
 
 const prod = { NODE_ENV: "production" } as const;
 const dir = (csp: string, name: string) => csp.split("; ").find((d) => d.startsWith(`${name} `) || d === name);
@@ -37,11 +37,25 @@ describe("buildCsp", () => {
     });
     expect(dir(csp, "script-src")).toContain("https://www.clarity.ms");
     expect(dir(csp, "script-src")).toContain("https://challenges.cloudflare.com");
-    expect(dir(csp, "frame-src")).toBe("frame-src https://challenges.cloudflare.com");
+    expect(dir(csp, "frame-src")).toBe("frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.openstreetmap.org");
     expect(dir(buildCsp({ app: "admin", nonce: "n", env: prod }), "frame-src")).toBe("frame-src 'none'");
     expect(dir(csp, "img-src")).toContain("https://media.example.in");
     expect(dir(csp, "connect-src")).toContain("https://o1.ingest.sentry.io");
     expect(dir(csp, "connect-src")).toContain("https://*.clarity.ms");
+  });
+
+  it("frame-src allows ONLY the privacy-enhanced storefront embed hosts on the web, and nothing on the other apps", () => {
+    expect(dir(buildCsp({ app: "web", nonce: "n", env: prod }), "frame-src")).toBe("frame-src https://www.youtube-nocookie.com https://www.openstreetmap.org");
+    expect([...EMBED_FRAME_ORIGINS]).toEqual(["https://www.youtube-nocookie.com", "https://www.openstreetmap.org"]);
+    // static (ISR) mode carries the same directive
+    expect(dir(buildCsp({ app: "web", env: prod }), "frame-src")).toBe("frame-src https://www.youtube-nocookie.com https://www.openstreetmap.org");
+    // the regular YouTube host (cookies, tracking) is never framed
+    const framed = dir(buildCsp({ app: "web", nonce: "n", env: prod }), "frame-src")!.split(" ").slice(1);
+    expect(framed.filter((o) => new URL(o).hostname.replace(/^www\./, "") === "youtube.com")).toEqual([]);
+    expect(dir(buildCsp({ app: "web", nonce: "n", embeds: false, env: prod }), "frame-src")).toBe("frame-src 'none'");
+    for (const app of ["seller", "admin", "studio", "api"] as const) expect(dir(buildCsp({ app, nonce: "n", env: prod }), "frame-src"), app).toBe("frame-src 'none'");
+    // an app that is not the web cannot opt in
+    expect(dir(buildCsp({ app: "seller", nonce: "n", embeds: true, env: prod }), "frame-src")).toBe("frame-src 'none'");
   });
 
   it("clarity is web-only", () => {

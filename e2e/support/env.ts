@@ -10,6 +10,9 @@ const redisBase = process.env.E2E_REDIS_BASE ?? "redis://localhost:6379";
 
 export const WEB_URL = process.env.E2E_WEB_URL ?? "http://localhost:3000";
 export const SELLER_URL = process.env.E2E_SELLER_URL ?? "http://localhost:3002";
+/** A second buyer-web build + server with STOREFRONT_EMBEDS_ENABLED=1, used only by the storefront embed spec (the consent notice is inlined at build time). */
+export const EMBEDS_URL = process.env.E2E_EMBEDS_URL ?? "http://localhost:3006";
+export const EMBEDS_PORT = new URL(EMBEDS_URL).port || "3006";
 export const WEB_PORT = new URL(WEB_URL).port || "3000";
 export const SELLER_PORT = new URL(SELLER_URL).port || "3002";
 /** Tiny keep-alive HTTP server that the first `webServer` entry opens once the database is migrated + seeded. */

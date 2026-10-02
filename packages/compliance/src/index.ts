@@ -16,9 +16,9 @@ export {
   type RetentionPolicy, type RetentionResult, type RetentionRunView, type RunOptions,
 } from "./retention";
 export {
-  COOKIE_CONSENT_ACTIONS, CONSENT_LOCALES, cookieConsentSchema, recordCookieConsent, listCookieConsentReceipts, purgeCookieConsentReceipts,
+  COOKIE_CONSENT_ACTIONS, COOKIE_CONSENT_APPS, CONSENT_LOCALES, cookieConsentSchema, recordCookieConsent, listCookieConsentReceipts, purgeCookieConsentReceipts,
   searchCookieConsentReceipts, iterateCookieConsentReceipts, cookieConsentStats, foldConsentStats, anonymizeCookieConsentReceipts,
-  type CookieConsentAction, type CookieConsentInput, type CookieConsentReceiptView, type CookieConsentSearch, type CookieConsentStats,
+  type CookieConsentAction, type CookieConsentApp, type CookieConsentInput, type CookieConsentReceiptView, type CookieConsentSearch, type CookieConsentStats,
 } from "./consent";
 export { assertIndiaResidency, getResidencyReport, ResidencyError, type ResidencyReport, type ResidencyCheck, type CheckStatus } from "./residency";
 export { maskEmail } from "./util";

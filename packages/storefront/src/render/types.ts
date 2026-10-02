@@ -55,6 +55,24 @@ export interface ImageProps {
   sizes?: string;
   priority?: boolean;
 }
+/**
+ * What the renderer hands the host app for an `embed` block. The host decides how the third-party frame is loaded: the buyer web
+ * wraps it in a consent gate (nothing loads before consent); Studio's preview and any host without one shows only a link.
+ */
+export interface EmbedProps {
+  kind: "youtube" | "map";
+  /** privacy-enhanced iframe URL on an origin from EMBED_FRAME_ORIGINS */
+  src: string;
+  /** accessible name of the frame */
+  title: string;
+  /** third party named in the consent placeholder */
+  provider: string;
+  /** consent category that unlocks it */
+  category: "marketing" | "functional";
+  /** plain link to the same content on the provider's site */
+  href: string;
+}
+export type EmbedComponent = ComponentType<EmbedProps>;
 export type LinkComponent = ComponentType<LinkProps>;
 export type ImageComponent = ComponentType<ImageProps>;
 

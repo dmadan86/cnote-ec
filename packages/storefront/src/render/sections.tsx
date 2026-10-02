@@ -1,7 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
 import { placeholderOf, type ImageRef, type Page, type PlaceholderKey, type Section, type SectionOf, type StorefrontDocument } from "../document/schema";
 import type { Inline, RichText } from "../document/richtext";
-import type { ImageComponent, LinkComponent, RenderData, RenderHrefs, RenderProduct } from "./types";
+import { embedSpec } from "../document/embed";
+import type { EmbedComponent, ImageComponent, LinkComponent, RenderData, RenderHrefs, RenderProduct } from "./types";
 import { formatRupees, headingId, rgba, trustLabel } from "./util";
 
 export interface Ctx {
@@ -11,6 +12,9 @@ export interface Ctx {
   hrefs: RenderHrefs;
   Link: LinkComponent;
   Image: ImageComponent;
+  Embed: EmbedComponent;
+  /** STOREFRONT_EMBEDS_ENABLED: while off, a stored embed block renders nothing */
+  embeds: boolean;
   /** editor preview: empty platform-driven blocks explain themselves instead of vanishing */
   preview: boolean;
   /** heading level for the block title; the first hero on a page owns the h1 */
@@ -215,6 +219,17 @@ export function SectionView({ s, ctx, index }: { s: Section; ctx: Ctx; index: nu
           <ul className="sf-gallery" style={{ listStyle: "none", padding: 0 }}>{s.images.map((im, i) => <li key={i}><Pic img={im} ctx={ctx} sizes="(min-width:768px) 33vw, 50vw" /></li>)}</ul>
         </Band>
       );
+    case "embed": {
+      if (!ctx.embeds) return null;
+      const spec = embedSpec(s.source);
+      const E = ctx.Embed;
+      return (
+        <Band s={s}>
+          <Title s={s} title={s.title} fallback={spec.provider} />
+          <div className="sf-embed"><E kind={spec.kind} src={spec.src} title={s.title} provider={spec.provider} category={spec.category} href={spec.href} /></div>
+        </Band>
+      );
+    }
     case "stats":
       return (
         <Band s={s}>

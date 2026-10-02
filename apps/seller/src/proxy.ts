@@ -1,6 +1,7 @@
 import { createAuthProxy } from "@cnote/next-kit/proxy";
 import { createNonce, pathMatches, withNonceRequest, withSecurityHeaders } from "@cnote/next-kit/security";
 import type { NextRequest, NextResponse } from "next/server";
+import { requireSellerConsent } from "@/features/consent/server";
 
 // Public: "/", /signin, /signup, /forgot-password, /reset-password, /mfa, static assets. Everything else needs a session.
 const authProxy = createAuthProxy({
@@ -21,9 +22,11 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
   // Voice drafts (ADR-004) record with MediaRecorder on the listing-creation screens only.
   const microphone = pathMatches(req.nextUrl.pathname, VOICE_PATHS);
   const res = await authProxy(nonce ? withNonceRequest(req, nonce, { app: "seller", microphone }) : req);
-  // Referral links (ADR-025) land on any page as ?ref=CODE; remember it until the business is created at onboarding.
+  // Referral links (ADR-025) land on any page as ?ref=CODE; remember it until the business is created at onboarding. The code is
+  // attribution (marketing), so it is stored only with the seller's consent; when consent is granted afterwards on this page the
+  // consent manager posts the code to /api/consent/ref (docs/design/cookie-consent.md).
   const ref = req.nextUrl.searchParams.get("ref");
-  if (ref && REF_RE.test(ref)) res.cookies.set(REF_COOKIE, ref, { path: "/", maxAge: 60 * 60 * 24 * 30, sameSite: "lax", httpOnly: true, secure: process.env.NODE_ENV === "production" });
+  if (ref && REF_RE.test(ref) && requireSellerConsent(req, "marketing")) res.cookies.set(REF_COOKIE, ref, { path: "/", maxAge: 60 * 60 * 24 * 30, sameSite: "lax", httpOnly: true, secure: process.env.NODE_ENV === "production" });
   return withSecurityHeaders(res, { app: "seller", nonce, microphone });
 }
 

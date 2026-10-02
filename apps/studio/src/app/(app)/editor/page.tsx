@@ -1,4 +1,4 @@
-import { getDraft, getEditorData, getOrCreateStorefront, listApprovedSellerImages, listVersions } from "@cnote/storefront";
+import { embedsEnabled, getDraft, getEditorData, getOrCreateStorefront, listApprovedSellerImages, listVersions } from "@cnote/storefront";
 import { Editor } from "@/features/studio/editor/editor";
 import { requireSellerSession } from "@/lib/auth";
 import { WEB_APP_URL } from "@/lib/env";
@@ -28,6 +28,7 @@ export default async function EditorPage() {
         liveBase: WEB_APP_URL,
         versions: versions.map((v) => ({ id: v.id, version: v.version, status: v.status, createdAt: v.createdAt, publishedAt: v.publishedAt, reviewNote: v.reviewNote })),
       }}
+      embedsEnabled={embedsEnabled()}
       editor={{ data, images: images.map((i) => ({ id: i.id, url: i.url, alt: i.alt })) }}
     />
   );

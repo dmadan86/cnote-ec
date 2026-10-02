@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { DB_READY_PORT, SELLER_PORT, SELLER_URL, WEB_PORT, WEB_URL, e2eEnv } from "./e2e/support/env";
+import { DB_READY_PORT, EMBEDS_PORT, EMBEDS_URL, SELLER_PORT, SELLER_URL, WEB_PORT, WEB_URL, e2eEnv } from "./e2e/support/env";
 
 /**
  * UI test suites (see docs/guides/testing.md).
@@ -36,7 +36,9 @@ export default defineConfig({
     navigationTimeout: 30_000,
   },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] }, testIgnore: /\.mobile\.spec\.ts$/ },
+    { name: "desktop", use: { ...devices["Desktop Chrome"] }, testIgnore: [/\.mobile\.spec\.ts$/, /storefront-embed\.spec\.ts$/] },
+    // The embed block is behind STOREFRONT_EMBEDS_ENABLED (default off): only this spec runs against the flag-on server.
+    { name: "embeds", use: { ...devices["Desktop Chrome"], baseURL: EMBEDS_URL }, testMatch: /storefront-embed\.spec\.ts$/ },
     // Pixel-class viewport (412x915, touch, mobile UA). Only the *.mobile.spec.ts files run here.
     { name: "mobile", use: { ...devices["Pixel 7"] }, testMatch: /\.mobile\.spec\.ts$/ },
   ],
@@ -56,6 +58,14 @@ export default defineConfig({
       reuseExistingServer: !CI,
       timeout: 240_000,
       env: serverEnv,
+    },
+    {
+      // Flag-on buyer web (own build in .next-embeds, see e2e/setup/build.ts). Production build only.
+      command: `pnpm --filter @cnote/web exec next start -p ${EMBEDS_PORT}`,
+      url: EMBEDS_URL,
+      reuseExistingServer: !CI,
+      timeout: 240_000,
+      env: { ...serverEnv, APP_URL: EMBEDS_URL, STOREFRONT_EMBEDS_ENABLED: "1", NEXT_DIST_DIR: ".next-embeds", NODE_ENV: "production" },
     },
     {
       command: dev ? "pnpm --filter @cnote/seller-app exec next dev -p " + SELLER_PORT : `pnpm --filter @cnote/seller-app exec next start -p ${SELLER_PORT}`,

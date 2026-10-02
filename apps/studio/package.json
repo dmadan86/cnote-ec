@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@cnote/catalogue": "workspace:*",
+    "@cnote/consent": "workspace:*",
     "@cnote/core": "workspace:*",
     "@cnote/domains": "workspace:*",
     "@cnote/identity": "workspace:*",
