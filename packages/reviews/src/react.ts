@@ -89,7 +89,7 @@ async function flagIfApproved(tx: Prisma.TransactionClient, type: ReactionSubjec
  */
 export async function react(actor: Actor, input: ReactInput): Promise<{ changed: boolean }> {
   const { subjectType, subjectId, kind } = input;
-  if (kind === "helpful" && !HELPFUL_SUBJECTS.includes(subjectType)) throw new DomainError("validation", "Only reviews and answers can be marked helpful.", undefined, "reviews.onlyReviewsMarkedHelpful");
+  if (kind === "helpful" && !HELPFUL_SUBJECTS.includes(subjectType)) throw new DomainError("validation", "Only reviews can be marked helpful.", undefined, "reviews.onlyReviewsMarkedHelpful");
   const reason = kind === "report" ? reportReason.parse(input.reason) : null;
   if (!(await rateLimit(`reviews:react:${actor.personId}`, REACTIONS_PER_HOUR, 3_600))) throw new DomainError("rate_limited", "Too many actions. Please slow down.");
 

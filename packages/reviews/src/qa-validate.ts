@@ -6,7 +6,7 @@ export const REMOVED = "[removed]";
 
 /** Messaging deep links and long digit runs (spaced/dotted phone numbers the PHONE pattern misses). */
 const MESSENGER_LINK = /\b(?:https?:\/\/)?(?:wa\.me|api\.whatsapp\.com|chat\.whatsapp\.com|t\.me|telegram\.me)\/\S*/gi;
-const DIGIT_RUN = /(?:\d[\s.\-()]*){10,}/g;
+const DIGIT_RUN = /\d(?:[\s.\-()]{0,3}\d){9,}/g;
 
 /**
  * Removes phone numbers, emails, ID numbers (Aadhaar/PAN/GSTIN) and messenger links from public text so a Q&A
@@ -18,7 +18,7 @@ export function stripContact(input: string): { text: string; stripped: boolean }
     .replace(/\[(?:email|phone|aadhaar|pan|gstin)\]/g, REMOVED)
     .replace(MESSENGER_LINK, REMOVED)
     .replace(DIGIT_RUN, REMOVED);
-  const text = redacted.replace(/(?:\[removed\][\s,;:/-]*){2,}/g, `${REMOVED} `).replace(/[ \t]{2,}/g, " ").trim();
+  const text = redacted.replace(/(?:\[removed\][\s,;:/-]{0,5}){2,}/g, `${REMOVED} `).replace(/[ \t]{2,}/g, " ").trim();
   return { text, stripped: text !== input.trim() };
 }
 
