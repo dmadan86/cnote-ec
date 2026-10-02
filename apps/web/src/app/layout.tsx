@@ -10,6 +10,7 @@ import {
   Noto_Sans_Telugu,
 } from "next/font/google";
 import { Analytics } from "@/features/analytics";
+import { ServiceWorkerRegister } from "@/features/pwa/sw-register";
 import { RAIL_SCRIPT } from "@/features/rail/state";
 import { SiteFooter } from "@/features/shell/site-footer";
 import { SiteHeader } from "@/features/shell/site-header";
@@ -59,6 +60,7 @@ export const metadata: Metadata = {
   title: { default: `${SITE_NAME} · ${SITE_TAGLINE}`, template: `%s · ${SITE_NAME}` },
   description: DESCRIPTION,
   applicationName: SITE_NAME,
+  icons: { apple: "/icons/apple-touch-icon.png" },
   openGraph: { type: "website", siteName: SITE_NAME, locale: "en_IN", title: `${SITE_NAME} · ${SITE_TAGLINE}`, description: DESCRIPTION },
   twitter: { card: "summary_large_image" },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 } },
@@ -84,6 +86,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       footer={<SiteFooter locale="en" />}
       extras={<Analytics />}
     >
+      <ServiceWorkerRegister />
       {children}
     </HtmlShell>
   );
