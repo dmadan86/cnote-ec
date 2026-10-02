@@ -6,6 +6,7 @@ import { purgeDeletedListingImages, type ListingImageView } from "./images";
 import { versionHandlers, versionJobs } from "./worker";
 import { processListingImage } from "./image-variants";
 import { transcribeVoiceNote } from "./voice";
+import type { PriceTier, TradeInfo } from "./tiers";
 
 export interface CategoryView {
   id: string;
@@ -30,6 +31,10 @@ export interface ListingView {
   moq: number | null;
   moqUnit: string | null;
   hsn: string | null;
+  /** Quantity slabs (ascending); empty / absent = single price. */
+  priceTiers?: PriceTier[];
+  /** Optional trade facts; only present fields are set. */
+  trade?: TradeInfo;
   language: string;
   imageUrls: string[];
   /** Tiny blur-up data URLs parallel to `imageUrls` (null when an image has none). Only populated on views served from LIVE. */
@@ -59,12 +64,17 @@ export interface ListingInput {
   moq: number | null;
   moqUnit: string | null;
   hsn: string | null;
+  /** optional quantity slabs; validated against the MOQ (see validatePriceTiers) */
+  priceTiers?: PriceTier[];
+  /** optional trade facts */
+  trade?: TradeInfo;
   language: string;
   imageUrls: string[];
   /** optional seller product code; unique per seller (DomainError "conflict" on duplicate) */
   sku?: string | null;
 }
 
+export { validatePriceTiers, MAX_TIERS, type PriceTier, type TradeInfo } from "./tiers";
 export { listCategories, getCategoryBySlug, getCategoryById, upsertCategories, type CategoryDef } from "./categories";
 export {
   getListing, getListingsByIds, getPublicListing, getPublicListingsByIds, listPublicSellerListings, listPublicListingIndex, countPublicListings, type ListingIndexEntry, listSellerListings, listFeaturedListings, draftListingFromText,

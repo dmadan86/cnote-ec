@@ -66,3 +66,21 @@ html[data-consent-banner] {
 html[data-consent-banner] body {
   padding-bottom: var(--consent-banner-h, 12rem);
 }
+
+/* Product page sticky mobile CTA bar (features/pdp/purchase-panel.tsx): fixed, so reserve its height at the end of the page and in
+   scroll padding, otherwise a focused control or the footer can sit behind it (WCAG 2.2 SC 2.4.11). When the cookie banner is also
+   shown the bar sits above it (its `bottom` follows --consent-banner-h), so both heights are added. Phones only: the bar is md:hidden. */
+@media (max-width: 47.99rem) {
+  html:has([data-sticky-cta]) {
+    scroll-padding-bottom: 9rem;
+  }
+  html:has([data-sticky-cta]) body {
+    padding-bottom: 8rem;
+  }
+  html[data-consent-banner]:has([data-sticky-cta]) {
+    scroll-padding-bottom: calc(var(--consent-banner-h, 12rem) + 9rem);
+  }
+  html[data-consent-banner]:has([data-sticky-cta]) body {
+    padding-bottom: calc(var(--consent-banner-h, 12rem) + 8rem);
+  }
+}

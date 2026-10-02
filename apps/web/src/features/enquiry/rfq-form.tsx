@@ -8,10 +8,17 @@ import { postRfqAction } from "./actions";
 import { RfqResult } from "./rfq-result";
 
 const UNITS = ["pcs", "kg", "ton", "meter", "set", "box", "litre"];
+const UNIT_ALIASES: Record<string, string> = { piece: "pcs", pieces: "pcs", meters: "meter", metre: "meter", boxes: "box", litres: "litre", tons: "ton", sets: "set" };
+/** Listing units ("piece", "meters", ...) mapped onto the RFQ unit list; unknown units fall back to pcs. */
+export function rfqUnit(u: string | undefined): string {
+  const k = (u ?? "").trim().toLowerCase();
+  const v = UNIT_ALIASES[k] ?? k;
+  return UNITS.includes(v) ? v : "pcs";
+}
 
 export interface RfqFormProps {
   categories: { slug: string; name: string }[];
-  defaults?: { title?: string; requirement?: string; categorySlug?: string; preferredListingId?: string; preferredSellerId?: string };
+  defaults?: { title?: string; requirement?: string; categorySlug?: string; preferredListingId?: string; preferredSellerId?: string; quantity?: number; unit?: string; targetPriceRupees?: string };
 }
 
 export function RfqForm({ categories, defaults }: RfqFormProps) {
@@ -46,17 +53,17 @@ export function RfqForm({ categories, defaults }: RfqFormProps) {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label={t("quantity")} htmlFor="quantity" error={err("quantity")}>
-          <Input id="quantity" name="quantity" type="number" inputMode="numeric" min={1} step={1} />
+          <Input id="quantity" name="quantity" type="number" inputMode="numeric" min={1} step={1} defaultValue={defaults?.quantity} />
         </Field>
         <Field label={t("unit")} htmlFor="quantityUnit" error={err("quantityUnit")}>
-          <Select id="quantityUnit" name="quantityUnit" defaultValue="pcs">
+          <Select id="quantityUnit" name="quantityUnit" defaultValue={rfqUnit(defaults?.unit)}>
             {UNITS.map((u) => (
               <option key={u} value={u}>{tb(`unit.${u}`)}</option>
             ))}
           </Select>
         </Field>
         <Field label={t("targetPrice")} htmlFor="targetPrice" error={err("targetPricePaise")} hint={t("optional")}>
-          <Input id="targetPrice" name="targetPrice" type="number" inputMode="decimal" min={0} step="0.01" />
+          <Input id="targetPrice" name="targetPrice" type="number" inputMode="decimal" min={0} step="0.01" defaultValue={defaults?.targetPriceRupees} />
         </Field>
       </div>
 

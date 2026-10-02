@@ -51,6 +51,18 @@ model Listing {
   moq              Int?
   moqUnit          String?          @map("moq_unit")
   hsn              String?
+  /// Quantity price slabs: [{ minQty, pricePaise }] ascending by minQty, first >= moq, prices non-increasing
+  /// (validated in @cnote/catalogue). JSON because it is versioned in the snapshot; paise are safe integers.
+  priceTiers       Json             @default("[]") @map("price_tiers")
+  /// Trade info shown on the product page; every field optional.
+  leadTimeDays     Int?             @map("lead_time_days")
+  packaging        String?
+  sampleAvailable  Boolean          @default(false) @map("sample_available")
+  samplePricePaise BigInt?          @map("sample_price_paise")
+  /// units (priceUnit) the seller can supply per month
+  supplyCapacityPerMonth Int?       @map("supply_capacity_per_month")
+  paymentTerms     String?          @map("payment_terms")
+  certifications   String[]         @default([])
   /// seller's own product code; the stable key for bulk upsert (unique per seller)
   sku              String?
   language         String           @default("en")
