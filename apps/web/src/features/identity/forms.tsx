@@ -127,6 +127,13 @@ export function DeleteAccountForm() {
     <form action={action} className="flex flex-col gap-3" noValidate>
       <p className="text-sm text-muted">{t("deleteBody")}</p>
       <Result state={state} />
+      <p className="text-sm text-muted">{t("deleteStepUp")}</p>
+      <Field label={t("deletePassword")} htmlFor="delete-password" error={fe(state, "password")}>
+        <Input id="delete-password" name="password" type="password" autoComplete="current-password" />
+      </Field>
+      <Field label={t("deleteMfa")} htmlFor="delete-mfa" error={fe(state, "mfaCode")}>
+        <Input id="delete-mfa" name="mfaCode" autoComplete="one-time-code" inputMode="numeric" />
+      </Field>
       <Field label={t("deleteConfirm")} htmlFor="confirm" error={fe(state, "confirm")}>
         <Input id="confirm" name="confirm" autoComplete="off" />
       </Field>

@@ -31,3 +31,6 @@ export async function purgeOldDispatches(before: Date, opts: { dryRun?: boolean 
   if (opts.dryRun) return prisma.alertDispatch.count({ where });
   return (await prisma.alertDispatch.deleteMany({ where })).count;
 }
+
+/** Registry-shaped alias of exportAlertsData (security audit M10). */
+export const exportPersonalData = (personId: string) => exportAlertsData(personId);

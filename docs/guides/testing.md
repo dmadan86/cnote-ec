@@ -12,13 +12,20 @@ Three layers, all runnable locally and in CI (`.github/workflows/ci.yml`).
 ## Unit tests and coverage
 
 ```bash
-pnpm db:test:prepare          # once: create/migrate cnote_test + cnote_live_test
+pnpm db:test:prepare          # once: create/migrate cnote_test + cnote_live_test (also sets cnote.allow_purge=on as the test DB default, see below)
 pnpm test                     # all workspaces
 pnpm --filter @cnote/enquiry exec vitest run test/matching.test.ts -t "cascades"
 pnpm test:coverage            # fails when a package drops below its threshold
 ```
 
 `vitest.setup.ts` points every test at the `_test` databases and Redis logical DB 1, so tests never touch dev data.
+
+**Append-only tables.** The audit log, credit/ad-wallet/escrow ledgers, consents, domain events and cookie-consent receipts are protected by
+DB triggers (`docs/security/security-architecture.md` section 8). Test cleanup (`deleteMany` on those tables) works because the test and e2e
+databases default `cnote.allow_purge` to `on` (`scripts/allow-test-purge.sh`, run by `pnpm db:test:prepare`, the e2e `prepare-db` step and CI).
+`UPDATE` is never bypassed: do not "fix" a test by updating an append-only row (insert a backdated row instead). To test the denial itself,
+use a client whose sessions start with the setting off, as `packages/db/test/append-only.db.test.ts` does. If you created your test databases
+before this change, re-run `pnpm db:test:prepare` (it is idempotent).
 
 ## UI tests (Playwright)
 

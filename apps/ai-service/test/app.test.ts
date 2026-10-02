@@ -21,12 +21,20 @@ describe("probes and docs", () => {
   it("health is open; ready reports configuration problems", async () => {
     const app = make();
     expect((await app.request("/health")).status).toBe(200);
-    const ready = await app.request("/ready");
-    expect(await ready.json()).toMatchObject({ status: "ready", provider: "heuristic", asr: "mock", capabilities: 12 });
+    const auth = { authorization: `Bearer ${token()}` };
+    // anonymous: status only, never provider names or the problems list
+    expect(await (await app.request("/ready")).json()).toEqual({ status: "ready" });
+    expect(await (await app.request("/ready", { headers: { authorization: "Bearer not-a-token" } })).json()).toEqual({ status: "ready" });
+    // with a valid service token: the details
+    expect(await (await app.request("/ready", { headers: auth })).json()).toMatchObject({ status: "ready", provider: "heuristic", asr: "mock", capabilities: 12 });
     const bad = make({ config: cfg({ tokenSecret: "" }), env: { AI_PROVIDER: "anthropic", ASR_PROVIDER: "sarvam" } });
     const r = await bad.request("/ready");
     expect(r.status).toBe(503);
-    expect((await r.json() as any).problems).toEqual(["AI_SERVICE_TOKEN_SECRET not set", "AI_PROVIDER=anthropic but ANTHROPIC_API_KEY not set", "ASR_PROVIDER=sarvam but SARVAM_API_KEY not set"]);
+    expect(await r.json()).toEqual({ status: "not_ready" });
+    const withDetails = make({ env: { AI_PROVIDER: "anthropic", ASR_PROVIDER: "sarvam" } });
+    const rd = await withDetails.request("/ready", { headers: auth });
+    expect(rd.status).toBe(503);
+    expect((await rd.json() as any).problems).toEqual(["AI_PROVIDER=anthropic but ANTHROPIC_API_KEY not set", "ASR_PROVIDER=sarvam but SARVAM_API_KEY not set"]);
     const okKeys = make({ env: { AI_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "k", ASR_PROVIDER: "sarvam", SARVAM_API_KEY: "s" } });
     expect((await okKeys.request("/ready")).status).toBe(200);
   });

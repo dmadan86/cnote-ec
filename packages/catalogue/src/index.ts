@@ -117,3 +117,6 @@ export * from "./retention";
 export * from "./voice";
 export * from "./photo-draft";
 export * from "./price-history";
+
+// DPDP access right: registered with @cnote/compliance's export registry (security audit M10).
+export { exportPersonalData } from "./privacy";

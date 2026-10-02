@@ -81,9 +81,26 @@ Built by `buildCsp({ app, nonce, reportUri, allow })`; applied by each app's `pr
 - `default-src 'self'`; `script-src 'self' 'nonce-…' 'strict-dynamic'` (no `unsafe-inline`; `unsafe-eval` only in dev); `object-src 'none'`; `base-uri 'self'`; `form-action 'self' https://accounts.google.com`; `frame-ancestors 'none'` (`'self'` on web); `upgrade-insecure-requests` in production.
 - `style-src 'self' 'unsafe-inline'`: React style props, next/font and Tailwind runtime need inline styles. Script execution is the XSS-critical directive. `CSP_STRICT_STYLES=1` switches to nonce'd `<style>` elements with `'unsafe-inline'` only for style attributes; try it in Report-Only first.
 - `img-src` adds the `MEDIA_PUBLIC_BASE_URL` origin; `connect-src` adds the Sentry ingest origin (from the DSN); web adds Clarity only when `NEXT_PUBLIC_CLARITY_PROJECT_ID` is set; Turnstile (`https://challenges.cloudflare.com` for script, frame and connect) on web/seller when `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is set.
-- **Nonce vs static pages.** Next only stamps a nonce while rendering per request. Dynamic pages (everything in admin and seller, plus web's account, sign-in and sign-up pages) get the nonce policy. Statically generated / ISR pages (the public buyer catalogue) cannot, so they get the same policy in *static mode*: `script-src 'self' 'unsafe-inline'`. Public web pages skip the proxy for performance and cache; give them the static header via `next.config.ts` `headers()` using `staticHeaderList({ app: "web" })`. Moving them to hash-based CSP (Next `experimental.sri`) would remove `unsafe-inline` and keep ISR.
+- **Nonce vs static pages.** Next only stamps a nonce while rendering per request. Dynamic pages (everything in admin and seller, plus web's account, sign-in and sign-up pages) get the nonce policy. Statically generated / ISR pages (the public buyer catalogue) cannot, so they get the same policy in *static mode*: `script-src 'self' 'unsafe-inline'`. Public web pages skip the proxy for performance and cache; give them the static header via `next.config.ts` `headers()` using `staticHeaderList({ app: "web" })`. Moving them to hash-based CSP was evaluated and is NOT feasible today: see "Static pages and CSP" below.
 - **Rollout.** Set `CSP_REPORT_ONLY=1`: the header becomes `Content-Security-Policy-Report-Only`, Next still applies nonces, and violations land at `POST /api/csp-report` as `csp.violation` security events. Watch for a week, fix, then unset.
 - Server Components read the nonce with `getNonce()` (or `(await headers()).get("x-nonce")`) for any hand-written `<script>`.
+
+### Static pages and CSP (evaluation, security audit)
+
+Question: can the statically generated / ISR pages of the buyer web drop `script-src 'unsafe-inline'` by using hashes (Next `experimental.sri`) instead of nonces?
+
+Finding: **no, not without breaking hydration, so no `CSP_STRICT_SCRIPTS` flag was added.**
+
+- `experimental.sri` only adds an `integrity="sha256-..."` attribute to the external `<script src>` tags Next emits (computed at build time). Those already satisfy `script-src 'self'`; SRI protects them from tampering in transit/at the CDN, which is useful but is not what `'unsafe-inline'` is for.
+- What `'unsafe-inline'` permits on these pages is the *inline* scripts of the App Router: the `self.__next_f.push([...])` RSC flight payload chunks, the bootstrap snippet and any `<script type="application/ld+json">`-style/theme snippets. Their content differs per page (and per ISR revalidation), so their hashes are not known when `next.config.ts` `headers()` is evaluated, and `headers()` is one static list for the whole app, not per route. Next does not hash inline scripts under `sri`.
+- A global `script-src 'self' 'sha256-...'` therefore either blocks the flight chunks (the page never hydrates) or needs a hash per page that no config hook can supply; nonces are impossible because the HTML is generated before any request exists.
+
+What would work, if the residual risk ever warrants the effort (none of it is built):
+
+1. Post-build script: parse the final `.next/server/app/**/*.html`, hash every inline `<script>`, and emit a per-route header manifest (`headers` file for the CDN / Cloudflare Transform Rules or a Worker) with `script-src 'self' 'sha256-<page hashes>'`. It must re-run on every ISR revalidation, which a CDN-side rule cannot do, so ISR pages would need to become fully static (rebuild on change) or be served through a Worker that hashes on the fly (cacheable per URL).
+2. Make the affected pages dynamic (nonce) and rely on the CDN/ISR cache layer in front, accepting the render cost. The account/sign-in pages already do this.
+
+Compensating controls today: the static pages render no user-supplied HTML (React escapes; stored rich text goes through `sanitize-html` first), `object-src 'none'`, `base-uri 'self'`, `frame-ancestors 'self'`, `form-action 'self'`, and the same `connect-src`/`img-src` allow-lists as nonce pages. Residual risk: an XSS bug on a static page is not blocked by CSP; the inline-script surface is one `unsafe-inline` away.
 
 ## 4. MFA
 
@@ -95,6 +112,21 @@ Built by `buildCsp({ app, nonce, reportUri, allow })`; applied by each app's `pr
 ## 5. Secrets
 
 `assertRequiredSecrets(app)` in production fails start-up on: missing or weak JWT secret (under 32 chars, placeholder text, low entropy); realm secrets equal to each other or to `JWT_SECRET`; missing `FIELD_ENCRYPTION_KEYS` / `BLIND_INDEX_KEY` or wrong lengths; missing `DATABASE_URL` / `REDIS_URL`; missing Turnstile secret or site key on web/seller (unless `HUMAN_VERIFIER=off`). Outside production it only warns.
+
+Also fails start-up in production (security audit M8):
+
+| Check | Fix / documented opt-out |
+| --- | --- |
+| `OTP_DEV_ECHO=true` (returns one-time codes in API responses) | Remove it. e2e servers and the dev k8s overlay set `ALLOW_OTP_ECHO_IN_PRODUCTION=1` (downgrades to a warning; never on a real deployment). |
+| A webhook secret missing for an ENABLED provider: `RAZORPAY_WEBHOOK_SECRET` (`PAYMENTS_PROVIDER=razorpay`), `CASHFREE_WEBHOOK_SECRET` (`=cashfree`), `ESCROW_WEBHOOK_SECRET` (`ESCROW_ENABLED`), `CREDIT_WEBHOOK_SECRET` (`CREDIT_ENABLED`), `KYC_WEBHOOK_SECRET` (`KYC_PROVIDER` not `mock`), `WHATSAPP_APP_SECRET` + `WHATSAPP_VERIFY_TOKEN` (WhatsApp Cloud enabled) | Set the secret, or disable the provider. |
+| `REVALIDATE_SECRET` set but under 32 characters | `openssl rand -base64 32`. |
+| `DOMAIN_CHECK_SECRET` missing while custom domains are enabled (`EDGE_PROVIDER=cloudflare\|vercel\|aws` or `DOMAINS_HTTP_PROBE=true`) | Set it (no `JWT_SECRET` fallback in production). |
+| `CSP_REPORT_ONLY=1` without `CSP_REPORT_ONLY_ACK=1` | Finish the rollout, or acknowledge explicitly (then it is a warning). |
+| `DATABASE_URL` / `LIVE_DATABASE_URL` without `sslmode=require\|verify-full\|verify-ca` (hosts `localhost`, `127.0.0.1`, `::1` are exempt) | Add TLS, or `DB_TLS_OPTIONAL=1` for a documented private network. |
+| `REDIS_URL` not `rediss://` (localhost exempt) | Use TLS, or `REDIS_TLS_OPTIONAL=1` for a documented private network. |
+
+`@cnote/db` and `@cnote/live-db` no longer fall back to a localhost URL in production: a missing `DATABASE_URL` / `LIVE_DATABASE_URL` throws at first use (`next build` only collects page data and is exempt via `NEXT_PHASE`).
+
 
 Environment variables: `CSP_REPORT_ONLY`, `CSP_STRICT_STYLES`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET`, `HUMAN_VERIFIER`, `HCAPTCHA_SECRET`, `RECAPTCHA_SECRET`, `FIELD_ENCRYPTION_KEYS` (`kid1:base64key,kid2:base64key`, 32-byte keys, first is active), `FIELD_ENCRYPTION_ACTIVE_KID`, `FIELD_KMS`, `BLIND_INDEX_KEY` (base64, 32+ bytes), `MFA_ISSUER`, `MFA_ADMIN_OPTIONAL` (dev only, ignored in production), `JWT_SECRET_WEB|SELLER|ADMIN`. Generate keys with `openssl rand -base64 32`.
 
@@ -109,7 +141,7 @@ Environment variables: `CSP_REPORT_ONLY`, `CSP_STRICT_STYLES`, `NEXT_PUBLIC_TURN
 | **D**enial of service | Sign-up or OTP flood, OTP SMS cost abuse | Cloudflare DDoS + rate rules, Turnstile, per-phone and per-IP OTP limits, queue back-pressure |
 | **E**levation of privilege | Buyer session used on admin; IDOR on business data; SSRF to metadata service | Realm-bound JWT audience/keys, server-side RBAC in every layout/action, per-module ownership checks, `assertPublicHttpUrl`, admin behind Access |
 
-Residual risks: XSS mitigation on static pages relies on `unsafe-inline` until SRI hashes are adopted; TOTP is phishable (WebAuthn/passkeys are the next step for admin); local keyring keeps KEKs in env (move to a cloud KMS in production).
+Residual risks: XSS mitigation on static pages relies on `unsafe-inline` (hash-based CSP is not feasible on Next 16 for inline flight scripts; see "Static pages and CSP"); TOTP is phishable (WebAuthn/passkeys are the next step for admin); local keyring keeps KEKs in env (move to a cloud KMS in production).
 
 ## 7. Cloudflare configuration checklist
 
@@ -128,3 +160,36 @@ Residual risks: XSS mitigation on static pages relies on `unsafe-inline` until S
 8. Transform Rules (optional): add `Strict-Transport-Security` at the edge; leave CSP to the app because it carries per-request nonces.
 9. Logging: enable Logpush (HTTP requests, firewall events) to India-region storage; alert on WAF block spikes and `csp.violation` volume.
 10. Turn CSP enforcement on: run one week with `CSP_REPORT_ONLY=1`, review `/api/csp-report` events, then remove it.
+
+## 8. Append-only tables (DB-level, security audit M5)
+
+"Append-only" used to be a convention in application code. Migration `20261003000000_append_only_triggers` enforces it in Postgres with `BEFORE UPDATE OR DELETE` row triggers and `BEFORE TRUNCATE` statement triggers (raw SQL that Prisma cannot model, like the pgvector indexes: `prisma migrate diff` ignores triggers, so `pnpm db:new` neither drops nor needs to strip them; `packages/db/test/append-only.db.test.ts` asserts they exist):
+
+| Table | UPDATE | DELETE / TRUNCATE |
+| --- | --- | --- |
+| `admin_audit_log`, `credit_ledger`, `ad_wallet_ledger`, `consents`, `ledger_journals`, `ledger_lines` | never | only inside a retention purge |
+| `domain_events` (outbox) | only `published_at` (the relay) | only inside a retention purge |
+| `cookie_consent_receipts` | only `person_id` -> `NULL` (DPDP erasure) | only inside a retention purge |
+
+A purge opts in per transaction: `withPurge(tx => ...)` from `@cnote/db` runs `set_config('cnote.allow_purge', 'on', true)` (transaction-local, so it cannot leak to other queries on a pooled connection). The only production purge on these tables is `purgeCookieConsentReceipts` (compliance retention policy `compliance.cookie_consent_receipts`). The dev seed reset also uses it. Test and e2e databases set `cnote.allow_purge = 'on'` as a database default (`scripts/allow-test-purge.sh`, called by `pnpm db:test:prepare`, e2e `prepare-db.ts` and CI) so suite cleanup can delete; UPDATE is never bypassed, so application code that mutates an append-only row still fails the suite. `packages/db/test/append-only.db.test.ts` runs its denial tests on a client whose sessions start with the setting off, i.e. what production sees.
+
+The setting is a guard against mistakes and ad-hoc SQL by the application role, not against someone who can run arbitrary SQL as that role (they can `SET` it). For that, run production with a separate least-privilege role: see `docs/ops/db-roles.md`.
+
+## 9. DPDP export and erasure (security audit M10)
+
+- **Export** (`GET /account/export`): `@cnote/compliance` keeps an export registry (`EXPORT_SOURCES`, `packages/compliance/src/export.ts`) that mirrors the retention registry. Each module exposes `exportPersonalData(personId, ctx)` from its public API (identity, alerts, enquiry, reviews, wishlist, notifications, catalogue voice-note metadata, leadgen, disputes) and compliance adds cookie-consent receipts; compliance calls the registered functions and never reads another module's tables. A new module that stores personal data adds an exporter here (a test fails if a module with a retention policy has no export source, other than the documented system-only ones).
+- **Bounded and streamed**: every collection is capped at `EXPORT_ROW_CAP` (5000, flagged `truncated`), the whole document has a byte budget (`EXPORT_MAX_BYTES`, default 25 MiB; sections beyond it are listed in `_omitted`), sections are produced one at a time and streamed as one JSON document, and a failing module is reported in `_errors` without failing the export. Money (BigInt paise) is serialised as exact strings. The route is rate-limited to 3 per hour per person.
+- **Erasure step-up**: `deleteAccountAction` calls `erasePersonWithStepUp`, which requires proof within the last 5 minutes: the account password, an authenticator/recovery code (mandatory when MFA is enabled; the password alone is then refused), or a phone OTP verified in the last 5 minutes. Attempts are limited to 5 per 10 minutes per person. `erasePerson` itself remains for staff-driven and system erasure.
+
+## 10. Upload body limits (security audit)
+
+Server actions share one body limit per app and every page route accepts an action POST, so a limit sized for evidence uploads is a pre-auth memory knob for the whole site. `serverActions.bodySizeLimit` is now `2mb` in web and seller (was 56 MB and 20 MB). File-bearing forms post to dedicated route handlers with their own caps: web `POST /api/rfq` (requirement drawings) and `POST /api/disputes` (evidence), seller `POST /api/disputes` and `POST /api/quotes` (quote attachments), next to the existing seller upload routes (KYC documents, listing images, bulk import). They authenticate before reading the body and use `readBoundedFormData` (`@cnote/next-kit`), which checks the origin, requires a Content-Length within the route's cap and enforces the cap on the bytes actually received. The forms keep their `useActionState` shape: text-only submissions use the server action, submissions with files go to the route (`submitFormAsAction`, with one session refresh + retry on 401). The two web routes are excluded from the proxy matcher so Next does not buffer or truncate their bodies. A server action that receives a file is refused. Admin and studio keep the framework default (1 MB; the KYC audit report upload is sized to fit).
+
+## 11. CI/CD, containers and dependencies (security audit)
+
+- **GitHub Actions** are pinned to full commit SHAs with a `# vX.Y.Z` comment; `.github/dependabot.yml` updates `github-actions` (one grouped PR), `npm`, `docker-compose` and `docker` (base-image tag and digest together). Workflows run with `contents: read`; `ai-evals.yml` passes `github.base_ref` / event data through `env:` rather than interpolating them into scripts.
+- **Live AI evals** use the `ANTHROPIC_API_KEY` only through the protected `ai-evals` environment (job-level `environment: ai-evals`). Required setup, which cannot be done from a file: create the environment in Settings > Environments, add required reviewers, optionally restrict deployment branches, and store the key as an *environment* secret (remove any repository-level copy). Fork PRs never receive secrets (`pull_request`, not `pull_request_target`) and fall into the "no key" branch.
+- **Containers**: Postgres, Redis, OpenSearch and MinIO ports in `docker-compose*.yml` bind to `127.0.0.1`; Redis requires a password (`REDIS_PASSWORD`, default `cnote-dev-redis`, local dev only; `.env.example` shows both URL forms so brew-services users keep working). Base images are pinned by digest (`node:22-bookworm-slim@sha256:...`, pgvector, redis, opensearch). MinIO stopped publishing community images to Docker Hub/Quay, so its digest could not be resolved: `minio/minio` and `minio/mc` use release tags with a `TODO(supply-chain)` to mirror and pin; resolve with `docker buildx imagetools inspect <image:tag>`.
+- **Build secrets**: the Next app Dockerfiles no longer take `DATABASE_URL` / `LIVE_DATABASE_URL` / `REDIS_URL` as build args (args are stored in the image history). Non-secret local-dev placeholders are `ENV` defaults; a real URL goes in through `--secret id=build_env,src=build.env` (compose: `build.secrets`, CI: `secret-files`), mounted for the build step only.
+- **Dependencies**: `pnpm.overrides` pin `deepmerge-ts` to `^8.0.2` and `mysql2` to `^3.24.5` (Prisma tooling), clearing the two `pnpm audit --prod` highs and the mysql2 moderate. The lockfile was patched surgically (a plain re-resolve drifts TypeScript to 7.0.2 and breaks eslint). Remaining: moderate `uuid <11.1.1` via `exceljs` (bulk import; `exceljs` uses only `v4`, which the advisory (v3/v5/v6 with a caller-supplied buffer) does not touch).
+- **Readiness probes**: the AI and search services' `/ready` return only a status to anonymous callers; configuration problems, provider names and backends need a valid service token.

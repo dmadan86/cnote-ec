@@ -32,6 +32,10 @@ export const e2eEnv: Record<string, string> = {
   AI_PROVIDER: "heuristic",
   QUEUE_DRIVER: "memory",
   OTP_DEV_ECHO: "true",
+  // The servers run NODE_ENV=production, where startup validation (packages/security/src/secrets.ts) rejects the OTP echo and requires the
+  // webhook secret of every enabled provider (escrow is on below). The OTP echo opt-out is for e2e/dev only: never set it on a real deployment.
+  ALLOW_OTP_ECHO_IN_PRODUCTION: "1",
+  ESCROW_WEBHOOK_SECRET: "e2e-escrow-webhook-secret-not-for-production-0123456789",
   // Lets a spec purge the web ISR cache the way the cache worker would (POST /api/revalidate), e.g. e2e/a11y/product-qa.spec.ts.
   REVALIDATE_SECRET: "e2e-revalidate-secret-not-for-production",
   JWT_SECRET: "q7Xk2mP9vLr4Tn8Bw3Zc6Hd1Fy5Js0Ag-e2e-signing-key",

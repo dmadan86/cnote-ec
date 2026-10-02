@@ -11,5 +11,5 @@ export { getAlertSettings, setAlertSetting, unsubscribeByToken } from "./setting
 export { alertUnsubscribeUrl, signUnsubscribeToken, verifyUnsubscribeToken } from "./token";
 export { runSavedSearchDigests, runFollowedDigests } from "./digests";
 export { onListingPriceChanged, onListingPublished } from "./listing-alerts";
-export { exportAlertsData, eraseAlertsData, purgeOldDispatches } from "./privacy";
+export { exportAlertsData, exportPersonalData, eraseAlertsData, purgeOldDispatches } from "./privacy";
 export { worker } from "./worker";
