@@ -8,6 +8,7 @@ export { listBuyerEnquiries, getBuyerEnquiry, listCandidatesForBuyer, pickSeller
 export {
   listSellerLeads, getSellerLead, acceptLead, declineLead, reportBuyerProblem, resolveEnquiryReview, expireOverdueOffers,
 } from "./leads";
+export { listRefundReviews, resolveRefundReview, refundGuardConfig, type RefundReviewRow } from "./refund-guard";
 export { getConversation, sendMessage, sendQuote, reportDeal } from "./messaging";
 export { worker } from "./worker";
 

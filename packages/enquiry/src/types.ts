@@ -103,6 +103,8 @@ export interface LeadView {
   respondBy: string;
   buyer: { businessName: string; city: string | null; verificationTier: number; phone: string | null };
   conversationId: string | null;
+  /** the seller's buyer_fake refund request is held for staff review (security audit M2) */
+  refundUnderReview?: boolean;
   /** Why `buyer.phone` is null after accept (consent not granted / no phone). */
   contactNote?: string | null;
   /** Set while an "unreachable" report is being verified with the buyer (refund decided within 24h). */

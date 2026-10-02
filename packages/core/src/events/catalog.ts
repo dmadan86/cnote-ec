@@ -33,6 +33,9 @@ export interface DomainEventPayloads {
   LeadDeclined: { enquiryId: string; matchId: string; sellerBusinessId: string; reason?: string };
   LeadExpired: { enquiryId: string; matchId: string; sellerBusinessId: string };
   LeadRefunded: { enquiryId: string; matchId: string; sellerBusinessId: string; reason: "buyer_unreachable" | "buyer_fake" | "enquiry_rejected" };
+  /** a seller's buyer_fake refund request tripped the per-seller refund guard: held for staff (security audit M2) */
+  LeadRefundHeld: { enquiryId: string; matchId: string; sellerBusinessId: string; kind: "buyer_fake"; reason: string; refundRateBps: number };
+  LeadRefundReviewed: { enquiryId: string; matchId: string; sellerBusinessId: string; decision: "approved" | "rejected"; decidedBy: string };
   ConversationStarted: { conversationId: string; matchId: string };
   MessageSent: { conversationId: string; messageId: string; senderPersonId: string };
   QuoteSent: { quoteId: string; conversationId: string; sellerBusinessId: string; pricePaise: number; quantity: number };
@@ -211,6 +214,8 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   LeadDeclined: 1,
   LeadExpired: 1,
   LeadRefunded: 1,
+  LeadRefundHeld: 1,
+  LeadRefundReviewed: 1,
   ConversationStarted: 1,
   MessageSent: 1,
   QuoteSent: 1,

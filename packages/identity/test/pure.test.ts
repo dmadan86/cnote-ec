@@ -88,6 +88,15 @@ describe("computeTrustScore", () => {
     expect(good).toBeGreaterThan(bad);
     expect(good).toBeLessThanOrEqual(100);
   });
+  it("refund farming (security audit M2): up to 20% of accepted leads refunded is free; beyond that costs 3 points each, capped at 15, never on a tiny sample", () => {
+    const acc = { ...emptySignals(1), acceptedFast: 10 };
+    const base = computeTrustScore(acc).score;
+    expect(computeTrustScore({ ...acc, refundsClaimed: 2 }).score).toBe(base); // 20% of 10 is free
+    expect(computeTrustScore({ ...acc, refundsClaimed: 3 }).score).toBe(base - 3);
+    expect(computeTrustScore({ ...acc, refundsClaimed: 10 }).score).toBe(base - 15);
+    const tiny = { ...emptySignals(1), acceptedFast: 3 };
+    expect(computeTrustScore({ ...tiny, refundsClaimed: 3 }).score).toBe(computeTrustScore(tiny).score); // below the minimum sample
+  });
   it("applies moderation, dispute and decay penalties, clamped to 0..100", () => {
     const base = computeTrustScore(emptySignals(1)).score;
     expect(computeTrustScore({ ...emptySignals(1), moderationRejections: 2 }).score).toBe(base - 10);

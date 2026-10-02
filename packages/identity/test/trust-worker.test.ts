@@ -85,3 +85,22 @@ it("a dispute resolved against a business counts as lost once; no-fault outcomes
   await prisma.domainEvent.deleteMany({ where: { aggregateId: businessId } });
   await redis.del(`trust:ev:${noFault + 1}`);
 });
+
+it("seller-initiated lead refunds are counted once (security audit M2); platform-decided refunds are not", async () => {
+  const person = await prisma.person.create({ data: { email: `t-${randomUUID()}@example.test` } });
+  people.push(person.id);
+  const { businessId } = await createBusiness(person.id, { name: "Refund Mfg", isSeller: true });
+  ids.push(businessId);
+  await redis.del(`trust:${businessId}`);
+  const base = { version: 1, aggregateType: "enquiry", aggregateId: "e", occurredAt: new Date().toISOString() } as const;
+  const rejectedId = Math.floor(Math.random() * 1e12);
+  await trustHandlers.LeadRefunded!({ ...base, id: rejectedId, type: "LeadRefunded", payload: { enquiryId: "e", matchId: "m", sellerBusinessId: businessId, reason: "enquiry_rejected" } });
+  expect(await redis.hget(`trust:${businessId}`, "refundsClaimed")).toBeNull();
+  const id = rejectedId + 1;
+  const ev = { ...base, id, type: "LeadRefunded", payload: { enquiryId: "e", matchId: "m", sellerBusinessId: businessId, reason: "buyer_fake" } } as const;
+  await trustHandlers.LeadRefunded!(ev);
+  await trustHandlers.LeadRefunded!(ev);
+  expect(await redis.hget(`trust:${businessId}`, "refundsClaimed")).toBe("1");
+  await prisma.domainEvent.deleteMany({ where: { aggregateId: businessId } });
+  await redis.del(`trust:ev:${id}`);
+});

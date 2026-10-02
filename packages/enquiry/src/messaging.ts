@@ -31,6 +31,8 @@ export async function getConversation(actor: Actor, conversationId: string): Pro
   const r = await loadForActor(actor, conversationId);
   if (!r) return null;
   const { c, role } = r;
+  // a refunded lead is closed for the seller: the conversation (and the buyer's details in it) is no longer readable (security audit M2)
+  if (role === "seller" && c.match.status === "refunded") return null;
   const [messages, quotes, deal, sellerWon, profs] = await Promise.all([
     prisma.message.findMany({ where: { conversationId }, orderBy: { createdAt: "desc" }, take: 500 }),
     prisma.quote.findMany({ where: { conversationId }, orderBy: { createdAt: "asc" } }),

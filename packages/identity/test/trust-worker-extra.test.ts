@@ -141,7 +141,7 @@ describe("recomputeTrust", () => {
   });
   it("module worker registers the handlers and the daily trust-decay + gst-recheck jobs", async () => {
     expect(worker.name).toBe("identity");
-    expect(Object.keys(worker.handlers ?? {}).sort()).toEqual(["BusinessVerified", "DisputeResolved", "LeadAccepted", "LeadDeclined", "LeadExpired", "ListingModerated", "OfferHonourDecided"]);
+    expect(Object.keys(worker.handlers ?? {}).sort()).toEqual(["BusinessVerified", "DisputeResolved", "LeadAccepted", "LeadDeclined", "LeadExpired", "LeadRefunded", "ListingModerated", "OfferHonourDecided"]);
     const jobs = worker.jobs ?? [];
     expect(jobs.map((j) => j.name).sort()).toEqual(["identity.audit-expiry", "identity.gst-recheck", "identity.trust-decay"]);
     for (const j of jobs) expect(j.everyMs).toBe(86_400_000);

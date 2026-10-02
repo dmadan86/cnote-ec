@@ -99,6 +99,7 @@ function AcceptedPanel({ lead }: { lead: LeadView }) {
         ) : null}
       </div>
       {lead.reachabilityCheck ? <Alert tone="info">{t("checkingBuyer")}</Alert> : null}
+      {lead.refundUnderReview ? <Alert tone="info">{t("refundUnderReview")}</Alert> : null}
       <details>
         <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-ink underline">{t("reportSummary")}</summary>
         <form action={report} className="mt-2 space-y-3">

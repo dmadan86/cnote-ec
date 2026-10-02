@@ -1,5 +1,7 @@
 import type { ModuleWorker } from "@cnote/core";
 import { prisma } from "@cnote/db";
+import { getEnquirySummary } from "@cnote/enquiry";
+import { hasVerifiedEnquiry } from "./verified";
 import { createHash } from "node:crypto";
 import { bustAllQaCaches, bustAllReviewCaches } from "./cache";
 import { TOMBSTONE_PERSON_ID } from "./constants";
@@ -47,6 +49,18 @@ export const worker: ModuleWorker = {
       await anonymisePerson(event.payload.personId);
       await bustAllReviewCaches();
       await bustAllQaCaches();
+    },
+    // Security audit M2: a refunded lead no longer backs the "verified enquiry" badge. Recomputed from the enquiry module's
+    // public getter; the badge stays when the buyer still has another accepted lead with the same seller.
+    LeadRefunded: async (event) => {
+      const enq = await getEnquirySummary(event.payload.enquiryId);
+      if (!enq) return;
+      if (await hasVerifiedEnquiry(enq.buyerBusinessId, event.payload.sellerBusinessId)) return;
+      const r = await prisma.productReview.updateMany({
+        where: { authorBusinessId: enq.buyerBusinessId, sellerBusinessId: event.payload.sellerBusinessId, verifiedEnquiry: true },
+        data: { verifiedEnquiry: false },
+      });
+      if (r.count > 0) await bustAllReviewCaches();
     },
     // Listing pages 404 once archived, so nothing to hide; kept explicit to document the decision.
     ListingArchived: async () => {},

@@ -36,6 +36,7 @@
     "declining": "Declining…",
     "nothingCharged": "Nothing is charged until you accept. If you decline, the lead moves to the next seller.",
     "checkingBuyer": "Checking with the buyer. We will decide on your refund within 24 hours.",
+    "refundUnderReview": "Your refund request is with our team for review because of your recent refund activity. We will decide within 2 working days.",
     "openConversation": "Open conversation",
     "reportSummary": "Report unreachable or fake",
     "reportHelp": "Tried to reach the buyer and could not, or the enquiry was not real? Tell us within 72 hours of accepting. We verify it and refund your credit automatically. No support ticket needed.",
