@@ -11,8 +11,11 @@ import { expect, test, type Page } from "../support/fixtures";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const pick = (n: number, chars: string) => Array.from({ length: n }, () => chars[randomInt(chars.length)]).join("");
-/** Valid, unique GSTIN (state 29 = Karnataka). The 13th char "1" keeps the mock provider on its happy path. */
-function gstin(state = "29"): string {
+/**
+ * Valid, unique GSTIN. The 13th char "1" keeps the mock provider on its happy path. The default state is 27 (Maharashtra) because
+ * signUpBuyer declares Maharashtra for the business: GST verification only passes when the GSTIN's state matches (ADR-003).
+ */
+function gstin(state = "27"): string {
   const body = `${state}${pick(5, LETTERS)}${pick(4, "0123456789")}${pick(1, LETTERS)}1Z`;
   return body + gstinCheckChar(body);
 }
@@ -55,18 +58,28 @@ test.describe("buyer business profile", () => {
     await expect(page.getByRole("alert").filter({ hasText: /invalid gstin/i })).toBeVisible();
     await expect(input).toHaveAttribute("aria-invalid", "true");
 
-    await input.fill(gstin("29").toLowerCase());
+    await input.fill(gstin().toLowerCase());
     await page.getByRole("button", { name: "Verify GSTIN" }).click();
-    await expect(page.getByText(/Verified\. .* is registered in Karnataka\./)).toBeVisible();
+    await expect(page.getByText(/Verified\. .* is registered in Maharashtra\./)).toBeVisible();
     await page.reload();
     await settle(page);
     await expect(page.getByText("GSTIN verified")).toBeVisible();
     const details = page.getByRole("definition");
     await expect(details.filter({ hasText: "Pvt Ltd" })).toBeVisible();
-    await expect(details.filter({ hasText: "Karnataka" })).toBeVisible();
+    await expect(details.filter({ hasText: "Maharashtra" })).toBeVisible();
     await expect(details.filter({ hasText: "Active" })).toBeVisible();
     await expect(details.filter({ hasText: "Tier 1" })).toBeVisible();
     await expectNoBlockingViolations(page, info);
+  });
+
+  test("GSTIN: a number from another state than the business is held for staff review, never auto-verified", async ({ page }) => {
+    await open(page);
+    await page.getByLabel("GSTIN", { exact: true }).fill(gstin("29")); // the business declared Maharashtra
+    await page.getByRole("button", { name: "Verify GSTIN" }).click();
+    await expect(page.getByRole("alert").filter({ hasText: /our team will review/i }).first()).toBeVisible();
+    await page.reload();
+    await settle(page);
+    await expect(page.getByText("GSTIN verified")).toHaveCount(0);
   });
 
   test("GSTIN: keyboard only (type, Enter to verify)", async ({ page }) => {

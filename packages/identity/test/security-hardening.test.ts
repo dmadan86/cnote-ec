@@ -30,6 +30,8 @@ async function signUp(ctx = ctxFor()) {
   return { email, t, ctx };
 }
 const sidOf = (token: string) => JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString()).sid as string;
+/** Redis key of the rotation-grace entry: keyed by the PREVIOUS token's hash, which the session row stores after a rotation. */
+const graceKeyOf = async (sid: string) => `rtgrace:${(await prisma.authSession.findUniqueOrThrow({ where: { id: sid } })).prevTokenHash}`;
 const ageRotation = (sid: string, ms = 60_000) => prisma.authSession.update({ where: { id: sid }, data: { lastUsedAt: new Date(Date.now() - ms) } });
 
 afterAll(async () => {
@@ -185,12 +187,13 @@ describe("progressive per-account backoff + burst alerts", () => {
     }
   });
   it("MFA: beyond a full window of misses the account backs off, and a valid sign-in path clears it", async () => {
-    const { t } = await signUp();
-    await clearFailures("mfa", t.personId);
-    for (let i = 0; i < MFA_FREE_FAILURES; i++) await recordFailure("mfa", t.personId, "mfa.failed", MFA_FREE_FAILURES);
-    await expect(verifyMfa(t.personId, "000000")).rejects.toMatchObject({ code: "rate_limited", message: expect.stringMatching(/Too many failed attempts/) });
-    await clearFailures("mfa", t.personId);
-    await expect(verifyMfa(t.personId, "000000")).rejects.toMatchObject({ code: "unauthenticated" }); // no MFA enrolled: plain bad code, not locked
+    const person = await prisma.person.create({ data: { email: newEmail() }, select: { id: true } });
+    made.push(person.id);
+    await clearFailures("mfa", person.id);
+    for (let i = 0; i < MFA_FREE_FAILURES; i++) await recordFailure("mfa", person.id, "mfa.failed", MFA_FREE_FAILURES);
+    await expect(verifyMfa(person.id, "000000")).rejects.toMatchObject({ code: "rate_limited", message: expect.stringMatching(/Too many failed attempts/) });
+    await clearFailures("mfa", person.id);
+    await expect(verifyMfa(person.id, "000000")).rejects.toMatchObject({ code: "unauthenticated" }); // no MFA enrolled: plain bad code, not locked
   });
   it("failure bookkeeping never throws when Redis is down", async () => {
     vi.spyOn(redis, "multi").mockImplementation(() => { throw new Error("redis down"); });
@@ -237,8 +240,7 @@ describe("refresh-token rotation grace window", () => {
     const { t, ctx } = await signUp();
     const sid = sidOf(t.accessToken);
     const r1 = await refreshSession(t.refreshToken, ctx);
-    const { sha256 } = await import("../src/tokens");
-    await redis.del(`rtgrace:${sha256(t.refreshToken)}`);
+    await redis.del(await graceKeyOf(sid));
     await expect(refreshSession(t.refreshToken, ctx)).rejects.toMatchObject({ code: "unauthenticated" });
     expect((await prisma.authSession.findUniqueOrThrow({ where: { id: sid } })).revokedAt).toBeNull();
     expect(await getSession(r1.accessToken)).not.toBeNull();
@@ -246,8 +248,7 @@ describe("refresh-token rotation grace window", () => {
   it("the grace entry is encrypted (the refresh token is not readable in Redis) and a tampered entry is ignored", async () => {
     const { t, ctx } = await signUp();
     const r1 = await refreshSession(t.refreshToken, ctx);
-    const { sha256 } = await import("../src/tokens");
-    const key = `rtgrace:${sha256(t.refreshToken)}`;
+    const key = await graceKeyOf(sidOf(t.accessToken));
     const raw = (await redis.get(key))!;
     expect(raw).not.toContain(r1.refreshToken);
     expect(Buffer.from(raw, "base64").toString("utf8")).not.toContain(r1.refreshToken);
