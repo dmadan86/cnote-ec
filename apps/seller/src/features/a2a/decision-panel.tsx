@@ -23,7 +23,7 @@ export function DecisionPanel({ id, status, canConfirm, realiseError }: { id: st
       {status === "agreed" && !canConfirm ? <p className="text-sm text-muted">{t("decision.waitingOther")}</p> : null}
       {realiseError ? (
         <Alert tone="danger">
-          <p role="alert">{t("decision.realiseFailed")}</p>
+          <p>{t("decision.realiseFailed")}</p>
           <p className="mt-1 text-xs">{realiseError}</p>
           <div className="mt-2"><IntentForm action={negotiationDecisionAction} id={id} intent="retry" label={t("decision.retry")} pendingText={w} /></div>
         </Alert>

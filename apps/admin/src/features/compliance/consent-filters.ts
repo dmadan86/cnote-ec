@@ -1,5 +1,6 @@
 // Query-string filters of the cookie-consent log, shared by the page and the CSV export so both always select the same rows.
 import { COOKIE_CONSENT_ACTIONS, COOKIE_CONSENT_APPS, type CookieConsentAction, type CookieConsentApp, type CookieConsentSearch } from "@cnote/compliance";
+import { neutraliseFormula } from "@cnote/security";
 
 const IST = "+05:30";
 const DAY_MS = 86_400_000;
@@ -50,11 +51,10 @@ export function parseConsentFilters(i: ConsentFilterInput): { filters: CookieCon
   return { filters, problem: null };
 }
 
-const FORMULA = /^[=+\-@\t\r]/;
 /** One CSV cell: quoted when needed, and neutralised against spreadsheet formula injection. */
 export function csvCell(v: string | number | boolean | null | undefined): string {
   let s = v === null || v === undefined ? "" : String(v);
-  if (FORMULA.test(s)) s = `'${s}`;
+  s = neutraliseFormula(s);
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

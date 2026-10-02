@@ -321,14 +321,20 @@ describe("records + config", () => {
     expect(buildExpectedRecords("acme.com", "apex", TOKEN, cfg).note).toMatch(/www\.acme\.com/);
     expect(buildExpectedRecords("acme.com", "apex", TOKEN, domainsConfig({ STOREFRONT_APEX_IPS: "1.1.1.1" } as NodeJS.ProcessEnv)).note).toMatch(/ALIAS/);
   });
-  it("config: defaults, unknown provider -> mock, lists trimmed, secret fallbacks", () => {
+  it("config: defaults, unknown provider -> mock, lists trimmed, dedicated HKDF secret", () => {
     const d = domainsConfig({} as NodeJS.ProcessEnv);
     expect(d).toMatchObject({ rootDomain: "localhost", cnameTarget: "stores.localhost", provider: "mock", apexIps: [], resolvers: ["1.1.1.1", "8.8.8.8"], maxDomainsPerStorefront: 3 });
     expect(domainsConfig({ EDGE_PROVIDER: " Vercel ", PLATFORM_HOSTS: " A.com , ,B.com" } as NodeJS.ProcessEnv)).toMatchObject({ provider: "vercel", platformHosts: ["a.com", "b.com"] });
     expect(domainsConfig({ EDGE_PROVIDER: "bogus" } as NodeJS.ProcessEnv).provider).toBe("mock");
-    expect(domainCheckSecret({ DOMAIN_CHECK_SECRET: "a", JWT_SECRET: "b" } as NodeJS.ProcessEnv)).toBe("a");
-    expect(domainCheckSecret({ JWT_SECRET: "b" } as NodeJS.ProcessEnv)).toBe("b");
-    expect(domainCheckSecret({ AUTH_SECRET: "c" } as NodeJS.ProcessEnv)).toBe("c");
-    expect(domainCheckSecret({} as NodeJS.ProcessEnv)).toBe("cnote-dev-domain-check");
+    // dedicated secret only: derived via HKDF (never the raw value), no JWT_SECRET/AUTH_SECRET reuse, no hardcoded fallback
+    const a = domainCheckSecret({ DOMAIN_CHECK_SECRET: "a", JWT_SECRET: "b" } as NodeJS.ProcessEnv);
+    expect(a).toMatch(/^[0-9a-f]{64}$/);
+    expect(a).not.toBe("a");
+    expect(domainCheckSecret({ DOMAIN_CHECK_SECRET: "a", JWT_SECRET: "other" } as NodeJS.ProcessEnv)).toBe(a);
+    expect(domainCheckSecret({ DOMAIN_CHECK_SECRET: "b" } as NodeJS.ProcessEnv)).not.toBe(a);
+    expect(() => domainCheckSecret({ JWT_SECRET: "b" } as NodeJS.ProcessEnv)).toThrow(/DOMAIN_CHECK_SECRET/);
+    expect(() => domainCheckSecret({ AUTH_SECRET: "c" } as NodeJS.ProcessEnv)).toThrow(/DOMAIN_CHECK_SECRET/);
+    expect(() => domainCheckSecret({} as NodeJS.ProcessEnv)).toThrow(/DOMAIN_CHECK_SECRET/);
+    expect(() => domainCheckSecret({ DOMAIN_CHECK_SECRET: "  " } as NodeJS.ProcessEnv)).toThrow(/DOMAIN_CHECK_SECRET/);
   });
 });

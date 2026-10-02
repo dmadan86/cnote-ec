@@ -18,8 +18,8 @@
     },
     {
       "id": "moderate",
-      "version": "moderate-v1",
-      "sha256": "72e7f72a09c102f5452489f765a2cadbc150990534027d04dd80c0eddce99fb6"
+      "version": "moderate-v2",
+      "sha256": "41d376bf648e7852c069c2b55207b7be758930ce0ff44c3a275faf5a220d700b"
     },
     {
       "id": "extract_document",

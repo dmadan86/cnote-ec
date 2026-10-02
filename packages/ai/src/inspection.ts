@@ -2,6 +2,7 @@
 // the order promised: quantity (where countable), labelling/marking, visible spec conformance. Output is ADVISORY
 // EVIDENCE for disputes (ADR-013), never a pass/fail gate. Same rules as every capability: typed, provider-agnostic,
 // AiDecision logged with NO image bytes (hash + size + dimensions only), low confidence -> ops review queue.
+import { userInputEnvelope } from "./envelope";
 import { createHash } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
@@ -125,7 +126,7 @@ export class AnthropicDispatchInspector implements DispatchInspector {
           role: "user",
           content: [
             ...input.images.map((im) => ({ type: "image" as const, source: { type: "base64" as const, media_type: im.mimeType, data: Buffer.from(im.bytes).toString("base64") } })),
-            { type: "text" as const, text: `<user_input>\n${JSON.stringify(redactDeep({ expected: input.expected, language: input.language }))}\n</user_input>` },
+            { type: "text" as const, text: userInputEnvelope(redactDeep({ expected: input.expected, language: input.language })) },
           ],
         }],
         output_config: { effort: "low", format: { type: "json_schema", schema: z.toJSONSchema(Schema) as Record<string, unknown> } },

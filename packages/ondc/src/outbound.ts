@@ -2,7 +2,7 @@
 // signed at delivery time (signatures are short-lived), and delivered by the ondc.callback queue with retries.
 import { getJobQueue } from "@cnote/core";
 import { prisma } from "@cnote/db";
-import { assertPublicHttpUrl } from "@cnote/security";
+import { assertPublicHttpTarget, type PublicTarget } from "@cnote/security";
 import { callbackContext, callbackOf, type BecknContext, type CallbackAction, type InboundAction } from "./beckn";
 import { buildAuthHeader } from "./crypto";
 import { loadConfig, type OndcConfig } from "./config";
@@ -61,18 +61,19 @@ export async function deliverCallback(messageId: string, cfg: OndcConfig = loadC
   const fail = async (error: string, httpStatus?: number) => {
     await prisma.ondcMessage.update({ where: { id: row.id }, data: { status: "failed", error: error.slice(0, 500), httpStatus: httpStatus ?? null, attempts: { increment: 1 } } });
   };
-  let url: URL;
+  let target: PublicTarget;
   try {
-    url = await assertPublicHttpUrl(`${(row.counterpartyUri ?? "").replace(/\/+$/, "")}/${row.action}`, { allowHttp: cfg.allowHttp });
+    target = await assertPublicHttpTarget(`${(row.counterpartyUri ?? "").replace(/\/+$/, "")}/${row.action}`, { allowHttp: cfg.allowHttp });
   } catch {
     await fail("callback URL rejected (not a public https URL)");
     return "rejected"; // permanent: retrying cannot help
   }
+  const url = target.url;
   const body = JSON.stringify(row.body);
   const authorization = buildAuthHeader({ body, subscriberId: cfg.subscriberId, uniqueKeyId: cfg.uniqueKeyId, privateKey: cfg.signingPrivateKey, ttlSeconds: cfg.signatureTtlSeconds });
   let res: Awaited<ReturnType<typeof httpFetch>>;
   try {
-    res = await httpFetch(url.toString(), { method: "POST", headers: { "content-type": "application/json", authorization }, body, signal: AbortSignal.timeout(10_000) });
+    res = await httpFetch(url.toString(), { method: "POST", headers: { "content-type": "application/json", authorization }, body, signal: AbortSignal.timeout(10_000), pin: target });
   } catch (e) {
     await fail(e instanceof Error ? e.message : "network error");
     throw e;

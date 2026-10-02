@@ -2,7 +2,7 @@ import type { ModerateInput, ModerateOutput } from "../index";
 import type { ProviderResult } from "../types";
 import { HEURISTIC_MODEL } from "./intent";
 
-export const MODERATE_HEURISTIC_VERSION = "moderate-heuristic-v2";
+export const MODERATE_HEURISTIC_VERSION = "moderate-heuristic-v3";
 
 interface Rule { cls: string; strong: RegExp[]; weak: RegExp[] }
 
@@ -21,7 +21,7 @@ const RULES: Rule[] = [
   },
   {
     cls: "narcotics",
-    strong: [/\b(?:cocaine|heroin|mdma|opium|afeem|charas|ganja|marijuana|cannabis|weed|lsd)\b/, /अफीम|गांजा|चरस/],
+    strong: [/\bbhang\b/, /\bbrown\s+sugar\b/, /\b(?:cocaine|heroin|mdma|opium|afeem|charas|ganja|marijuana|cannabis|weed|lsd)\b/, /अफीम|गांजा|चरस/],
     weak: [],
   },
   {
@@ -36,7 +36,7 @@ const RULES: Rule[] = [
     cls: "weapons",
     strong: [
       /\bpistols?\b/, /\brevolvers?\b/, /\brifles?\b/, /\bammunition\b/, /\bbullets?\b(?!\s*(?:train|point|proof))/, /\bak\s*-?\s*47\b/,
-      /\bkatta\b/, /\bbandook\b/, /\bcountry\s*made\s+(?:gun|pistol)/, /\bstun\s+gun\b/, /\bcombat\s+knife|\bbutterfly\s+knife|\bswitch\s*blade\b|\btrench\s+knife/, /बंदूक|कट्टा|कारतूस/,
+      /\bkatta\b/, /\bbandook\b/, /\btamancha\b/, /\bhathiyar\b/, /\bcountry\s*made\s+(?:gun|pistol)/, /\bstun\s+gun\b/, /\bcombat\s+knife|\bbutterfly\s+knife|\bswitch\s*blade\b|\btrench\s+knife/, /बंदूक|कट्टा|कारतूस/,
     ],
     weak: [/(?<!\b(?:glue|spray|heat|grease|staple|nail|paint|air|hot\s+melt|caulking|water)\s)\bguns?\b/, /\btalwar\b|\bswords?\b/, /\bpepper\s+spray\b/, /\bknuckle\s*dusters?\b/],
   },
@@ -74,7 +74,7 @@ const RULES: Rule[] = [
     cls: "tobacco_alcohol",
     strong: [/\bvap(?:e|es|ing)\b/, /\be-?\s?cig(?:arette)?s?\b/, /\bgutk(?:h)?a\b/, /\bhookah\s+(?:flavou?r|tobacco)/],
     weak: [
-      /\btobacco\b|\bcigarettes?\b|\bbidi\b|\bhookah\b|\btambaku\b/, /\b(?:alcohol|whisky|whiskey|vodka|liquor|beer|daru|daaru|rum|wine)\b(?!\s*(?:wipe|swab|pad))/, /शराब|दारू|तंबाकू/,
+      /\btobacco\b|\bcigarettes?\b|\bbidi\b|\bhookah\b|\btambaku\b|\bkhaini\b|\bsharab\b/, /\b(?:alcohol|whisky|whiskey|vodka|liquor|beer|daru|daaru|rum|wine)\b(?!\s*(?:wipe|swab|pad))/, /शराब|दारू|तंबाकू/,
     ],
   },
 ];
@@ -133,7 +133,7 @@ function firstMatch(text: string, res: RegExp[]): string | null {
 }
 
 export function moderateHeuristic(input: ModerateInput): ProviderResult<ModerateOutput> {
-  const text = input.text.normalize("NFKC").toLowerCase().replace(/[’']/g, "");
+  const text = input.text.normalize("NFKC").replace(/[\u200b-\u200f\u202a-\u202e\u2060-\u2064\ufeff\u00ad]/g, "").toLowerCase().replace(/[’']/g, "");
   const strong: { cls: string; hit: string }[] = [];
   const weak: { cls: string; hit: string }[] = [];
   for (const r of RULES) {

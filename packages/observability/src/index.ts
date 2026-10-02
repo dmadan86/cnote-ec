@@ -22,8 +22,22 @@ const SECRET_KEYS = /pass(word)?|token|secret|authorization|cookie|otp|code_veri
 // signatures) — redacted wherever a URL-ish `key=value` appears: request URLs, query_string, breadcrumbs, messages.
 const SECRET_QUERY = /([?&;]|^)((?:[\w.-]*(?:pass(?:word)?|token|secret|otp|code|state|nonce|jwt|api[-_]?key|key|signature|sig|session|auth)[\w.-]*|x-amz-[\w-]+))=([^&#\s"'<>]*)/gi;
 
-export function scrubString(s: string): string {
-  const masked = PII_PATTERNS.reduce((acc, [re, sub]) => acc.replace(re, sub), s);
+// Irregularly spaced/dashed digit runs and STD landlines; the digit count decides (mirrors @cnote/ai redact.ts).
+const PHONE_LOOSE = /(?<![\w.])(?:\+\s?)?\d(?:[\s().-]{0,4}\d){7,14}(?![\w])/g;
+function isIndianPhoneDigits(d: string): boolean {
+  if (d.length === 10) return /^[6-9]/.test(d);
+  if (d.length === 11) return d[0] === "0" && /^[1-9]/.test(d[1]!);
+  if (d.length === 12) return d.startsWith("91") && /^[1-9]/.test(d[2]!);
+  if (d.length === 13) return d.startsWith("910") && /^[1-9]/.test(d[3]!);
+  return false;
+}
+/** Strings are truncated before any regex runs (ReDoS bound). */
+const MAX_SCRUB_CHARS = 20_000;
+
+export function scrubString(input: string): string {
+  const s = input.length > MAX_SCRUB_CHARS ? `${input.slice(0, MAX_SCRUB_CHARS)} [truncated]` : input;
+  // loose phone pass first: the strict patterns would otherwise eat the tail of "+91 0 98765 43210" and leave the prefix digits
+  const masked = PII_PATTERNS.reduce((acc, [re, sub]) => acc.replace(re, sub), s.replace(PHONE_LOOSE, (m) => (isIndianPhoneDigits(m.replace(/\D/g, "")) ? "[phone]" : m)));
   return masked.replace(SECRET_QUERY, (_m, sep: string, key: string) => `${sep}${key}=[redacted]`);
 }
 

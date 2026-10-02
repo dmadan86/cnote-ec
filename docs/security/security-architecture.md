@@ -111,6 +111,23 @@ Environment variables: `CSP_REPORT_ONLY`, `CSP_STRICT_STYLES`, `NEXT_PUBLIC_TURN
 
 Residual risks: XSS mitigation on static pages relies on `unsafe-inline` until SRI hashes are adopted; TOTP is phishable (WebAuthn/passkeys are the next step for admin); local keyring keeps KEKs in env (move to a cloud KMS in production).
 
+## 6a. AI moderation, file handling, content and outbound requests
+
+| Control | Where | What it does |
+| --- | --- | --- |
+| Prompt envelope escaping | `packages/ai/src/envelope.ts` | Every `<user_input>` envelope (all providers) escapes `<`, `>`, `&` in the JSON as `<`, `>`, `&`, so user text such as `</user_input>` cannot close the envelope. |
+| Deterministic prohibited-content pre-check | `ai.moderate()` + `heuristic/moderate.ts` | Runs before the model for listings, enquiries, Q&A and storefronts: keyword/regex over normalised text (zero-width stripped, homoglyph fold, leetspeak, spaced letters, Hinglish and Devanagari). The model verdict is merged by strictness: it may escalate, but a deterministic block or review is never relaxed to allow (`deterministic: clean/review/block` is on the result). The moderation system prompt is `moderate-v2` and the golden set carries injection canaries (envelope break, "ignore previous instructions", fake verdict JSON). |
+| Auto-approval gates | `catalogue/versions.ts` (`mayAutoApprove`) | Auto-approve needs deterministic-clean AND model allow AND tier/trust AND account age (`LISTING_AUTO_APPROVE_MIN_ACCOUNT_AGE_DAYS`, 30) AND staff-approved history (`LISTING_AUTO_APPROVE_MIN_HUMAN_APPROVED`, 3). A random sample (`LISTING_AUTO_APPROVE_SAMPLE_RATE`, 0.05) of auto-approvals also lands in the ops review queue for post-publication audit. |
+| Zip/xlsx bomb guard | `bulk/src/zipguard.ts` | Archives are inflated with a streaming byte budget (16 KB input slices) and judged on the bytes actually inflated, never header-declared sizes: xlsx 200 MB / 1000 parts, ZIP 500 MB / 2000 files, 5 MB per image, 200 columns, declared sheet dimension checked before ExcelJS loads. Lazy per-batch extraction uses the same budget. |
+| Formula injection | `security/spreadsheet.ts` | CSV and xlsx exports prefix a quote on text cells starting with `=`, `+`, `-`, `@`, tab or CR (shared by the admin consent export); re-import strips it. Numbers are untouched. |
+| Report URL / subjects | `apps/web/.../legal/report.ts` | Control characters (CR, LF, tab, NUL) are rejected in the reported and proof URLs (the WHATWG parser silently strips them), the normalised `href` is stored, and ticket subjects/names are single-line. `fileGrievance` also collapses CR/LF in subjects. |
+| PII redaction | `ai/src/redact.ts`, `observability` | Input capped at 20k chars before any regex, bounded quantifiers, irregular `+91` formats and STD landlines, PIN-code addresses, names after "my name is / Mr / Shri / Smt / contact", with property tests. The Sentry scrubber gets the same loose-phone handling and length cap. |
+| SSRF and DNS pinning | `security/request.ts`, `security/pinned-fetch.ts` | `assertPublicHttpTarget` resolves DNS once, refuses private/link-local/loopback/metadata ranges (IPv4 and IPv6, mapped, NAT64, 6to4), and returns the validated address; `pinnedFetch` connects to exactly that IP (undici Agent with a pinned lookup), keeps SNI/Host, never follows redirects and caps the body. Used by the custom-domain probe and ONDC outbound callbacks. |
+| Domain squatting | `domains/lifecycle.ts` | Hostname is no longer globally unique: unverified claims coexist, expire after `DOMAINS_PENDING_CLAIM_DAYS` (7), and the first claimant to prove DNS control (advisory-locked) pre-empts the rest, with `DomainClaimSuperseded` and a seller notification. Refusals use generic text. |
+| Domain check secret | `domains/config.ts` | Per-host probe token is derived with HKDF-SHA256 from a dedicated `DOMAIN_CHECK_SECRET`; no hardcoded fallback and no `JWT_SECRET` reuse (missing secret throws). |
+| Report brigading | `reviews/react.ts`, `report-policy.ts` | Auto-hide needs distinct credible reporters (verified email or phone, account at least `REVIEWS_REPORTER_MIN_AGE_DAYS`, 7); otherwise the item stays visible and goes to the ops queue. Reports are rate limited per person (5/h, 15/day) and per IP (30/h). |
+| Single live region | `apps/*/features/disputes/forms.tsx` | `Alert` is the live region; content is no longer wrapped in a second `role="alert"`/`status` (a test guards the pattern across the apps). |
+
 ## 7. Cloudflare configuration checklist
 
 1. DNS: proxy (orange cloud) all app hostnames; API host too; firewall the origin to Cloudflare IP ranges or use Authenticated Origin Pulls.

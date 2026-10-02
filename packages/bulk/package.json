@@ -16,6 +16,7 @@
     "@cnote/db": "workspace:*",
     "@cnote/identity": "workspace:*",
     "@cnote/media": "workspace:*",
+    "@cnote/security": "workspace:*",
     "csv-parse": "^7.0.3",
     "csv-stringify": "^6.9.0",
     "exceljs": "^4.4.0",

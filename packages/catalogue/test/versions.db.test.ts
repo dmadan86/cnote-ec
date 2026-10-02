@@ -6,10 +6,15 @@ import { liveDb } from "@cnote/live-db";
 const vec = (axis: number) => Array.from({ length: EMBEDDING_DIM }, (_, i) => (i === axis ? 1 : 0));
 vi.mock("@cnote/ai", () => ({
   embed: async (texts: string[]) => ({ vectors: texts.map(() => vec(0)), version: "test-v1" }),
-  moderate: async (i: { text: string }) => ({ verdict: /gun/i.test(i.text) ? "block" : "allow", flags: [], reason: /gun/i.test(i.text) ? "weapons" : null, decisionId: "d", confidence: 0.9, needsReview: false }),
+  enqueueReview: async (a: { subject: { type: string; id: string }; reason: string }) => { const { prisma: p } = await import("@cnote/db"); await p.reviewItem.create({ data: { capability: "moderate", subjectType: a.subject.type, subjectId: a.subject.id, reason: a.reason } }); },
+  moderate: async (i: { text: string }) => ({ verdict: /gun/i.test(i.text) ? "block" : "allow", flags: [], reason: /gun/i.test(i.text) ? "weapons" : null, decisionId: "d", confidence: 0.9, needsReview: false, ...(/nodet/i.test(i.text) ? {} : { deterministic: "clean" }) }),
 }));
 
 process.env.PREVIEW_TOKEN_SECRET ??= "test-preview-secret";
+// history/sampling gates are covered explicitly below; the older flow tests exercise the base tier+trust path
+process.env.LISTING_AUTO_APPROVE_MIN_HUMAN_APPROVED = "0";
+process.env.LISTING_AUTO_APPROVE_SAMPLE_RATE = "0";
+const OLD = new Date(Date.now() - 90 * 86_400_000);
 const cat = await import("../src/index");
 const tag = randomUUID().slice(0, 8);
 let catId = "";
@@ -24,7 +29,7 @@ const input = (title: string, extra: Record<string, unknown> = {}) => ({
 beforeAll(async () => {
   const [c] = await cat.upsertCategories([{ slug: `t-ver-${tag}`, name: "Test Versioned", attributeSchema: { fields: [{ key: "ply", label: "Ply", type: "number", required: true }] } }]);
   catId = c!.id;
-  trusted = (await prisma.business.create({ data: { name: `Trusted ${tag}`, isSeller: true, verificationTier: 2, trustScore: 80 } })).id;
+  trusted = (await prisma.business.create({ data: { name: `Trusted ${tag}`, isSeller: true, verificationTier: 2, trustScore: 80, createdAt: OLD } })).id;
   plain = (await prisma.business.create({ data: { name: `Plain ${tag}`, isSeller: true } })).id;
 });
 
@@ -175,5 +180,55 @@ describe("version flow", () => {
     expect(await events(l.id)).toContain("ListingUnpublished");
     const { reconcileLive } = await import("../src/live");
     await expect(reconcileLive()).resolves.toBeDefined();
+  });
+});
+
+describe("auto-approval gates (security audit H3)", () => {
+  const mk = (extra: Record<string, unknown>) => prisma.business.create({ data: { name: `Gate ${randomUUID().slice(0, 6)} ${tag}`, isSeller: true, verificationTier: 2, trustScore: 80, ...extra } }).then((b) => b.id);
+  const cleanup: string[] = [];
+  afterAll(async () => {
+    const ids = (await prisma.listing.findMany({ where: { sellerBusinessId: { in: cleanup } }, select: { id: true } })).map((l) => l.id);
+    await prisma.reviewItem.deleteMany({ where: { subjectId: { in: ids } } });
+    await prisma.domainEvent.deleteMany({ where: { aggregateId: { in: ids } } }).catch(() => {});
+    await prisma.listingVersion.deleteMany({ where: { listingId: { in: ids } } });
+    await prisma.listing.deleteMany({ where: { id: { in: ids } } });
+    await prisma.business.deleteMany({ where: { id: { in: cleanup } } });
+  });
+  const submit = async (seller: string, title: string) => {
+    const l = await cat.createListing(seller, input(title));
+    return { l, v: await cat.submitListingVersion(seller, l.id) };
+  };
+
+  it("a brand-new tier-2 trust-80 account goes to staff review under the default policy", async () => {
+    const prevHist = process.env.LISTING_AUTO_APPROVE_MIN_HUMAN_APPROVED;
+    delete process.env.LISTING_AUTO_APPROVE_MIN_HUMAN_APPROVED;
+    try {
+      const fresh = await mk({}); cleanup.push(fresh);
+      expect((await submit(fresh, "Fresh account widget")).v.status).toBe("in_review");
+      // aged but no staff-approved history: still in review
+      const aged = await mk({ createdAt: OLD }); cleanup.push(aged);
+      expect((await submit(aged, "Aged no history")).v.status).toBe("in_review");
+    } finally { process.env.LISTING_AUTO_APPROVE_MIN_HUMAN_APPROVED = prevHist; }
+  });
+
+  it("aged account with history auto-approves; a model allow without deterministic-clean does not", async () => {
+    const seller = await mk({ createdAt: OLD }); cleanup.push(seller);
+    const { v: ok } = await submit(seller, "History widget");
+    expect(ok.status).toBe("approved"); // env in this file relaxes the history gate to 0
+    const { v: nodet } = await submit(seller, "nodet widget");
+    expect(nodet.status).toBe("in_review");
+  });
+
+  it("samples auto-approvals into the staff audit queue (rate 1) and not at rate 0", async () => {
+    const seller = await mk({ createdAt: OLD }); cleanup.push(seller);
+    process.env.LISTING_AUTO_APPROVE_SAMPLE_RATE = "1";
+    try {
+      const { l, v } = await submit(seller, "Sampled widget");
+      expect(v.status).toBe("approved");
+      expect(v.reviewNote).toMatch(/post-publication staff audit/);
+      expect(await prisma.reviewItem.count({ where: { subjectType: "listing", subjectId: l.id } })).toBe(1);
+    } finally { process.env.LISTING_AUTO_APPROVE_SAMPLE_RATE = "0"; }
+    const { l: l0 } = await submit(seller, "Unsampled widget");
+    expect(await prisma.reviewItem.count({ where: { subjectId: l0.id } })).toBe(0);
   });
 });
