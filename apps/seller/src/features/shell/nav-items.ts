@@ -1,4 +1,4 @@
-import { Bot, Wallet, TrendingUp, Gavel, BookOpen, Network, BadgePercent, BarChart3, Gift, Megaphone, Bell, ClipboardList, Globe, LayoutTemplate, CreditCard, Inbox, LayoutDashboard, Package, Scale, Settings, Star, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Bot, Wallet, TrendingUp, Gavel, BookOpen, Network, BadgePercent, BarChart3, Gift, Megaphone, Bell, ClipboardList, Globe, LayoutTemplate, CreditCard, Inbox, LayoutDashboard, Package, Scale, Settings, Star, ShieldCheck, MessageCircleQuestion, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -19,6 +19,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/orders", key: "orders", icon: ClipboardList, primary: false },
   { href: "/disputes", key: "disputes", icon: Gavel, primary: false },
   { href: "/reviews", key: "reviews", icon: Star, primary: false },
+  { href: "/questions", key: "questions", icon: MessageCircleQuestion, primary: false },
   { href: STUDIO_URL, key: "storefront", icon: LayoutTemplate, primary: false },
   { href: "/storefront/domains", key: "domains", icon: Globe, primary: false },
   { href: "/storefront/analytics", key: "analytics", icon: BarChart3, primary: false },

@@ -34,7 +34,9 @@
       "settings": "সেটিংস",
       "prices": "দামের তথ্য",
       "credit": "ক্রেডিট",
-      "agents": "কোটেশন এজেন্ট"
-    }
+      "agents": "কোটেশন এজেন্ট",
+      "questions": "প্রশ্ন"
+    },
+    "questionsUnanswered": "{count} টি উত্তর বাকি"
   }
 }

@@ -54,7 +54,7 @@ export async function reactAction(_prev: ActionResult<{ changed: boolean }> | nu
   const listingId = str(f, "listingId");
   const result = await runLocalized(() =>
     react(a, {
-      subjectType: z.enum(["review", "comment"]).parse(str(f, "subjectType")),
+      subjectType: z.enum(["review", "comment", "question", "answer"]).parse(str(f, "subjectType")),
       subjectId: uuid.parse(str(f, "subjectId")),
       kind: z.enum(["helpful", "report"]).parse(str(f, "kind")),
       reason: str(f, "reason") || undefined,

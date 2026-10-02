@@ -7,7 +7,7 @@ import {
 } from "@cnote/catalogue";
 import { cacheTags } from "@cnote/core";
 import { getTrustProfiles, listSellerIndex, listSellers, type TrustProfile } from "@cnote/identity";
-import { getRatingSummaries, listApprovedComments, listApprovedReviews, type Page, type PublicComment, type PublicReview, type ReviewSort } from "@cnote/reviews";
+import { getRatingSummaries, listApprovedComments, listApprovedReviews, listPublicQuestions, type Page, type PublicComment, type PublicReview, type QaPage, type ReviewSort } from "@cnote/reviews";
 import { hasActiveFilters, searchListings, suggest, type SearchFacets, type SearchFilters, type SearchHit, type SearchSort } from "@cnote/search";
 
 /**
@@ -153,6 +153,15 @@ export async function loadComments(listingId: string): Promise<PublicComment[]> 
     "reviews.listApprovedComments",
     () => nextCached(["comments", listingId], [cacheTags.reviews(listingId), cacheTags.reviewsAll], REVALIDATE.short, () => listApprovedComments(listingId)),
     [] as PublicComment[],
+  );
+}
+
+/** First page of a listing's public answered Q&A (approved question + approved answer only). Purged by `qa:<id>` (answer, moderation, erasure). */
+export async function loadQaPage(listingId: string): Promise<QaPage> {
+  return safe(
+    "reviews.listPublicQuestions",
+    () => nextCached(["qa", listingId], [cacheTags.qa(listingId), cacheTags.qaAll], REVALIDATE.short, () => listPublicQuestions(listingId)),
+    { items: [], nextCursor: null, total: 0 } as QaPage,
   );
 }
 

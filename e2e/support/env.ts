@@ -29,6 +29,8 @@ export const e2eEnv: Record<string, string> = {
   AI_PROVIDER: "heuristic",
   QUEUE_DRIVER: "memory",
   OTP_DEV_ECHO: "true",
+  // Lets a spec purge the web ISR cache the way the cache worker would (POST /api/revalidate), e.g. e2e/a11y/product-qa.spec.ts.
+  REVALIDATE_SECRET: "e2e-revalidate-secret-not-for-production",
   JWT_SECRET: "q7Xk2mP9vLr4Tn8Bw3Zc6Hd1Fy5Js0Ag-e2e-signing-key",
   FIELD_ENCRYPTION_KEYS: `e2e1:${FIELD_KEY}`,
   FIELD_ENCRYPTION_ACTIVE_KID: "e2e1",

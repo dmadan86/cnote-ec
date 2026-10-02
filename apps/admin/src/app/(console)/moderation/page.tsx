@@ -15,6 +15,8 @@ const KINDS: { kind: UgcKind; label: string }[] = [
   { kind: "review", label: "Reviews" },
   { kind: "comment", label: "Comments" },
   { kind: "reply", label: "Seller replies" },
+  { kind: "question", label: "Product questions" },
+  { kind: "answer", label: "Product answers" },
 ];
 const STATUSES = [
   { value: undefined, label: "All open" },
@@ -56,7 +58,7 @@ export default async function ModerationPage({ searchParams }: PageProps<"/moder
 
   return (
     <>
-      <PageHeader title="Moderation" description="All user-generated content is held until a staff member approves it. Oldest first." />
+      <PageHeader title="Moderation" description="Reviews, comments and replies are held until a staff member approves them. Product questions and answers are pre-screened by AI; flagged and reported ones land here. Oldest first." />
       <LinkTabs label="Content type" items={KINDS.map((k) => ({ href: href(k.kind, status), label: k.label, active: k.kind === kind }))} />
       <LinkTabs label="Status" variant="underline" items={STATUSES.map((s) => ({ href: href(kind, s.value), label: s.label, active: s.value === status }))} />
       {!canModerate ? <Alert tone="info">You can view the queue but your role can&apos;t approve or reject content.</Alert> : null}
@@ -76,18 +78,18 @@ export default async function ModerationPage({ searchParams }: PageProps<"/moder
                       <Badge tone={i.status === "flagged" ? "warning" : "neutral"}>{i.status}</Badge>
                       {i.aiVerdict ? <Badge tone={verdictTone[i.aiVerdict as keyof typeof verdictTone] ?? "neutral"}>AI: {i.aiVerdict}</Badge> : null}
                       {i.reportCount > 0 ? <Badge tone="danger">{i.reportCount} report{i.reportCount === 1 ? "" : "s"}</Badge> : null}
-                      {i.isSeller && i.kind === "comment" ? <Badge tone="brand">Seller</Badge> : null}
+                      {i.isSeller && (i.kind === "comment" || i.kind === "answer") ? <Badge tone="brand">Seller</Badge> : null}
                     </div>
                     {i.title ? <p className="font-medium">{i.title}</p> : null}
                     <p className="whitespace-pre-wrap">{i.body}</p>
                     {i.context ? (
                       <p className="border-l-2 border-line pl-3 text-muted">
-                        {i.kind === "reply" ? "Replying to review: " : "Replying to: "}
+                        {i.kind === "reply" ? "Replying to review: " : i.kind === "answer" ? "Answering question: " : "Replying to: "}
                         {i.context.slice(0, 300)}
                       </p>
                     ) : null}
                     <p className="text-xs text-muted">
-                      {author ?? (i.kind === "reply" ? "Seller" : "Unknown author")} · {fmtDate(i.createdAt)}
+                      {author ?? (i.kind === "reply" || i.kind === "answer" ? "Seller" : "Unknown author")} · {fmtDate(i.createdAt)}
                       {i.moderationNote ? ` · previous note: ${i.moderationNote}` : ""}
                     </p>
                   </div>

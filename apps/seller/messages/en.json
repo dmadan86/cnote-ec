@@ -34,7 +34,9 @@
       "settings": "Settings",
       "prices": "Price insights",
       "credit": "Credit",
-      "agents": "Quoting agent"
-    }
+      "agents": "Quoting agent",
+      "questions": "Questions"
+    },
+    "questionsUnanswered": "{count} unanswered"
   }
 }

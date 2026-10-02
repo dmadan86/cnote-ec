@@ -231,6 +231,78 @@ export const KINDS: NotificationKind[] = [
     },
   }),
   kind({
+    key: "qa.question_asked",
+    name: "New question on your product",
+    description: "A buyer asked a question about one of the seller's products.",
+    category: "reviews",
+    app: "seller",
+    event: "ProductQuestionAsked",
+    variables: [v("listingTitle", "Product", "Cotton yarn 40s"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "New question about {{listingTitle}}", body: "Answer it to show buyers you are responsive. Your answer is public once approved." },
+      email: { subject: "A buyer asked about {{listingTitle}}", body: "Hi {{recipientName}},\n\nA buyer asked a question about \"{{listingTitle}}\".\n\nAnswer it: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"ProductQuestionAsked">, dir) {
+      if (e.payload.status !== "approved") return []; // held for staff: the seller hears about it once it is approved
+      const [title, people] = await Promise.all([dir.listingTitle(e.payload.listingId), membersOf(dir, e.payload.sellerBusinessId)]);
+      return fan(people, { businessId: e.payload.sellerBusinessId, vars: { listingTitle: title ?? "your product" }, href: "/questions" });
+    },
+  }),
+  kind({
+    key: "qa.question_released",
+    name: "A held question on your product was approved",
+    description: "Staff approved a question that had been held for review, so the seller can now answer it.",
+    category: "reviews",
+    app: "seller",
+    event: "ProductQaModerated",
+    variables: [v("listingTitle", "Product", "Cotton yarn 40s"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "New question about {{listingTitle}}", body: "Answer it to show buyers you are responsive. Your answer is public once approved." },
+      email: { subject: "A buyer asked about {{listingTitle}}", body: "Hi {{recipientName}},\n\nA buyer asked a question about \"{{listingTitle}}\".\n\nAnswer it: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"ProductQaModerated">, dir) {
+      if (e.payload.kind !== "question" || e.payload.status !== "approved") return [];
+      const [title, people] = await Promise.all([dir.listingTitle(e.payload.listingId), membersOf(dir, e.payload.sellerBusinessId)]);
+      return fan(people, { businessId: e.payload.sellerBusinessId, vars: { listingTitle: title ?? "your product" }, href: "/questions" });
+    },
+  }),
+  kind({
+    key: "qa.answered",
+    name: "The seller answered your question",
+    description: "Tells a buyer their product question was answered and is now public.",
+    category: "reviews",
+    app: "web",
+    event: "ProductQuestionAnswered",
+    variables: [v("listingTitle", "Product", "Cotton yarn 40s"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "Your question about {{listingTitle}} was answered", body: "See the seller's answer on the product page." },
+      email: { subject: "Your question about {{listingTitle}} was answered", body: "Hi {{recipientName}},\n\nThe seller answered your question about \"{{listingTitle}}\".\n\nRead the answer: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"ProductQuestionAnswered">, dir) {
+      if (e.payload.status !== "approved") return []; // an answer held for staff is announced when it is approved
+      const title = await dir.listingTitle(e.payload.listingId);
+      return fan([e.payload.askerPersonId], { vars: { listingTitle: title ?? "the product" }, href: `/products/${e.payload.listingId}#questions` });
+    },
+  }),
+  kind({
+    key: "qa.answer_released",
+    name: "A held answer to your question was approved",
+    description: "Staff approved an answer that had been held for review, so the buyer's question is now answered.",
+    category: "reviews",
+    app: "web",
+    event: "ProductQaModerated",
+    variables: [v("listingTitle", "Product", "Cotton yarn 40s"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "Your question about {{listingTitle}} was answered", body: "See the seller's answer on the product page." },
+      email: { subject: "Your question about {{listingTitle}} was answered", body: "Hi {{recipientName}},\n\nThe seller answered your question about \"{{listingTitle}}\".\n\nRead the answer: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"ProductQaModerated">, dir) {
+      if (e.payload.kind !== "answer" || e.payload.status !== "approved") return [];
+      const title = await dir.listingTitle(e.payload.listingId);
+      return fan([e.payload.askerPersonId], { vars: { listingTitle: title ?? "the product" }, href: `/products/${e.payload.listingId}#questions` });
+    },
+  }),
+  kind({
     key: "billing.credits_granted",
     name: "Lead credits added",
     description: "Credits were added to the seller's balance.",

@@ -1,0 +1,31 @@
+{
+  "questions": {
+    "title": "Questions from buyers",
+    "description": "Buyers ask about your products on the product page. Your answer is public once it is approved, so reply clearly and quickly.",
+    "tabFilter": "Filter",
+    "needsAnswer": "Needs an answer",
+    "all": "All questions",
+    "emptyNeeds": "No questions waiting for you",
+    "emptyAll": "No questions yet",
+    "emptyDesc": "New questions about your products will show up here.",
+    "product": "Product",
+    "badgeNeeds": "Needs an answer",
+    "yourAnswer": "Your answer",
+    "statusAwaiting": "Awaiting approval",
+    "statusPublished": "Public",
+    "statusRejected": "Not approved",
+    "reason": "Reason: {note}",
+    "answerLabel": "Your answer",
+    "editLabel": "Edit your answer",
+    "hint": "Phone numbers, email addresses, ID numbers and chat links are removed automatically. Answers are public once approved.",
+    "sendBtn": "Send answer",
+    "editBtn": "Save answer",
+    "sending": "Sending…",
+    "thanks": "Answer saved. It goes public once approved, and the buyer is notified.",
+    "stripped": "We removed contact details from your answer.",
+    "errWrite": "Write at least 2 characters.",
+    "errLong": "Keep your answer under 1000 characters.",
+    "next": "Next page →",
+    "pending": "{count, plural, one {# question needs an answer} other {# questions need an answer}}"
+  }
+}
