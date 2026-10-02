@@ -30,18 +30,25 @@ export const listCreditPacks = (): CreditPack[] => CREDIT_PACKS.map((p) => ({ ..
 export interface CouponQuote { discountPaise: number; creditsBonus: number; couponId: string }
 export interface CouponPort {
   quote(code: string, ctx: { businessId: string; planCode?: string; amountPaise: number }): Promise<CouponQuote>;
-  redeem(couponId: string, ctx: { businessId: string; paymentOrderId: string }): Promise<unknown>;
+  /** Checkout: holds the coupon for this payment order (counts against the cap and per-business/GSTIN limits) or throws. */
+  reserve(couponId: string, ctx: { businessId: string; paymentOrderId: string; planCode?: string; amountPaise: number; expectedDiscountPaise: number; expectedCreditsBonus: number }): Promise<unknown>;
+  /** The checkout failed: free the reserved slot (best effort; an expiry job is the backstop). */
+  release(paymentOrderId: string, reason?: string): Promise<unknown>;
+  /** Fulfilment: consumes the reservation INSIDE the caller's transaction. `creditsGranted` is what billing may then grant. */
+  redeem(tx: Tx, couponId: string, ctx: { businessId: string; paymentOrderId: string; planCode?: string; amountPaise: number }): Promise<{ creditsGranted: number }>;
 }
 let couponPort: CouponPort | null = null;
 /** Composition root: `setCouponPort(couponPortFromModule(await import("@cnote/promotions")))`. */
 export function setCouponPort(p: CouponPort | null): void { couponPort = p; }
-/** Adapts a module exposing quoteCoupon/redeemCoupon; null when either is missing (typeof guards). */
+/** Adapts a module exposing quoteCoupon/reserveCoupon/releaseReservation/redeemCouponTx; null when any is missing (typeof guards). */
 export function couponPortFromModule(m: unknown): CouponPort | null {
-  const mod = m as { quoteCoupon?: unknown; redeemCoupon?: unknown };
-  if (typeof mod?.quoteCoupon !== "function" || typeof mod?.redeemCoupon !== "function") return null;
+  const mod = m as { quoteCoupon?: unknown; reserveCoupon?: unknown; releaseReservation?: unknown; redeemCouponTx?: unknown };
+  if (typeof mod?.quoteCoupon !== "function" || typeof mod?.reserveCoupon !== "function" || typeof mod?.releaseReservation !== "function" || typeof mod?.redeemCouponTx !== "function") return null;
   const q = mod.quoteCoupon as (c: string, x: object) => Promise<CouponQuote>;
-  const r = mod.redeemCoupon as (id: string, x: object) => Promise<unknown>;
-  return { quote: (c, x) => q(c, x), redeem: (id, x) => r(id, x) };
+  const rs = mod.reserveCoupon as (id: string, x: object) => Promise<unknown>;
+  const rl = mod.releaseReservation as (id: string, reason?: string) => Promise<unknown>;
+  const rd = mod.redeemCouponTx as (tx: Tx, id: string, x: object) => Promise<{ creditsGranted: number }>;
+  return { quote: (c, x) => q(c, x), reserve: (id, x) => rs(id, x), release: (id, r) => rl(id, r), redeem: (tx, id, x) => rd(tx, id, x) };
 }
 
 // ---- extension point for other purposes (e.g. "ad_topup") -------------------------------------------------------------
@@ -133,13 +140,18 @@ export async function startCheckout(actor: CheckoutActor, input: CheckoutInput):
   return createProviderOrder(actor, {
     purpose: input.purpose, purposeRef: encRef(q.ref, q.coupon), description: q.description, amountPaise: q.taxablePaise, gstPaise: q.gstPaise, totalPaise: q.totalPaise,
     couponCode: input.couponCode ?? null, discountPaise: q.discountPaise,
+    coupon: q.coupon ? { couponId: q.coupon.couponId, planCode: input.purpose === "subscription" ? parsePlanRef(q.ref).planCode : undefined, listPaise: q.listPaise, discountPaise: q.discountPaise, creditsBonus: q.coupon.creditsBonus } : undefined,
   });
 }
 
 /** Lower-level entry for other modules' purposes (ad top-ups): amounts are already computed by the caller. */
 export async function createProviderOrder(
   actor: CheckoutActor,
-  o: { purpose: string; purposeRef: string | null; description: string; amountPaise: number; gstPaise: number; totalPaise: number; couponCode?: string | null; discountPaise?: number },
+  o: {
+    purpose: string; purposeRef: string | null; description: string; amountPaise: number; gstPaise: number; totalPaise: number; couponCode?: string | null; discountPaise?: number;
+    /** security audit M3: reserved against this order BEFORE the customer can pay, so parallel checkouts cannot all take a single-use code */
+    coupon?: { couponId: string; planCode?: string; listPaise: number; discountPaise: number; creditsBonus: number };
+  },
 ): Promise<CheckoutResult> {
   const provider = configuredProvider();
   const adapter = getProvider(provider);
@@ -149,6 +161,18 @@ export async function createProviderOrder(
       couponCode: o.couponCode ?? null, discountPaise: bn(o.discountPaise ?? 0),
     },
   });
+  if (o.coupon) {
+    try {
+      if (!couponPort) throw new DomainError("validation", "Coupons are not available right now.");
+      await couponPort.reserve(o.coupon.couponId, {
+        businessId: actor.businessId, paymentOrderId: order.id, planCode: o.coupon.planCode, amountPaise: o.coupon.listPaise,
+        expectedDiscountPaise: o.coupon.discountPaise, expectedCreditsBonus: o.coupon.creditsBonus,
+      });
+    } catch (e) {
+      await prisma.paymentOrder.update({ where: { id: order.id }, data: { status: "failed", failureReason: "coupon_unavailable" } });
+      throw e;
+    }
+  }
   try {
     const seller = process.env.SELLER_APP_URL || "http://localhost:3002";
     const api = process.env.API_PUBLIC_URL || "http://localhost:3003";
@@ -160,6 +184,7 @@ export async function createProviderOrder(
     return { orderId: order.id, provider, redirectUrl: created.redirectUrl, totalPaise: o.totalPaise };
   } catch (e) {
     await prisma.paymentOrder.update({ where: { id: order.id }, data: { status: "failed", failureReason: "provider_create_failed" } });
+    if (o.coupon) await releaseCouponHold(order.id, "provider_create_failed");
     throw e;
   }
 }
@@ -174,17 +199,32 @@ async function lockOrder(tx: Tx, id: string): Promise<OrderRow | null> {
   return tx.paymentOrder.findUnique({ where: { id } });
 }
 
-/** Applies the purchase exactly once: row lock + fulfilledAt. Safe under concurrent/duplicate webhooks. */
-export async function fulfilOrder(orderId: string, info: { providerPaymentId?: string; amountPaise?: number } = {}): Promise<FulfilResult> {
+/** Best-effort: free a coupon slot held for an order that will not be paid. The expiry job is the backstop. */
+async function releaseCouponHold(orderId: string, reason: string): Promise<void> {
+  if (!couponPort) return;
+  await couponPort.release(orderId, reason).catch((e) => console.error(`[billing] coupon release failed order=${orderId}`, e));
+}
+
+/**
+ * Applies the purchase exactly once: row lock + fulfilledAt. Safe under concurrent/duplicate webhooks.
+ * A "paid" outcome REQUIRES a known amount (security audit: no skipping the amount check): without one nothing is granted.
+ */
+export async function fulfilOrder(orderId: string, info: { providerPaymentId?: string; amountPaise: number | undefined }): Promise<FulfilResult> {
+  let released = false;
   const result = await prisma.$transaction(async (tx): Promise<FulfilResult> => {
     const order = await lockOrder(tx, orderId);
     if (!order) throw new DomainError("not_found", "Payment order not found");
     if (order.fulfilledAt) return { fulfilled: false, invoice: null, couponId: null };
-    if (info.amountPaise !== undefined && BigInt(info.amountPaise) !== order.totalPaise) {
+    if (info.amountPaise === undefined || !Number.isSafeInteger(info.amountPaise)) {
+      console.error(`[billing] paid outcome without a verifiable amount order=${order.id}; not fulfilled`);
+      return { fulfilled: false, invoice: null, couponId: null };
+    }
+    if (BigInt(info.amountPaise) !== order.totalPaise) {
       // Never grant entitlements for a different amount than we asked for.
       await tx.paymentOrder.update({ where: { id: order.id }, data: { status: "failed", failureReason: "amount_mismatch" } });
       await emit(tx, "PaymentFailed", { type: "payment_order", id: order.id }, { paymentOrderId: order.id, businessId: order.businessId, purpose: order.purpose, reason: "amount_mismatch" });
       console.error(`[billing] amount mismatch order=${order.id} expected=${order.totalPaise} got=${info.amountPaise}`);
+      released = true;
       return { fulfilled: false, invoice: null, couponId: null };
     }
     const ref = decodeRef(order.purposeRef);
@@ -207,7 +247,26 @@ export async function fulfilOrder(orderId: string, info: { providerPaymentId?: s
       if (r?.description) description = r.description;
       if (r?.sac) sac = r.sac;
     }
-    if (ref.creditsBonus > 0) await grantCreditsTx(tx, order.businessId, ref.creditsBonus, "coupon_bonus", { refType: "payment_bonus", refId: order.id });
+    // M3: the coupon is redeemed IN this transaction (consuming the checkout's reservation); the bonus is granted only from a
+    // successful redemption. If the coupon can no longer be honoured the bonus is stripped and the discrepancy recorded for staff.
+    let discrepancy: string | null = null;
+    if (ref.couponId) {
+      const listPaise = Number(order.amountPaise) + Number(order.discountPaise);
+      await tx.$executeRawUnsafe("SAVEPOINT coupon_redeem");
+      try {
+        if (!couponPort) throw new Error("coupon port not registered");
+        const r = await couponPort.redeem(tx, ref.couponId, { businessId: order.businessId, paymentOrderId: order.id, planCode: order.purpose === "subscription" ? parsePlanRef(ref.ref).planCode : undefined, amountPaise: listPaise });
+        await tx.$executeRawUnsafe("RELEASE SAVEPOINT coupon_redeem");
+        if (r.creditsGranted > 0) await grantCreditsTx(tx, order.businessId, r.creditsGranted, "coupon_bonus", { refType: "payment_bonus", refId: order.id });
+      } catch (e) {
+        await tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT coupon_redeem");
+        discrepancy = String(e instanceof Error ? e.message : e).slice(0, 150);
+        console.error(`[billing] coupon redeem failed at fulfilment order=${order.id}: bonus stripped`, e);
+        await emit(tx, "CouponRedemptionDiscrepancy", { type: "payment_order", id: order.id }, {
+          paymentOrderId: order.id, businessId: order.businessId, couponId: ref.couponId, discountPaise: Number(order.discountPaise), bonusStripped: ref.creditsBonus, reason: discrepancy,
+        });
+      }
+    }
 
     const sup = platformSupplier();
     const party = await loadParty(order.businessId);
@@ -219,39 +278,39 @@ export async function fulfilOrder(orderId: string, info: { providerPaymentId?: s
     if (invoice.totalPaise !== Number(order.totalPaise)) throw new DomainError("conflict", "Invoice total does not match the charged amount");
     await tx.paymentOrder.update({
       where: { id: order.id },
-      data: { status: "paid", fulfilledAt: new Date(), failureReason: null, ...(info.providerPaymentId ? { providerPaymentId: info.providerPaymentId } : {}) },
+      data: { status: "paid", fulfilledAt: new Date(), failureReason: discrepancy ? `coupon_discrepancy: ${discrepancy}`.slice(0, 200) : null, ...(info.providerPaymentId ? { providerPaymentId: info.providerPaymentId } : {}) },
     });
     await emit(tx, "PaymentSucceeded", { type: "payment_order", id: order.id }, {
       paymentOrderId: order.id, businessId: order.businessId, purpose: order.purpose, totalPaise: Number(order.totalPaise), invoiceNumber: invoice.number,
     });
     return { fulfilled: true, invoice, couponId: ref.couponId };
   });
-  if (result.fulfilled && result.couponId && couponPort) {
-    const o = await prisma.paymentOrder.findUnique({ where: { id: orderId } });
-    await couponPort.redeem(result.couponId, { businessId: o!.businessId, paymentOrderId: orderId }).catch((e) => console.error(`[billing] coupon redeem failed order=${orderId}`, e));
-  }
+  if (released) await releaseCouponHold(orderId, "amount_mismatch");
   return result;
 }
 
 export async function failOrder(orderId: string, reason: string): Promise<boolean> {
-  return prisma.$transaction(async (tx) => {
+  const failed = await prisma.$transaction(async (tx) => {
     const order = await lockOrder(tx, orderId);
     if (!order || order.fulfilledAt || order.status === "failed" || order.status === "paid") return false;
     await tx.paymentOrder.update({ where: { id: order.id }, data: { status: "failed", failureReason: reason.slice(0, 200) } });
     await emit(tx, "PaymentFailed", { type: "payment_order", id: order.id }, { paymentOrderId: order.id, businessId: order.businessId, purpose: order.purpose, reason: reason.slice(0, 200) });
     return true;
   });
+  if (failed) await releaseCouponHold(orderId, reason.slice(0, 100));
+  return failed;
 }
 
 // ---- webhooks ----------------------------------------------------------------------------------------------------
 
 export interface WebhookResult { status: 200 | 400 | 401; duplicate?: boolean }
 
+/** Only an order created with THIS provider can be touched by this provider's webhook (a Cashfree-signed event cannot settle a Razorpay order). */
 async function resolveOrderId(p: ParsedWebhook, provider: string): Promise<string | null> {
   const isUuid = (v?: string) => !!v && /^[0-9a-f-]{36}$/i.test(v);
   if (isUuid(p.orderId)) {
-    const o = await prisma.paymentOrder.findUnique({ where: { id: p.orderId }, select: { id: true } });
-    if (o) return o.id;
+    const o = await prisma.paymentOrder.findUnique({ where: { id: p.orderId }, select: { id: true, provider: true } });
+    if (o && o.provider === provider) return o.id;
   }
   if (p.providerOrderId) {
     const o = await prisma.paymentOrder.findFirst({ where: { provider, providerOrderId: p.providerOrderId }, select: { id: true } });
@@ -263,6 +322,7 @@ async function resolveOrderId(p: ParsedWebhook, provider: string): Promise<strin
 /** Verify signature, log idempotently, fulfil/fail. Throws on infrastructure errors so the provider retries. */
 export async function handlePaymentWebhook(providerName: string, raw: Uint8Array | string, headers: Headers | Record<string, string | undefined>): Promise<WebhookResult> {
   if (!isProviderName(providerName)) return { status: 400 };
+  if (providerName === "mock" && !mockAllowed()) return { status: 400 };
   let parsed: ParsedWebhook | null;
   try {
     parsed = getProvider(providerName).verifyWebhook(raw, headers);
@@ -291,7 +351,10 @@ export async function handlePaymentWebhook(providerName: string, raw: Uint8Array
       await applyRefundNotice(parsed.refund);
     } else if (parsed.outcome !== "ignored") {
       if (!orderId) error = "unknown_order";
-      else if (parsed.outcome === "paid") await fulfilOrder(orderId, { providerPaymentId: parsed.providerPaymentId, amountPaise: parsed.amountPaise });
+      else if (parsed.outcome === "paid") {
+        if (parsed.amountPaise === undefined) error = "amount_unknown"; // never fulfil on an unverifiable amount; getPaymentStatus(sync) can reconcile
+        else await fulfilOrder(orderId, { providerPaymentId: parsed.providerPaymentId, amountPaise: parsed.amountPaise });
+      }
       else await failOrder(orderId, parsed.failureReason ?? "payment_failed");
     }
     await prisma.paymentWebhookEvent.update({ where: { id: eventRowId }, data: { processedAt: new Date(), error } });

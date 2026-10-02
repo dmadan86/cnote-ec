@@ -107,6 +107,8 @@ export interface DomainEventPayloads {
   // payments + invoicing (ADR-001/005)
   PaymentSucceeded: { paymentOrderId: string; businessId: string; purpose: string; totalPaise: number; invoiceNumber: string | null };
   PaymentFailed: { paymentOrderId: string; businessId: string; purpose: string; reason: string };
+  /** a paid order whose coupon could no longer be redeemed at fulfilment: bonus credits stripped, staff to review (security audit M3) */
+  CouponRedemptionDiscrepancy: { paymentOrderId: string; businessId: string; couponId: string; discountPaise: number; bonusStripped: number; reason: string };
   PaymentRefunded: { paymentOrderId: string; businessId: string; amountPaise: number; creditNoteNumber: string | null };
   /** The provider confirmed the money is back with the payer (immediately, via webhook or a retry). */
   RefundCompleted: { refundId: string; paymentOrderId: string; businessId: string; amountPaise: number };
@@ -265,6 +267,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   ReferralRejected: 1,
   PaymentSucceeded: 1,
   PaymentFailed: 1,
+  CouponRedemptionDiscrepancy: 1,
   PaymentRefunded: 1,
   RefundCompleted: 1,
   RefundDeadLettered: 1,

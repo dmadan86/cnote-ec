@@ -275,12 +275,13 @@ export function configuredProvider(env: NodeJS.ProcessEnv = process.env): Provid
 }
 let warnedMock = false;
 /**
- * The mock gateway is for dev, tests and the e2e servers only. Outside production it is always allowed. In production it
- * needs PAYMENTS_ALLOW_MOCK_IN_PRODUCTION=1 (e2e only, default off) AND no real provider configured, so a live deployment
+ * The mock gateway is for dev, tests and the e2e servers only. It FAILS CLOSED: allowed only when NODE_ENV is explicitly
+ * "development" or "test" (an unset or unexpected NODE_ENV is treated like production). Otherwise it needs
+ * PAYMENTS_ALLOW_MOCK_IN_PRODUCTION=1 (e2e only, default off) AND no real provider configured, so a live deployment
  * with Razorpay/Cashfree can never be switched to fake payments by that flag. Turning it on logs a loud warning.
  */
 export function mockAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
-  if (env.NODE_ENV !== "production") return true;
+  if (env.NODE_ENV === "development" || env.NODE_ENV === "test") return true;
   if (env.PAYMENTS_ALLOW_MOCK_IN_PRODUCTION !== "1") return false;
   const configured = env.PAYMENTS_PROVIDER || "mock";
   if (configured !== "mock") {
