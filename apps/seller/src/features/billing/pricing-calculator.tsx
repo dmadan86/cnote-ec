@@ -52,7 +52,7 @@ export function PricingCalculator({ plans, gstRateBps = DEFAULT_GST_RATE_BPS, in
             <div className="flex flex-wrap gap-x-6 gap-y-2">
               {(["monthly", "annual"] as const).map((v) => (
                 <label key={v} className="inline-flex min-h-11 items-center gap-2 text-sm text-ink">
-                  <input type="radio" name={`${id}-interval`} value={v} checked={interval === v} onChange={() => setChosen(v)} className="size-5 accent-brand-600" />
+                  <input type="radio" name={`${id}-interval`} value={v} checked={interval === v} onChange={() => setChosen(v)} className="size-6 accent-brand-600" />
                   {v === "monthly" ? t("monthly") : t("annual", { percent })}
                 </label>
               ))}
