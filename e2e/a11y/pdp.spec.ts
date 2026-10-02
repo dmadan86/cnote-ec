@@ -39,7 +39,7 @@ test.describe("product page: lightbox", () => {
   test("opens a labelled modal dialog that passes axe, and the keyboard drives it", async ({ page }, info) => {
     await openTieredProduct(page);
     const thumbs = page.getByRole("list", { name: "Product images" }).getByRole("button");
-    const total = await thumbs.count();
+    const total = Math.max(1, await thumbs.count()); // the seed gives most listings a single placeholder image
     await page.getByRole("button", { name: /^View image 1 of \d+ full screen$/ }).click();
     const dlg = page.getByRole("dialog", { name: /^Image viewer:/ });
     await expect(dlg).toBeVisible();

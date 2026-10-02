@@ -31,6 +31,7 @@ test.describe("with the cookie banner", () => {
   test("the bar sits above the banner and neither covers the other", async ({ page }) => {
     await page.goto(await firstProductHref(page, "en", "Custom Packaging Boxes"));
     await settle(page);
+    await page.getByTestId("pdp-slabs").scrollIntoViewIfNeeded();
     await page.mouse.wheel(0, 900);
     const bar = page.getByRole("region", { name: "Quick actions" });
     const banner = page.getByRole("region", { name: "Cookie notice" });
