@@ -1,6 +1,7 @@
 import { DomainError } from "@cnote/core";
 import { z } from "zod";
 import type { CategoryView, ListingInput } from "./index";
+import { priceTierSchema, tradeInfoSchema, MAX_TIERS } from "./tiers";
 
 export const LANGS = ["en", "hi", "kn", "ta", "te", "mr", "gu", "bn"] as const;
 
@@ -16,6 +17,8 @@ const base = {
   moq: z.number().int().min(1).max(2_000_000_000).nullable(),
   moqUnit: z.string().trim().max(30).nullable(),
   hsn: z.string().regex(/^\d{2,8}$/, "HSN must be 2-8 digits").nullable(),
+  priceTiers: z.array(priceTierSchema).max(MAX_TIERS).optional(),
+  trade: tradeInfoSchema.optional(),
   language: z.enum(LANGS),
   imageUrls: z.array(z.string().min(1).max(2000)).max(10),
   /** seller's own product code (bulk upsert key); unique per seller */

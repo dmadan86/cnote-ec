@@ -696,6 +696,8 @@ export const LiveListingScalarFieldEnum = {
   moq: 'moq',
   moqUnit: 'moqUnit',
   hsn: 'hsn',
+  priceTiers: 'priceTiers',
+  trade: 'trade',
   language: 'language',
   aiGenerated: 'aiGenerated',
   images: 'images',

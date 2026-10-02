@@ -29,6 +29,9 @@ model LiveListing {
   moq              Int?
   moqUnit          String?  @map("moq_unit")
   hsn              String?
+  /// quantity slabs [{ minQty, pricePaise }] and trade info (lead time, packaging, sample, capacity, payment terms, certifications)
+  priceTiers       Json     @default("[]") @map("price_tiers")
+  trade            Json     @default("{}")
   language         String   @default("en")
   aiGenerated      Boolean  @default(false) @map("ai_generated")
   /// public image data, ordered: [{ id, url, alt, width, height, blur, variants: [{ width, height, format, key }] }]

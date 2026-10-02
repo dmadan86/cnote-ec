@@ -116,6 +116,8 @@ export type LiveListingCountAggregateOutputType = {
   moq: number
   moqUnit: number
   hsn: number
+  priceTiers: number
+  trade: number
   language: number
   aiGenerated: number
   images: number
@@ -223,6 +225,8 @@ export type LiveListingCountAggregateInputType = {
   moq?: true
   moqUnit?: true
   hsn?: true
+  priceTiers?: true
+  trade?: true
   language?: true
   aiGenerated?: true
   images?: true
@@ -341,6 +345,8 @@ export type LiveListingGroupByOutputType = {
   moq: number | null
   moqUnit: string | null
   hsn: string | null
+  priceTiers: runtime.JsonValue
+  trade: runtime.JsonValue
   language: string
   aiGenerated: boolean
   images: runtime.JsonValue
@@ -395,6 +401,8 @@ export type LiveListingWhereInput = {
   moq?: Prisma.IntNullableFilter<"LiveListing"> | number | null
   moqUnit?: Prisma.StringNullableFilter<"LiveListing"> | string | null
   hsn?: Prisma.StringNullableFilter<"LiveListing"> | string | null
+  priceTiers?: Prisma.JsonFilter<"LiveListing">
+  trade?: Prisma.JsonFilter<"LiveListing">
   language?: Prisma.StringFilter<"LiveListing"> | string
   aiGenerated?: Prisma.BoolFilter<"LiveListing"> | boolean
   images?: Prisma.JsonFilter<"LiveListing">
@@ -426,6 +434,8 @@ export type LiveListingOrderByWithRelationInput = {
   moq?: Prisma.SortOrderInput | Prisma.SortOrder
   moqUnit?: Prisma.SortOrderInput | Prisma.SortOrder
   hsn?: Prisma.SortOrderInput | Prisma.SortOrder
+  priceTiers?: Prisma.SortOrder
+  trade?: Prisma.SortOrder
   language?: Prisma.SortOrder
   aiGenerated?: Prisma.SortOrder
   images?: Prisma.SortOrder
@@ -460,6 +470,8 @@ export type LiveListingWhereUniqueInput = Prisma.AtLeast<{
   moq?: Prisma.IntNullableFilter<"LiveListing"> | number | null
   moqUnit?: Prisma.StringNullableFilter<"LiveListing"> | string | null
   hsn?: Prisma.StringNullableFilter<"LiveListing"> | string | null
+  priceTiers?: Prisma.JsonFilter<"LiveListing">
+  trade?: Prisma.JsonFilter<"LiveListing">
   language?: Prisma.StringFilter<"LiveListing"> | string
   aiGenerated?: Prisma.BoolFilter<"LiveListing"> | boolean
   images?: Prisma.JsonFilter<"LiveListing">
@@ -491,6 +503,8 @@ export type LiveListingOrderByWithAggregationInput = {
   moq?: Prisma.SortOrderInput | Prisma.SortOrder
   moqUnit?: Prisma.SortOrderInput | Prisma.SortOrder
   hsn?: Prisma.SortOrderInput | Prisma.SortOrder
+  priceTiers?: Prisma.SortOrder
+  trade?: Prisma.SortOrder
   language?: Prisma.SortOrder
   aiGenerated?: Prisma.SortOrder
   images?: Prisma.SortOrder
@@ -530,6 +544,8 @@ export type LiveListingScalarWhereWithAggregatesInput = {
   moq?: Prisma.IntNullableWithAggregatesFilter<"LiveListing"> | number | null
   moqUnit?: Prisma.StringNullableWithAggregatesFilter<"LiveListing"> | string | null
   hsn?: Prisma.StringNullableWithAggregatesFilter<"LiveListing"> | string | null
+  priceTiers?: Prisma.JsonWithAggregatesFilter<"LiveListing">
+  trade?: Prisma.JsonWithAggregatesFilter<"LiveListing">
   language?: Prisma.StringWithAggregatesFilter<"LiveListing"> | string
   aiGenerated?: Prisma.BoolWithAggregatesFilter<"LiveListing"> | boolean
   images?: Prisma.JsonWithAggregatesFilter<"LiveListing">
@@ -561,6 +577,8 @@ export type LiveListingCreateInput = {
   moq?: number | null
   moqUnit?: string | null
   hsn?: string | null
+  priceTiers?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  trade?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   language?: string
   aiGenerated?: boolean
   images?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -592,6 +610,8 @@ export type LiveListingUncheckedCreateInput = {
   moq?: number | null
   moqUnit?: string | null
   hsn?: string | null
+  priceTiers?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  trade?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   language?: string
   aiGenerated?: boolean
   images?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -623,6 +643,8 @@ export type LiveListingUpdateInput = {
   moq?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   moqUnit?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hsn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  priceTiers?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  trade?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   language?: Prisma.StringFieldUpdateOperationsInput | string
   aiGenerated?: Prisma.BoolFieldUpdateOperationsInput | boolean
   images?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -654,6 +676,8 @@ export type LiveListingUncheckedUpdateInput = {
   moq?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   moqUnit?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hsn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  priceTiers?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  trade?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   language?: Prisma.StringFieldUpdateOperationsInput | string
   aiGenerated?: Prisma.BoolFieldUpdateOperationsInput | boolean
   images?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -685,6 +709,8 @@ export type LiveListingCreateManyInput = {
   moq?: number | null
   moqUnit?: string | null
   hsn?: string | null
+  priceTiers?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  trade?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   language?: string
   aiGenerated?: boolean
   images?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -716,6 +742,8 @@ export type LiveListingUpdateManyMutationInput = {
   moq?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   moqUnit?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hsn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  priceTiers?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  trade?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   language?: Prisma.StringFieldUpdateOperationsInput | string
   aiGenerated?: Prisma.BoolFieldUpdateOperationsInput | boolean
   images?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -747,6 +775,8 @@ export type LiveListingUncheckedUpdateManyInput = {
   moq?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   moqUnit?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hsn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  priceTiers?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  trade?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   language?: Prisma.StringFieldUpdateOperationsInput | string
   aiGenerated?: Prisma.BoolFieldUpdateOperationsInput | boolean
   images?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -778,6 +808,8 @@ export type LiveListingCountOrderByAggregateInput = {
   moq?: Prisma.SortOrder
   moqUnit?: Prisma.SortOrder
   hsn?: Prisma.SortOrder
+  priceTiers?: Prisma.SortOrder
+  trade?: Prisma.SortOrder
   language?: Prisma.SortOrder
   aiGenerated?: Prisma.SortOrder
   images?: Prisma.SortOrder
@@ -925,6 +957,8 @@ export type LiveListingSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   moq?: boolean
   moqUnit?: boolean
   hsn?: boolean
+  priceTiers?: boolean
+  trade?: boolean
   language?: boolean
   aiGenerated?: boolean
   images?: boolean
@@ -956,6 +990,8 @@ export type LiveListingSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   moq?: boolean
   moqUnit?: boolean
   hsn?: boolean
+  priceTiers?: boolean
+  trade?: boolean
   language?: boolean
   aiGenerated?: boolean
   images?: boolean
@@ -987,6 +1023,8 @@ export type LiveListingSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   moq?: boolean
   moqUnit?: boolean
   hsn?: boolean
+  priceTiers?: boolean
+  trade?: boolean
   language?: boolean
   aiGenerated?: boolean
   images?: boolean
@@ -1018,6 +1056,8 @@ export type LiveListingSelectScalar = {
   moq?: boolean
   moqUnit?: boolean
   hsn?: boolean
+  priceTiers?: boolean
+  trade?: boolean
   language?: boolean
   aiGenerated?: boolean
   images?: boolean
@@ -1033,7 +1073,7 @@ export type LiveListingSelectScalar = {
   updatedAt?: boolean
 }
 
-export type LiveListingOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "versionId" | "version" | "sellerBusinessId" | "categoryId" | "categorySlug" | "categoryName" | "title" | "description" | "attributes" | "pricePaise" | "priceUnit" | "moq" | "moqUnit" | "hsn" | "language" | "aiGenerated" | "images" | "sellerName" | "sellerCity" | "sellerState" | "sellerTier" | "sellerTrustScore" | "sellerBadgeActive" | "embeddingVersion" | "firstPublishedAt" | "publishedAt" | "updatedAt", ExtArgs["result"]["liveListing"]>
+export type LiveListingOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "versionId" | "version" | "sellerBusinessId" | "categoryId" | "categorySlug" | "categoryName" | "title" | "description" | "attributes" | "pricePaise" | "priceUnit" | "moq" | "moqUnit" | "hsn" | "priceTiers" | "trade" | "language" | "aiGenerated" | "images" | "sellerName" | "sellerCity" | "sellerState" | "sellerTier" | "sellerTrustScore" | "sellerBadgeActive" | "embeddingVersion" | "firstPublishedAt" | "publishedAt" | "updatedAt", ExtArgs["result"]["liveListing"]>
 
 export type $LiveListingPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "LiveListing"
@@ -1054,6 +1094,11 @@ export type $LiveListingPayload<ExtArgs extends runtime.Types.Extensions.Interna
     moq: number | null
     moqUnit: string | null
     hsn: string | null
+    /**
+     * quantity slabs [{ minQty, pricePaise }] and trade info (lead time, packaging, sample, capacity, payment terms, certifications)
+     */
+    priceTiers: runtime.JsonValue
+    trade: runtime.JsonValue
     language: string
     aiGenerated: boolean
     /**
@@ -1514,6 +1559,8 @@ export interface LiveListingFieldRefs {
   readonly moq: Prisma.FieldRef<"LiveListing", 'Int'>
   readonly moqUnit: Prisma.FieldRef<"LiveListing", 'String'>
   readonly hsn: Prisma.FieldRef<"LiveListing", 'String'>
+  readonly priceTiers: Prisma.FieldRef<"LiveListing", 'Json'>
+  readonly trade: Prisma.FieldRef<"LiveListing", 'Json'>
   readonly language: Prisma.FieldRef<"LiveListing", 'String'>
   readonly aiGenerated: Prisma.FieldRef<"LiveListing", 'Boolean'>
   readonly images: Prisma.FieldRef<"LiveListing", 'Json'>

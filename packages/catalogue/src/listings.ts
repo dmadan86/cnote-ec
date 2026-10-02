@@ -8,6 +8,7 @@ import { getCategoryById, listCategories } from "./categories";
 import { unpublishFromLive } from "./live";
 import { isUuid, listingInclude, liveToListingView, toListingView, type ListingRow } from "./mappers";
 import { LANGS, coerceAttributes, listingInputSchema, listingPatchSchema, parseOrThrow } from "./validate";
+import { compactTrade, parsePriceTiers, validatePriceTiers, type PriceTier, type TradeInfo } from "./tiers";
 import { reviewListingVersion, submitListingVersion } from "./versions";
 import type { ListingInput, ListingView } from "./index";
 
@@ -134,13 +135,36 @@ function attrsOf(v: unknown): Record<string, string | number> {
 
 const isUniqueViolation = (e: unknown) => (e as { code?: string })?.code === "P2002";
 
+function assertTiers(tiers: readonly PriceTier[] | undefined, moq: number | null): void {
+  const errs = validatePriceTiers(tiers ?? [], moq);
+  if (errs.length) throw new DomainError("validation", errs.join("; "), errs);
+}
+
+/** Scalar columns for the optional trade info (absent => leave unchanged on update, defaults on create). */
+function tradeColumns(t: TradeInfo | undefined): Prisma.ListingUncheckedUpdateInput {
+  if (!t) return {};
+  const c = compactTrade(t);
+  return {
+    leadTimeDays: c.leadTimeDays ?? null,
+    packaging: c.packaging ?? null,
+    sampleAvailable: c.sampleAvailable ?? false,
+    samplePricePaise: c.samplePricePaise == null ? null : BigInt(c.samplePricePaise),
+    supplyCapacityPerMonth: c.supplyCapacityPerMonth ?? null,
+    paymentTerms: c.paymentTerms ?? null,
+    certifications: c.certifications ?? [],
+  };
+}
+
 export async function createListing(sellerBusinessId: string, input: ListingInput): Promise<ListingView> {
-  const data = parseOrThrow(listingInputSchema, input);
+  const { trade, ...data } = parseOrThrow(listingInputSchema, input);
+  assertTiers(data.priceTiers, data.moq);
   const category = await requireCategory(data.categoryId);
   try {
     const row = await prisma.listing.create({
       data: {
         ...data,
+        ...(tradeColumns(trade) as Prisma.ListingUncheckedCreateInput),
+        priceTiers: data.priceTiers ?? [],
         sku: data.sku ?? null,
         sellerBusinessId,
         attributes: coerceAttributes(category.attributeSchema, data.attributes),
@@ -217,9 +241,10 @@ export async function updateListing(sellerBusinessId: string, listingId: string,
     return JSON.stringify(next) !== JSON.stringify(prev);
   });
 
-  const { attributes: _a, pricePaise, ...rest } = patch;
+  const { attributes: _a, pricePaise, trade, ...rest } = patch;
   void _a;
-  const data: Prisma.ListingUncheckedUpdateInput = { ...rest, attributes };
+  if (patch.priceTiers !== undefined || patch.moq !== undefined) assertTiers(patch.priceTiers ?? parsePriceTiers(cur.priceTiers), patch.moq !== undefined ? patch.moq : cur.moq);
+  const data: Prisma.ListingUncheckedUpdateInput = { ...rest, attributes, ...tradeColumns(trade) };
   if (pricePaise !== undefined) data.pricePaise = pricePaise === null ? null : BigInt(pricePaise);
   if (contentChanged && cur.status === "draft" && !cur.liveVersionId) {
     data.moderationStatus = "pending";

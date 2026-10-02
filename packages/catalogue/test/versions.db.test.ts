@@ -93,6 +93,29 @@ describe("version flow", () => {
     expect(await events(l.id).then((e) => e.filter((x) => x === "ListingPublished").length)).toBe(1);
   });
 
+  it("price tiers + trade info round-trip: working copy -> version snapshot -> LIVE -> public view", async () => {
+    const tiers = [{ minQty: 10, pricePaise: 1000 }, { minQty: 100, pricePaise: 900 }];
+    const l = await cat.createListing(trusted, input("Tiered widget", { priceTiers: tiers, trade: { leadTimeDays: 7, packaging: "Carton of 50", sampleAvailable: true, samplePricePaise: 5000, supplyCapacityPerMonth: 20000, paymentTerms: "50% advance", certifications: ["ISO 9001"] } }));
+    expect(l.priceTiers).toEqual(tiers);
+    expect(l.trade).toMatchObject({ leadTimeDays: 7, samplePricePaise: 5000, certifications: ["ISO 9001"] });
+    await expect(cat.updateListing(trusted, l.id, { priceTiers: [{ minQty: 5, pricePaise: 1000 }] })).rejects.toMatchObject({ code: "validation" }); // below MOQ 10
+    await expect(cat.updateListing(trusted, l.id, { moq: 200 })).rejects.toMatchObject({ code: "validation" }); // existing slabs now below the MOQ
+    await expect(cat.createListing(trusted, input("Bad tiers", { priceTiers: [{ minQty: 10, pricePaise: 100 }, { minQty: 20, pricePaise: 200 }] }))).rejects.toMatchObject({ code: "validation" });
+    const v1 = await cat.submitListingVersion(trusted, l.id, {});
+    expect(v1.snapshot.priceTiers).toEqual(tiers);
+    expect(await cat.publishVersion(v1.id)).toBe("published");
+    const live = await cat.getPublicListing(l.id);
+    expect(live?.priceTiers).toEqual(tiers);
+    expect(live?.trade).toEqual({ leadTimeDays: 7, packaging: "Carton of 50", sampleAvailable: true, samplePricePaise: 5000, supplyCapacityPerMonth: 20000, paymentTerms: "50% advance", certifications: ["ISO 9001"] });
+    // a later edit stays in the working copy until a new version is published
+    await cat.updateListing(trusted, l.id, { priceTiers: [{ minQty: 10, pricePaise: 950 }], trade: {} });
+    expect((await cat.getPublicListing(l.id))?.priceTiers).toEqual(tiers);
+    const v2 = await cat.submitListingVersion(trusted, l.id, {});
+    expect(v2.changes.map((c) => c.field)).toEqual(expect.arrayContaining(["priceTiers", "trade.leadTimeDays"]));
+    await cat.publishVersion(v2.id);
+    expect(await cat.getPublicListing(l.id)).toMatchObject({ priceTiers: [{ minQty: 10, pricePaise: 950 }], trade: {} });
+  });
+
   it("scheduled versions wait for publishAt; a newer submission withdraws the open one; withdraw works", async () => {
     const l = await cat.createListing(trusted, input("Scheduled widget"));
     const later = new Date(Date.now() + 3600_000);

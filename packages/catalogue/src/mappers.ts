@@ -1,6 +1,7 @@
 import type { Prisma } from "@cnote/db";
 import type { LiveListing } from "@cnote/live-db";
 import type { CategoryView, ListingView } from "./index";
+import { parsePriceTiers, parseTrade, tradeOfRow } from "./tiers";
 
 export const listingInclude = {
   category: { select: { id: true, slug: true, name: true } },
@@ -39,6 +40,8 @@ export function toListingView(l: ListingRow): ListingView {
     moq: l.moq,
     moqUnit: l.moqUnit,
     hsn: l.hsn,
+    priceTiers: parsePriceTiers(l.priceTiers),
+    trade: tradeOfRow(l),
     language: l.language,
     sku: l.sku,
     // approved uploads first; falls back to the stored placeholder imageUrls when none are approved
@@ -79,6 +82,8 @@ export function liveToListingView(l: LiveListing): ListingView {
     moq: l.moq,
     moqUnit: l.moqUnit,
     hsn: l.hsn,
+    priceTiers: parsePriceTiers(l.priceTiers),
+    trade: parseTrade(l.trade),
     language: l.language,
     imageUrls: images.map((i) => i.src),
     imageBlurs: images.map((i) => i.blurDataUrl ?? null),
