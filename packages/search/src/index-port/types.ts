@@ -1,13 +1,17 @@
 // SearchIndex port (ADR-009). Callers depend on this interface only; the backend (Postgres | OpenSearch) is chosen by
 // SEARCH_BACKEND. Ranking (RRF + trust factor) is NOT part of the port: adapters return raw per-list scores and
 // searchListings fuses them with the same code on every backend, so ordering stays identical.
+import type { IndexFilters } from "../filters";
 import type { NormalisedQuery } from "../normalise";
 
 export interface SearchIndexQuery extends NormalisedQuery {
   embedding?: number[];
   /** Extra lexical-only query strings (transliteration / cross-script lexicon). Never used for the embedding. */
   variants?: string[];
+  /** Legacy single-category filter (kept for callers that predate `filters`). */
   categoryId?: string | null;
+  /** Resolved filters (ids, lower-cased places). Hard filters on hits; facet counts are disjunctive (see computeFacets). */
+  filters?: IndexFilters;
   limit: number;
   /** Opaque cursor from a previous result's nextCursor (OpenSearch only; Postgres ignores it). */
   cursor?: string | null;
@@ -35,6 +39,7 @@ export interface PriceBucket {
 export interface SearchFacets {
   category: FacetBucket[];
   city: FacetBucket[];
+  state: FacetBucket[];
   verificationTier: FacetBucket[];
   price: PriceBucket[];
 }
@@ -42,7 +47,7 @@ export interface SearchFacets {
 export interface SearchIndexResult {
   hits: RawHit[];
   nextCursor: string | null;
-  /** Only backends with aggregations (OpenSearch) return facets. */
+  /** First page only. Postgres computes them from the lexical match pool (capped), OpenSearch from aggregations. */
   facets?: SearchFacets;
 }
 

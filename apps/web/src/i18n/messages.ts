@@ -22,7 +22,7 @@ function merge(base: Json, over: Json): Json {
  * best-effort directory scan (server only, `messages/` next to the app) decides which names to try. A file whose top
  * level already has a `<namespace>` key is merged as-is; otherwise its content is placed under that namespace.
  */
-const KNOWN_NAMESPACE_FILES = ["a2a", "account", "actions", "ads", "buyer", "compare", "credit", "disputes", "escrow", "negotiation", "prices", "promotions", "quality", "rail", "reachability", "search", "errors", "states", "grievance", "notif", "orderTracking", "titles", "wishlist"];
+const KNOWN_NAMESPACE_FILES = ["a2a", "account", "actions", "ads", "buyer", "compare", "credit", "disputes", "escrow", "negotiation", "prices", "promotions", "quality", "rail", "reachability", "search", "errors", "filters", "states", "grievance", "notif", "orderTracking", "titles", "wishlist"];
 
 function discoverNamespaces(): string[] {
   const found = new Set(KNOWN_NAMESPACE_FILES);
@@ -82,7 +82,7 @@ export function loadMessages(locale: CatalogueLocale): Promise<Messages> {
 export const loadLocaleCatalogue = loadLocaleFiles;
 
 /** Namespaces client components read (everything else stays server-side and out of the client payload). */
-export const CLIENT_NAMESPACES = ["shell", "search", "rails", "consent", "unlock", "leadgen", "ui", "lang", "errors", "states", "cards", "auth", "rfq", "compare", "rail"] as const;
+export const CLIENT_NAMESPACES = ["shell", "search", "rails", "consent", "unlock", "leadgen", "ui", "lang", "errors", "states", "cards", "auth", "rfq", "compare", "rail", "filters"] as const;
 
 /**
  * Extra namespaces for client components of the dynamic routes (account, buyer, rfq, ...). Kept out of CLIENT_NAMESPACES

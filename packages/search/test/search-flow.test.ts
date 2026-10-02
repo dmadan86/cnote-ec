@@ -56,7 +56,7 @@ describe("searchListings", () => {
     expect((await searchListings({ q: "boxes", categorySlug: "nope" })).hits).toEqual([]);
     searchFn.mockResolvedValue({ hits: [hit("a")], nextCursor: null });
     await searchListings({ q: "", categorySlug: "packaging" });
-    expect(searchFn.mock.calls[0]![0]).toMatchObject({ text: "Packaging", categoryId: "c1" });
+    expect(searchFn.mock.calls[0]![0]).toMatchObject({ text: "Packaging", filters: { categoryIds: ["c1"] } });
   });
   it("embedding outage degrades to lexical-only", async () => {
     embedImpl = async () => { throw new Error("down"); };
@@ -118,7 +118,7 @@ describe("searchListings", () => {
     setSearchIndexForTests(fake({ backend: "postgres" }));
     await searchListings({ q: "boxes" });
     expect(new Set(calls.map((c) => c.key)).size).toBe(4);
-    expect(calls[0]!.key).toMatch(/^search:q:v5:[0-9a-f]{40}$/);
+    expect(calls[0]!.key).toMatch(/^search:q:v6:[0-9a-f]{40}$/);
   });
   it("cache tags include search, category, and every listing+seller shown", async () => {
     searchFn.mockResolvedValue({ hits: [hit("a", "s-hi")], nextCursor: null });
