@@ -132,7 +132,13 @@ async function fill<T>(key: string, tags: Tags<T>, ttl: number, stale: number, l
     try {
       const tagList = typeof tags === "function" ? tags(value) : tags;
       // A hard invalidation raced with this load: return the value but don't cache it.
-      if (!(await invalidatedSince([...new Set([...staticTags, ...tagList])], startedAt))) await store(key, value, tagList, ttl, stale);
+      const all = [...new Set([...staticTags, ...tagList])];
+      if (!(await invalidatedSince(all, startedAt))) {
+        await store(key, value, tagList, ttl, stale);
+        // check-then-store is not atomic: an invalidation landing between the check and the write has already listed the tag's
+        // members and would miss this entry. invalidateTags stamps `ctagv` BEFORE listing, so re-checking after the write catches it.
+        if (await invalidatedSince(all, startedAt)) await redis.del(key);
+      }
     } catch {
       count(key, "error");
     }
@@ -239,6 +245,8 @@ export async function cachedManyTagged<T>(
           for (const t of o.tags(id)) pipe.sadd(`ctag:${t}`, keyOf(id)).expire(`ctag:${t}`, TAG_SET_TTL_S);
         }
         await pipe.exec();
+        // see fill(): close the check-then-store race with a concurrent hard invalidation
+        if (await invalidatedSince(tagList, startedAt)) await redis.del(...[...loaded.keys()].map(keyOf));
       }
     } catch {
       count(o.prefix, "error");
@@ -260,10 +268,12 @@ export async function invalidateTags(tags: string[]): Promise<void> {
   if (!list.length) return;
   try {
     for (const t of list) {
+      // Stamp first, then list members: a fill that stores after we list sees the stamp when it re-checks (see fill()).
+      await redis.set(`ctagv:${t}`, String(Date.now()), "EX", 3600);
       const keys = await redis.smembers(`ctag:${t}`);
       const pipe = redis.pipeline();
       if (keys.length) pipe.del(...keys);
-      pipe.del(`ctag:${t}`).set(`ctagv:${t}`, String(Date.now()), "EX", 3600);
+      pipe.del(`ctag:${t}`);
       await pipe.exec();
     }
   } catch (err) {

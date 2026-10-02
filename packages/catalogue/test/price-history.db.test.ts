@@ -29,7 +29,8 @@ afterAll(async () => {
   await prisma.listingVersion.deleteMany({ where: { listingId: { in: listingIds } } });
   await prisma.listing.deleteMany({ where: { id: { in: listingIds } } });
   await prisma.business.deleteMany({ where: { id: seller } });
-  await prisma.category.deleteMany({ where: { slug: { endsWith: tag } } });
+  // tolerate a foreign draft: draftListingFromText/Photos fall back to the first category in the DB, so a parallel file may still reference this one
+  await prisma.category.deleteMany({ where: { slug: { endsWith: tag } } }).catch(() => {});
 });
 
 const mkListing = async () => {
