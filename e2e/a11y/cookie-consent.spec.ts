@@ -6,6 +6,7 @@
  * Every other spec starts with a pre-seeded reject-all consent cookie (support/fixtures.ts); this one opts out with
  * `consent: false` to behave like a brand-new visitor.
  */
+import { CONSENT_POLICY_VERSION } from "../../apps/web/src/features/consent/state";
 import { expect, test, type Page } from "../support/fixtures";
 import { expectNoBlockingViolations, settle } from "../support/a11y";
 import { firstProductHref } from "../support/pages";
@@ -172,7 +173,7 @@ test.describe("choices", () => {
     expect((await receipt).status()).toBe(200);
     await expect(banner(page)).toHaveCount(0);
     const c = await consentOf(page);
-    expect([c?.get("a"), c?.get("m"), c?.get("v")]).toEqual(["0", "0", "1"]);
+    expect([c?.get("a"), c?.get("m"), c?.get("v")]).toEqual(["0", "0", String(CONSENT_POLICY_VERSION)]);
     await page.reload();
     await settle(page);
     await expect(banner(page)).toHaveCount(0);
