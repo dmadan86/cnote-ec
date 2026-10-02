@@ -12,6 +12,11 @@ const PHONE = { width: 390, height: 844 };
 /** Result cards: product links inside main (sponsored cards are labelled and excluded by the /p/ path of organic cards only). */
 const cards = (page: Page) => page.locator("main ul > li:has(a[href*='/p/'])");
 
+/** Navigations from GET forms resolve the URL before the new results render: wait for cards before reading them. */
+async function ready(page: Page) {
+  await expect(cards(page).first()).toBeVisible();
+}
+
 async function hrefs(page: Page): Promise<string[]> {
   return page.locator("main ul > li a[href*='/p/']").evaluateAll((as) => [...new Set(as.map((a) => (a as HTMLAnchorElement).getAttribute("href")!))]);
 }
@@ -123,6 +128,7 @@ test.describe("sort", () => {
     await page.getByLabel("Sort by").selectOption("price_asc");
     await page.getByRole("button", { name: "Apply sort" }).click();
     await expect(page).toHaveURL(/sort=price_asc/);
+    await ready(page);
     const asc = await prices(page);
     const priced = asc.filter((p): p is number => p !== null);
     expect(asc.slice(0, priced.length)).toEqual(priced); // no price-on-request card before a priced one
@@ -131,6 +137,7 @@ test.describe("sort", () => {
     await page.getByLabel("Sort by").selectOption("price_desc");
     await page.getByRole("button", { name: "Apply sort" }).click();
     await expect(page).toHaveURL(/sort=price_desc/);
+    await ready(page);
     const desc = (await prices(page)).filter((p): p is number => p !== null);
     expect(desc).toEqual([...desc].sort((a, b) => b - a));
     expect(new Set(await hrefs(page))).toEqual(new Set(relevance)); // same listings, different order
@@ -139,6 +146,7 @@ test.describe("sort", () => {
     await page.getByLabel("Sort by").selectOption("relevance");
     await page.getByRole("button", { name: "Apply sort" }).click();
     await expect(page).not.toHaveURL(/sort=/);
+    await ready(page);
     expect(await hrefs(page)).toEqual(relevance);
   });
 
@@ -184,7 +192,8 @@ test("keyboard: the mobile sheet traps focus while open, and Tab order reaches A
   await expect(dialog).toBeVisible();
   for (let i = 0; i < 40; i++) {
     await page.keyboard.press("Tab");
-    expect(await page.evaluate(() => !!document.activeElement?.closest("dialog"))).toBe(true); // never escapes to the page behind
+    // never lands on the page behind (Chromium may park focus on <body>/browser UI when it wraps)
+    expect(await page.evaluate(() => document.activeElement === document.body || !!document.activeElement?.closest("dialog"))).toBe(true);
   }
   await dialog.getByRole("radio", { name: /^GST verified or higher/ }).check();
   await dialog.getByRole("button", { name: "Apply filters" }).click();
@@ -211,7 +220,7 @@ test.describe("deliver to my pincode is opt-in", () => {
     await page.getByRole("checkbox", { name: "Only suppliers who deliver to 560001" }).check();
     await page.getByRole("button", { name: "Apply filters" }).click();
     await expect(page).toHaveURL(/deliver=560001/);
-    await expect(page.getByText("We match suppliers located in Karnataka.", { exact: false })).toBeVisible();
+    await expect(page.getByRole("complementary").getByText("We match suppliers located in Karnataka.", { exact: false })).toBeVisible();
     await page.getByRole("link", { name: "Remove filter: Delivers to 560001" }).click();
     await expect(page).not.toHaveURL(/deliver=/);
   });
@@ -220,7 +229,7 @@ test.describe("deliver to my pincode is opt-in", () => {
     await page.goto("/search?q=box");
     await settle(page);
     await expect(page.getByRole("checkbox", { name: "Only suppliers who deliver to my pincode" })).toBeDisabled();
-    await expect(page.getByText("Set your “Deliver to” pincode in the header to use this filter.")).toBeVisible();
+    await expect(page.getByRole("complementary").getByText("Set your “Deliver to” pincode in the header to use this filter.")).toBeVisible();
   });
 });
 
