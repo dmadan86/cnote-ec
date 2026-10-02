@@ -7,7 +7,7 @@ Pages (static, `app/[locale]/`, en + hi, `localizedAlternates`, in `LOCALIZED_PR
 ## Structure
 - Policy copy is data: `legal.<page>.sections[]` = `{ title, body[], items[] }`, rendered by `features/legal/legal-doc.tsx` (h1, version line, table of contents from 7 sections, one h2 per section). Inline links are `[[key]]` tokens resolved through `DOC_LINKS` in `features/legal/docs.ts`; `{site}`, `{email}`, `{grievanceEmail}` are substituted at render time.
 - Versions and effective dates: `LEGAL_DOCS` in `docs.ts`. Bump on every copy change.
-- Entity details: `features/legal/entity.ts` (env: `PLATFORM_LEGAL_NAME`, `PLATFORM_CIN`, `PLATFORM_GSTIN`, `PLATFORM_ADDRESS`, `SUPPORT_*`). Production should set all; the server logs an error at start when any is missing and refuses to start with `LEGAL_ENTITY_STRICT=true`.
+- Entity details: `features/legal/entity.ts` (env: `PLATFORM_LEGAL_NAME`, `PLATFORM_CIN`, `PLATFORM_GSTIN`, `PLATFORM_ADDRESS`, `SUPPORT_*`). Production must set all: with `NODE_ENV=production` the server refuses to start when any is missing (strict by default; opt out with `LEGAL_ENTITY_STRICT=false` for local production builds). CI sets them for the e2e server.
 - `/report` files a `@cnote/compliance` grievance ticket with the new category `report` (same queue, acknowledgement SLA and rate limit). The 24h acknowledgement and 36h takedown targets are operational promises in the copy; the ticket due date is still the grievance policy's resolution window.
 
 ## Sources

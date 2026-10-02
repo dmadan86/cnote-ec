@@ -22,12 +22,18 @@ export type GrievanceStatus = "open" | "in_progress" | "resolved" | "rejected";
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
 const DUE_SOON_MS = 3 * DAY;
+/** A takedown notice's 36h window is short: "due soon" is the last 6 hours. */
+const TAKEDOWN_DUE_SOON_MS = 6 * HOUR;
+export const TAKEDOWN_CATEGORY = "report";
+export const isTakedown = (category: string | undefined): boolean => category === TAKEDOWN_CATEGORY;
 
 export interface GrievanceSla {
-  /** "rights" requests are due in 90 days; "complaint"s follow the grievance policy */
-  kind: "rights" | "complaint";
+  /** "rights" requests are due in 90 days, "complaint"s follow the grievance policy, "takedown" notices (category "report") are acted on within 36 hours */
+  kind: "rights" | "complaint" | "takedown";
   /** whole days until dueAt (negative = overdue); null once the ticket is closed */
   daysLeft: number | null;
+  /** whole hours until dueAt (negative = overdue); null once the ticket is closed. The unit that matters for takedowns. */
+  hoursLeft: number | null;
   /** "pending" = still open inside the window; "breached" = still open past the acknowledgement window */
   acknowledgement: "done" | "pending" | "breached";
   resolution: "closed" | "on_track" | "due_soon" | "breached";
@@ -58,12 +64,18 @@ export interface GrievanceView {
 type Row = Prisma.GrievanceTicketGetPayload<object>;
 
 /** Pure SLA evaluation (injectable clock). Acknowledgement = the ticket has left "open". */
-export function evaluateSla(t: Pick<Row, "status" | "createdAt" | "dueAt"> & { requestType?: string }, now: Date, ackHours = grievancePolicy().ackHours): GrievanceSla {
+export function evaluateSla(t: Pick<Row, "status" | "createdAt" | "dueAt"> & { requestType?: string; category?: string }, now: Date, ackHoursOverride?: number): GrievanceSla {
+  const policy = grievancePolicy();
+  const takedown = isTakedown(t.category);
+  const ackHours = ackHoursOverride ?? (takedown ? policy.takedownAckHours : policy.ackHours);
+  const dueSoonMs = takedown ? TAKEDOWN_DUE_SOON_MS : DUE_SOON_MS;
   const closed = t.status === "resolved" || t.status === "rejected";
   const acknowledgement = t.status !== "open" ? "done" : now.getTime() > t.createdAt.getTime() + ackHours * HOUR ? "breached" : "pending";
-  const resolution = closed ? "closed" : now.getTime() > t.dueAt.getTime() ? "breached" : t.dueAt.getTime() - now.getTime() <= DUE_SOON_MS ? "due_soon" : "on_track";
+  const resolution = closed ? "closed" : now.getTime() > t.dueAt.getTime() ? "breached" : t.dueAt.getTime() - now.getTime() <= dueSoonMs ? "due_soon" : "on_track";
   const daysLeft = closed ? null : Math.floor((t.dueAt.getTime() - now.getTime()) / DAY);
-  return { kind: isRightsRequest(t.requestType ?? "complaint") ? "rights" : "complaint", daysLeft, acknowledgement, resolution };
+  const hoursLeft = closed ? null : Math.floor((t.dueAt.getTime() - now.getTime()) / HOUR);
+  const kind = takedown ? "takedown" : isRightsRequest(t.requestType ?? "complaint") ? "rights" : "complaint";
+  return { kind, daysLeft, hoursLeft, acknowledgement, resolution };
 }
 
 const view = (r: Row, now: Date): GrievanceView => ({
@@ -111,8 +123,11 @@ export async function fileGrievance(input: FileGrievanceInput, now = new Date())
   const policy = grievancePolicy();
   const key = `grievance:${i.personId ?? i.contactEmail!.toLowerCase()}`;
   if (!(await rateLimit(key, policy.perHourLimit, 3600))) throw new DomainError("rate_limited", "Too many grievances submitted. Please try again later.", undefined, "compliance.tooManyGrievancesSubmittedTry");
-  const slaDays = isRightsRequest(requestType) ? policy.rightsRequestDays : policy.resolveDays;
-  const dueAt = new Date(now.getTime() + slaDays * DAY);
+  // Takedown notices (category "report") must be ACTED on within 36h (IT Rules 2021 r.3(1)(d)), so dueAt is hour-based;
+  // slaDays is a whole-day column and holds that window rounded up (2).
+  const takedown = isTakedown(category);
+  const slaDays = takedown ? Math.ceil(policy.takedownActHours / 24) : isRightsRequest(requestType) ? policy.rightsRequestDays : policy.resolveDays;
+  const dueAt = takedown ? new Date(now.getTime() + policy.takedownActHours * HOUR) : new Date(now.getTime() + slaDays * DAY);
   const row = await prisma.$transaction(async (tx) => {
     const t = await tx.grievanceTicket.create({
       data: {
@@ -140,6 +155,8 @@ export interface GrievanceFilters {
   requestType?: RequestType;
   /** only data-rights requests (everything except "complaint"); without `status`, only those still open or in progress */
   rightsOnly?: boolean;
+  /** only tickets still open or in progress (the working queue) */
+  openOnly?: boolean;
   /** only tickets breaching an SLA right now */
   breachedOnly?: boolean;
   limit?: number;
@@ -154,9 +171,11 @@ export async function listGrievances(f: GrievanceFilters = {}, now = new Date())
     where.requestType = { not: "complaint" };
     if (!f.status) where.status = { in: ["open", "in_progress"] };
   }
+  if (f.openOnly && !f.status) where.status = { in: ["open", "in_progress"] };
   if (f.breachedOnly) {
     where.OR = [
-      { status: "open", createdAt: { lt: new Date(now.getTime() - policy.ackHours * HOUR) } },
+      { status: "open", category: { not: TAKEDOWN_CATEGORY }, createdAt: { lt: new Date(now.getTime() - policy.ackHours * HOUR) } },
+      { status: "open", category: TAKEDOWN_CATEGORY, createdAt: { lt: new Date(now.getTime() - policy.takedownAckHours * HOUR) } },
       { status: { in: ["open", "in_progress"] }, dueAt: { lt: now } },
     ];
   }
@@ -226,11 +245,29 @@ export interface SlaSweepResult {
  * Emits nothing; the breaches surface in the admin grievance queue (SLA badges). Logs a warning for the on-call.
  */
 export async function sweepGrievanceSla(now = new Date()): Promise<SlaSweepResult> {
-  const { ackHours } = grievancePolicy();
+  const { ackHours, takedownAckHours } = grievancePolicy();
+  const live = { in: ["open", "in_progress"] as GrievanceStatus[] };
   const [ackBreached, resolutionBreached, dueSoon] = await Promise.all([
-    prisma.grievanceTicket.count({ where: { status: "open", createdAt: { lt: new Date(now.getTime() - ackHours * HOUR) } } }),
-    prisma.grievanceTicket.count({ where: { status: { in: ["open", "in_progress"] }, dueAt: { lt: now } } }),
-    prisma.grievanceTicket.count({ where: { status: { in: ["open", "in_progress"] }, dueAt: { gte: now, lte: new Date(now.getTime() + DUE_SOON_MS) } } }),
+    prisma.grievanceTicket.count({
+      where: {
+        status: "open",
+        OR: [
+          { category: { not: TAKEDOWN_CATEGORY }, createdAt: { lt: new Date(now.getTime() - ackHours * HOUR) } },
+          { category: TAKEDOWN_CATEGORY, createdAt: { lt: new Date(now.getTime() - takedownAckHours * HOUR) } },
+        ],
+      },
+    }),
+    prisma.grievanceTicket.count({ where: { status: live, dueAt: { lt: now } } }),
+    prisma.grievanceTicket.count({
+      where: {
+        status: live,
+        dueAt: { gte: now },
+        OR: [
+          { category: { not: TAKEDOWN_CATEGORY }, dueAt: { lte: new Date(now.getTime() + DUE_SOON_MS) } },
+          { category: TAKEDOWN_CATEGORY, dueAt: { lte: new Date(now.getTime() + TAKEDOWN_DUE_SOON_MS) } },
+        ],
+      },
+    }),
   ]);
   if (ackBreached || resolutionBreached) console.warn(`[compliance] grievance SLA breach: ack=${ackBreached} resolution=${resolutionBreached} dueSoon=${dueSoon}`);
   return { ackBreached, resolutionBreached, dueSoon };

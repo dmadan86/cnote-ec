@@ -186,3 +186,48 @@ describe("data-rights requests", () => {
     await prisma.cookieConsentReceipt.deleteMany({ where: { consentId: { in: [cid, cid2] } } });
   });
 });
+
+describe("takedown notices (category report, IT Rules 2021 r.3(1)(d))", () => {
+  const notice = { category: "report" as const, requestType: "complaint" as const, subject: "Counterfeit listing", body: "This listing sells counterfeit goods under our brand." };
+  it("is acted on within 36 hours: dueAt is hour-based and slaDays is the rounded-up window", async () => {
+    const g = await fileGrievance({ ...notice, contactEmail: email("td1") }, t0);
+    ticketIds.push(g.id);
+    expect(new Date(g.dueAt).getTime() - t0.getTime()).toBe(36 * H);
+    expect(g.slaDays).toBe(2);
+    expect(g.sla).toMatchObject({ kind: "takedown", acknowledgement: "pending", resolution: "on_track", hoursLeft: 36 });
+  });
+  it("acknowledgement window is 24h, due soon is the last 6h, breach after 36h", async () => {
+    const g = await fileGrievance({ ...notice, contactEmail: email("td2") }, t0);
+    ticketIds.push(g.id);
+    expect((await getGrievance(g.id, at(23 * H)))!.sla.acknowledgement).toBe("pending");
+    expect((await getGrievance(g.id, at(25 * H)))!.sla).toMatchObject({ acknowledgement: "breached", resolution: "on_track", hoursLeft: 11 });
+    expect((await getGrievance(g.id, at(31 * H)))!.sla.resolution).toBe("due_soon");
+    expect((await getGrievance(g.id, at(37 * H)))!.sla).toMatchObject({ resolution: "breached", hoursLeft: -1 });
+    await respondToGrievance(g.id, { status: "resolved", resolution: "The listing was removed." }, staff);
+    expect((await getGrievance(g.id, at(40 * H)))!.sla).toMatchObject({ resolution: "closed", hoursLeft: null, acknowledgement: "done" });
+  });
+  it("other categories keep their own windows (complaint 15d, ack 24h, due soon 3d)", () => {
+    const base = { status: "open" as const, createdAt: t0, dueAt: at(15 * D) };
+    expect(evaluateSla({ ...base, category: "content", requestType: "complaint" }, at(13 * D))).toMatchObject({ kind: "complaint", resolution: "due_soon", hoursLeft: 48 });
+    expect(evaluateSla({ ...base, category: "report" }, at(13 * D)).kind).toBe("takedown");
+  });
+  it("breachedOnly applies the 24h takedown acknowledgement and the sweep counts it", async () => {
+    const g = await fileGrievance({ ...notice, contactEmail: email("td3") }, t0);
+    const c = await fileGrievance({ ...valid, requestType: "complaint", category: "other", contactEmail: email("td4") }, t0);
+    ticketIds.push(g.id, c.id);
+    const ids = (await listGrievances({ breachedOnly: true, limit: 200 }, at(25 * H))).map((x) => x.id);
+    expect(ids).toContain(g.id); // takedown unacknowledged after 25h
+    expect(ids).toContain(c.id); // ordinary complaint too (24h ack)
+    const s = await sweepGrievanceSla(at(25 * H));
+    expect(s.ackBreached).toBeGreaterThanOrEqual(2);
+  });
+  it("openOnly lists the working queue of takedowns", async () => {
+    const a = await fileGrievance({ ...notice, contactEmail: email("td5") }, t0);
+    const b = await fileGrievance({ ...notice, contactEmail: email("td6") }, t0);
+    ticketIds.push(a.id, b.id);
+    await respondToGrievance(b.id, { status: "rejected", resolution: "Not infringing, no action." }, staff);
+    const ids = (await listGrievances({ category: "report", openOnly: true, limit: 200 }, t0)).map((x) => x.id);
+    expect(ids).toContain(a.id);
+    expect(ids).not.toContain(b.id);
+  });
+});

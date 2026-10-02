@@ -424,7 +424,11 @@ export async function listStorefrontReviews(opts: { status?: "in_review" | "publ
     include: { storefront: true },
     orderBy: { createdAt: "asc" },
     take: Math.min(opts.limit ?? 50, 200),
-  });
+  }).then((all) =>
+    // Prisma loads `include` with a second, non-transactional query: a storefront deleted in between comes back null even
+    // though the relation is required. Skip such rows instead of failing the whole queue.
+    all.filter((r) => (r.storefront as typeof r.storefront | null) !== null),
+  );
   const names = await getTrustProfiles([...new Set(rows.map((r) => r.storefront.sellerBusinessId))]);
   return rows.map((r) => ({
     versionId: r.id,
