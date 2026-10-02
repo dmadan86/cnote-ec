@@ -56,7 +56,7 @@ describe("Anthropic failure modes fall back to heuristic on every capability", (
     const m = await p.moderator.moderate({ text: "x" });
     expect(m.confidence).toBe(1);
     expect(m.output).toEqual({ verdict: "review", flags: ["pharma"], reason: "hmm" });
-    expect(m.promptVersion).toBe("moderate-v2");
+    expect(m.promptVersion).toBe("moderate-v1");
   });
   it("PII never reaches the vendor for any capability", async () => {
     const sent: string[] = [];
