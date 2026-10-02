@@ -1,7 +1,7 @@
 import { DomainError, redis } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { randomUUID } from "node:crypto";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import {
   MAX_ACTIVE_KEYS, createApiKey, flushApiKeyUsage, getKeyUsage, listApiKeys, listApiKeysForStaff, recordApiError, revokeAllApiKeysForPerson,
   revokeApiKey, revokeApiKeyAsStaff, verifyApiKey, worker,
@@ -17,6 +17,14 @@ const newPerson = () => {
   people.push(id);
   return id;
 };
+/** Delete only THIS file's rate-limit counters: a global `rl:apikey:*` wipe would reset another file's counter mid-test. */
+const delOwnRateLimits = async (keyIds: string[], personIds: string[]) => {
+  const patterns = [...keyIds.flatMap((id) => [`rl:apikey:rest:${id}:*`, `rl:apikey:mcp:${id}:*`]), ...personIds.map((p) => `rl:apikey:create:${p}:*`)];
+  for (const pat of patterns) {
+    const ks = await redis.keys(pat);
+    if (ks.length) await redis.del(...ks);
+  }
+};
 const ctx = { ip: "203.0.113.9", kind: "rest" as const };
 /** Freeze Date mid-minute so fixed-window rate limits can't roll over during a test. */
 const freezeMidWindow = () => {
@@ -26,10 +34,6 @@ const freezeMidWindow = () => {
 const mk = (p: string, over: Partial<Parameters<typeof createApiKey>[1]> = {}) =>
   createApiKey(p, { name: "k", scopes: ["profile:read"], expiry: "30d", ...over });
 
-beforeAll(async () => {
-  const rl = await redis.keys("rl:apikey:*");
-  if (rl.length) await redis.del(...rl);
-});
 afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
@@ -41,8 +45,7 @@ afterAll(async () => {
   for (const k of keys) await redis.del(cacheKey(k.secretHash), `apikey:touch:${k.id}`);
   await prisma.apiKeyUsageDaily.deleteMany({ where: { apiKeyId: { in: keys.map((k) => k.id) } } });
   await prisma.apiKey.deleteMany({ where: { personId: { in: people } } });
-  const rl = await redis.keys("rl:apikey:*");
-  if (rl.length) await redis.del(...rl);
+  await delOwnRateLimits(keys.map((k) => k.id), people);
   const us = await redis.keys("apikey:usage:*");
   for (const k of us) if (keys.some((x) => k.includes(x.id))) await redis.del(k);
 });

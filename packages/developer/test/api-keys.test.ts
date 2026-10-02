@@ -16,8 +16,11 @@ afterAll(async () => {
   const keys = await prisma.apiKey.findMany({ where: { personId: { in: people } }, select: { id: true, secretHash: true } });
   for (const k of keys) await redis.del(`apikey:${k.secretHash}`);
   await prisma.apiKey.deleteMany({ where: { personId: { in: people } } });
-  const rl = await redis.keys("rl:apikey:*");
-  if (rl.length) await redis.del(...rl);
+  const patterns = [...keys.flatMap((k) => [`rl:apikey:rest:${k.id}:*`, `rl:apikey:mcp:${k.id}:*`]), ...people.map((p) => `rl:apikey:create:${p}:*`)];
+  for (const pat of patterns) {
+    const ks = await redis.keys(pat);
+    if (ks.length) await redis.del(...ks);
+  }
 });
 
 describe("secret format", () => {

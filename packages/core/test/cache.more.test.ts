@@ -363,3 +363,29 @@ describe("cachedManyTagged: behaviours", () => {
     expect((await cachedManyTagged(["a"], o)).get("a")).toBe("A");
   });
 });
+
+describe("invalidation racing a fill (check-then-store window)", () => {
+  it("an invalidation landing between a fill's freshness check and its write cannot leave a stale entry", async () => {
+    const key = k();
+    const tag = `t-cm-${uid()}`;
+    let source = "old";
+    // Simulate another process invalidating right after the fill's pre-write check passed: its member listing finds nothing
+    // (the entry is not written yet) and the tag set is gone by the time the fill writes.
+    const realMget = redis.mget.bind(redis) as (...a: unknown[]) => Promise<unknown>;
+    let injected = false;
+    vi.spyOn(redis, "mget").mockImplementation(((...args: unknown[]) => {
+      const res = realMget(...args);
+      if (injected) return res;
+      injected = true;
+      return res.then(async (r) => {
+        source = "new";
+        await invalidateTags([tag]);
+        return r;
+      });
+    }) as never);
+    expect(await cachedTagged(key, [tag], 60, async () => source)).toBe("old"); // this caller began before the write: fine
+    vi.restoreAllMocks();
+    expect(await redis.get(key)).toBeNull(); // ...but the stale value must not stay cached
+    expect(await cachedTagged(key, [tag], 60, async () => source)).toBe("new");
+  });
+});

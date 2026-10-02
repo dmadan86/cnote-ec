@@ -42,7 +42,8 @@ afterAll(async () => {
   setVerticalStatsPort(null);
   await prisma.domainEvent.deleteMany({ where: { type: "VerticalStageChanged", payload: { path: ["slug"], string_contains: tag } } });
   await prisma.vertical.deleteMany({ where: { slug: { contains: tag } } });
-  await prisma.category.deleteMany({ where: { slug: { startsWith: `vt-${tag}` } } });
+  // tolerate a foreign draft: draftListingFromText/Photos fall back to the first category in the DB, so a parallel file may still reference this one
+  await prisma.category.deleteMany({ where: { slug: { startsWith: `vt-${tag}` } } }).catch(() => {});
 });
 
 describe("config", () => {

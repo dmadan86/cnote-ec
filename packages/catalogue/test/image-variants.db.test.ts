@@ -46,7 +46,8 @@ afterAll(async () => {
   await prisma.listingPriceHistory.deleteMany({ where: { listing: { sellerBusinessId: biz } } }).catch(() => {});
   await prisma.listing.deleteMany({ where: { sellerBusinessId: biz } });
   await prisma.business.deleteMany({ where: { id: biz } });
-  await prisma.category.deleteMany({ where: { slug: { endsWith: tag } } });
+  // tolerate a foreign draft: draftListingFromText/Photos fall back to the first category in the DB, so a parallel file may still reference this one
+  await prisma.category.deleteMany({ where: { slug: { endsWith: tag } } }).catch(() => {});
   setMediaStore(undefined);
   setJobQueue(undefined);
   await rm(dir, { recursive: true, force: true });

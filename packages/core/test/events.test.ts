@@ -170,9 +170,11 @@ describe("outbox: emit + relayOutbox (real Postgres)", () => {
    * Relays until everything unpublished (including other suites' leftover events in the shared test DB) has passed
    * through, then restores the foreign rows. A single 10k batch is not enough once the test DB has accumulated events.
    */
-  async function drain(): Promise<DomainEvent[]> {
+  async function drain(expectedMine?: number): Promise<DomainEvent[]> {
     const t = new MemoryEventTransport();
-    while ((await relayOutbox(10_000, t)) > 0);
+    // With `expectedMine`, stop once all of this suite's rows were seen: other packages keep emitting into the shared DB, so
+    // "until nothing is unpublished" may never be reached while they run.
+    while ((await relayOutbox(10_000, t)) > 0 && (expectedMine === undefined || mine(t.log).length < expectedMine));
     await restoreForeign(t.log);
     return t.log;
   }
@@ -201,7 +203,7 @@ describe("outbox: emit + relayOutbox (real Postgres)", () => {
 
   it("relays oldest-first, marks rows published, and never relays a row twice", async () => {
     await seed(5);
-    const t = { log: await drain() };
+    const t = { log: await drain(5) };
     const ids = mine(t.log).map((e) => e.id);
     expect(ids).toHaveLength(5);
     expect(ids).toEqual([...ids].sort((a, b) => a - b));
@@ -231,7 +233,7 @@ describe("outbox: emit + relayOutbox (real Postgres)", () => {
     const t = new MemoryEventTransport();
     await Promise.all(Array.from({ length: 6 }, () => relayOutbox(7, t)));
     // drain whatever the batch limit left behind
-    while ((await relayOutbox(7, t)) > 0);
+    while (mine(t.log).length < 30 && (await relayOutbox(7, t)) > 0);
     await restoreForeign(t.log);
     const ids = mine(t.log).map((e) => e.id);
     expect(ids).toHaveLength(30);
