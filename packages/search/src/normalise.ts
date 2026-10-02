@@ -16,13 +16,16 @@ const FILLERS = [
 // "in <words>" at the end: up to 2 words. Generic tails are not places and must stay in the query.
 const NOT_A_PLACE = new Set(["bulk", "stock", "quantity", "wholesale", "large", "small", "all", "general", "demand", "wholesales", "retail", "different", "various"]);
 const COUNTRY = new Set(["india", "bharat"]);
+const PUNCT_RE = /[^\p{L}\p{M}\p{N}\s\-+&/.']/gu;
 const LOC_RE = /(?<![\p{L}\p{M}\p{N}])(?:in|near|at|from)\s+([\p{L}\p{M}]+(?:\s[\p{L}\p{M}]+)?)\s*$/u;
 const WORD = "(?<![\\p{L}\\p{M}\\p{N}])"; // \p{M}: Indic vowel signs are marks, not letters
 const WORD_END = "(?![\\p{L}\\p{M}\\p{N}])";
 const FILLER_RE = new RegExp(`${WORD}(?:${FILLERS.map((f) => f.replace(/ /g, "\\s+")).join("|")})${WORD_END}`, "gu");
 
 export function normaliseQuery(raw: string): NormalisedQuery {
-  let s = raw.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 200);
+  // Strip punctuation BEFORE the location match, so a second pass sees the same tokens (idempotence: "in:A" used to leave
+  // "in a", which the next pass then parsed as a location).
+  let s = raw.normalize("NFKC").toLowerCase().replace(PUNCT_RE, " ").replace(/\s+/g, " ").trim().slice(0, 200);
   let location: string | null = null;
 
   const m = LOC_RE.exec(s);
@@ -34,6 +37,6 @@ export function normaliseQuery(raw: string): NormalisedQuery {
       s = s.slice(0, m.index).trim();
     }
   }
-  const cleaned = s.replace(FILLER_RE, " ").replace(/[^\p{L}\p{M}\p{N}\s\-+&/.']/gu, " ").replace(/\s+/g, " ").trim();
+  const cleaned = s.replace(FILLER_RE, " ").replace(/\s+/g, " ").trim();
   return { text: cleaned || s, location };
 }
