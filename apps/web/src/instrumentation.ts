@@ -7,12 +7,13 @@ export async function register() {
     const { assertRequiredSecrets } = await import("@cnote/security");
     assertRequiredSecrets("web");
     (await import("@cnote/compliance")).assertIndiaResidency();
-    // Legal entity details (footer, /contact): loud in production when unset; fatal only when LEGAL_ENTITY_STRICT=true.
-    const { assertLegalEntity } = await import("@/features/legal/entity");
+    // Legal entity details (footer, /contact): fatal in production when unset (strict by default); opt out with
+    // LEGAL_ENTITY_STRICT=false, which only logs an error.
+    const { assertLegalEntity, isLegalEntityStrict } = await import("@/features/legal/entity");
     try {
       assertLegalEntity();
     } catch (e) {
-      if (process.env.LEGAL_ENTITY_STRICT === "true") throw e;
+      if (isLegalEntityStrict()) throw e;
       console.error(`[legal] ${e instanceof Error ? e.message : String(e)}`);
     }
   }

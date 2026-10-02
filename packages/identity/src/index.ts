@@ -13,7 +13,7 @@ export { googleAuthorizationUrl, completeGoogleSignIn, isGoogleConfigured } from
 export { refreshSession, getSession, signOut, signOutAllSessions, listAuthSessions } from "./sessions";
 export { requestPhoneOtp, verifyPhoneOtp } from "./otp";
 export * from "./evidence";
-export { createBusiness, ensureSystemBuyerBusiness, updateProfile, getTrustProfiles, listSellers, listSellerIndex, bustSellerCaches, verifyGstin, listVerificationRecords } from "./business";
+export { createBusiness, ensureSystemBuyerBusiness, updateProfile, getTrustProfiles, listSellers, listSellerIndex, bustSellerCaches, verifyGstin, listVerificationRecords, getBuyerBusinessProfile, type BuyerBusinessProfile } from "./business";
 export { hasConsent, setConsent, getConsents, getConsentStates, type ConsentLedgerState } from "./consent";
 export { exportPersonalData, erasePerson } from "./privacy";
 
@@ -35,3 +35,4 @@ export * from "./otp-senders";
 export { findOrCreatePersonByVerifiedPhone } from "./verified-phone";
 export * from "./kyc";
 export * from "./audits";
+export * from "./addresses";
