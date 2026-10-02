@@ -20,6 +20,7 @@ import { loadSponsoredForResults } from "@/features/ads/slots";
 import { SponsoredBlock, SponsoredCard } from "@/features/ads/sponsored";
 import { loadOffers } from "@/features/promotions/data";
 import { SearchTools } from "@/features/search/search-tools";
+import { SaveSearch } from "@/features/retention/save-search";
 
 // Free-text search results are a dynamic, unbounded URL space: crawlable (follow) but never indexed. The curated,
 // indexable equivalents are the category pages (/c/<slug>) and keyword landing pages (/s/<category>/<keyword>).
@@ -49,6 +50,9 @@ export default async function SearchPage(props: PageProps<"/[locale]/search">) {
   const state = parseFilterState(sp);
   const category = state.categories[0] ?? "";
   const base = { q: q || undefined, tab };
+  // "Save this search" (docs/design/buyer-retention.md): products only, and only when there is something to save.
+  const saveArgs = toSearchArgs(state);
+  const canSave = !isSellers && !COMING.has(tab) && (!!q || hasFilters(state));
 
   const tabs = [
     { id: "products", label: tab === "ai" ? t("tabAi") : t("tabProducts") },
@@ -131,13 +135,16 @@ export default async function SearchPage(props: PageProps<"/[locale]/search">) {
 
   return (
     <Container className="py-6 lg:py-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight text-ink">{q ? t("titleQuery", { q }) : t("title")}</h1>
-        {count !== null ? (
-          <p className="text-sm text-muted" role="status" aria-live="polite">
-            {t("resultCount", { count })}
-          </p>
-        ) : null}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold tracking-tight text-ink">{q ? t("titleQuery", { q }) : t("title")}</h1>
+          {count !== null ? (
+            <p className="text-sm text-muted" role="status" aria-live="polite">
+              {t("resultCount", { count })}
+            </p>
+          ) : null}
+        </div>
+        {canSave ? <SaveSearch q={q ?? ""} filters={saveArgs.filters} sort={saveArgs.sort} /> : null}
       </div>
       {viaPhoto ? <PhotoQuery q={q} tab={tab} state={state} locale={locale} /> : null}
       <form action={localizePath("/search", locale)} method="get" role="search" className="mt-4 flex flex-wrap gap-2">

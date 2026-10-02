@@ -1,0 +1,66 @@
+// Owned by @cnote/alerts: buyer retention (docs/design/buyer-retention.md). Followed suppliers, saved searches and the opt-in
+// alert settings (price drop, back in stock, followed-supplier digest). Personal data (DPDP): exported and erased with the person.
+// Following and alerts never influence ranking (ADR-000/009).
+
+/// A buyer follows a supplier. Suppliers only ever see an aggregate count (no identities).
+model SupplierFollow {
+  id         String   @id @default(uuid()) @db.Uuid
+  personId   String   @map("person_id") @db.Uuid
+  businessId String   @map("business_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([personId, businessId])
+  @@index([businessId])
+  @@map("supplier_follows")
+}
+
+/// A saved search (query + filters from the /search URL). `seenListingIds` is the set of listings already reported (or present
+/// when the search was saved), so the digest job only reports NEW matches and is idempotent.
+model SavedSearch {
+  id              String    @id @default(uuid()) @db.Uuid
+  personId        String    @map("person_id") @db.Uuid
+  name            String
+  query           String    @default("")
+  /// normalised SearchFilters
+  filters         Json      @default("{}")
+  sort            String    @default("relevance")
+  /// stable hash of (query, filters, sort): a person cannot save the same search twice
+  fingerprint     String
+  /// "off" | "daily" | "weekly"; "off" is the default (opt-in)
+  frequency       String    @default("off")
+  seenListingIds  Json      @default("[]") @map("seen_listing_ids")
+  lastRunAt       DateTime? @map("last_run_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([personId, fingerprint])
+  @@index([personId])
+  @@index([frequency, lastRunAt])
+  @@map("saved_searches")
+}
+
+/// Per-person opt-ins for each alert type (all default off). Channel choice (in-app / email) lives in the notification preferences.
+model AlertSettings {
+  personId          String    @id @map("person_id") @db.Uuid
+  priceDrop         Boolean   @default(false) @map("price_drop")
+  backInStock       Boolean   @default(false) @map("back_in_stock")
+  followedDigest    Boolean   @default(false) @map("followed_digest")
+  /// when the followed-supplier digest last ran for this person (the next digest covers listings published after it)
+  followedDigestAt  DateTime? @map("followed_digest_at") @db.Timestamptz
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("alert_settings")
+}
+
+/// Dedupe ledger: one row per alert sent, so redelivered events and re-run jobs never notify twice.
+model AlertDispatch {
+  id        String   @id @default(uuid()) @db.Uuid
+  personId  String   @map("person_id") @db.Uuid
+  dedupeKey String   @unique @map("dedupe_key")
+  type      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([personId])
+  @@index([createdAt])
+  @@map("alert_dispatches")
+}

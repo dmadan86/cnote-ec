@@ -25,7 +25,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export default async function WishlistPage(props: PageProps<"/wishlist">) {
   const s = await requireSession("/wishlist");
   const locale = await getRequestLocale();
-  const [t, tc] = await Promise.all([getTranslations({ locale, namespace: "wishlist" }), getTranslations({ locale, namespace: "cards" })]);
+  const [t, tc, tr] = await Promise.all([getTranslations({ locale, namespace: "wishlist" }), getTranslations({ locale, namespace: "cards" }), getTranslations({ locale, namespace: "retention" })]);
   const rupee = (paise: number) => `₹${formatNumber(paise / 100, locale, { maximumFractionDigits: 2 })}`;
   const sp = await props.searchParams;
   const wanted = Array.isArray(sp.list) ? sp.list[0] : sp.list;
@@ -38,7 +38,7 @@ export default async function WishlistPage(props: PageProps<"/wishlist">) {
 
   return (
     <Container className="py-6 lg:py-8">
-      <PageHeader title={t("title")} description={t("description")} />
+      <PageHeader title={t("title")} description={t("description")} actions={<Link href="/account/alerts" className={buttonClasses("outline", "md", "min-h-11")}>{tr("wishlistAlerts")}</Link>} />
       <div className="mt-6 grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
         <aside aria-label={t("listsAria")} className="flex flex-col gap-4">
           <nav aria-label={t("listsNav")}>

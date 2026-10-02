@@ -107,6 +107,12 @@ describe("buildView", () => {
     expect((buildView({}, "marketing", DEFAULT_THEME) as any).whyReceiving).toContain("opted in");
     expect((buildView({}, "unknown-cat", DEFAULT_THEME) as any).whyReceiving).toContain("service message");
   });
+  it("alert emails carry the caller's one-click unsubscribe link (default: notification settings) and an opt-in reason", () => {
+    process.env.APP_URL = "http://localhost:3000";
+    expect((buildView({ unsubscribeUrl: "https://x/unsub?t=1" }, "alert", DEFAULT_THEME) as any).unsubscribeUrl).toBe("https://x/unsub?t=1");
+    expect((buildView({}, "alert", DEFAULT_THEME) as any).unsubscribeUrl).toBe("http://localhost:3000/account/notifications");
+    expect((buildView({}, "alert", DEFAULT_THEME) as any).whyReceiving).toContain("turned this alert on");
+  });
   it("appUrl strips trailing slashes and defaults to localhost", () => {
     process.env.APP_URL = "https://a.in///";
     expect(appUrl()).toBe("https://a.in");

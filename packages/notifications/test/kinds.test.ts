@@ -95,7 +95,7 @@ describe("kinds registry", () => {
   it("every kind is exercised by the mapping table", () => {
     const covered = new Set(TABLE.map((r) => r.key));
     const phase23 = new Set(PHASE23_KINDS.map((k) => k.key)); // covered in kinds-phase23.test.ts
-    for (const k of KINDS) if (!phase23.has(k.key)) expect(covered, k.key).toContain(k.key);
+    for (const k of KINDS) if (!phase23.has(k.key) && k.category !== "alerts") expect(covered, k.key).toContain(k.key); // alerts: kinds-alerts.db.test.ts
   });
   it("observedEvents/kindsFor are consistent; several kinds may share an event", () => {
     const evs = observedEvents();
@@ -108,7 +108,8 @@ describe("kinds registry", () => {
   it("template definitions map category (security/marketing/transactional) and register once", () => {
     const defs = templateDefinitions();
     expect(defs).toHaveLength(KINDS.length);
-    expect(defs.every((d) => d.category === "transactional")).toBe(true);
+    expect(defs.filter((d) => !d.key.startsWith("alert.")).every((d) => d.category === "transactional")).toBe(true);
+    expect(defs.filter((d) => d.key.startsWith("alert.")).map((d) => d.category)).toEqual(["alert", "alert", "alert", "alert"]); // opt-in alerts: unsubscribe footer, no marketing consent
     registerNotificationTemplates();
     registerNotificationTemplates();
     expect(h.defined.length).toBeLessThanOrEqual(1);

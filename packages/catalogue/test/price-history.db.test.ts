@@ -116,4 +116,21 @@ describe("price history (DB)", () => {
     await cat.publishVersion((await cat.submitListingVersion(seller, l.id)).id); // not the global sweep: it would race other files' versions
     expect((await cat.priceHistory(l.id)).map((h) => h.pricePaise)).toEqual([800, 1000]);
   });
+
+  it("emits a versioned ListingPriceChanged only for a real change (never the first publish or a title-only edit)", async () => {
+    const l = await cat.createListing(seller, { categoryId: catId, title: `PH evt ${tag}`, description: `price change event description ${tag}`, attributes: {}, pricePaise: 1000, priceUnit: "piece", moq: 10, moqUnit: "piece", hsn: null, language: "en", imageUrls: [] });
+    listingIds.push(l.id);
+    const changed = () => prisma.domainEvent.findMany({ where: { aggregateId: l.id, type: "ListingPriceChanged" }, orderBy: { id: "asc" } });
+    await cat.publishVersion((await cat.submitListingVersion(seller, l.id)).id);
+    expect(await changed()).toHaveLength(0);
+    await cat.updateListing(seller, l.id, { title: `PH evt renamed ${tag}` });
+    await cat.publishVersion((await cat.submitListingVersion(seller, l.id)).id);
+    expect(await changed()).toHaveLength(0);
+    await cat.updateListing(seller, l.id, { pricePaise: 800 });
+    await cat.publishVersion((await cat.submitListingVersion(seller, l.id)).id);
+    const ev = await changed();
+    expect(ev).toHaveLength(1);
+    expect(ev[0]!.version).toBe(1);
+    expect(ev[0]!.payload).toMatchObject({ listingId: l.id, fromPricePaise: 1000, toPricePaise: 800, fromPriceUnit: "piece", priceUnit: "piece" });
+  });
 });

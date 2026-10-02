@@ -6,6 +6,7 @@ import type { DomainEvent, DomainEventType } from "@cnote/core";
 import { BADGE_THRESHOLD } from "@cnote/identity";
 import { defineTemplates, type TemplateDefinition } from "@cnote/templates";
 import { fan, HREF, inr, kind, membersOf, RECIPIENT_NAME, v } from "./kind-helpers";
+import { ALERT_KINDS } from "./kinds-alerts";
 import { PHASE23_KINDS } from "./kinds-phase23";
 import type { NotificationCategory, NotificationKind } from "./types";
 
@@ -446,6 +447,7 @@ export const KINDS: NotificationKind[] = [
     },
   }),
   ...PHASE23_KINDS,
+  ...ALERT_KINDS,
 ];
 
 const KEY_INDEX = new Map(KINDS.map((k) => [k.key, k]));
@@ -453,7 +455,7 @@ export const getKind = (key: string) => KEY_INDEX.get(key);
 export const kindsFor = (event: DomainEventType) => KINDS.filter((k) => k.event === event);
 export const observedEvents = (): DomainEventType[] => [...new Set(KINDS.map((k) => k.event))];
 
-const templateCategory = (c: NotificationCategory): TemplateDefinition["category"] => (c === "security" ? "security" : c === "marketing" ? "marketing" : "transactional");
+const templateCategory = (c: NotificationCategory): TemplateDefinition["category"] => (c === "security" ? "security" : c === "marketing" ? "marketing" : c === "alerts" ? "alert" : "transactional");
 
 export function templateDefinitions(): TemplateDefinition[] {
   return KINDS.map((k) => ({

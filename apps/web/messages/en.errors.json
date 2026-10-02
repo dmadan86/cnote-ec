@@ -460,6 +460,17 @@
       "duplicate": "You've already asked this question.",
       "questionGone": "That question isn't available.",
       "sellerOnly": "Only the seller can answer this question."
+    },
+    "alerts": {
+      "rateLimited": "You're doing that too quickly. Please wait a minute and try again.",
+      "supplierNotFound": "Supplier not found",
+      "upFollows": "You can follow up to {max} suppliers",
+      "invalidSearch": "That search can't be saved",
+      "emptySearch": "Enter a search or choose a filter before saving",
+      "searchAlreadySaved": "You already saved this search",
+      "upSearches": "You can save up to {max} searches",
+      "searchNotFound": "Saved search not found",
+      "invalidFrequency": "Choose off, daily or weekly"
     }
   }
 }

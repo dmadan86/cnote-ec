@@ -1,0 +1,119 @@
+{
+  "retention": {
+    "follow": {
+      "follow": "Follow",
+      "following": "Following",
+      "followLabel": "Follow {name}",
+      "followingLabel": "Following {name}. Press to unfollow.",
+      "signInToFollow": "Sign in to follow",
+      "signInLabel": "Sign in to follow {name}",
+      "nowFollowing": "You now follow {name}.",
+      "unfollowed": "You no longer follow {name}.",
+      "error": "Couldn't update your followed suppliers. Please try again.",
+      "hint": "Following is private and never changes how suppliers are ranked."
+    },
+    "suppliers": {
+      "title": "Followed suppliers",
+      "description": "Suppliers you follow, with their newest listings. Following is private: suppliers only see how many buyers follow them, never who.",
+      "emptyTitle": "You are not following any supplier yet",
+      "emptyText": "Open a supplier profile and choose Follow to keep track of their new listings here.",
+      "browse": "Browse manufacturers",
+      "latest": "Latest listings",
+      "noListings": "No live listings right now.",
+      "viewProfile": "View profile",
+      "unfollow": "Unfollow",
+      "unfollowLabel": "Unfollow {name}",
+      "followedOn": "Following since {date}",
+      "digestTitle": "Weekly digest",
+      "digestOn": "Weekly digest is on.",
+      "digestOff": "Weekly digest is off.",
+      "manageAlerts": "Manage alerts",
+      "priceOnRequest": "Price on request",
+      "listLabel": "Latest listings from {name}"
+    },
+    "searches": {
+      "title": "Saved searches",
+      "description": "Searches you saved from the search page. Choose how often we tell you about new matches, or keep them as shortcuts.",
+      "emptyTitle": "No saved searches yet",
+      "emptyText": "Search for something, then choose Save this search to keep it here.",
+      "startSearch": "Start a search",
+      "save": "Save this search",
+      "saveHelp": "We remember your words and filters. Alerts are off unless you choose how often to be told about new matches.",
+      "nameLabel": "Name (optional)",
+      "namePlaceholder": "For example, cotton yarn in Gujarat",
+      "frequencyLabel": "Tell me about new matches",
+      "frequencyOff": "Don't alert me (shortcut only)",
+      "frequencyDaily": "Daily",
+      "frequencyWeekly": "Weekly",
+      "submit": "Save search",
+      "saving": "Saving…",
+      "saved": "Saved. You can manage it under Saved searches.",
+      "manage": "Manage saved searches",
+      "signIn": "Sign in to save this search",
+      "viewResults": "View results",
+      "delete": "Delete",
+      "deleteLabel": "Delete saved search {name}",
+      "frequencyFor": "Alerts for {name}",
+      "update": "Update",
+      "updated": "Alert frequency updated.",
+      "lastChecked": "Last checked {date}",
+      "neverChecked": "Not checked yet",
+      "created": "Saved {date}",
+      "allProducts": "All products",
+      "alertsNote": "Digests arrive in the app and by email, depending on your notification settings.",
+      "listLabel": "Your saved searches"
+    },
+    "alerts": {
+      "title": "Alerts",
+      "description": "Every alert is opt-in and off until you switch it on. You can turn each one off here or from the link in any alert email.",
+      "priceDrop": "Price drops on saved items",
+      "priceDropText": "Tell me when a product on my saved list gets cheaper.",
+      "backInStock": "Back in stock",
+      "backInStockText": "Tell me when a saved product is published again after it was unavailable.",
+      "followedDigest": "New listings from followed suppliers",
+      "followedDigestText": "A weekly digest of new listings from suppliers I follow, in my categories.",
+      "searchesText": "Saved-search alerts are set per search, under Saved searches.",
+      "searchesLink": "Open saved searches",
+      "channelsTitle": "How to reach me",
+      "channelsText": "These apply to all alerts above and to saved-search digests.",
+      "inApp": "In the app",
+      "email": "By email",
+      "save": "Save alert settings",
+      "saving": "Saving…",
+      "saved": "Alert settings saved.",
+      "moreSettings": "All notification settings"
+    },
+    "again": {
+      "action": "Request again",
+      "hint": "Start a new requirement with the same details. You can change anything before sending.",
+      "banner": "Prefilled from your earlier requirement \"{title}\". Check the details and send.",
+      "bannerOrder": "Prefilled from your order \"{title}\". Check the details and send.",
+      "sameSupplier": "Send to {supplier} first",
+      "sameSupplierHint": "They get the first chance to quote, as long as they are still an eligible match. Other suppliers may be matched too.",
+      "notFound": "We couldn't find that earlier requirement, so the form is empty."
+    },
+    "unsubscribe": {
+      "title": "Turn off alerts",
+      "intro": "You are about to turn off this kind of alert:",
+      "priceDrop": "Price drops on saved items",
+      "backInStock": "Back in stock alerts",
+      "followedDigest": "Followed supplier digest",
+      "savedSearch": "Saved search alerts (your searches stay saved)",
+      "confirm": "Turn off",
+      "working": "Turning off…",
+      "done": "Done. You will no longer receive these alerts.",
+      "invalid": "This unsubscribe link is not valid. Open your alert settings to change what you receive.",
+      "settings": "Open alert settings",
+      "home": "Back to the marketplace"
+    },
+    "wishlistAlerts": "Get price-drop and back-in-stock alerts"
+  },
+  "notif": {
+    "category": {
+      "alerts": {
+        "label": "Alerts you turned on",
+        "description": "Price drops and back-in-stock on saved items, new listings from suppliers you follow and saved-search matches. Each alert type is opt-in."
+      }
+    }
+  }
+}

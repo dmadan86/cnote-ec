@@ -85,6 +85,7 @@ const WHY: Record<string, string> = {
   transactional: "This is a service message about your account or activity on the marketplace.",
   security: "This is a security notice about your account. You receive these regardless of marketing preferences.",
   marketing: "You opted in to product updates and offers.",
+  alert: "You turned this alert on. You can switch it off with the unsubscribe link below or in your notification settings.",
 };
 
 /** The variable bag every template sees: caller vars + brand + footer helpers. */
@@ -102,7 +103,7 @@ export function buildView(vars: Record<string, unknown>, category: string, theme
       accentColor: theme.accentColor,
     },
     whyReceiving: WHY[category] ?? WHY.transactional,
-    unsubscribeUrl: category === "marketing" ? String(vars.unsubscribeUrl ?? `${base}/account/notifications`) : "",
+    unsubscribeUrl: category === "marketing" || category === "alert" ? String(vars.unsubscribeUrl ?? `${base}/account/notifications`) : "",
     year: String(new Date().getFullYear()),
   };
 }
