@@ -1,0 +1,112 @@
+{
+  "supplier": {
+    "card": {
+      "heading": "सप्लायर",
+      "whatsVerified": "क्या सत्यापित है",
+      "checksPassed": "{passed, plural, one {# जाँच पास} other {# जाँचें पास}}",
+      "responseTime": "जवाब देने का समय",
+      "acceptRate": "लीड स्वीकार दर",
+      "onPlatform": "प्लैटफ़ॉर्म पर",
+      "location": "स्थान",
+      "rating": "रेटिंग",
+      "noReviews": "अभी कोई समीक्षा नहीं",
+      "newSupplier": "नया सप्लायर",
+      "newSupplierHint": "पर्याप्त हाल की लीड के बाद जवाब के आँकड़े दिखेंगे।",
+      "viewProfile": "प्रोफ़ाइल देखें",
+      "contact": "सप्लायर से संपर्क करें",
+      "india": "भारत",
+      "products": "लाइव उत्पाद"
+    },
+    "values": {
+      "minutes": "{n, plural, one {# मिनट} other {# मिनट}}",
+      "hours": "{n, plural, one {# घंटा} other {# घंटे}}",
+      "days": "{n, plural, one {# दिन} other {# दिन}}",
+      "typical": "आमतौर पर {duration} में जवाब देते हैं",
+      "noReplies": "अभी कोई जवाब नहीं",
+      "acceptPct": "{pct}% स्वीकार",
+      "years": "{years, plural, one {# वर्ष} other {# वर्ष}}",
+      "joinedYear": "{year} में जुड़े",
+      "ratingValue": "5 में से {average} ({count, plural, one {# समीक्षा} other {# समीक्षाएँ}})",
+      "window": "पिछले 90 दिन"
+    },
+    "checks": {
+      "phone": "फ़ोन नंबर सत्यापित",
+      "gstin": "GST रजिस्ट्री में GSTIN सत्यापित",
+      "gstin_name_match": "GST नाम व्यवसाय के नाम से मेल खाता है",
+      "udyam": "उद्यम पंजीकरण",
+      "documents": "दस्तावेज़ और KYC जाँचे गए",
+      "audit": "स्वतंत्र ऑडिट"
+    },
+    "checkDesc": {
+      "phone": "मालिक के फ़ोन पर एक बार का कोड पुष्ट किया गया।",
+      "gstin": "GSTIN GST रजिस्ट्री में सक्रिय है।",
+      "gstin_name_match": "GST पंजीकरण का नाम यहाँ दिखाए गए व्यवसाय के नाम से मेल खाता है।",
+      "udyam": "उद्यम पंजीकरण संख्या दर्ज है।",
+      "documents": "व्यवसाय के दस्तावेज़ और वीडियो KYC की समीक्षा हुई।",
+      "audit": "एक तृतीय-पक्ष ऑडिट पार्टनर ने व्यवसाय का निरीक्षण किया।"
+    },
+    "evidence": {
+      "passedOn": "{date} को पास",
+      "notDone": "पूरा नहीं हुआ",
+      "gstinOnFile": "दर्ज GSTIN: {gstin}",
+      "list": "सत्यापन जाँचें"
+    },
+    "profile": {
+      "tabsLabel": "सप्लायर अनुभाग",
+      "about": "परिचय",
+      "products": "उत्पाद",
+      "reviews": "समीक्षाएँ",
+      "verification": "सत्यापन",
+      "requestQuote": "कोटेशन माँगें",
+      "contact": "संपर्क करें",
+      "share": "साझा करें",
+      "shareCopied": "लिंक कॉपी हुआ",
+      "report": "रिपोर्ट करें",
+      "storefront": "स्टोरफ़्रंट देखें",
+      "actions": "सप्लायर कार्रवाइयाँ"
+    },
+    "about": {
+      "title": "इस सप्लायर के बारे में",
+      "categories": "उत्पाद श्रेणियाँ",
+      "languages": "भाषाएँ",
+      "location": "स्थान",
+      "memberSince": "प्लैटफ़ॉर्म पर जुड़ने का वर्ष",
+      "listings": "लाइव उत्पाद"
+    },
+    "products": {
+      "filterLabel": "श्रेणी के अनुसार उत्पाद फ़िल्टर करें",
+      "all": "सभी",
+      "showing": "{count, plural, one {# उत्पाद} other {# उत्पाद}} दिख रहे हैं"
+    },
+    "reviews": {
+      "title": "समीक्षाएँ",
+      "summary": "रेटिंग सारांश",
+      "forProduct": "{product} पर",
+      "verifiedEnquiry": "सत्यापित पूछताछ",
+      "sellerReply": "सप्लायर का जवाब",
+      "none": "अभी कोई समीक्षा नहीं।",
+      "starsRow": "{stars}-स्टार समीक्षाएँ: {count}"
+    },
+    "verification": {
+      "title": "सत्यापन का प्रमाण",
+      "intro": "नीचे हर जाँच दिखाई गई तारीख को पूरी हुई। जो पूरी नहीं हुई, वह भी सूचीबद्ध है।",
+      "explainer": "सत्यापन कैसे काम करता है",
+      "level": "सत्यापन स्तर: {tier}",
+      "notice": "बैज केवल पूरी की गई जाँचों को दर्शाते हैं। वे बिकते नहीं और किसी सशुल्क प्लान पर निर्भर नहीं हैं।"
+    },
+    "compare": {
+      "highlight": "अंतर हाइलाइट करें",
+      "differs": "अलग",
+      "tier": "सत्यापन",
+      "location": "स्थान",
+      "response": "जवाब देने का समय",
+      "accept": "लीड स्वीकार दर",
+      "rating": "सप्लायर रेटिंग",
+      "years": "प्लैटफ़ॉर्म पर वर्ष",
+      "listings": "लाइव उत्पाद",
+      "priceTiers": "मूल्य स्तर",
+      "tierQty": "{qty}+ इकाइयाँ",
+      "checks": "{count, plural, one {# जाँच पास} other {# जाँचें पास}}"
+    }
+  }
+}

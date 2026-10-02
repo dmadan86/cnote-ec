@@ -2,6 +2,18 @@ import { prisma } from "@cnote/db";
 import { redis } from "@cnote/core";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+/**
+ * Resets only the Redis key families this suite depends on (ads counters/snapshots/locks and the identity trust cache).
+ * `flushdb()` would also wipe the shared test Redis DB under every other package running at the same time
+ * (rate-limit counters, caches), which made unrelated suites flaky.
+ */
+async function flushAdsRedis() {
+  for (const pattern of ["ads:*", "identity:trust:v1:*"]) {
+    const keys = await redis.keys(pattern);
+    if (keys.length) await redis.del(...keys);
+  }
+}
+
 const uid = `ads${Date.now().toString(36)}`;
 const fx = {
   root: "", leaf: "", prohibitedCat: "",
@@ -123,7 +135,7 @@ beforeEach(async () => {
   await prisma.adConfig.deleteMany({});
   live.set(fx.l1, listingView(fx.l1, fx.seller, fx.leaf, "Cosmetic boxes premium"));
   await prisma.business.update({ where: { id: fx.seller }, data: { trustScore: 70, verificationTier: 1 } });
-  await redis.flushdb(); // isolated test Redis DB: also resets identity trust caches
+  await flushAdsRedis(); // also resets identity trust caches
 });
 
 const fund = (n = 1_000_000, ref = `f-${Math.random()}`) => wallet.creditTopUp(fx.seller, n, ref);
@@ -262,7 +274,7 @@ describe("eligibility sweep", () => {
     expect((await prisma.adCampaign.findUnique({ where: { id: a.campaignId } }))!.status).toBe("active");
 
     await prisma.business.update({ where: { id: fx.seller }, data: { trustScore: 49 } });
-    await redis.flushdb();
+    await flushAdsRedis();
     await ads.runEligibilitySweep(new Date(), { wait: true });
     expect(await slots()).toHaveLength(0);
     const row = await prisma.adGroupListing.findUnique({ where: { id: a.adGroupListingId } });
@@ -271,7 +283,7 @@ describe("eligibility sweep", () => {
     expect((await prisma.adCampaign.findUnique({ where: { id: a.campaignId } }))!.haltReason).toBe("eligibility");
 
     await prisma.business.update({ where: { id: fx.seller }, data: { trustScore: 55 } });
-    await redis.flushdb();
+    await flushAdsRedis();
     await ads.runEligibilitySweep(new Date(), { wait: true });
     expect(await slots()).toHaveLength(1);
     live.set(fx.l1, listingView(fx.l1, fx.seller, fx.leaf, "Cosmetic boxes premium", { moderationStatus: "review" }));
@@ -345,7 +357,7 @@ describe("getSponsoredSlots", () => {
     await ads.runEligibilitySweep(new Date(), { wait: true });
     expect(await slots()).toHaveLength(1);
     await prisma.business.update({ where: { id: fx.weak }, data: { trustScore: 40 } });
-    await redis.flushdb();
+    await flushAdsRedis();
     await ads.runEligibilitySweep(new Date(), { wait: true });
     expect(await slots()).toHaveLength(0);
   });
@@ -515,7 +527,7 @@ describe("clicks", () => {
     for (let i = 0; i < 24; i++) await click(mk(i), { visitorId: `tot-${i}`, ip: `88.${i}.1.1` });
     const agg = await prisma.adClick.aggregate({ _sum: { chargedPaise: true }, where: { campaignId: c.campaignId, validity: "valid" } });
     expect(Number(agg._sum.chargedPaise)).toBe(10_000);
-    await redis.flushdb(); // counters lost
+    await flushAdsRedis(); // counters lost
     const after = await click(mk(99), { visitorId: "tot-99", ip: "88.99.1.1" });
     expect(after).toMatchObject({ validity: "invalid", invalidReason: "over_budget" });
   });

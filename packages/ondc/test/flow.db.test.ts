@@ -110,6 +110,9 @@ describe("seller opt-in and publish", () => {
     expect(await ondc.allProviders()).toEqual([]);
     setEnv(true);
     expect(await ondc.providerFor("bad-id")).toBeNull();
+    // publishAllCatalogs sweeps EVERY connected seller in the shared DB, including other test files' sellers (their catalogue
+    // lives in another worker's source); scope the sweep to this file's sellers so a foreign republish can't be counted.
+    vi.spyOn(prisma.ondcSeller, "findMany").mockResolvedValueOnce(sellers.map((businessId) => ({ businessId })) as never);
     expect(await ondc.publishAllCatalogs()).toBe(0);
   });
 
