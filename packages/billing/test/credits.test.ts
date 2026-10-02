@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { addDays, balanceAt, lapsedRemainders, replayLots, type LedgerRow } from "../src/credits";
-import { proRataRefundPaise } from "../src/subscriptions";
 
 const t0 = new Date("2026-01-01T00:00:00Z");
 let n = 0;
@@ -45,12 +44,5 @@ describe("credit ledger math", () => {
     const c = consume(addDays(t0, 1));
     const rows = [grant(1, t0), c, row({ delta: 1, reason: "refund", refType: "consume", refId: c.id, expiresAt: addDays(t0, 91) }, addDays(t0, 2))];
     expect(balanceAt(rows, addDays(t0, 3))).toBe(1);
-  });
-});
-
-describe("pro-rata refund", () => {
-  it("is zero for monthly periods and proportional for annual", () => {
-    expect(proRataRefundPaise(99_900, t0, addDays(t0, 30), addDays(t0, 10))).toBe(0);
-    expect(proRataRefundPaise(1_000_000, t0, addDays(t0, 360), addDays(t0, 90))).toBe(750_000);
   });
 });

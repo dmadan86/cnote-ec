@@ -7,26 +7,35 @@ import { isLocale } from "@/i18n/config";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { load } from "@/lib/safe";
 import { billing } from "@/lib/services";
-import { CancelPlan, SubscribeButton } from "@/features/billing/plan-actions";
+import { formatPaise } from "@/features/billing/format-paise";
+import { SubscribeButton, UndoCancel } from "@/features/billing/plan-actions";
+import { PricingCalculator } from "@/features/billing/pricing-calculator";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("billing"))("metaTitle") };
 }
 
-export default async function BillingPage() {
+const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
+
+export default async function BillingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await requireSeller("/billing");
+  const sp = await searchParams;
   const t = await getTranslations("billing");
+  const ta = await getTranslations("billingAnnual");
   const loc = await getLocale();
   const locale = isLocale(loc) ? loc : "en";
   const id = session.business.id;
-  const [balance, sub, plans, ledger, invoices] = await Promise.all([
+  const [balance, sub, plans, ledger, invoices, refunds] = await Promise.all([
     load(() => billing.getBalance(id)),
     load(() => billing.getActiveSubscription(id)),
     load(() => billing.listPlans()),
     load(() => billing.getLedger(id, 30)),
     load(() => billing.listInvoices({ businessId: id }, { limit: 20 })),
+    load(() => billing.listBusinessRefunds(id, 5)),
   ]);
+  const ending = sub.ok && sub.data?.status === "active" && sub.data.cancelAtPeriodEnd ? sub.data : null;
   const packs = billing.listCreditPacks();
+  const gstRateBps = billing.platformSupplier().gstRateBps;
   const activeCode = sub.ok && sub.data?.status === "active" ? sub.data.planCode : null;
   const activePlan = plans.ok ? plans.data.find((p) => p.code === activeCode) : undefined;
 
@@ -34,18 +43,28 @@ export default async function BillingPage() {
     <div className="space-y-8">
       <PageHeader title={t("title")} description={t("description")} />
 
+      {one(sp.cancelled) === "1" && ending ? (
+        <Alert tone="success">
+          <p className="font-semibold">{ta("cancelled.title")}</p>
+          <p>{ta("cancelled.stays", { date: formatDate(ending.periodEnd, locale) })} {ta("cancelled.creditsKept")}</p>
+        </Alert>
+      ) : null}
+      {one(sp.undone) === "1" ? <Alert tone="success">{t("planRuns", { date: sub.ok && sub.data ? formatDate(sub.data.periodEnd, locale) : "" })}</Alert> : null}
+
       <div className="grid gap-3 sm:grid-cols-2">
         <Stat label={t("leadCredits")} value={balance.ok ? balance.data : "-"} hint={t("leadCreditsHint")} />
         <Stat
           label={t("currentPlan")}
           value={activePlan?.name ?? (activeCode ?? t("none"))}
-          hint={sub.ok && sub.data && sub.data.status === "active" ? t("planRuns", { date: formatDate(sub.data.periodEnd, locale) }) : undefined}
+          hint={ending ? ta("status.endsOn", { date: formatDate(ending.periodEnd, locale) }) : sub.ok && sub.data && sub.data.status === "active" ? t("planRuns", { date: formatDate(sub.data.periodEnd, locale) }) : undefined}
         />
       </div>
       {!balance.ok ? <Alert tone="danger">{balance.error}</Alert> : null}
 
-      {sub.ok && sub.data?.status === "active" && activeCode && activePlan && activePlan.monthlyPricePaise > 0 ? (
-        <CancelPlan endsOn={formatDate(sub.data.periodEnd, locale)} />
+      {ending ? (
+        ending.cancelUndoable ? <UndoCancel /> : <p className="text-sm text-muted">{ta("undo.locked")}</p>
+      ) : sub.ok && sub.data?.status === "active" && activeCode && activePlan && activePlan.monthlyPricePaise > 0 ? (
+        <Link href="/billing/cancel" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line px-4 text-sm font-semibold text-ink hover:bg-canvas">{t("cancelPlan")}</Link>
       ) : null}
 
       <section aria-labelledby="plans" className="space-y-3">
@@ -63,8 +82,14 @@ export default async function BillingPage() {
                     <p>{p.monthlyPricePaise === 0 ? <span className="text-2xl font-bold text-ink">{t("free")}</span> : <Money paise={p.monthlyPricePaise} unit="month" className="text-2xl" />}</p>
                     <p className="text-sm text-ink">{t("perMonthCredits", { count: p.monthlyCredits })}</p>
                     <ul className="list-disc space-y-1 pl-5 text-sm text-muted">{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
-                    <div className="mt-auto pt-2">
+                    <div className="mt-auto space-y-2 pt-2">
                       <SubscribeButton planCode={p.code} current={p.code === activeCode} label={p.monthlyPricePaise === 0 ? t("switchFree") : t("buyPlan", { name: p.name })} />
+                      {p.monthlyPricePaise > 0 ? (
+                        <>
+                          <p className="text-xs text-muted">{ta("annualOffer", { price: formatPaise(p.annualPricePaise), percent: p.annualDiscountBps / 100 })}</p>
+                          <Link href={`/billing/checkout?plan=${encodeURIComponent(p.code)}&interval=annual`} className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-line px-4 text-sm font-semibold text-ink hover:bg-canvas">{ta("buyAnnual", { name: p.name })}</Link>
+                        </>
+                      ) : null}
                     </div>
                   </CardBody>
                 </Card>
@@ -74,6 +99,12 @@ export default async function BillingPage() {
         )}
         <p className="text-xs text-muted">{t("priceNote")}</p>
       </section>
+
+      {plans.ok ? (
+        <section aria-label={ta("calc.title")} className="max-w-xl">
+          <PricingCalculator plans={plans.data.map((p) => ({ code: p.code, name: p.name, monthlyPricePaise: p.monthlyPricePaise, monthlyCredits: p.monthlyCredits, annualDiscountBps: p.annualDiscountBps }))} gstRateBps={gstRateBps} />
+        </section>
+      ) : null}
 
       <section aria-labelledby="packs" className="space-y-3">
         <h2 id="packs" className="text-lg font-bold text-ink">{t("buyCredits")}</h2>
@@ -92,6 +123,22 @@ export default async function BillingPage() {
           ))}
         </ul>
       </section>
+
+      {refunds.ok && refunds.data.length > 0 ? (
+        <Card>
+          <CardHeader><CardTitle>{ta("refunds.title")}</CardTitle></CardHeader>
+          <CardBody>
+            <ul className="divide-y divide-line" aria-live="polite">
+              {refunds.data.map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <span className="text-ink">{ta(`refunds.${r.status}`, { amount: formatPaise(r.amountPaise) })}</span>
+                  <span className="text-xs text-muted">{formatDate(r.createdAt, locale)}</span>
+                </li>
+              ))}
+            </ul>
+          </CardBody>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader><CardTitle>{t("invoices")}</CardTitle></CardHeader>

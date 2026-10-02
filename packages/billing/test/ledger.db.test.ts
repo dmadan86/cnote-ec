@@ -54,14 +54,14 @@ describe("ledger (DB)", () => {
     expect(await prisma.creditLedgerEntry.count({ where: { businessId: bizId, reason: "expire" } })).toBe(before);
   });
 
-  it("subscribe grants credits with autoRenew false; cancel falls back to free", async () => {
+  it("subscribe grants credits with autoRenew false; cancel keeps credits and schedules the end", async () => {
     const start = await getBalance(bizId);
     const sub = await subscribe(bizId, "starter");
     expect(sub.autoRenew).toBe(false);
     expect(await getBalance(bizId)).toBe(start + 60);
     const q = await cancelSubscriptionWithQuote(bizId);
     expect(q.refundPaise).toBe(0);
-    expect((await getActiveSubscription(bizId))?.planCode).toBe("free");
+    expect(await getActiveSubscription(bizId)).toMatchObject({ planCode: "starter", cancelAtPeriodEnd: true }); // stays until the period ends
     expect(await getBalance(bizId)).toBe(start + 60);
   });
 });

@@ -102,6 +102,10 @@ export interface DomainEventPayloads {
   PaymentSucceeded: { paymentOrderId: string; businessId: string; purpose: string; totalPaise: number; invoiceNumber: string | null };
   PaymentFailed: { paymentOrderId: string; businessId: string; purpose: string; reason: string };
   PaymentRefunded: { paymentOrderId: string; businessId: string; amountPaise: number; creditNoteNumber: string | null };
+  /** The provider confirmed the money is back with the payer (immediately, via webhook or a retry). */
+  RefundCompleted: { refundId: string; paymentOrderId: string; businessId: string; amountPaise: number };
+  /** A refund exhausted its automatic retries: ops must act (alert + metric). */
+  RefundDeadLettered: { refundId: string; paymentOrderId: string; businessId: string; amountPaise: number; attempts: number; lastError: string | null };
   // escrow via PA partner (ADR-012, Phase 2, flag ESCROW_ENABLED)
   EscrowCreated:          { escrowId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; amountPaise: number; feePaise: number; partner: string };
   /** v2 adds matchId (null for network orders) so the ADR-012 gate "accepted leads -> escrowed orders" is measurable */
@@ -163,7 +167,10 @@ export interface DomainEventPayloads {
   CreditConsumed: { businessId: string; txnId: string; refType: string; refId: string };
   CreditRefunded: { businessId: string; txnId: string; refType: string; refId: string };
   SubscriptionStarted: { businessId: string; subscriptionId: string; planCode: string };
-  SubscriptionCancelled: { businessId: string; subscriptionId: string; planCode: string };
+  /** v2 (ADR-005): adds the interval, the pro-rated refund requested through the payment provider (paise, GST-inclusive) and the optional reason. v1 had only the first three fields. */
+  SubscriptionCancelled: { businessId: string; subscriptionId: string; planCode: string; billingInterval: "monthly" | "annual"; refundPaise: number; unusedMonths: number; effectiveAt: string; reason: string | null };
+  /** The paid period ends soon and will NOT renew by itself: asks the owner to confirm a renewal (ADR-005). */
+  SubscriptionRenewalDue: { businessId: string; subscriptionId: string; planCode: string; billingInterval: "monthly" | "annual"; periodEnd: string };
 }
 
 export type DomainEventType = keyof DomainEventPayloads;
@@ -250,6 +257,8 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   PaymentSucceeded: 1,
   PaymentFailed: 1,
   PaymentRefunded: 1,
+  RefundCompleted: 1,
+  RefundDeadLettered: 1,
   KycSubmitted: 1,
   KycDecided: 1,
   AuditCompleted: 1,
@@ -294,7 +303,8 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   CreditConsumed: 1,
   CreditRefunded: 1,
   SubscriptionStarted: 1,
-  SubscriptionCancelled: 1,
+  SubscriptionCancelled: 2,
+  SubscriptionRenewalDue: 1,
 };
 
 export interface DomainEvent<T extends DomainEventType = DomainEventType> {

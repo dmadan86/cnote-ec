@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DomainError } from "@cnote/core";
-import { cashfree, configuredProvider, getProvider, header, mock, mockSign, razorpay, redact } from "../src/payment-providers";
+import { cashfree, configuredProvider, getProvider, header, mock, mockAllowed, mockSign, razorpay, redact } from "../src/payment-providers";
 
 const rzEnv = { RAZORPAY_KEY_ID: "k", RAZORPAY_KEY_SECRET: "s", RAZORPAY_WEBHOOK_SECRET: "whsec" } as NodeJS.ProcessEnv;
 const cfEnv = { CASHFREE_APP_ID: "a", CASHFREE_SECRET_KEY: "sk", NODE_ENV: "test" } as NodeJS.ProcessEnv;
@@ -135,6 +135,19 @@ describe("mock + selection", () => {
     expect(() => configuredProvider({ PAYMENTS_PROVIDER: "paypal" } as never)).toThrow();
     expect(() => getProvider("mock", { NODE_ENV: "production" } as never)).toThrow(/production/);
     expect(getProvider("mock", { NODE_ENV: "production", PAYMENTS_ALLOW_MOCK_IN_PRODUCTION: "1" } as never).name).toBe("mock");
+    // never honoured next to a real gateway in production (loud error), default off, loud warning when on
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(mockAllowed({ NODE_ENV: "production", PAYMENTS_ALLOW_MOCK_IN_PRODUCTION: "1", PAYMENTS_PROVIDER: "razorpay" } as never)).toBe(false);
+    expect(mockAllowed({ NODE_ENV: "production", PAYMENTS_ALLOW_MOCK_IN_PRODUCTION: "1", PAYMENTS_PROVIDER: "cashfree" } as never)).toBe(false);
+    expect(err).toHaveBeenCalledWith(expect.stringContaining("IGNORED"));
+    expect(() => getProvider("mock", { NODE_ENV: "production", PAYMENTS_ALLOW_MOCK_IN_PRODUCTION: "1", PAYMENTS_PROVIDER: "razorpay" } as never)).toThrow(/production/);
+    expect(mockAllowed({ NODE_ENV: "production" } as never)).toBe(false);
+    expect(mockAllowed({ NODE_ENV: "production", PAYMENTS_ALLOW_MOCK_IN_PRODUCTION: "0" } as never)).toBe(false);
+    expect(mockAllowed({ NODE_ENV: "development" } as never)).toBe(true);
+    expect(mockAllowed({ NODE_ENV: "production", PAYMENTS_ALLOW_MOCK_IN_PRODUCTION: "1" } as never)).toBe(true);
+    err.mockRestore();
+    warn.mockRestore();
     expect(getProvider("cashfree", cfEnv).name).toBe("cashfree");
     expect(getProvider("razorpay", rzEnv).name).toBe("razorpay");
   });
@@ -143,5 +156,19 @@ describe("mock + selection", () => {
     expect(header({ "X-A": "1" }, "x-a")).toBe("1");
     expect(header({}, "x-a")).toBeUndefined();
     expect(redact({ a: [{ email: "x", ok: 1 }], vpa: "u@upi" })).toEqual({ a: [{ ok: 1 }] });
+  });
+});
+
+describe("mock gateway in production", () => {
+  it("logs a loud warning (once) when the e2e-only flag turns it on", async () => {
+    vi.resetModules();
+    const fresh = await import("../src/payment-providers");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const env = { NODE_ENV: "production", PAYMENTS_ALLOW_MOCK_IN_PRODUCTION: "1" } as never;
+    expect(fresh.mockAllowed(env)).toBe(true);
+    expect(fresh.mockAllowed(env)).toBe(true);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("WARNING"));
+    warn.mockRestore();
   });
 });

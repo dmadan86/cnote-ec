@@ -3,6 +3,9 @@ export interface PlanView {
   name: string;
   monthlyPricePaise: number;
   monthlyCredits: number;
+  /** Annual billing discount (bps off 12 x monthly) and the resulting ex-GST annual price. */
+  annualDiscountBps: number;
+  annualPricePaise: number;
   features: string[];
 }
 export interface SubscriptionView {
@@ -12,6 +15,11 @@ export interface SubscriptionView {
   periodStart: string;
   periodEnd: string;
   autoRenew: boolean;
+  billingInterval: "monthly" | "annual";
+  /** Cancelled by the owner: still active until periodEnd, then ends (nothing renews). */
+  cancelAtPeriodEnd: boolean;
+  /** One-tap undo is possible (no refund was started and the period was not shortened). */
+  cancelUndoable: boolean;
 }
 export interface LedgerEntryView {
   id: string;
@@ -22,11 +30,21 @@ export interface LedgerEntryView {
   expiresAt: string | null;
   createdAt: string;
 }
-/** Result of a self-serve cancel; `refundPaise` is recorded (payment is mocked in Phase 1). */
+/**
+ * What cancelling does (preview) and what it did (result). `refundPaise` is the GST-inclusive amount returned through the
+ * payment provider: the unused full months of an annual plan, 0 for monthly plans. The paid plan ends at `effectiveAt`
+ * (now); the business moves to Free for the rest of the original period and keeps every credit lot until its own expiry.
+ */
 export interface CancellationQuote {
   subscriptionId: string;
   planCode: string;
+  billingInterval: "monthly" | "annual";
   refundPaise: number;
+  unusedMonths: number;
+  effectiveAt: string;
+  originalPeriodEnd: string;
+  creditsKept: number;
+  creditLots: CreditLot[];
 }
 /** Remaining spendable credits grouped by expiry (for "N credits expire on …" UI). */
 export interface CreditLot {

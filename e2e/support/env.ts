@@ -41,6 +41,9 @@ export const e2eEnv: Record<string, string> = {
   MEDIA_DRIVER: "local",
   MEDIA_DIR: ".data/media-e2e",
   // Feature flags stay at their defaults (off). A spec that needs one must set it here on purpose and say why.
+  // The servers run in production mode, where the mock payment gateway is refused. The seller billing spec cancels a seeded
+  // annual plan and needs the mock provider's refund to succeed (ADR-005); nothing here charges money.
+  PAYMENTS_ALLOW_MOCK_IN_PRODUCTION: "1",
   SENTRY_DSN: "",
   NEXT_PUBLIC_SENTRY_DSN: "",
   NEXT_PUBLIC_CLARITY_PROJECT_ID: "",

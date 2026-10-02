@@ -163,7 +163,7 @@ describe("plans", () => {
   });
   it("getPlan unknown -> not_found; toPlanView tolerates non-array features", async () => {
     await expect(getPlan("nope-zzz")).rejects.toMatchObject({ code: "not_found" });
-    expect(toPlanView({ code: "x", name: "X", monthlyPricePaise: 5n, monthlyCredits: 1, features: { a: 1 } })).toEqual({ code: "x", name: "X", monthlyPricePaise: 5, monthlyCredits: 1, features: [] });
+    expect(toPlanView({ code: "x", name: "X", monthlyPricePaise: 5n, monthlyCredits: 1, annualDiscountBps: 2000, features: { a: 1 } })).toEqual({ code: "x", name: "X", monthlyPricePaise: 5, monthlyCredits: 1, annualDiscountBps: 2000, annualPricePaise: 48, features: [] });
   });
 });
 
@@ -191,21 +191,26 @@ describe("subscriptions", () => {
     expect(new Date(p).getTime() - new Date(s2.periodStart).getTime()).toBe(30 * 86_400_000);
   });
 
-  it("cancel with no paid plan -> not_found; cancel keeps credits, drops to free with no fresh grant (no farming)", async () => {
+  it("cancel with no paid plan -> not_found; cancel keeps the plan until the period end (no refund, no new grant), then the lapse job ends it with the event", async () => {
     await expect(cancelSubscription(b)).rejects.toMatchObject({ code: "not_found" });
     await startFreePlan(b);
     await expect(cancelSubscriptionWithQuote(b)).rejects.toMatchObject({ code: "not_found" });
     await subscribe(b, "starter");
     const bal = await getBalance(b);
+    const before = (await getActiveSubscription(b))!;
     const q = await cancelSubscriptionWithQuote(b);
-    expect(q).toMatchObject({ planCode: "starter", refundPaise: 0 });
+    expect(q).toMatchObject({ planCode: "starter", billingInterval: "monthly", refundPaise: 0, effectiveAt: before.periodEnd });
+    // still the paid plan, flagged; nothing emitted yet; undo is available (nothing was refunded)
+    expect(await getActiveSubscription(b)).toMatchObject({ planCode: "starter", status: "active", cancelAtPeriodEnd: true, cancelUndoable: true, periodEnd: before.periodEnd });
     expect(await getBalance(b)).toBe(bal);
-    expect((await getActiveSubscription(b))!.planCode).toBe("free");
-    expect(await events(b, "SubscriptionCancelled")).toBe(1);
-    // farming loop: subscribe/cancel repeatedly, free credits granted only by paid subscribe grants
-    await subscribe(b, "starter");
-    await cancelSubscription(b);
-    expect(await getBalance(b)).toBe(bal + 60);
+    expect(await events(b, "SubscriptionCancelled")).toBe(0);
+    await expect(cancelSubscriptionWithQuote(b)).rejects.toMatchObject({ code: "conflict" });
+    // period end: ends, event with the effective date, Free starts (and gets its monthly credits)
+    await endLapsedSubscriptions(new Date(new Date(before.periodEnd).getTime() + 1000));
+    expect((await getActiveSubscription(b)) === null || (await getActiveSubscription(b))!.planCode === "free").toBe(true);
+    const ev = await prisma.domainEvent.findMany({ where: { aggregateId: b, type: "SubscriptionCancelled" } });
+    expect(ev).toHaveLength(1);
+    expect(ev[0]!.payload).toMatchObject({ planCode: "starter", refundPaise: 0, billingInterval: "monthly", effectiveAt: before.periodEnd });
     expect(await prisma.subscription.count({ where: { businessId: b, autoRenew: true } })).toBe(0);
   });
 
@@ -237,10 +242,10 @@ async function countOtherLapsed(): Promise<number> {
 }
 
 describe("worker module", () => {
-  it("registers BusinessCreated handler and two jobs", async () => {
+  it("registers BusinessCreated handler and the scheduled jobs", async () => {
     expect(worker.name).toBe("billing");
     expect(Object.keys(worker.handlers ?? {})).toEqual(["BusinessCreated"]);
-    expect(worker.jobs!.map((j) => j.name)).toEqual(["billing.end-subscriptions", "billing.expire-credits"]);
+    expect(worker.jobs!.map((j) => j.name)).toEqual(["billing.end-subscriptions", "billing.annual-credits", "billing.renewal-reminders", "billing.refund-retry", "billing.expire-credits"]);
     await worker.handlers!.BusinessCreated!({ payload: { businessId: b } } as never);
     expect(await getBalance(b)).toBe(10);
     for (const j of worker.jobs!) await j.run();

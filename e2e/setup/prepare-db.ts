@@ -72,6 +72,7 @@ async function main() {
   // Not `pnpm db:seed`: that script passes --env-file=.env.local, which does not exist in CI.
   run("pnpm", ["--filter", "@cnote/worker", "exec", "tsx", path.join(root, "apps/worker/src/seed.ts")]);
   run("pnpm", ["--filter", "@cnote/worker", "exec", "tsx", path.join(root, "e2e/setup/backfill-live.ts")]);
+  run("pnpm", ["--filter", "@cnote/worker", "exec", "tsx", path.join(root, "e2e/setup/seed-billing.ts")]);
   await flushRedis();
   console.log("[e2e] database ready");
 
