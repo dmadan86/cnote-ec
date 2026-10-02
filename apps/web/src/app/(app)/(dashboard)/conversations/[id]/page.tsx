@@ -43,7 +43,7 @@ export default async function ConversationPage(props: PageProps<"/conversations/
             <MessageForm conversationId={convo.id} />
           </CardBody>
         </Card>
-        <DealReport conversationId={convo.id} matchId={convo.matchId} current={convo.dealReported} />
+        <DealReport conversationId={convo.id} matchId={convo.matchId} current={convo.dealReported} sellerClaimedWon={convo.sellerClaimedWon} />
       </div>
     </Container>
   );

@@ -138,6 +138,7 @@
     "send": "పంపు",
     "dealTitle": "ఈ డీల్ ఖరారైందా?",
     "dealLast": "చివరి సమాధానం: <strong>{answer}</strong>. మీరు దీన్ని ఎప్పుడైనా మార్చవచ్చు.",
+    "dealSellerClaimed": "The seller says this deal closed. It is only recorded once you confirm it below.",
     "deal": {
       "won": "అవును, డీల్ పూర్తయింది",
       "lost": "లేదు, విఫలమైంది",

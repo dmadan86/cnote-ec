@@ -138,6 +138,7 @@
     "send": "पाठवा",
     "dealTitle": "हा व्यवहार पूर्ण झाला का?",
     "dealLast": "शेवटचे उत्तर: <strong>{answer}</strong>. तुम्ही ते केव्हाही बदलू शकता.",
+    "dealSellerClaimed": "The seller says this deal closed. It is only recorded once you confirm it below.",
     "deal": {
       "won": "होय, व्यवहार झाला",
       "lost": "नाही, फिसकटला",

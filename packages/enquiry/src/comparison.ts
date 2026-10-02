@@ -67,7 +67,7 @@ export async function getQuoteComparison(actor: Actor, enquiryId: string): Promi
   if (!/^[0-9a-f-]{36}$/i.test(enquiryId)) return null;
   const enq = await prisma.enquiry.findFirst({
     where: { id: enquiryId, buyerBusinessId: actor.businessId },
-    include: { matches: { include: { conversation: { include: { quotes: { orderBy: { createdAt: "asc" } } } }, dealReports: { orderBy: { createdAt: "desc" }, take: 1 } } } },
+    include: { matches: { include: { conversation: { include: { quotes: { orderBy: { createdAt: "asc" } } } }, dealReports: { orderBy: { createdAt: "desc" }, take: 20 } } } },
   });
   if (!enq) return null;
   const withQuotes = enq.matches.filter((m) => (m.conversation?.quotes.length ?? 0) > 0);
@@ -97,7 +97,8 @@ export async function getQuoteComparison(actor: Actor, enquiryId: string): Promi
         totalPaise: Number(latest.pricePaise) * quantity,
         quantityBasis: requested === null ? ("quoted" as const) : ("requested" as const),
         quantity,
-        decision: m.dealReports[0]?.outcome ?? null,
+        // a seller-reported "won" is an unconfirmed claim, never the buyer's decision (security audit M7)
+        decision: m.dealReports.find((r) => !(r.outcome === "won" && r.reportedByBusinessId === m.sellerBusinessId))?.outcome ?? null,
         earlierQuotes: quotes.length - 1,
       };
     })
@@ -129,7 +130,7 @@ export async function decideQuote(actor: Actor, quoteId: string, decision: "acce
   const q = await getQuote(actor, quoteId);
   if (!q || q.role !== "buyer") throw new DomainError("not_found", "Quote not found");
   if (decision !== "accept" && decision !== "decline") throw new DomainError("validation", "Invalid decision");
-  if (decision === "decline") return reportDeal(actor, q.matchId, "lost");
+  if (decision === "decline") { await reportDeal(actor, q.matchId, "lost"); return; }
   const enq = await prisma.enquiry.findUnique({ where: { id: q.enquiryId }, select: { quantity: true } });
   await reportDeal(actor, q.matchId, "won", q.pricePaise * (enq?.quantity ?? q.quantity));
 }

@@ -134,6 +134,7 @@
     "send": "Send",
     "dealTitle": "Did this deal close?",
     "dealLast": "Last answer: <strong>{answer}</strong>. You can update it any time.",
+    "dealSellerClaimed": "The seller says this deal closed. It is only recorded once you confirm it below.",
     "deal": {
       "won": "Yes, deal done",
       "lost": "No, it fell through",

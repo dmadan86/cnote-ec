@@ -37,6 +37,8 @@ export interface DomainEventPayloads {
   MessageSent: { conversationId: string; messageId: string; senderPersonId: string };
   QuoteSent: { quoteId: string; conversationId: string; sellerBusinessId: string; pricePaise: number; quantity: number };
   DealReportedOffPlatform: { matchId: string; reportedByBusinessId: string; outcome: "won" | "lost" | "pending"; valuePaise?: number };
+  /** the seller reports the deal as won: advisory only, the buyer is asked to confirm (security audit M7) */
+  DealClaimedBySeller: { matchId: string; sellerBusinessId: string; buyerBusinessId: string; conversationId: string | null; valuePaise?: number };
   // reviews (user-generated content; public only after staff approval)
   ReviewSubmitted: { reviewId: string; listingId: string; sellerBusinessId: string; authorPersonId: string; rating: number; aiVerdict: string | null };
   ReviewModerated: { reviewId: string; listingId: string; sellerBusinessId: string; status: "approved" | "rejected"; rating: number; moderatedBy: string };
@@ -213,6 +215,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   MessageSent: 1,
   QuoteSent: 1,
   DealReportedOffPlatform: 1,
+  DealClaimedBySeller: 1,
   ReviewSubmitted: 1,
   ReviewModerated: 1,
   CommentSubmitted: 1,

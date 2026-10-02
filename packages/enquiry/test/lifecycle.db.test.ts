@@ -646,9 +646,20 @@ describe("messaging, quotes and deal reports", () => {
     await expect(reportDeal(buyer, m.id, "won", 1.5)).rejects.toMatchObject({ code: "validation" });
     expect((await getConversation(buyer, cid))!.dealReported).toBeNull();
     await reportDeal(buyer, m.id, "pending");
-    await reportDeal(seller, m.id, "won", 500_000);
-    expect((await getConversation(buyer, cid))!.dealReported).toBe("won");
+    // security audit M7: a seller's "won" is advisory: stored + buyer prompted, but it is not the buyer's answer and makes no order
+    expect(await reportDeal(seller, m.id, "won", 500_000)).toEqual({ advisory: true });
+    const asBuyer = (await getConversation(buyer, cid))!;
+    expect(asBuyer.dealReported).toBe("pending");
+    expect(asBuyer.sellerClaimedWon).toBe(true);
+    expect((await getConversation(seller, cid))!.dealReported).toBe("won");
+    expect(await prisma.order.count({ where: { matchId: m.id } })).toBe(0);
+    expect(await prisma.domainEvent.count({ where: { type: "DealClaimedBySeller", aggregateId: m.id } })).toBe(1);
+    expect(await prisma.domainEvent.count({ where: { type: "DealReportedOffPlatform", aggregateId: m.id, payload: { path: ["reportedByBusinessId"], equals: seller.businessId } } })).toBe(0);
     expect(await prisma.dealReport.count({ where: { matchId: m.id } })).toBe(2);
+    // the buyer's own confirmation is what creates the order
+    expect(await reportDeal(buyer, m.id, "won", 500_000)).toEqual({ advisory: false });
+    expect(await prisma.order.count({ where: { matchId: m.id } })).toBe(1);
+    expect((await getConversation(buyer, cid))!.dealReported).toBe("won");
     await reportBuyerProblem(seller, m.id, "buyer_unreachable");
     await expect(reportDeal(seller, m.id, "lost")).rejects.toMatchObject({ code: "conflict" });
     await expect(reportDeal(buyer, randomUUID(), "won")).rejects.toMatchObject({ code: "not_found" });

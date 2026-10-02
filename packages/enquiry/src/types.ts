@@ -130,6 +130,8 @@ export interface ConversationView {
   messages: { id: string; senderPersonId: string; body: string; createdAt: string }[];
   quotes: QuoteView[];
   dealReported: "won" | "lost" | "pending" | null;
+  /** The seller says the deal closed; only the buyer's own "won" report makes it an order (security audit M7). */
+  sellerClaimedWon?: boolean;
   /** Which side the requesting actor is on. */
   role?: "buyer" | "seller";
   enquiryId?: string;

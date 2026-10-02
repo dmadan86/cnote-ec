@@ -138,6 +138,7 @@
     "send": "ಕಳುಹಿಸಿ",
     "dealTitle": "ಈ ವ್ಯವಹಾರ ಮುಗಿಯಿತೇ?",
     "dealLast": "ಕೊನೆಯ ಉತ್ತರ: <strong>{answer}</strong>. ಯಾವಾಗ ಬೇಕಾದರೂ ಬದಲಿಸಬಹುದು.",
+    "dealSellerClaimed": "The seller says this deal closed. It is only recorded once you confirm it below.",
     "deal": {
       "won": "ಹೌದು, ವ್ಯವಹಾರ ಮುಗಿಯಿತು",
       "lost": "ಇಲ್ಲ, ಆಗಲಿಲ್ಲ",

@@ -137,6 +137,7 @@
     "send": "அனுப்பு",
     "dealTitle": "இந்த ஒப்பந்தம் முடிந்ததா?",
     "dealLast": "கடைசிப் பதில்: <strong>{answer}</strong>. எப்போது வேண்டுமானாலும் மாற்றலாம்.",
+    "dealSellerClaimed": "The seller says this deal closed. It is only recorded once you confirm it below.",
     "pickSendNone": "அனுப்பு",
     "deal": {
       "won": "ஆம், ஒப்பந்தம் முடிந்தது",

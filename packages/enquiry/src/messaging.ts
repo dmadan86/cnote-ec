@@ -31,10 +31,12 @@ export async function getConversation(actor: Actor, conversationId: string): Pro
   const r = await loadForActor(actor, conversationId);
   if (!r) return null;
   const { c, role } = r;
-  const [messages, quotes, deal, profs] = await Promise.all([
+  const [messages, quotes, deal, sellerWon, profs] = await Promise.all([
     prisma.message.findMany({ where: { conversationId }, orderBy: { createdAt: "desc" }, take: 500 }),
     prisma.quote.findMany({ where: { conversationId }, orderBy: { createdAt: "asc" } }),
-    prisma.dealReport.findFirst({ where: { matchId: c.matchId }, orderBy: { createdAt: "desc" } }),
+    // the buyer sees authoritative reports only: a seller's "won" is a claim awaiting the buyer's confirmation (security audit M7)
+    prisma.dealReport.findFirst({ where: { matchId: c.matchId, ...(role === "buyer" ? { NOT: { outcome: "won", reportedByBusinessId: c.match.sellerBusinessId } } : {}) }, orderBy: { createdAt: "desc" } }),
+    prisma.dealReport.findFirst({ where: { matchId: c.matchId, outcome: "won", reportedByBusinessId: c.match.sellerBusinessId }, select: { id: true } }),
     profiles([c.match.enquiry.buyerBusinessId, c.match.sellerBusinessId]),
   ]);
   return {
@@ -47,6 +49,7 @@ export async function getConversation(actor: Actor, conversationId: string): Pro
     messages: messages.reverse().map((m) => ({ id: m.id, senderPersonId: m.senderPersonId, body: m.body, createdAt: m.createdAt.toISOString() })),
     quotes: quotes.map(toQuoteView),
     dealReported: deal?.outcome ?? null,
+    sellerClaimedWon: !!sellerWon,
     role,
   };
 }
@@ -109,20 +112,35 @@ export async function sendQuote(
   }
 }
 
-/** One-tap "did this close?" (ADR-007). Either party; append-only, latest report wins in the UI. */
-export async function reportDeal(actor: Actor, matchId: string, outcome: "won" | "lost" | "pending", valuePaise?: number | null): Promise<void> {
+/**
+ * One-tap "did this close?" (ADR-007). Either party; append-only, latest report wins in the UI.
+ * Security audit M7: only the BUYER's "won" creates the Order and counts as a closed deal. A seller's "won" is an advisory
+ * claim: it is stored, emits DealClaimedBySeller (the buyer is prompted to confirm) and creates nothing, so a seller cannot
+ * fabricate orders (and the escrow / credit / review flows hanging off them) against a buyer.
+ */
+export async function reportDeal(actor: Actor, matchId: string, outcome: "won" | "lost" | "pending", valuePaise?: number | null): Promise<{ advisory: boolean }> {
   if (!["won", "lost", "pending"].includes(outcome)) throw new DomainError("validation", "Invalid outcome", undefined, "enquiries.invalidOutcome");
   if (valuePaise != null && (!Number.isInteger(valuePaise) || valuePaise < 0)) throw new DomainError("validation", "Invalid deal value", undefined, "enquiries.invalidDealValue");
   const m = await prisma.match.findUnique({ where: { id: matchId }, include: { enquiry: { select: { buyerBusinessId: true } } } });
   const participant = m && (m.sellerBusinessId === actor.businessId || m.enquiry.buyerBusinessId === actor.businessId);
   if (!m || !participant) throw new DomainError("not_found", "Conversation not found");
   if (m.status !== "accepted") throw new DomainError("conflict", "Only accepted leads can be reported.");
+  const isBuyer = m.enquiry.buyerBusinessId === actor.businessId;
+  const advisory = outcome === "won" && !isBuyer;
   await prisma.$transaction(async (tx) => {
     await tx.dealReport.create({ data: { matchId, reportedByBusinessId: actor.businessId, outcome, valuePaise: valuePaise == null ? null : BigInt(valuePaise) } });
+    if (advisory) {
+      const convo = await tx.conversation.findUnique({ where: { matchId }, select: { id: true } });
+      await emit(tx, "DealClaimedBySeller", { type: "match", id: matchId }, {
+        matchId, sellerBusinessId: m.sellerBusinessId, buyerBusinessId: m.enquiry.buyerBusinessId, conversationId: convo?.id ?? null, ...(valuePaise != null ? { valuePaise } : {}),
+      });
+      return;
+    }
     await emit(tx, "DealReportedOffPlatform", { type: "match", id: matchId }, {
       matchId, reportedByBusinessId: actor.businessId, outcome, ...(valuePaise != null ? { valuePaise } : {}),
     });
-    // ADR-007: a "won" deal becomes an off-platform Order record (idempotent per match).
+    // ADR-007: a buyer-confirmed "won" deal becomes an off-platform Order record (idempotent per match).
     if (outcome === "won") await recordOrderTx(tx, matchId, { totalPaise: valuePaise ?? null });
   });
+  return { advisory };
 }
