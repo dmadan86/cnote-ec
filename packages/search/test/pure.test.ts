@@ -17,6 +17,10 @@ describe("normaliseQuery", () => {
     expect(normaliseQuery("T-shirts manufacturers in India")).toEqual({ text: "t-shirts manufacturers", location: null });
     expect(normaliseQuery("boxes in bulk").location).toBeNull();
   });
+  it("is idempotent on punctuation next to a location keyword (fast-check counterexample)", () => {
+    const once = normaliseQuery("in:A");
+    expect(normaliseQuery(once.text).text).toBe(once.text);
+  });
   it("never returns empty when the query was only filler", () => expect(normaliseQuery("chahiye").text).toBe("chahiye"));
 });
 
