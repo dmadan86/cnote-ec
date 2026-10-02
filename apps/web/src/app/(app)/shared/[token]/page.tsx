@@ -25,15 +25,12 @@ export default async function SharedWishlistPage(props: PageProps<"/shared/[toke
   if (!list) {
     return (
       <Container className="py-8">
-        <EmptyState
-          title={t("shared.notFoundTitle")}
-          description={t("shared.notFoundBody")}
-          action={
-            <Link href="/search" className={buttonClasses("primary")}>
-              <Heart className="size-4" aria-hidden /> {t("shared.browse")}
-            </Link>
-          }
-        />
+        <PageHeader title={t("shared.notFoundTitle")} description={t("shared.notFoundBody")} />
+        <p className="mt-6">
+          <Link href="/search" className={buttonClasses("primary")}>
+            <Heart className="size-4" aria-hidden /> {t("shared.browse")}
+          </Link>
+        </p>
       </Container>
     );
   }
