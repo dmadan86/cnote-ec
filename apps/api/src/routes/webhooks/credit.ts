@@ -5,6 +5,7 @@ import { DomainError, rateLimit } from "@cnote/core";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { AppEnv } from "../../types";
+import { readBodyCapped } from "../../lib/body";
 import { clientIp } from "@cnote/security/client-ip";
 
 const MAX_BODY_BYTES = 256_000;
@@ -15,9 +16,8 @@ export const creditWebhook = new Hono<AppEnv>();
 creditWebhook.post("/:provider", async (c) => {
   const provider = c.req.param("provider");
   if (!(await rateLimit(`credit-hook:${ip(c)}`, 600, 60))) return c.text("Too many requests", 429, { "Retry-After": "60" });
-  if (Number(c.req.header("content-length") ?? 0) > MAX_BODY_BYTES) return c.text("Payload too large", 413);
-  const raw = new Uint8Array(await c.req.arrayBuffer());
-  if (raw.byteLength > MAX_BODY_BYTES) return c.text("Payload too large", 413);
+  const raw = await readBodyCapped(c.req.raw, MAX_BODY_BYTES);
+  if (!raw) return c.text("Payload too large", 413);
   const { handleCreditWebhook } = await import("@cnote/credit");
   try {
     const r = await handleCreditWebhook(provider, raw, c.req.raw.headers);

@@ -11,6 +11,7 @@ import { rateLimit } from "@cnote/core";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { AppEnv } from "../../types";
+import { readBodyCapped } from "../../lib/body";
 import { clientIp } from "@cnote/security/client-ip";
 
 const MAX_BODY_BYTES = 512_000;
@@ -26,8 +27,9 @@ ondcRoutes.post("/ondc/:action", async (c) => {
   if (!(m.INBOUND_ACTIONS as readonly string[]).includes(action)) return c.json({ error: "not found" }, 404);
   // Generous: the gateway fans out searches. Keyed by the sender's declared IP, not by an unauthenticated field.
   if (!(await rateLimit(`ondc:${ip(c)}`, 600, 60))) return c.json(m.nack(m.ERROR_CODES.unavailable, "rate limited"), 429, { "Retry-After": "60" });
-  if (Number(c.req.header("content-length") ?? 0) > MAX_BODY_BYTES) return c.json(m.nack(m.ERROR_CODES.badRequest, "payload too large"), 413);
-  const rawBody = await c.req.text();
+  const bytes = await readBodyCapped(c.req.raw, MAX_BODY_BYTES);
+  if (!bytes) return c.json(m.nack(m.ERROR_CODES.badRequest, "payload too large"), 413);
+  const rawBody = new TextDecoder().decode(bytes);
   try {
     const r = await m.receiveInbound({ action, rawBody, authorization: c.req.header("authorization"), gatewayAuthorization: c.req.header("x-gateway-authorization") });
     return c.json(r.body as object, r.status as 200);
@@ -41,7 +43,9 @@ ondcRoutes.post("/on_subscribe", async (c) => {
   const m = await ondc();
   if (!m.isEnabled()) return c.json({ error: "not found" }, 404);
   if (!(await rateLimit(`ondc-sub:${ip(c)}`, 30, 60))) return c.json({ error: "rate limited" }, 429, { "Retry-After": "60" });
-  const raw = await c.req.text();
+  const rawBytes = await readBodyCapped(c.req.raw, 10_000);
+  if (!rawBytes) return c.json({ error: "payload too large" }, 413);
+  const raw = new TextDecoder().decode(rawBytes);
   if (raw.length > 10_000) return c.json({ error: "payload too large" }, 413);
   let json: unknown = null;
   try {

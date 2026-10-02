@@ -3,11 +3,14 @@
 import { DomainError } from "@cnote/core";
 import { prisma, type Tx } from "@cnote/db";
 import { storeOffers } from "./applications";
+import { assertCreditEnabled } from "./config";
 import { applyDpd, recordCancellation, recordDisbursal, recordRepayment, recordWriteOff } from "./loans";
-import { assertMockAllowed, getCreditPartner, MockPartner, type PartnerEvent } from "./partner";
+import { activePartnerName, assertMockAllowed, getCreditPartner, MockPartner, mockPartnerAllowed, type PartnerEvent } from "./partner";
 import { ports } from "./ports";
-import type { Product } from "./types";
+import type { Actor, Product } from "./types";
 import { num } from "./views";
+
+const UUID = /^[0-9a-f-]{36}$/i;
 
 export interface WebhookResult { status: "processed" | "duplicate" | "ignored" }
 
@@ -59,6 +62,10 @@ async function apply(tx: Tx, partnerName: string, e: PartnerEvent, after: After[
 
 export async function handleCreditWebhook(partnerName: string, raw: Uint8Array, headers: Headers): Promise<WebhookResult> {
   const partner = getCreditPartner(partnerName);
+  // Security audit H1: refuse while the feature is off, and accept ONLY the configured partner (a forged `mock` event must
+  // never move a loan while a real partner is configured). Same not_found so nothing is revealed.
+  assertCreditEnabled();
+  if (partnerName !== activePartnerName() || (partnerName === "mock" && !mockPartnerAllowed())) throw new DomainError("not_found", "Unknown credit partner.", undefined, "credit.unknownCreditPartner");
   const event = partner.verifyWebhook(raw, headers);
   if (!event) throw new DomainError("unauthenticated", "Invalid webhook signature.");
   const after: After[] = [];
@@ -72,10 +79,13 @@ export async function handleCreditWebhook(partnerName: string, raw: Uint8Array, 
 }
 
 /** Dev checkout: feed the accepted offer's disbursal through the real webhook path (refused in production unless CREDIT_MOCK_CHECKOUT=1). */
-export async function simulateMockDisbursal(applicationId: string): Promise<WebhookResult> {
+export async function simulateMockDisbursal(actor: Actor, applicationId: string): Promise<WebhookResult> {
   assertMockAllowed();
+  if (!UUID.test(applicationId)) throw new DomainError("not_found", "Application not found.");
   const app = await prisma.creditApplication.findUnique({ where: { id: applicationId } });
-  if (!app || app.partner !== "mock" || app.status !== "accepted" || !app.partnerRef) throw new DomainError("conflict", "Only an accepted mock application can be disbursed.");
+  // security audit H1: only the owning business may trigger its own simulated disbursal
+  if (!app || app.businessId !== actor.businessId) throw new DomainError("not_found", "Application not found.");
+  if (app.partner !== "mock" || app.status !== "accepted" || !app.partnerRef) throw new DomainError("conflict", "Only an accepted mock application can be disbursed.");
   const mock = getCreditPartner("mock") as MockPartner;
   const { raw, headers } = mock.signedEvent({ eventId: `disb:${app.id}`, type: "loan.disbursed", partnerRef: app.partnerRef, loanRef: `mockloan:${app.id}` });
   return handleCreditWebhook("mock", raw, headers);

@@ -38,7 +38,7 @@ describe("mock partner", () => {
     expect(p.verifyWebhook(raw, new Headers({ [SIGNATURE_HEADER]: "00" }))).toBeNull();
     expect(p.verifyWebhook(new TextEncoder().encode(Buffer.from(raw).toString().replace("5", "9")), headers)).toBeNull();
     const bad = new TextEncoder().encode("not json");
-    expect(p.verifyWebhook(bad, new Headers({ [SIGNATURE_HEADER]: hmacHex("mock-credit-webhook-secret", bad) }))).toBeNull();
+    expect(p.verifyWebhook(bad, new Headers({ [SIGNATURE_HEADER]: hmacHex("test-credit-webhook-secret", bad) }))).toBeNull();
   });
   it("uses CREDIT_WEBHOOK_SECRET when set", () => {
     vi.stubEnv("CREDIT_WEBHOOK_SECRET", "s3cret");
@@ -73,8 +73,9 @@ describe("real adapter stub + factory", () => {
     expect(s.lender.name).toBe("Acme NBFC");
     for (const call of [() => s.submitApplication(), () => s.getOffers(), () => s.acceptOffer(), () => s.getDisbursementStatus(), () => s.listRepayments()]) expect(call).toThrow(/not configured/);
     const { raw, headers } = new MockPartner().signedEvent({ eventId: "e", type: "loan.closed", partnerRef: "r" });
+    vi.stubEnv("CREDIT_WEBHOOK_SECRET", "");
     expect(s.verifyWebhook(raw, headers)).toBeNull();
-    vi.stubEnv("CREDIT_WEBHOOK_SECRET", "mock-credit-webhook-secret");
+    vi.stubEnv("CREDIT_WEBHOOK_SECRET", "test-credit-webhook-secret");
     expect(s.verifyWebhook(raw, headers)?.type).toBe("loan.closed");
   });
   it("factory: default mock, env selection, unknown names, override", () => {

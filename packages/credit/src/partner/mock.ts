@@ -5,7 +5,8 @@ import type { LenderInfo } from "../types";
 import { hmacHex, verifySigned } from "./events";
 import type { CreditPartner, PartnerAcceptResult, PartnerApplicationRequest, PartnerCancelResult, PartnerDisbursement, PartnerEvent, PartnerOffer, PartnerRepayment, PartnerSubmitResult } from "./types";
 
-export const mockSecret = (): string => process.env.CREDIT_WEBHOOK_SECRET || "mock-credit-webhook-secret";
+/** No built-in default: an unset secret means nobody can sign, so webhook verification fails closed (security audit H1). */
+export const mockSecret = (): string | null => process.env.CREDIT_WEBHOOK_SECRET || null;
 export const MOCK_LENDER: LenderInfo = {
   name: "Sample NBFC Ltd (mock lender)",
   grievance: { name: "Grievance Officer, Sample NBFC", email: "grievance@sample-nbfc.example", phone: "+91 80 0000 0000" },
@@ -51,16 +52,24 @@ export class MockPartner implements CreditPartner {
     return loanRef && !loanRef.startsWith("fail:") ? { status: "cancelled" } : { status: "failed", reason: "unknown_loan" };
   }
 
-  verifyWebhook(raw: Uint8Array, headers: Headers): PartnerEvent | null { return verifySigned(mockSecret(), raw, headers); }
+  verifyWebhook(raw: Uint8Array, headers: Headers): PartnerEvent | null {
+    if (!mockPartnerAllowed()) return null;
+    return verifySigned(mockSecret() ?? undefined, raw, headers);
+  }
 
   /** Body + headers of a signed partner event (dev checkout button and tests feed this through handleCreditWebhook). */
   signedEvent(e: { eventId: string; type: PartnerEvent["type"]; partnerRef: string; at?: Date } & Partial<Omit<PartnerEvent, "at">>): { raw: Uint8Array; headers: Headers } {
+    const secret = mockSecret();
+    if (!secret) throw new DomainError("conflict", "CREDIT_WEBHOOK_SECRET is not set; the mock credit partner cannot sign webhooks.");
     const body = JSON.stringify({ ...e, at: (e.at ?? new Date()).toISOString() });
     const raw = new TextEncoder().encode(body);
-    return { raw, headers: new Headers({ "x-credit-signature": hmacHex(mockSecret(), raw) }) };
+    return { raw, headers: new Headers({ "x-credit-signature": hmacHex(secret, raw) }) };
   }
 }
 
+/** The mock partner is refused in production unless CREDIT_MOCK_CHECKOUT=1 is set explicitly. */
+export const mockPartnerAllowed = (env: NodeJS.ProcessEnv = process.env): boolean => env.NODE_ENV !== "production" || env.CREDIT_MOCK_CHECKOUT === "1";
+
 export function assertMockAllowed(): void {
-  if (process.env.NODE_ENV === "production" && process.env.CREDIT_MOCK_CHECKOUT !== "1") throw new DomainError("forbidden", "The mock credit partner is disabled in production.");
+  if (!mockPartnerAllowed()) throw new DomainError("forbidden", "The mock credit partner is disabled in production.");
 }

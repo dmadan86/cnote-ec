@@ -5,7 +5,7 @@ import { MockPartner } from "./mock";
 import { isPartnerName, type EscrowPartner, type PartnerName } from "./types";
 
 export * from "./types";
-export { MockPartner, MOCK_SIGNATURE_HEADER, mockSign } from "./mock";
+export { MockPartner, MOCK_SIGNATURE_HEADER, mockSign, mockPartnerAllowed } from "./mock";
 export { CashfreePartner, RazorpayRoutePartner } from "./adapters";
 
 const instances = new Map<PartnerName, EscrowPartner>();
@@ -19,6 +19,9 @@ export function configuredPartnerName(env: NodeJS.ProcessEnv = process.env): Par
   if (!isPartnerName(v)) throw new DomainError("validation", `Unknown ESCROW_PARTNER "${v}".`);
   return v;
 }
+
+/** The partner in force: a test/composition override, else ESCROW_PARTNER. Webhooks are accepted from this one only. */
+export const activePartnerName = (): PartnerName => override?.name ?? configuredPartnerName();
 
 export function getEscrowPartner(name: PartnerName = override?.name ?? configuredPartnerName()): EscrowPartner {
   if (override && override.name === name) return override;

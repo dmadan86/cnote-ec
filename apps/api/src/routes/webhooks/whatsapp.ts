@@ -4,6 +4,7 @@ import { rateLimit } from "@cnote/core";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { AppEnv } from "../../types";
+import { readBodyCapped } from "../../lib/body";
 import { clientIp } from "@cnote/security/client-ip";
 
 const MAX_BODY_BYTES = 1_000_000;
@@ -23,10 +24,8 @@ whatsappWebhook.get("/", async (c) => {
 // POST: verify HMAC on the raw bytes, enqueue, answer fast (Meta retries non-2xx for days).
 whatsappWebhook.post("/", async (c) => {
   if (!(await rateLimit(`wa-hook:${ip(c)}`, 600, 60))) return c.text("Too many requests", 429, { "Retry-After": "60" });
-  const declared = Number(c.req.header("content-length") ?? 0);
-  if (declared > MAX_BODY_BYTES) return c.text("Payload too large", 413);
-  const raw = new Uint8Array(await c.req.arrayBuffer());
-  if (raw.byteLength > MAX_BODY_BYTES) return c.text("Payload too large", 413);
+  const raw = await readBodyCapped(c.req.raw, MAX_BODY_BYTES);
+  if (!raw) return c.text("Payload too large", 413);
   const { handleWebhook } = await import("@cnote/whatsapp");
   try {
     const r = await handleWebhook(raw, c.req.raw.headers);
