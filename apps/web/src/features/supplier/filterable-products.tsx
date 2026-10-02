@@ -1,5 +1,5 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { cn, Grid } from "@cnote/ui";
 
 export interface FilterItem {
@@ -44,9 +44,8 @@ export function FilterableProducts({
       </p>
       <Grid>
         {shown.map((i) => (
-          <div key={i.id} className="contents">
-            {i.node}
-          </div>
+          // Fragment, not a wrapper element: Grid is a <ul> and each card renders its own <li> (list semantics, axe "list").
+          <Fragment key={i.id}>{i.node}</Fragment>
         ))}
       </Grid>
     </div>
