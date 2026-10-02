@@ -28,6 +28,7 @@ vi.mock("@cnote/identity", () => ({
     if (state.identityThrows) throw new Error("identity down");
     return state.names;
   },
+  getPersonVerification: async () => ({ phone: null, phoneVerified: false, emailVerified: true, erased: false, createdAt: new Date(Date.now() - 30 * 86_400_000).toISOString() }),
 }));
 vi.mock("@cnote/enquiry", () => ({
   hasAcceptedMatch: async () => {

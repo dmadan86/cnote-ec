@@ -135,6 +135,13 @@ export async function purgeOldDecisionInputs(now = new Date(), days = INPUT_RETE
     WHERE created_at < ${cutoff} AND input_redacted <> '{"purged": true}'::jsonb`;
 }
 
+/** Puts a subject in the ops review queue outside a capability call (e.g. post-publication audit of a sampled auto-approval). */
+export async function enqueueReviewImpl(a: { capability: Capability; subject: Subject; reason: string; decisionId?: string | null }): Promise<void> {
+  await prisma.reviewItem.create({
+    data: { capability: a.capability, subjectType: a.subject.type, subjectId: a.subject.id, reason: a.reason.slice(0, 500), ...(a.decisionId ? { aiDecisionId: a.decisionId } : {}) },
+  });
+}
+
 /** Who answered a logged decision (provider, model, prompt version), for modules that snapshot it next to their own rows. */
 export async function getDecisionMeta(decisionId: string): Promise<{ provider: string; modelId: string; promptVersion: string } | null> {
   return prisma.aiDecision.findUnique({ where: { id: decisionId }, select: { provider: true, modelId: true, promptVersion: true } });

@@ -6,7 +6,7 @@ import type { CaaRecord, DnsResolver } from "../src/dns";
 import { MockEdgeProvider, setEdgeProvider } from "../src/edge";
 import {
   addDomain, adminDomainCounts, adminListDomains, domainCheckResponse, domainSetupInfo, forceRecheck, listDomains, processDomainCheck,
-  recheckLiveDomains, removeDomain, removeDomainById, requestRecheck, setPrimary, startVerification, sweepStalledDomains, toView,
+  expirePendingClaims, recheckLiveDomains, removeDomain, removeDomainById, requestRecheck, setPrimary, startVerification, sweepStalledDomains, toView,
 } from "../src/lifecycle";
 import { customDomainOrigin, resolveHost, storefrontCanonical } from "../src/resolve";
 import { worker } from "../src/worker";
@@ -83,13 +83,14 @@ describe("addDomain", () => {
     expect((await listDomains(s.biz)).map((d) => d.id)).toEqual([v.id]);
     expect(await domainSetupInfo(s.biz)).toMatchObject({ slug: s.slug, platformHost: `${s.slug}.${cfg.rootDomain}` });
   });
-  it("rejects invalid hostnames, duplicates (across sellers) and the per-storefront cap", async () => {
+  it("rejects invalid hostnames, your own duplicates and the per-storefront cap (an unverified claim by someone else does not block)", async () => {
     const s = await mkSeller("cap");
     const other = await mkSeller("cap2");
     await expect(addDomain(s.biz, "https://x.com")).rejects.toMatchObject({ code: "validation" });
     const a = await addDomain(s.biz, host("a"));
-    await expect(addDomain(other.biz, a.hostname)).rejects.toMatchObject({ code: "conflict" });
     await expect(addDomain(s.biz, a.hostname)).rejects.toMatchObject({ code: "conflict" });
+    // squatting fix: another seller's UNVERIFIED claim must not lock the real owner out
+    await expect(addDomain(other.biz, a.hostname)).resolves.toMatchObject({ hostname: a.hostname, status: "pending_dns" });
     await addDomain(s.biz, host("b"));
     await addDomain(s.biz, host("c"));
     await expect(addDomain(s.biz, host("d"))).rejects.toThrow(/up to 3/);
@@ -411,5 +412,73 @@ describe("resolveHost", () => {
     const s = await mkSeller("canon");
     expect(await storefrontCanonical(s.slug)).toBe(`http://${s.slug}.localhost:${process.env.WEB_PORT ?? 3000}`);
     expect(await storefrontCanonical(`ghost-${run}`)).toContain(`ghost-${run}.localhost`);
+  });
+});
+
+
+describe("domain squatting (security audit)", () => {
+  const supersededOf = async (id: string) => (await prisma.domainEvent.findMany({ where: { aggregateId: id, type: "DomainClaimSuperseded" } })).map((e) => e.payload as { reason: string; hostname: string; sellerBusinessId: string });
+
+  it("the claimant who completes DNS verification pre-empts other unverified claims, which are dropped with an event", async () => {
+    const squatter = await mkSeller("sq");
+    const owner = await mkSeller("ow");
+    const h = host("preempt");
+    const sq = await addDomain(squatter.biz, h);
+    const ow = await addDomain(owner.biz, h);
+    expect(await prisma.storefrontDomain.count({ where: { hostname: h } })).toBe(2);
+    const r = await verifyNow(ow.id, h, new MockEdgeProvider());
+    expect(r!.status).toBe("active");
+    // loser is gone, winner is verified, and the loser was told why
+    expect(await prisma.storefrontDomain.findUnique({ where: { id: sq.id } })).toBeNull();
+    expect((await rowOf(ow.id)).verifiedAt).not.toBeNull();
+    expect(await supersededOf(sq.id)).toEqual([expect.objectContaining({ reason: "other_party_verified", hostname: h, sellerBusinessId: squatter.biz })]);
+    expect((await eventsOf(sq.id)).at(-1)).toMatchObject({ to: "removed" });
+  });
+
+  it("a verified claim blocks later claimants with text that does not reveal a verified owner", async () => {
+    const a = await mkSeller("vb1");
+    const b = await mkSeller("vb2");
+    const h = host("blocked");
+    const first = await addDomain(a.biz, h);
+    await verifyNow(first.id, h, new MockEdgeProvider());
+    const err = await addDomain(b.biz, h).catch((e) => e as DomainError);
+    expect(err).toMatchObject({ code: "conflict" });
+    expect((err as DomainError).message).not.toMatch(/already connected|taken|owned by/i);
+    expect((err as DomainError).message).toMatch(/could not connect/i);
+  });
+
+  it("pending claims expire after the configured days (also on add) and the claimant is notified by event", async () => {
+    const squatter = await mkSeller("ex1");
+    const owner = await mkSeller("ex2");
+    const h = host("expire");
+    const old = await addDomain(squatter.biz, h);
+    await prisma.storefrontDomain.update({ where: { id: old.id }, data: { createdAt: new Date(Date.now() - (cfg.pendingClaimDays + 1) * 86_400_000) } });
+    await addDomain(owner.biz, h); // add runs the expiry for this hostname
+    expect(await prisma.storefrontDomain.findUnique({ where: { id: old.id } })).toBeNull();
+    expect(await supersededOf(old.id)).toEqual([expect.objectContaining({ reason: "expired" })]);
+    // a fresh claim is NOT expired by the sweep
+    expect(await expirePendingClaims(new Date(), h)).toBe(0);
+  });
+
+  it("the daily sweep expires stale claims using the same path", async () => {
+    const s = await mkSeller("ex3");
+    const d = await addDomain(s.biz, host("sweep"));
+    await prisma.storefrontDomain.update({ where: { id: d.id }, data: { createdAt: new Date(Date.now() - 30 * 86_400_000) } });
+    expect(await expirePendingClaims()).toBeGreaterThanOrEqual(1);
+    expect(await supersededOf(d.id)).toHaveLength(1);
+  });
+
+  it("two claims that both pass DNS: the second to commit loses and is dropped", async () => {
+    const a = await mkSeller("race1");
+    const b = await mkSeller("race2");
+    const h = host("race");
+    const da = await addDomain(a.biz, h);
+    const db = await addDomain(b.biz, h);
+    // b verifies first; then a (still unverified, not yet pre-empted in this scenario) finds a winner and is dropped
+    await prisma.storefrontDomain.update({ where: { id: db.id }, data: { verifiedAt: new Date(), status: "verified" } });
+    const r = await verifyNow(da.id, h, new MockEdgeProvider());
+    expect(r).toBeNull();
+    expect(await prisma.storefrontDomain.findUnique({ where: { id: da.id } })).toBeNull();
+    expect(await supersededOf(da.id)).toEqual([expect.objectContaining({ reason: "other_party_verified" })]);
   });
 });

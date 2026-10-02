@@ -61,6 +61,8 @@ export interface DomainEventPayloads {
   StorefrontVersionReviewed: { storefrontId: string; sellerBusinessId: string; versionId: string; status: "published" | "rejected"; reviewedBy: string };
   StorefrontSuspended: { storefrontId: string; sellerBusinessId: string; reason: string };
   StorefrontDomainStatusChanged: { domainId: string; storefrontId: string; sellerBusinessId: string; hostname: string; from: string; to: string; error: string | null };
+  /** An unverified claim on a hostname was dropped: another claimant proved DNS control first, or the claim expired (anti-squatting). */
+  DomainClaimSuperseded: { domainId: string; storefrontId: string; sellerBusinessId: string; hostname: string; reason: "other_party_verified" | "expired" };
   // bulk import / export
   BulkJobFinished: { jobId: string; sellerBusinessId: string; createdBy: string; kind: "import" | "export"; status: string; created: number; updated: number; errors: number };
   // lead generation (buyer unlock funnel)
@@ -229,6 +231,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   StorefrontVersionReviewed: 1,
   StorefrontSuspended: 1,
   StorefrontDomainStatusChanged: 1,
+  DomainClaimSuperseded: 1,
   BulkJobFinished: 1,
   LeadCaptureVerified: 1,
   LeadCaptureConverted: 1,

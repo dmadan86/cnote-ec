@@ -26,7 +26,7 @@ async function loadHost(h: string): Promise<ResolvedHost | null> {
     return { kind: "subdomain", storefrontSlug: slug, canonicalHost: (await primaryActiveHost(sf.id)) ?? h };
   }
   if (h === cfg.rootDomain || h.endsWith(`.${cfg.rootDomain}`)) return null;
-  const row = await prisma.storefrontDomain.findUnique({ where: { hostname: h }, select: { status: true, isPrimary: true, storefront: { select: { id: true, slug: true, status: true } } } });
+  const row = await prisma.storefrontDomain.findFirst({ where: { hostname: h, status: "active" }, select: { status: true, isPrimary: true, storefront: { select: { id: true, slug: true, status: true } } } });
   if (!row || row.status !== "active" || row.storefront.status !== "live") return null;
   const primary = row.isPrimary ? h : ((await primaryActiveHost(row.storefront.id)) ?? h);
   return { kind: "custom", storefrontSlug: row.storefront.slug, canonicalHost: primary };

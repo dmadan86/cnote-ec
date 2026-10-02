@@ -4,6 +4,7 @@
 // product module (@cnote/negotiation) re-checks price bounds server-side, so a model can never push a price out of bounds.
 // Unlike scoring capabilities these do not enqueue ops ReviewItems: the human principal (seller/buyer) is the reviewer, and
 // low confidence is surfaced to them via `needsReview`.
+import { userInputEnvelope } from "./envelope";
 import { z } from "zod";
 import { prisma, type Prisma } from "@cnote/db";
 import { createAnthropicClient, REASONING_MODEL, TIMEOUT_MS, type MessagesClient } from "./anthropic";
@@ -257,7 +258,7 @@ async function callJson<S extends z.ZodType>(client: MessagesClient, system: str
       model: REASONING_MODEL,
       max_tokens: 1024,
       system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-      messages: [{ role: "user", content: `<user_input>\n${JSON.stringify(payload)}\n</user_input>` }],
+      messages: [{ role: "user", content: userInputEnvelope(payload) }],
       output_config: { effort: "low", format: { type: "json_schema", schema: z.toJSONSchema(schema) as Record<string, unknown> } },
     } as never,
     { timeout: TIMEOUT_MS },

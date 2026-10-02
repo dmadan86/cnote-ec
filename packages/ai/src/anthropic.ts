@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { userInputEnvelope } from "./envelope";
 import { z } from "zod";
 import type {
   ExtractListingFromImagesInput, ExtractListingFromImagesOutput,
@@ -79,7 +80,7 @@ async function callJson<S extends z.ZodType>(
   client: MessagesClient, model: string, system: string, userPayload: unknown, schema: S,
   opts: { images?: { mimeType: string; bytes: Uint8Array }[]; timeoutMs?: number } = {},
 ): Promise<z.infer<S>> {
-  const text = { type: "text" as const, text: `<user_input>\n${JSON.stringify(userPayload)}\n</user_input>` };
+  const text = { type: "text" as const, text: userInputEnvelope(userPayload) };
   const content = opts.images
     ? [
         ...opts.images.map((im) => ({

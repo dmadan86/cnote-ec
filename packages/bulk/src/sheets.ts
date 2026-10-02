@@ -1,6 +1,7 @@
 import type { CategoryView } from "@cnote/catalogue";
 import ExcelJS from "exceljs";
 import { stringify } from "csv-stringify/sync";
+import { neutraliseFormula } from "@cnote/security";
 import { LANGUAGES, UNITS, type Column } from "./columns";
 import { LIMITS } from "./types";
 
@@ -8,7 +9,7 @@ export type Cell = string | number | null | undefined;
 
 /** UTF-8 with BOM + CRLF so Excel opens it correctly (Hindi etc.); our parser strips the BOM. */
 export function toCsv(headers: string[], rows: Cell[][]): Buffer {
-  const body = stringify([headers, ...rows.map((r) => r.map((c) => c ?? ""))], { record_delimiter: "\r\n" });
+  const body = stringify([headers, ...rows.map((r) => r.map((c) => neutraliseFormula(c ?? "")))], { record_delimiter: "\r\n" });
   return Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(body, "utf8")]);
 }
 
@@ -43,7 +44,7 @@ export function addProductsSheet(wb: ExcelJS.Workbook, opts: ProductsSheetOption
   const idx = (k: string) => columns.findIndex((c) => c.key === k) + 1;
   for (const k of ["sku", "hsn"]) if (idx(k)) ws.getColumn(idx(k)).numFmt = "@"; // keep leading zeros
   rows.forEach((r, ri) => {
-    const row = ws.addRow(columns.map((_, ci) => r[ci] ?? null));
+    const row = ws.addRow(columns.map((_, ci) => neutraliseFormula(r[ci] ?? null)));
     if (ri < (opts.exampleRows ?? 0)) row.eachCell({ includeEmpty: true }, (c) => void (c.fill = EXAMPLE_FILL));
   });
 

@@ -1,5 +1,6 @@
 // ONDC registry lookup port (ADR-017). Inbound signatures are verified against the sender's registry entry.
 // `HttpRegistry` calls POST {registry}/lookup with a positive/negative TTL cache; tests inject a mock.
+import { pinnedFetch, type PublicTarget } from "@cnote/security";
 import { loadConfig } from "./config";
 
 export interface RegistryEntry {
@@ -17,12 +18,14 @@ export interface RegistryPort {
   lookup(q: { subscriberId: string; uniqueKeyId: string }): Promise<RegistryEntry | null>;
 }
 
-export type FetchLike = (url: string, init: { method: string; headers: Record<string, string>; body?: string; signal?: AbortSignal }) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
+export type FetchLike = (url: string, init: { method: string; headers: Record<string, string>; body?: string; signal?: AbortSignal; pin?: PublicTarget }) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
 
-let fetchImpl: FetchLike = (url, init) => fetch(url, init);
+/** Default client: a `pin` (the address assertPublicHttpTarget validated) makes the connection go to exactly that IP (no second DNS lookup). */
+const defaultFetch: FetchLike = (url, { pin, ...init }) => (pin ? pinnedFetch(pin, init) : fetch(url, init));
+let fetchImpl: FetchLike = defaultFetch;
 /** Tests: replace the HTTP client used for registry lookups and callbacks. */
 export function setFetch(f: FetchLike | undefined): void {
-  fetchImpl = f ?? ((url, init) => fetch(url, init));
+  fetchImpl = f ?? defaultFetch;
 }
 export const httpFetch: FetchLike = (url, init) => fetchImpl(url, init);
 

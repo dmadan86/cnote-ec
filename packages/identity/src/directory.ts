@@ -112,14 +112,16 @@ export interface PersonVerification {
   phoneVerified: boolean;
   emailVerified: boolean;
   erased: boolean;
+  /** ISO timestamp the account was created (account-age gates) */
+  createdAt?: string;
 }
 
 /** Verification flags for gating actions (e.g. lead-gen unlocks require a verified phone). null = unknown person. */
 export async function getPersonVerification(personId: string): Promise<PersonVerification | null> {
   if (!/^[0-9a-f-]{36}$/i.test(personId)) return null;
-  const p = await prisma.person.findUnique({ where: { id: personId }, select: { phone: true, phoneVerifiedAt: true, emailVerifiedAt: true, erasedAt: true } });
+  const p = await prisma.person.findUnique({ where: { id: personId }, select: { phone: true, phoneVerifiedAt: true, emailVerifiedAt: true, erasedAt: true, createdAt: true } });
   if (!p) return null;
-  return { phone: p.erasedAt ? null : p.phone, phoneVerified: !!p.phoneVerifiedAt && !p.erasedAt, emailVerified: !!p.emailVerifiedAt, erased: !!p.erasedAt };
+  return { phone: p.erasedAt ? null : p.phone, phoneVerified: !!p.phoneVerifiedAt && !p.erasedAt, emailVerified: !!p.emailVerifiedAt, erased: !!p.erasedAt, createdAt: p.createdAt.toISOString() };
 }
 
 export interface BusinessBillingProfile {

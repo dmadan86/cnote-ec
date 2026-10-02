@@ -53,7 +53,7 @@ export function ReportForm({ locale, labels }: { locale: string; labels: ReportF
   if (state?.ok) {
     return (
       <Alert tone="success">
-        <p className="font-semibold" role="status">{labels.done}</p>
+        <p className="font-semibold">{labels.done}</p>
         <p className="mt-1">{labels.doneBody.replace("{id}", state.data.id)}</p>
       </Alert>
     );
@@ -61,7 +61,7 @@ export function ReportForm({ locale, labels }: { locale: string; labels: ReportF
   return (
     <form action={action} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="locale" value={locale} />
-      {state && !state.ok ? <Alert tone="danger"><span role="alert">{state.error}</span></Alert> : null}
+      {state && !state.ok ? <Alert tone="danger">{state.error}</Alert> : null}
       <Field label={labels.url} htmlFor="report-url" hint={labels.urlHint} error={fe("url")}>
         <Input id="report-url" name="url" type="url" inputMode="url" autoComplete="off" maxLength={2000} required value={url} onChange={onUrl} />
       </Field>

@@ -187,7 +187,7 @@ export async function fileGrievance(input: FileGrievanceInput, now = new Date())
         requestType,
         slaDays,
         consentId: i.consentId ?? null,
-        subject: i.subject,
+        subject: i.subject.replace(/[\r\n\t\u2028\u2029]+/g, " ").trim(), // single-line: the subject is reused in email subjects
         body: i.body,
         dueAt,
         createdAt: now,

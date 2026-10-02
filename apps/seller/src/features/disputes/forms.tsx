@@ -14,8 +14,8 @@ function Head({ intent, disputeId, state }: { intent: string; disputeId: string;
   <>
     <input type="hidden" name="intent" value={intent} />
     <input type="hidden" name="disputeId" value={disputeId} />
-    {state && !state.ok ? <Alert tone="danger"><span role="alert">{state.error}</span></Alert> : null}
-    {state?.ok ? <Alert tone="success"><span role="status">{t("saved")}</span></Alert> : null}
+    {state && !state.ok ? <Alert tone="danger">{state.error}</Alert> : null}
+    {state?.ok ? <Alert tone="success">{t("saved")}</Alert> : null}
   </>
   );
 }

@@ -105,8 +105,10 @@ enum DomainStatus {
 model StorefrontDomain {
   id            String       @id @default(uuid()) @db.Uuid
   storefrontId  String       @map("storefront_id") @db.Uuid
-  /// lowercase, IDNA-normalised hostname
-  hostname      String       @unique
+  /// lowercase, IDNA-normalised hostname. NOT globally unique: several storefronts may hold an UNVERIFIED claim on the
+  /// same name (so a squatter cannot lock out the real owner); at most one claim is DNS-verified (verified_at set),
+  /// enforced in code under an advisory lock, and the first claimant to prove DNS control pre-empts the rest.
+  hostname      String
   /// "subdomain" (www.acme.com → CNAME) | "apex" (acme.com → A/ALIAS)
   kind          String
   status        DomainStatus @default(pending_dns)
@@ -130,6 +132,8 @@ model StorefrontDomain {
 
   storefront Storefront @relation(fields: [storefrontId], references: [id])
 
+  @@unique([storefrontId, hostname])
+  @@index([hostname])
   @@index([storefrontId])
   @@index([status, lastCheckedAt])
   @@map("storefront_domains")

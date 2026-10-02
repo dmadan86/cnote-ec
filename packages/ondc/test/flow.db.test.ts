@@ -28,7 +28,7 @@ const pipe = listing({ id: randomUUID(), sellerBusinessId: SELLER, title: `Pipe 
 const draft = listing({ id: randomUUID(), sellerBusinessId: SELLER, status: "draft", title: `Draft ${tag}` });
 const live: Record<string, ReturnType<typeof listing>[]> = { [SELLER]: [pipe], [OTHER_SELLER]: [] };
 let working: Record<string, ReturnType<typeof listing>[]> = { [SELLER]: [pipe, draft], [OTHER_SELLER]: [] };
-let sent: { url: string; init: { headers: Record<string, string>; body?: string } }[] = [];
+let sent: { url: string; init: { headers: Record<string, string>; body?: string; pin?: { address: string; family: number } } }[] = [];
 let fetchStatus = 200;
 let fetchBody = JSON.stringify({ message: { ack: { status: "ACK" } } });
 
@@ -196,6 +196,7 @@ describe("inbound protocol", () => {
     expect(await deliverCallback(cb!.id)).toBe("skipped"); // already sent
     expect(sent).toHaveLength(1);
     expect(sent[0]!.url).toBe(`${BAP_URI}/on_search`);
+    expect(sent[0]!.init.pin).toMatchObject({ address: expect.any(String), family: expect.any(Number) }); // connects to the validated IP, no second DNS lookup
     const parsed = parseAuthHeader(sent[0]!.init.headers.authorization)!;
     expect(parsed).toMatchObject({ subscriberId: BPP_ID, uniqueKeyId: "bpp-k1" });
     expect(verifyAuthSignature(parsed, sent[0]!.init.body!, bpp.publicKey)).toEqual({ ok: true });

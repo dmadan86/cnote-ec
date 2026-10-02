@@ -17,6 +17,36 @@ const OPEN: VersionStatus[] = ["submitted", "in_review", "approved"];
 
 /** Trusted-seller auto-approval policy (ADR-008: humans review everything else). */
 export const AUTO_APPROVE = { minTier: 1, minTrust: 60 } as const;
+
+const num = (v: string | undefined, d: number) => (v !== undefined && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : d);
+/**
+ * Extra auto-approval gates (security audit H3). A model "allow" alone never publishes: the seller must also have an
+ * aged account and a history of staff-approved versions, and a random sample of auto-approvals is audited by staff
+ * after publication. Env-configurable: LISTING_AUTO_APPROVE_MIN_ACCOUNT_AGE_DAYS (30), _MIN_HUMAN_APPROVED (3), _SAMPLE_RATE (0.05).
+ */
+export function autoApprovePolicy(env: NodeJS.ProcessEnv = process.env) {
+  return {
+    ...AUTO_APPROVE,
+    minAccountAgeDays: Math.max(0, num(env.LISTING_AUTO_APPROVE_MIN_ACCOUNT_AGE_DAYS, 30)),
+    minHumanApproved: Math.max(0, num(env.LISTING_AUTO_APPROVE_MIN_HUMAN_APPROVED, 3)),
+    sampleRate: Math.min(1, Math.max(0, num(env.LISTING_AUTO_APPROVE_SAMPLE_RATE, 0.05))),
+  };
+}
+
+/** Pure decision: may this submission skip the staff queue? Requires deterministic-clean AND model allow AND seller history. */
+export function mayAutoApprove(
+  screening: { outcome: "allow" | "review" | "block"; deterministic?: string },
+  seller: { verificationTier: number; trustScore: number; createdAt?: string } | null | undefined,
+  humanApproved: number,
+  now = new Date(),
+  policy = autoApprovePolicy(),
+): boolean {
+  if (screening.outcome !== "allow" || screening.deterministic !== "clean") return false;
+  if (!seller || seller.verificationTier < policy.minTier || seller.trustScore < policy.minTrust) return false;
+  const created = seller.createdAt ? Date.parse(seller.createdAt) : NaN;
+  if (!Number.isFinite(created) || now.getTime() - created < policy.minAccountAgeDays * 86_400_000) return false;
+  return humanApproved >= policy.minHumanApproved;
+}
 export const PREVIEW_TOKEN_TTL_SECONDS = 3600;
 const MAX_SCHEDULE_MS = 365 * 24 * 3600 * 1000;
 
@@ -254,6 +284,9 @@ interface Screening {
   outcome: "allow" | "review" | "block";
   verdict: string;
   reason: string | null;
+  /** deterministic pre-check result; auto-approval needs "clean" */
+  deterministic?: string;
+  decisionId?: string;
 }
 
 async function screen(listingId: string, snap: VersionSnapshot, category: { slug: string; name: string; prohibited: boolean }): Promise<Screening> {
@@ -262,11 +295,11 @@ async function screen(listingId: string, snap: VersionSnapshot, category: { slug
   const mod = await ai.moderate({ text, categorySlug: category.slug }, { type: "listing", id: listingId });
   if (mod.verdict === "block") {
     const reason = mod.reason ?? `Blocked by content policy${mod.flags.length ? `: ${mod.flags.join(", ")}` : ""}`;
-    return { outcome: "block", verdict: `block: ${reason}`.slice(0, 300), reason };
+    return { outcome: "block", verdict: `block: ${reason}`.slice(0, 300), reason, ...(mod.deterministic ? { deterministic: mod.deterministic } : {}), decisionId: mod.decisionId };
   }
   const review = mod.verdict === "review" || mod.needsReview;
   const reason = review ? (mod.reason ?? "Flagged for manual review") : null;
-  return { outcome: review ? "review" : "allow", verdict: (review ? `review: ${reason}` : "allow").slice(0, 300), reason };
+  return { outcome: review ? "review" : "allow", verdict: (review ? `review: ${reason}` : "allow").slice(0, 300), reason, ...(mod.deterministic ? { deterministic: mod.deterministic } : {}), decisionId: mod.decisionId };
 }
 
 /**
@@ -295,10 +328,16 @@ export async function submitListingVersion(sellerBusinessId: string, listingId: 
 
   const screening = await screen(cur.id, snap, category);
   const trust = (await getTrustProfiles([sellerBusinessId])).get(sellerBusinessId);
-  const trusted = !!trust && trust.verificationTier >= AUTO_APPROVE.minTier && trust.trustScore >= AUTO_APPROVE.minTrust;
-  const status: VersionStatus = screening.outcome === "block" ? "rejected" : screening.outcome === "allow" && trusted ? "approved" : "in_review";
+  // staff-approved history is only counted when the cheap gates pass (saves a query for new sellers)
+  const humanApproved = screening.outcome === "allow" && screening.deterministic === "clean" && trust
+    ? await prisma.listingVersion.count({ where: { listing: { sellerBusinessId }, reviewedBy: { not: null }, status: { in: ["approved", "published", "superseded"] } } })
+    : 0;
+  const policy = autoApprovePolicy();
+  const trusted = mayAutoApprove(screening, trust, humanApproved, new Date(), policy);
+  const audit = trusted && Math.random() < policy.sampleRate;
+  const status: VersionStatus = screening.outcome === "block" ? "rejected" : trusted ? "approved" : "in_review";
   const decided = status === "approved" || status === "rejected";
-  const reviewNote = status === "approved" ? "Auto-approved (trusted seller, clean screening)" : status === "rejected" ? screening.reason : null;
+  const reviewNote = status === "approved" ? `Auto-approved (trusted seller, clean screening${audit ? "; sampled for post-publication staff audit" : ""})` : status === "rejected" ? screening.reason : null;
   const base = { listingId: cur.id, sellerBusinessId };
 
   for (let attempt = 0; ; attempt++) {
@@ -342,6 +381,10 @@ export async function submitListingVersion(sellerBusinessId: string, listingId: 
         }
         return v;
       });
+      if (audit && status === "approved") {
+        // best effort: the audit queue must never fail a submission that was already persisted
+        await ai.enqueueReview({ subject: { type: "listing", id: cur.id }, reason: `Post-publication audit: version ${created.version} was auto-approved (random sample)`, decisionId: screening.decisionId ?? null }).catch(() => undefined);
+      }
       await bustListingCaches(cur.id, sellerBusinessId);
       return toVersionView(created, cur.liveVersionId);
     } catch (e) {

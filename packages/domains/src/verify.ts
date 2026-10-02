@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { assertPublicHttpTarget, pinnedFetch } from "@cnote/security";
 import { domainCheckSecret, type DomainsConfig } from "./config";
 import { checkDns, type DnsDiagnostics, type DnsResolver } from "./dns";
 import type { EdgeProvider, EdgeStatus } from "./edge/types";
@@ -71,10 +72,28 @@ export function domainCheckToken(hostname: string, secret: string = domainCheckS
   return createHmac("sha256", secret).update(hostname.toLowerCase()).digest("hex");
 }
 
-/** GET https://<host>/.well-known/cnote-domain-check and compare the per-host token. */
-export async function httpProbe(hostname: string, fetchImpl: typeof fetch = fetch): Promise<ProbeResult> {
+/**
+ * GET https://<host>/.well-known/cnote-domain-check and compare the per-host token.
+ * The hostname is attacker-chosen (any seller can claim any name), so the probe is an SSRF primitive unless guarded:
+ * DNS is resolved ONCE, private/link-local/loopback/metadata addresses are refused, and the connection goes to exactly
+ * that validated IP (DNS-pinned), so a rebinding answer between check and connect cannot reach an internal host.
+ * `fetchImpl` is for tests; when given it replaces the guarded client.
+ */
+export async function httpProbe(hostname: string, fetchImpl?: typeof fetch): Promise<ProbeResult> {
+  const url = `https://${hostname}${CHECK_PATH}`;
+  const init = { redirect: "manual" as const, signal: AbortSignal.timeout(8000), headers: { accept: "application/json", "user-agent": "cnote-domain-check/1" } };
   try {
-    const res = await fetchImpl(`https://${hostname}${CHECK_PATH}`, { redirect: "manual", signal: AbortSignal.timeout(8000), headers: { accept: "application/json", "user-agent": "cnote-domain-check/1" } });
+    let res: Response;
+    if (fetchImpl) res = await fetchImpl(url, init);
+    else {
+      let target;
+      try {
+        target = await assertPublicHttpTarget(url);
+      } catch {
+        return { ok: false, error: "Your domain does not resolve to a public internet address, so we cannot check it." };
+      }
+      res = await pinnedFetch(target, { headers: init.headers, signal: init.signal });
+    }
     if (!res.ok) return { ok: false, status: res.status, error: `Your domain answered with HTTP ${res.status} instead of our check response.` };
     const body = (await res.json().catch(() => null)) as { token?: string } | null;
     if (body?.token !== domainCheckToken(hostname)) return { ok: false, status: res.status, error: "Your domain answered, but not from our servers. Check that it points to us." };

@@ -7,6 +7,10 @@ export const LIMITS = {
   maxZipCompressedBytes: 200 * 1024 * 1024,
   maxZipUncompressedBytes: 500 * 1024 * 1024,
   maxZipFiles: 2_000,
+  /** an .xlsx is a zip: cap what it may inflate to and how many parts it has (zip-bomb guard) */
+  maxXlsxUncompressedBytes: 200 * 1024 * 1024,
+  maxXlsxEntries: 1_000,
+  maxColumns: 200,
   maxImageBytes: 5 * 1024 * 1024,
   maxImagesPerRow: 8,
   /** files below this many rows are validated inline; larger ones go through the "bulk.validate" queue */

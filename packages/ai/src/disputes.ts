@@ -5,6 +5,7 @@
 // Same contract as the other capabilities (typed in/out, provider-agnostic, AiDecision row with redacted input +
 // model id + prompt version, ReviewItem below threshold) but self-contained: it is added without touching the shared
 // registry. AI_PROVIDER=heuristic (default, offline, deterministic, used in CI) | anthropic (falls back to the heuristic).
+import { userInputEnvelope } from "./envelope";
 import { z } from "zod";
 import { prisma, type Prisma } from "@cnote/db";
 import { createAnthropicClient, REASONING_MODEL, TIMEOUT_MS, type MessagesClient } from "./anthropic";
@@ -214,7 +215,7 @@ export class AnthropicDisputeBriefer implements DisputeBriefProvider {
         model: REASONING_MODEL,
         max_tokens: 2048,
         system: [{ type: "text", text: BRIEF_SYSTEM, cache_control: { type: "ephemeral" } }],
-        messages: [{ role: "user", content: `<user_input>\n${JSON.stringify(payload)}\n</user_input>` }],
+        messages: [{ role: "user", content: userInputEnvelope(payload) }],
         output_config: { effort: "low", format: { type: "json_schema", schema: z.toJSONSchema(BriefSchema) as Record<string, unknown> } },
       } as never,
       { timeout: TIMEOUT_MS * 3 },

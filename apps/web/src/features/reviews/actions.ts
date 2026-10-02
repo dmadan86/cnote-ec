@@ -2,9 +2,11 @@
 // Buyer-side UGC actions. Each re-checks the session (server actions are reachable by direct POST).
 // Everything submitted is held for staff moderation; nothing here publishes content.
 import { type ActionResult, currentSession } from "@cnote/next-kit";
+import { clientIp } from "@cnote/security/client-ip";
 import { runLocalized } from "@/i18n/errors";
 import { react, submitComment, submitReview } from "@cnote/reviews";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { z } from "zod";
 
 const uuid = z.uuid();
@@ -52,8 +54,10 @@ export async function reactAction(_prev: ActionResult<{ changed: boolean }> | nu
   const a = await actor();
   if (!a) return SIGN_IN;
   const listingId = str(f, "listingId");
+  const ip = clientIp(await headers());
   const result = await runLocalized(() =>
     react(a, {
+      ip,
       subjectType: z.enum(["review", "comment", "question", "answer"]).parse(str(f, "subjectType")),
       subjectId: uuid.parse(str(f, "subjectId")),
       kind: z.enum(["helpful", "report"]).parse(str(f, "kind")),
