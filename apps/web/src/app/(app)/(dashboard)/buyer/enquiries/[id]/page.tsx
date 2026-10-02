@@ -1,4 +1,4 @@
-import { getBuyerEnquiry, listCandidatesForBuyer } from "@cnote/enquiry";
+import { getBuyerEnquiry, getQuoteComparison, listCandidatesForBuyer } from "@cnote/enquiry";
 import { actorOf, requireBusiness } from "@cnote/next-kit";
 import { Alert, Card, CardBody, CardTitle, Container, Money, PageHeader } from "@cnote/ui";
 import type { Metadata } from "next";
@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import { formatDate } from "@/i18n/config";
 import { getRequestLocale } from "@/lib/request-locale";
 import { IntentScore } from "@/features/enquiry/intent-score";
+import { QuoteCompare } from "@/features/enquiry/quote-compare";
 import { MatchedSellers } from "@/features/enquiry/matched-sellers";
 import { NegotiationAssist } from "@/features/negotiation/negotiation-assist";
 import { PickSellersForm } from "@/features/enquiry/pick-sellers-form";
@@ -25,6 +26,10 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
   if (!e) notFound();
   const locale = await getRequestLocale();
   const t = await getTranslations({ locale, namespace: "buyer" });
+  const t2 = await getTranslations({ locale, namespace: "rfq2" });
+  const tc = await getTranslations({ locale, namespace: "cards" });
+  const comparison = e.matches.length ? await getQuoteComparison(actorOf(s), e.id) : null;
+  const money = (p: number) => `₹${(p / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
   const cap = e.sellerCap ?? 3;
   const active = e.matches.filter((m) => m.status === "offered" || m.status === "accepted").length;
@@ -48,8 +53,30 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
               {e.quantity ? <Row k={t("quantity")} v={`${e.quantity} ${e.quantityUnit ?? ""}`} /> : null}
               {e.targetPricePaise ? <Row k={t("targetPrice")} v={<Money paise={e.targetPricePaise} unit={e.quantityUnit} />} /> : null}
               {e.deliveryCity || e.deliveryPincode ? <Row k={t("deliverTo")} v={[e.deliveryCity, e.deliveryPincode].filter(Boolean).join(" - ")} /> : null}
+              {e.budgetMinPaise || e.budgetMaxPaise ? (
+                <Row
+                  k={t2("budgetRange")}
+                  v={[e.budgetMinPaise ? money(e.budgetMinPaise) : null, e.budgetMaxPaise ? money(e.budgetMaxPaise) : null].filter(Boolean).join(" – ")}
+                />
+              ) : null}
               {e.neededBy ? <Row k={t("neededBy")} v={e.neededBy} /> : null}
+              {e.expiresAt ? <Row k={t2("quotesUntil")} v={formatDate(e.expiresAt, locale)} /> : null}
+              {e.minSellerTier ? <Row k={t2("preferredTier")} v={t2("tierOrHigher", { label: tc(`tier${e.minSellerTier}`) })} /> : null}
             </dl>
+            {e.attachments.length ? (
+              <div className="text-sm">
+                <p className="font-medium text-ink">{t2("attachmentsLabel")}</p>
+                <ul className="mt-1 flex flex-col gap-1">
+                  {e.attachments.map((a) => (
+                    <li key={a.id}>
+                      <a href={`/api/rfq-attachments/${a.id}`} className="break-all text-brand-700 underline" download>
+                        {t2("download", { name: a.fileName })}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </CardBody>
         </Card>
 
@@ -68,6 +95,8 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
             </CardBody>
           </Card>
         ) : null}
+
+        {comparison ? <QuoteCompare comparison={comparison} /> : null}
 
         {e.matches.length ? (
           <section className="flex flex-col gap-3">

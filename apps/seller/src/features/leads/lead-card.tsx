@@ -121,7 +121,12 @@ export function LeadCard({ lead, balance }: { lead: LeadView; balance: number | 
   const loc = useLocale();
   const locale = isLocale(loc) ? loc : "en";
   const e = lead.enquiry;
+  const tr = useTranslations("rfqLead");
   const st = STATUS[lead.status];
+  const rupees = (p: number) => `₹${(p / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+  const budget = [e.budgetMinPaise ? rupees(e.budgetMinPaise) : null, e.budgetMaxPaise ? rupees(e.budgetMaxPaise) : null].filter(Boolean).join(" – ");
+  const deadlinePassed = e.expiresAt ? new Date(e.expiresAt).getTime() < Date.now() : false;
+  const hasRfqDetails = !!(e.targetPricePaise || budget || e.deliveryPincode || e.expiresAt || e.minSellerTier || e.attachments.length);
   return (
     <Card>
       <CardBody className="space-y-4">
@@ -148,6 +153,54 @@ export function LeadCard({ lead, balance }: { lead: LeadView; balance: number | 
             <dd className="font-medium text-ink">{e.category?.name ?? t("any")}</dd>
           </div>
         </dl>
+        {hasRfqDetails ? (
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4" data-testid="rfq-details">
+            {e.targetPricePaise ? (
+              <div>
+                <dt className="text-xs text-muted">{tr("targetPrice")}</dt>
+                <dd className="font-medium text-ink">{rupees(e.targetPricePaise)}</dd>
+              </div>
+            ) : null}
+            {budget ? (
+              <div>
+                <dt className="text-xs text-muted">{tr("budget")}</dt>
+                <dd className="font-medium text-ink">{budget}</dd>
+              </div>
+            ) : null}
+            {e.deliveryPincode ? (
+              <div>
+                <dt className="text-xs text-muted">{tr("pincode")}</dt>
+                <dd className="font-medium text-ink">{e.deliveryPincode}</dd>
+              </div>
+            ) : null}
+            {e.expiresAt ? (
+              <div>
+                <dt className="text-xs text-muted">{tr("quoteDeadline")}</dt>
+                <dd className="font-medium text-ink">{deadlinePassed ? tr("deadlinePassed") : formatDate(e.expiresAt, locale)}</dd>
+              </div>
+            ) : null}
+            {e.minSellerTier ? (
+              <div>
+                <dt className="text-xs text-muted">{tr("preferredTier")}</dt>
+                <dd className="font-medium text-ink">{tr("tierPlus", { tier: e.minSellerTier })}</dd>
+              </div>
+            ) : null}
+          </dl>
+        ) : null}
+        {e.attachments.length ? (
+          <div className="text-sm">
+            <p className="text-xs text-muted">{tr("attachments")}</p>
+            <ul className="mt-1 flex flex-col gap-1">
+              {e.attachments.map((a) => (
+                <li key={a.id}>
+                  <a href={`/api/rfq-attachments/${a.id}`} className="inline-flex min-h-11 items-center break-all font-medium text-brand-700 underline" download>
+                    {tr("download", { name: a.fileName })}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <p className="line-clamp-3 text-sm text-muted">{e.requirement}</p>
 
         <div className="flex flex-wrap items-center gap-2">
