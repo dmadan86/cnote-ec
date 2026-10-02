@@ -146,7 +146,8 @@ describe("enquiry → match → accept flow", () => {
   it("expired offers cascade", async () => {
     const e = await post("Bubble wrap rolls");
     await prisma.match.updateMany({ where: { enquiryId: e.id, rank: 1 }, data: { respondBy: new Date(Date.now() - 1000) } });
-    expect(await expireOverdueOffers()).toBeGreaterThanOrEqual(1);
+    // Don't assert the sweep's global count: a parallel file's sweep may expire this offer first. The rows below are the proof.
+    await expireOverdueOffers();
     const rows = await prisma.match.findMany({ where: { enquiryId: e.id } });
     expect(rows.filter((r) => r.status === "expired")).toHaveLength(1);
     expect(rows.filter((r) => r.status === "offered")).toHaveLength(3);
