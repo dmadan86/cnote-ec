@@ -194,7 +194,9 @@ describe("ops helpers and channels", () => {
   it("maskEmail / redact never leak addresses or phones (property)", () => {
     expect(maskEmail("mail asha@example.com now")).toBe("mail a***@example.com now");
     fc.assert(
-      fc.property(fc.emailAddress(), fc.string({ minLength: 6, maxLength: 12 }), (email, phone) => {
+      // The mask character is excluded from the local part: a local part of "*" legitimately masks to "****@a.aa",
+      // which contains the original "*@a.aa" without leaking anything.
+      fc.property(fc.emailAddress().filter((e) => !e.split("@")[0]!.includes("*")), fc.string({ minLength: 6, maxLength: 12 }), (email, phone) => {
         const out = JSON.stringify(redact({ to: email, nested: [{ contactPhone: phone, mobile: phone }], n: 3, ok: true, none: null }));
         expect(out).not.toContain(JSON.stringify(email).slice(1, -1));
       }),

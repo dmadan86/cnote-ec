@@ -37,7 +37,8 @@ afterAll(async () => {
   await prisma.listingPriceHistory.deleteMany({ where: { listing: { id: { in: ids } } } }).catch(() => {});
   await prisma.listing.deleteMany({ where: { id: { in: ids } } });
   await prisma.business.deleteMany({ where: { id: { in: [trusted, plain] } } });
-  await prisma.category.deleteMany({ where: { slug: { endsWith: tag } } });
+  // tolerate a foreign draft: draftListingFromText/Photos fall back to the first category in the DB, so a parallel file may still reference this one
+  await prisma.category.deleteMany({ where: { slug: { endsWith: tag } } }).catch(() => {});
 });
 
 const events = (listingId: string) => prisma.domainEvent.findMany({ where: { aggregateId: listingId }, orderBy: { id: "asc" } }).then((r) => r.map((e) => e.type));
