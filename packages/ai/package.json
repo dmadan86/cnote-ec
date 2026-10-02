@@ -11,7 +11,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "eval": "tsx --env-file=../../.env.local evals/run.ts"
+    "eval": "tsx --env-file-if-exists=../../.env.local evals/run.ts",
+    "eval:shadow": "tsx --env-file-if-exists=../../.env.local evals/shadow.ts",
+    "eval:manifest": "tsx evals/prompt-manifest.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
