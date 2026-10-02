@@ -7,7 +7,7 @@ import { z } from "zod";
 import { actionContext } from "@/lib/auth";
 
 const schema = z.object({
-  kind: z.enum(["review", "comment", "reply"]),
+  kind: z.enum(["review", "comment", "reply", "question", "answer"]),
   id: z.uuid(),
   decision: z.enum(["approved", "rejected"]),
   note: z.string().trim().max(500, "Keep the note under 500 characters.").optional(),

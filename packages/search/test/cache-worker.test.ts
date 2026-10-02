@@ -60,7 +60,13 @@ describe("cache worker", () => {
 
   it("DataErasureRequested purges all reviews", async () => {
     await cacheHandlers.DataErasureRequested!(ev({}));
-    expect(invalidate).toHaveBeenCalledWith([cacheTags.reviewsAll]);
+    expect(invalidate).toHaveBeenCalledWith([cacheTags.reviewsAll, cacheTags.qaAll]);
+  });
+
+  it.each(["ProductQuestionAnswered", "ProductQaModerated"])("%s purges the public Q&A tag hard", async (name) => {
+    await cacheHandlers[name]!(ev({ listingId: "L" }));
+    expect(invalidate).toHaveBeenCalledWith([cacheTags.qa("L")]);
+    expect(webTags()).toEqual([{ tag: cacheTags.qa("L"), hard: true }]);
   });
 
   it("skips the web tier without a secret, uses WEB_REVALIDATE_URL when set", async () => {

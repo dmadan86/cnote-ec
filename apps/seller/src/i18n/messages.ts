@@ -21,7 +21,7 @@ function merge(base: Json, over: Json): Json {
  * static import pattern, so names come from this list plus a best-effort directory scan on the server.
  */
 export const KNOWN_NAMESPACES = [
-  "landing", "auth", "onboarding", "dashboard", "listings", "leads", "orders", "billing", "verification", "settings", "reviews",
+  "landing", "auth", "onboarding", "dashboard", "listings", "leads", "orders", "billing", "verification", "settings", "reviews", "questions",
   "notifications", "storefront", "appeals", "disputes", "offers", "referrals", "ads", "ondc", "negotiation", "escrow", "quality",
   "credit", "a2a", "prices", "authForms", "errors", "mfa", "states",
 ];

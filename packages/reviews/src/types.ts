@@ -1,5 +1,5 @@
 export type UgcStatus = "pending" | "flagged" | "approved" | "rejected";
-export type UgcKind = "review" | "comment" | "reply";
+export type UgcKind = "review" | "comment" | "reply" | "question" | "answer";
 export type ReviewSort = "recent" | "helpful" | "rating_high" | "rating_low";
 
 /** The signed-in person acting. `businessId` is their active business (session.business?.id), if any. */
@@ -112,4 +112,43 @@ export interface ModerationResult {
   listingId: string;
   before: ModerationSnapshot;
   after: ModerationSnapshot;
+}
+
+// ---- product questions & answers ----
+
+/** An answered, approved question as the public sees it. */
+export interface PublicQuestion {
+  id: string;
+  body: string;
+  authorName: string;
+  askedAt: string;
+  answer: { id: string; body: string; answeredAt: string; sellerName: string; helpfulCount: number };
+}
+export interface QaPage extends Page<PublicQuestion> {
+  /** all answered questions matching the filter (not just this page) */
+  total: number;
+}
+
+/** What an asker sees about their own question. flagged is shown as pending (never reveal the AI screen). */
+export interface MyQuestion {
+  id: string;
+  body: string;
+  status: "pending" | "approved" | "rejected";
+  moderationNote: string | null;
+  piiStripped: boolean;
+  createdAt: string;
+  /** the approved answer, once there is one (then the question is public too) */
+  answer: { body: string; answeredAt: string } | null;
+}
+
+/** Seller inbox row: an approved-for-seller question plus the seller's own answer in any moderation state. */
+export interface SellerQuestion {
+  id: string;
+  listingId: string;
+  body: string;
+  authorName: string;
+  createdAt: string;
+  answer: { id: string; body: string; status: UgcStatus; moderationNote: string | null } | null;
+  /** no answer yet, or the answer was rejected */
+  needsAnswer: boolean;
 }

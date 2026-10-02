@@ -12,3 +12,13 @@ export async function bustReviewCaches(listingId: string): Promise<void> {
 export async function bustAllReviewCaches(): Promise<void> {
   await invalidateTags([cacheTags.reviewsAll, SELLER_REVIEWS_TAG]);
 }
+
+/** Post-commit invalidation of a listing's public answered-questions list. Never throws. */
+export async function bustQaCaches(listingId: string): Promise<void> {
+  await invalidateTags([cacheTags.qa(listingId)]);
+}
+
+/** After an erasure (asker names change to "Former user"): every cached Q&A list is dropped. */
+export async function bustAllQaCaches(): Promise<void> {
+  await invalidateTags([cacheTags.qaAll]);
+}

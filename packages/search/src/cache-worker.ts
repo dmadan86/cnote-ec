@@ -54,6 +54,12 @@ async function reviewsChanged(listingId: string) {
   await purgeWeb([{ tag: cacheTags.reviews(listingId), hard: true }, { tag: cacheTags.rating(listingId), hard: true }]);
 }
 
+/** Public answered-question list of a listing (ProductQuestionAnswered / ProductQaModerated); hard, a withdrawn Q&A must vanish now. */
+async function qaChanged(listingId: string) {
+  await invalidateTags([cacheTags.qa(listingId)]);
+  await purgeWeb([{ tag: cacheTags.qa(listingId), hard: true }]);
+}
+
 async function sellerChanged(businessId: string) {
   await invalidateTags([cacheTags.seller(businessId), cacheTags.sellers, cacheTags.sitemap]);
   await purgeWeb([{ tag: cacheTags.seller(businessId) }, { tag: cacheTags.sellers }, { tag: cacheTags.sitemap }]);
@@ -69,12 +75,14 @@ export const cacheHandlers: EventHandlers = {
   ListingImageModerated: async (e) => listingChanged(e.payload.listingId, e.payload.sellerBusinessId, true),
   ReviewModerated: async (e) => reviewsChanged(e.payload.listingId),
   CommentModerated: async (e) => reviewsChanged(e.payload.listingId),
+  ProductQuestionAnswered: async (e) => qaChanged(e.payload.listingId),
+  ProductQaModerated: async (e) => qaChanged(e.payload.listingId),
   TrustScoreChanged: async (e) => sellerChanged(e.payload.businessId),
   BusinessVerified: async (e) => sellerChanged(e.payload.businessId),
   BusinessCreated: async (e) => (e.payload.isSeller ? sellerChanged(e.payload.businessId) : undefined),
   DataErasureRequested: async () => {
-    await invalidateTags([cacheTags.reviewsAll]);
-    await purgeWeb([{ tag: cacheTags.reviewsAll, hard: true }]);
+    await invalidateTags([cacheTags.reviewsAll, cacheTags.qaAll]);
+    await purgeWeb([{ tag: cacheTags.reviewsAll, hard: true }, { tag: cacheTags.qaAll, hard: true }]);
   },
 };
 
