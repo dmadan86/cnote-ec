@@ -1,0 +1,112 @@
+{
+  "supplier": {
+    "card": {
+      "heading": "पुरवठादार",
+      "whatsVerified": "काय सत्यापित आहे",
+      "checksPassed": "{passed, plural, one {# तपासणी पूर्ण} other {# तपासण्या पूर्ण}}",
+      "responseTime": "प्रतिसाद वेळ",
+      "acceptRate": "लीड स्वीकार दर",
+      "onPlatform": "प्लॅटफॉर्मवर",
+      "location": "स्थान",
+      "rating": "रेटिंग",
+      "noReviews": "अद्याप पुनरावलोकने नाहीत",
+      "newSupplier": "नवीन पुरवठादार",
+      "newSupplierHint": "पुरेशा अलीकडील लीडनंतर प्रतिसादाची आकडेवारी दिसेल.",
+      "viewProfile": "प्रोफाइल पहा",
+      "contact": "पुरवठादाराशी संपर्क साधा",
+      "india": "भारत",
+      "products": "लाइव्ह उत्पादने"
+    },
+    "values": {
+      "minutes": "{n, plural, one {# मिनिट} other {# मिनिटे}}",
+      "hours": "{n, plural, one {# तास} other {# तास}}",
+      "days": "{n, plural, one {# दिवस} other {# दिवस}}",
+      "typical": "साधारणपणे {duration} मध्ये उत्तर देतात",
+      "noReplies": "अद्याप उत्तरे नाहीत",
+      "acceptPct": "{pct}% स्वीकारले",
+      "years": "{years, plural, one {# वर्ष} other {# वर्षे}}",
+      "joinedYear": "{year} मध्ये सामील झाले",
+      "ratingValue": "5 पैकी {average} ({count, plural, one {# पुनरावलोकन} other {# पुनरावलोकने}})",
+      "window": "गेले 90 दिवस"
+    },
+    "checks": {
+      "phone": "फोन नंबर सत्यापित",
+      "gstin": "GST नोंदणीत GSTIN सत्यापित",
+      "gstin_name_match": "GST नाव व्यवसायाच्या नावाशी जुळते",
+      "udyam": "उद्यम नोंदणी",
+      "documents": "कागदपत्रे आणि KYC तपासले",
+      "audit": "स्वतंत्र ऑडिट"
+    },
+    "checkDesc": {
+      "phone": "मालकाच्या फोनवर एकदाच वापरायचा कोड पुष्टी केला.",
+      "gstin": "GSTIN GST नोंदणीत सक्रिय आहे.",
+      "gstin_name_match": "GST नोंदणीतील नाव येथे दाखवलेल्या व्यवसायाच्या नावाशी जुळते.",
+      "udyam": "उद्यम नोंदणी क्रमांक नोंदलेला आहे.",
+      "documents": "व्यवसायाची कागदपत्रे आणि व्हिडिओ KYC तपासले.",
+      "audit": "तृतीय-पक्ष ऑडिट भागीदाराने व्यवसायाची पाहणी केली."
+    },
+    "evidence": {
+      "passedOn": "{date} रोजी पूर्ण",
+      "notDone": "पूर्ण झाले नाही",
+      "gstinOnFile": "नोंदलेला GSTIN: {gstin}",
+      "list": "सत्यापन तपासण्या"
+    },
+    "profile": {
+      "tabsLabel": "पुरवठादार विभाग",
+      "about": "परिचय",
+      "products": "उत्पादने",
+      "reviews": "पुनरावलोकने",
+      "verification": "सत्यापन",
+      "requestQuote": "कोटेशन मागवा",
+      "contact": "संपर्क करा",
+      "share": "शेअर करा",
+      "shareCopied": "लिंक कॉपी झाली",
+      "report": "तक्रार करा",
+      "storefront": "स्टोअरफ्रंट पहा",
+      "actions": "पुरवठादार कृती"
+    },
+    "about": {
+      "title": "या पुरवठादाराबद्दल",
+      "categories": "उत्पादन श्रेणी",
+      "languages": "भाषा",
+      "location": "स्थान",
+      "memberSince": "प्लॅटफॉर्मवर सामील झाल्याचे वर्ष",
+      "listings": "लाइव्ह उत्पादने"
+    },
+    "products": {
+      "filterLabel": "श्रेणीनुसार उत्पादने फिल्टर करा",
+      "all": "सर्व",
+      "showing": "{count, plural, one {# उत्पादन} other {# उत्पादने}} दाखवत आहे"
+    },
+    "reviews": {
+      "title": "पुनरावलोकने",
+      "summary": "रेटिंग सारांश",
+      "forProduct": "{product} वर",
+      "verifiedEnquiry": "सत्यापित चौकशी",
+      "sellerReply": "पुरवठादाराचे उत्तर",
+      "none": "अद्याप पुनरावलोकने नाहीत.",
+      "starsRow": "{stars}-स्टार पुनरावलोकने: {count}"
+    },
+    "verification": {
+      "title": "सत्यापनाचा पुरावा",
+      "intro": "खालील प्रत्येक तपासणी दाखवलेल्या तारखेला पूर्ण झाली. पूर्ण न झालेल्याही दाखवल्या आहेत.",
+      "explainer": "सत्यापन कसे काम करते",
+      "level": "सत्यापन स्तर: {tier}",
+      "notice": "बॅज फक्त पूर्ण झालेल्या तपासण्या दर्शवतात. ते विकले जात नाहीत आणि सशुल्क प्लॅनवर अवलंबून नसतात."
+    },
+    "compare": {
+      "highlight": "फरक हायलाइट करा",
+      "differs": "वेगळे",
+      "tier": "सत्यापन",
+      "location": "स्थान",
+      "response": "प्रतिसाद वेळ",
+      "accept": "लीड स्वीकार दर",
+      "rating": "पुरवठादार रेटिंग",
+      "years": "प्लॅटफॉर्मवर वर्षे",
+      "listings": "लाइव्ह उत्पादने",
+      "priceTiers": "किंमत स्तर",
+      "tierQty": "{qty}+ युनिट",
+      "checks": "{count, plural, one {# तपासणी पूर्ण} other {# तपासण्या पूर्ण}}"
+    }
+  }
+}

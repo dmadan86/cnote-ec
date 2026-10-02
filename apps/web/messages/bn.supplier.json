@@ -1,0 +1,112 @@
+{
+  "supplier": {
+    "card": {
+      "heading": "সরবরাহকারী",
+      "whatsVerified": "কী যাচাই হয়েছে",
+      "checksPassed": "{passed, plural, one {# টি যাচাই সম্পন্ন} other {# টি যাচাই সম্পন্ন}}",
+      "responseTime": "উত্তর দেওয়ার সময়",
+      "acceptRate": "লিড গ্রহণের হার",
+      "onPlatform": "প্ল্যাটফর্মে",
+      "location": "অবস্থান",
+      "rating": "রেটিং",
+      "noReviews": "এখনও কোনো রিভিউ নেই",
+      "newSupplier": "নতুন সরবরাহকারী",
+      "newSupplierHint": "যথেষ্ট সাম্প্রতিক লিডের পর উত্তরের সংখ্যা দেখা যাবে।",
+      "viewProfile": "প্রোফাইল দেখুন",
+      "contact": "সরবরাহকারীর সাথে যোগাযোগ",
+      "india": "ভারত",
+      "products": "লাইভ পণ্য"
+    },
+    "values": {
+      "minutes": "{n, plural, one {# মিনিট} other {# মিনিট}}",
+      "hours": "{n, plural, one {# ঘণ্টা} other {# ঘণ্টা}}",
+      "days": "{n, plural, one {# দিন} other {# দিন}}",
+      "typical": "সাধারণত {duration}-এর মধ্যে উত্তর দেন",
+      "noReplies": "এখনও কোনো উত্তর নেই",
+      "acceptPct": "{pct}% গৃহীত",
+      "years": "{years, plural, one {# বছর} other {# বছর}}",
+      "joinedYear": "{year} সালে যোগ দিয়েছেন",
+      "ratingValue": "৫-এর মধ্যে {average} ({count, plural, one {# রিভিউ} other {# রিভিউ}})",
+      "window": "গত ৯০ দিন"
+    },
+    "checks": {
+      "phone": "ফোন নম্বর যাচাই হয়েছে",
+      "gstin": "GST রেজিস্ট্রিতে GSTIN যাচাই হয়েছে",
+      "gstin_name_match": "GST নাম ব্যবসার নামের সাথে মিলেছে",
+      "udyam": "উদ্যম নিবন্ধন",
+      "documents": "নথি ও KYC যাচাই হয়েছে",
+      "audit": "স্বাধীন অডিট"
+    },
+    "checkDesc": {
+      "phone": "মালিকের ফোনে এককালীন কোড নিশ্চিত হয়েছে।",
+      "gstin": "GSTIN GST রেজিস্ট্রিতে সক্রিয়।",
+      "gstin_name_match": "GST নিবন্ধনের নাম এখানে দেখানো ব্যবসার নামের সাথে মেলে।",
+      "udyam": "উদ্যম নিবন্ধন নম্বর জমা আছে।",
+      "documents": "ব্যবসার নথি ও ভিডিও KYC পর্যালোচনা হয়েছে।",
+      "audit": "একটি তৃতীয় পক্ষের অডিট অংশীদার ব্যবসাটি পরিদর্শন করেছে।"
+    },
+    "evidence": {
+      "passedOn": "{date} তারিখে সম্পন্ন",
+      "notDone": "সম্পন্ন হয়নি",
+      "gstinOnFile": "জমা দেওয়া GSTIN: {gstin}",
+      "list": "যাচাইয়ের ধাপ"
+    },
+    "profile": {
+      "tabsLabel": "সরবরাহকারীর বিভাগ",
+      "about": "পরিচিতি",
+      "products": "পণ্য",
+      "reviews": "রিভিউ",
+      "verification": "যাচাইকরণ",
+      "requestQuote": "কোটেশন চান",
+      "contact": "যোগাযোগ",
+      "share": "শেয়ার",
+      "shareCopied": "লিংক কপি হয়েছে",
+      "report": "রিপোর্ট করুন",
+      "storefront": "স্টোরফ্রন্ট দেখুন",
+      "actions": "সরবরাহকারীর কাজ"
+    },
+    "about": {
+      "title": "এই সরবরাহকারী সম্পর্কে",
+      "categories": "পণ্যের বিভাগ",
+      "languages": "ভাষা",
+      "location": "অবস্থান",
+      "memberSince": "প্ল্যাটফর্মে যোগদানের বছর",
+      "listings": "লাইভ পণ্য"
+    },
+    "products": {
+      "filterLabel": "বিভাগ অনুযায়ী পণ্য ফিল্টার করুন",
+      "all": "সব",
+      "showing": "{count, plural, one {# টি পণ্য} other {# টি পণ্য}} দেখানো হচ্ছে"
+    },
+    "reviews": {
+      "title": "রিভিউ",
+      "summary": "রেটিং সারাংশ",
+      "forProduct": "{product}-এ",
+      "verifiedEnquiry": "যাচাইকৃত অনুসন্ধান",
+      "sellerReply": "সরবরাহকারীর উত্তর",
+      "none": "এখনও কোনো রিভিউ নেই।",
+      "starsRow": "{stars}-স্টার রিভিউ: {count}"
+    },
+    "verification": {
+      "title": "যাচাইয়ের প্রমাণ",
+      "intro": "নিচের প্রতিটি ধাপ দেখানো তারিখে সম্পন্ন হয়েছে। যা সম্পন্ন হয়নি তাও তালিকাভুক্ত।",
+      "explainer": "যাচাইকরণ কীভাবে কাজ করে",
+      "level": "যাচাইকরণ স্তর: {tier}",
+      "notice": "ব্যাজ শুধু সম্পন্ন যাচাই প্রতিফলিত করে। এটি বিক্রি হয় না এবং কোনো পেইড প্ল্যানের উপর নির্ভর করে না।"
+    },
+    "compare": {
+      "highlight": "পার্থক্য হাইলাইট করুন",
+      "differs": "ভিন্ন",
+      "tier": "যাচাইকরণ",
+      "location": "অবস্থান",
+      "response": "উত্তর দেওয়ার সময়",
+      "accept": "লিড গ্রহণের হার",
+      "rating": "সরবরাহকারীর রেটিং",
+      "years": "প্ল্যাটফর্মে বছর",
+      "listings": "লাইভ পণ্য",
+      "priceTiers": "মূল্যের স্তর",
+      "tierQty": "{qty}+ একক",
+      "checks": "{count, plural, one {# টি যাচাই সম্পন্ন} other {# টি যাচাই সম্পন্ন}}"
+    }
+  }
+}

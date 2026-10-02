@@ -1,0 +1,112 @@
+{
+  "supplier": {
+    "card": {
+      "heading": "Supplier",
+      "whatsVerified": "What's verified",
+      "checksPassed": "{passed, plural, one {# check passed} other {# checks passed}}",
+      "responseTime": "Response time",
+      "acceptRate": "Lead accept rate",
+      "onPlatform": "On platform",
+      "location": "Location",
+      "rating": "Rating",
+      "noReviews": "No reviews yet",
+      "newSupplier": "New supplier",
+      "newSupplierHint": "Response numbers appear after enough recent leads.",
+      "viewProfile": "View profile",
+      "contact": "Contact supplier",
+      "india": "India",
+      "products": "Live products"
+    },
+    "values": {
+      "minutes": "{n, plural, one {# minute} other {# minutes}}",
+      "hours": "{n, plural, one {# hour} other {# hours}}",
+      "days": "{n, plural, one {# day} other {# days}}",
+      "typical": "Typically replies in {duration}",
+      "noReplies": "No replies yet",
+      "acceptPct": "{pct}% accepted",
+      "years": "{years, plural, one {# year} other {# years}}",
+      "joinedYear": "Joined {year}",
+      "ratingValue": "{average} out of 5 ({count, plural, one {# review} other {# reviews}})",
+      "window": "Last 90 days"
+    },
+    "checks": {
+      "phone": "Phone number verified",
+      "gstin": "GSTIN verified with the GST registry",
+      "gstin_name_match": "GST name matches business name",
+      "udyam": "Udyam registration",
+      "documents": "Documents and KYC checked",
+      "audit": "Independent audit"
+    },
+    "checkDesc": {
+      "phone": "A one-time code was confirmed on the owner's phone.",
+      "gstin": "The GSTIN is active in the GST registry.",
+      "gstin_name_match": "The name on the GST registration matches the business name shown here.",
+      "udyam": "An Udyam registration number is on file.",
+      "documents": "Business documents and a video KYC were reviewed.",
+      "audit": "A third-party audit partner inspected the business."
+    },
+    "evidence": {
+      "passedOn": "Passed {date}",
+      "notDone": "Not completed",
+      "gstinOnFile": "GSTIN on file: {gstin}",
+      "list": "Verification checks"
+    },
+    "profile": {
+      "tabsLabel": "Supplier sections",
+      "about": "About",
+      "products": "Products",
+      "reviews": "Reviews",
+      "verification": "Verification",
+      "requestQuote": "Request quote",
+      "contact": "Contact",
+      "share": "Share",
+      "shareCopied": "Link copied",
+      "report": "Report",
+      "storefront": "Visit storefront",
+      "actions": "Supplier actions"
+    },
+    "about": {
+      "title": "About this supplier",
+      "categories": "Product categories",
+      "languages": "Languages",
+      "location": "Location",
+      "memberSince": "On the platform since",
+      "listings": "Live products"
+    },
+    "products": {
+      "filterLabel": "Filter products by category",
+      "all": "All",
+      "showing": "Showing {count, plural, one {# product} other {# products}}"
+    },
+    "reviews": {
+      "title": "Reviews",
+      "summary": "Rating summary",
+      "forProduct": "On {product}",
+      "verifiedEnquiry": "Verified enquiry",
+      "sellerReply": "Reply from the supplier",
+      "none": "No reviews yet.",
+      "starsRow": "{stars}-star reviews: {count}"
+    },
+    "verification": {
+      "title": "Verification evidence",
+      "intro": "Each check below was completed on the date shown. Anything not completed is listed too.",
+      "explainer": "How verification works",
+      "level": "Verification level: {tier}",
+      "notice": "Badges reflect completed checks only. They are never sold and never depend on a paid plan."
+    },
+    "compare": {
+      "highlight": "Highlight differences",
+      "differs": "Differs",
+      "tier": "Verification",
+      "location": "Location",
+      "response": "Response time",
+      "accept": "Lead accept rate",
+      "rating": "Supplier rating",
+      "years": "Years on platform",
+      "listings": "Live products",
+      "priceTiers": "Price tiers",
+      "tierQty": "{qty}+ units",
+      "checks": "{count, plural, one {# check passed} other {# checks passed}}"
+    }
+  }
+}

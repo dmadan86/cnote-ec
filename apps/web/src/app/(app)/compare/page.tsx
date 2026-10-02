@@ -11,6 +11,7 @@ import { CompareTable } from "@/features/compare/compare-table";
 import { loadCompareListings, readCompareIds } from "@/features/compare/state";
 import { loadRatings, safe } from "@/features/search/data";
 import { firstParam } from "@/features/search/format";
+import { loadSupplierTrustMany } from "@/features/supplier/data";
 import { loadSavedState } from "@/features/wishlist/saved";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -31,11 +32,12 @@ export default async function ComparePage(props: PageProps<"/compare">) {
   const listings: ListingView[] = all.filter((l) => l.category.id === categoryId);
   const skipped = all.length - listings.length;
 
-  const [category, sellers, { signedIn, saved }, ratings] = await Promise.all([
+  const [category, sellers, { signedIn, saved }, ratings, supplierTrust] = await Promise.all([
     listings[0] ? safe("catalogue.getCategoryBySlug", () => getCategoryBySlug(listings[0]!.category.slug), null) : null,
     safe("identity.getTrustProfiles", () => getTrustProfiles([...new Set(listings.map((l) => l.sellerBusinessId))]), new Map<string, TrustProfile>()),
     loadSavedState(),
     loadRatings(listings.map((l) => l.id)),
+    loadSupplierTrustMany(listings.map((l) => l.sellerBusinessId)),
   ]);
 
   return (
@@ -69,6 +71,7 @@ export default async function ComparePage(props: PageProps<"/compare">) {
             shared={!!shared}
             ids={listings.map((l) => l.id)}
             ratings={ratings}
+            supplierTrust={supplierTrust}
           />
         </div>
       ) : null}
