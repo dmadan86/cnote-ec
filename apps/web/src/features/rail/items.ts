@@ -1,6 +1,6 @@
 import {
-  Bell, Bot, ClipboardList, Download, Factory, FileText, GitCompareArrows, Heart, House, KeyRound, LayoutDashboard, LayoutGrid,
-  PackageCheck, PlusCircle, Scale, Search, Tag, type LucideIcon,
+  Bell, BellRing, BookmarkCheck, Bot, ClipboardList, Download, Factory, FileText, GitCompareArrows, Heart, House, KeyRound, LayoutDashboard, LayoutGrid,
+  PackageCheck, PlusCircle, Scale, Search, Store, Tag, type LucideIcon,
 } from "lucide-react";
 import { splitLocale } from "@/i18n/config";
 
@@ -8,7 +8,7 @@ import { splitLocale } from "@/i18n/config";
 export type RailLabelKey =
   | "home" | "search" | "categories" | "manufacturers" | "pricing" | "requestQuote" | "signIn"
   | "overview" | "postRequirement" | "myRequirements" | "orders" | "agents"
-  | "saved" | "compare" | "notifications" | "grievances" | "developers" | "exportData";
+  | "saved" | "compare" | "suppliers" | "savedSearches" | "alerts" | "notifications" | "grievances" | "developers" | "exportData";
 
 export interface RailItem {
   href: string;
@@ -49,10 +49,13 @@ export const RAIL_GROUPS: readonly (readonly RailItem[])[] = [
   ],
   [
     { href: "/wishlist", label: "saved", icon: Heart },
+    { href: "/buyer/suppliers", label: "suppliers", icon: Store },
+    { href: "/account/saved-searches", label: "savedSearches", icon: BookmarkCheck },
     { href: "/compare", label: "compare", icon: GitCompareArrows },
   ],
   [
     { href: "/account/notifications", label: "notifications", icon: Bell },
+    { href: "/account/alerts", label: "alerts", icon: BellRing },
     { href: "/account/grievances", label: "grievances", icon: Scale },
     { href: "/account/developers", label: "developers", icon: KeyRound },
     { href: "/account/export", label: "exportData", icon: Download, download: true },

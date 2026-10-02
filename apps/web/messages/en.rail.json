@@ -22,6 +22,9 @@
     "manufacturers": "Manufacturers",
     "pricing": "Pricing",
     "requestQuote": "Request quote",
-    "signIn": "Sign in"
+    "signIn": "Sign in",
+    "suppliers": "Followed suppliers",
+    "savedSearches": "Saved searches",
+    "alerts": "Alerts"
   }
 }

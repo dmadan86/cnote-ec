@@ -170,7 +170,7 @@ async function deliver(msg: QueueMessage<EmailJob>): Promise<void> {
   }
 
   const headers: Record<string, string> = {};
-  if (row.category === "marketing") {
+  if (row.category === "marketing" || row.category === "alert") {
     const custom = typeof job.vars.unsubscribeUrl === "string" && /^https?:\/\/[^\s<>"]+$/.test(job.vars.unsubscribeUrl) ? job.vars.unsubscribeUrl : null; // never let a value break out of the header
     const url = custom ?? `${(process.env.APP_URL ?? "http://localhost:3000").replace(/\/+$/, "")}/account/notifications`;
     headers["List-Unsubscribe"] = `<${url}>`;

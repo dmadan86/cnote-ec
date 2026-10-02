@@ -12,6 +12,7 @@ import { purgeAbandonedCaptures } from "@cnote/leadgen";
 import { purgeReadNotifications } from "@cnote/notifications";
 import { purgeRejectedUgc } from "@cnote/reviews";
 import * as whatsapp from "@cnote/whatsapp";
+import { purgeOldDispatches } from "@cnote/alerts";
 import { purgeStaleEmptyWishlists } from "@cnote/wishlist";
 import { purgeClosedCreditData } from "@cnote/credit";
 import { purgeResolvedDisputeEvidence } from "@cnote/disputes";
@@ -162,6 +163,12 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     description: "Empty, non-default wishlists untouched for the window.",
     legalBasis: "DPDP s.8(7)",
     run: (before, { dryRun }) => purgeStaleEmptyWishlists(before, { dryRun }),
+  },
+  {
+    name: "alerts.dispatch_ledger_90d", module: "alerts", envKey: "ALERT_DISPATCHES", defaultDays: 90, supportsDryRun: true,
+    description: "Alert dedupe ledger rows (no content); they only need to outlive event redelivery.",
+    legalBasis: "DPDP s.8(7)",
+    run: (before, { dryRun }) => purgeOldDispatches(before, { dryRun }),
   },
 ];
 

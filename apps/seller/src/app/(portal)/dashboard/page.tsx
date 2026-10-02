@@ -5,7 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { Alert, Card, CardBody, CardHeader, CardTitle, PageHeader, Stat, TrustBadge, buttonClasses } from "@cnote/ui";
 import { requireSeller } from "@/lib/auth";
 import { load } from "@/lib/safe";
-import { billing, catalogue, enquiry } from "@/lib/services";
+import { alerts, billing, catalogue, enquiry } from "@/lib/services";
 import { getOnboardingState } from "@/features/onboarding/state";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -19,10 +19,12 @@ export default async function DashboardPage() {
   const session = await requireSeller("/dashboard");
   const b = session.business;
   const t = await getTranslations("dashboard");
-  const [balance, leads, listings, onboarding] = await Promise.all([
+  const [balance, leads, listings, followers, onboarding] = await Promise.all([
     load(() => billing.getBalance(b.id)),
     load(() => enquiry.listSellerLeads(b.id)),
     load(() => catalogue.listSellerListings(b.id)),
+    // aggregate only: how many buyers follow this business, never who (docs/design/buyer-retention.md)
+    load(() => alerts.countFollowers(b.id)),
     getOnboardingState(session).catch(() => null),
   ]);
 
@@ -59,10 +61,11 @@ export default async function DashboardPage() {
         </Alert>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Stat label={t("stats.credits")} value={balance.ok ? balance.data : "-"} hint={<Link href="/billing" className="underline">{t("stats.billing")}</Link>} />
         <Stat label={t("stats.openLeads")} value={open ?? "-"} hint={<Link href="/leads" className="underline">{t("stats.answerNow")}</Link>} />
         <Stat label={t("stats.response")} value={sla ?? "-"} hint={t("stats.responseHint")} />
+        <Stat label={t("stats.followers")} value={followers.ok ? followers.data : "-"} hint={t("stats.followersHint")} />
         <Stat label={t("stats.trust")} value={b.trustScore} hint={<TrustBadge tier={b.verificationTier} badgeActive={b.badgeActive} />} />
       </div>
       {!leads.ok || !balance.ok ? <Alert tone="danger">{t("stats.loadFail")}</Alert> : null}

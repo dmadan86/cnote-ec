@@ -1,7 +1,7 @@
 "use client";
 import { Alert, Button, buttonClasses, Card, CardBody, Field, Input } from "@cnote/ui";
 import Link from "next/link";
-import { useActionState, type ReactNode } from "react";
+import { useActionState, useState, type ReactNode } from "react";
 import type { ActionResult } from "./action-result";
 import { localizeError } from "./error-catalogue";
 import { forgotPasswordAction, resetPasswordAction, signInAction, signUpAction } from "./actions";
@@ -27,6 +27,7 @@ export interface AuthLabels {
   haveAccount: string;
   forgotSent: string;
   sendReset: string;
+  emailInvalid: string;
   sending: string;
   backToSignIn: string;
   newPassword: string;
@@ -53,6 +54,7 @@ export const DEFAULT_AUTH_LABELS: AuthLabels = {
   haveAccount: "Already have an account?",
   forgotSent: "If an account exists for that email, we've sent a link to reset your password. It expires in 30 minutes.",
   sendReset: "Send reset link",
+  emailInvalid: "Enter a valid email address, like name@company.com.",
   sending: "Sending…",
   backToSignIn: "Back to sign in",
   newPassword: "New password",
@@ -173,10 +175,17 @@ export function SignUpForm({ next, googleEnabled, paths, labels, translateError 
         </Field>
         <div className="flex flex-col gap-2 text-sm">
           <label className="flex items-start gap-2">
-            <input type="checkbox" name="consent_matching" className="mt-0.5 size-4" required />
+            <input
+              type="checkbox"
+              name="consent_matching"
+              className="mt-0.5 size-4"
+              required
+              aria-invalid={!!fieldError(state, "consent_matching")}
+              aria-describedby={fieldError(state, "consent_matching") ? "consent_matching-error" : undefined}
+            />
             <span>{L.consentMatching}</span>
           </label>
-          {fieldError(state, "consent_matching") ? <p className="text-xs text-danger">{fieldError(state, "consent_matching")}</p> : null}
+          {fieldError(state, "consent_matching") ? <p id="consent_matching-error" role="alert" className="text-xs text-danger">{fieldError(state, "consent_matching")}</p> : null}
           <label className="flex items-start gap-2 text-muted">
             <input type="checkbox" name="consent_marketing" className="mt-0.5 size-4" />
             <span>{L.consentMarketing}</span>
@@ -195,13 +204,29 @@ export function SignUpForm({ next, googleEnabled, paths, labels, translateError 
 export function ForgotPasswordForm({ paths, labels, translateError }: AuthFormProps) {
   const L = { ...DEFAULT_AUTH_LABELS, ...labels };
   const [state, action, pending] = useActionState<State, FormData>(forgotPasswordAction, null);
+  // The server answers "sent" for any address (no account enumeration), so a blank or malformed address is caught here:
+  // otherwise an empty submit would claim a link was sent (WCAG 3.3.1 error identification).
+  const [badEmail, setBadEmail] = useState(false);
   return (
     <Shell error={formError(state, translateError)}>
       {state?.ok ? (
         <Alert tone="success">{L.forgotSent}</Alert>
       ) : (
-        <form action={action} className="flex flex-col gap-4" noValidate>
-          <Field label={L.email} htmlFor="email" error={fieldError(state, "email")}>
+        <form
+          action={action}
+          className="flex flex-col gap-4"
+          noValidate
+          onSubmit={(e) => {
+            const email = String(new FormData(e.currentTarget).get("email") ?? "").trim();
+            const invalid = !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+            setBadEmail(invalid);
+            if (invalid) {
+              e.preventDefault();
+              e.currentTarget.querySelector<HTMLInputElement>("#email")?.focus();
+            }
+          }}
+        >
+          <Field label={L.email} htmlFor="email" error={badEmail ? L.emailInvalid : fieldError(state, "email")}>
             <Input id="email" name="email" type="email" autoComplete="email" required />
           </Field>
           <Button type="submit" size="lg" disabled={pending}>{pending ? L.sending : L.sendReset}</Button>

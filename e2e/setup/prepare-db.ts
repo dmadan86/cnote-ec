@@ -73,6 +73,7 @@ async function main() {
   run("pnpm", ["--filter", "@cnote/worker", "exec", "tsx", path.join(root, "apps/worker/src/seed.ts")]);
   run("pnpm", ["--filter", "@cnote/worker", "exec", "tsx", path.join(root, "e2e/setup/backfill-live.ts")]);
   run("pnpm", ["--filter", "@cnote/worker", "exec", "tsx", path.join(root, "e2e/setup/seed-billing.ts")]);
+  run("pnpm", ["--filter", "@cnote/worker", "exec", "tsx", path.join(root, "e2e/setup/seed-storefront.ts")]);
   await flushRedis();
   console.log("[e2e] database ready");
 

@@ -24,7 +24,7 @@ export default async function NotificationPreferencesPage() {
       <PageHeader
         title={t("prefsTitle")}
         description={t("prefsDescription")}
-        actions={<Link href="/account/notifications" className="text-sm font-medium text-brand-700 hover:underline">{t("back")}</Link>}
+        actions={<Link href="/account/notifications" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-700 hover:underline">{t("back")}</Link>}
       />
       {data ? <PreferencesForm rows={data.rows} /> : <Alert tone="danger">{t("prefsLoadError")}</Alert>}
     </Container>

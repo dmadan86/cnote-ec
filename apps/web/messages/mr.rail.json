@@ -25,6 +25,9 @@
     "manufacturers": "उत्पादक",
     "pricing": "किंमत",
     "requestQuote": "कोटेशन मागा",
-    "signIn": "साइन इन करा"
+    "signIn": "साइन इन करा",
+    "suppliers": "फॉलो केलेले पुरवठादार",
+    "savedSearches": "जतन केलेले शोध",
+    "alerts": "अलर्ट"
   }
 }

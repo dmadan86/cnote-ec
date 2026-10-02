@@ -9,7 +9,7 @@ import { categoryPath } from "@/lib/paths";
 export const generateMetadata = (props: { params: Promise<{ locale: string }> }) => legalMetadata(props.params, "/sitemap", "sitemap");
 export const revalidate = 900;
 
-const linkCls = "inline-flex min-h-8 items-center text-sm text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600";
+const linkCls = "inline-flex min-h-11 items-center lg:min-h-8 text-sm text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600";
 
 /** Human-readable sitemap (not the XML one): categories from the same read model as /categories, plus every policy and info page. */
 export default async function SitemapPage(props: { params: Promise<{ locale: string }> }) {

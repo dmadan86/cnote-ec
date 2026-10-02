@@ -62,7 +62,7 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   // DPDP orchestrator (ADR-010 access/erasure/retention): sits ABOVE the domain modules and calls their public
   // export/erase functions, so it may depend on many of them. Nothing may depend on it except apps.
   "@cnote/compliance": [
-    "@cnote/catalogue", "@cnote/core", "@cnote/credit", "@cnote/db", "@cnote/disputes", "@cnote/enquiry", "@cnote/identity", "@cnote/leadgen", "@cnote/notifications",
+    "@cnote/alerts", "@cnote/catalogue", "@cnote/core", "@cnote/credit", "@cnote/db", "@cnote/disputes", "@cnote/enquiry", "@cnote/identity", "@cnote/leadgen", "@cnote/notifications",
     "@cnote/ondc", "@cnote/quality", "@cnote/reviews", "@cnote/storefront", "@cnote/whatsapp", "@cnote/wishlist",
   ],
   "@cnote/developer": ["@cnote/core", "@cnote/db", "@cnote/identity"],
@@ -70,6 +70,8 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   "@cnote/search": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity"],
   "@cnote/enquiry": ["@cnote/ai", "@cnote/billing", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media"],
   "@cnote/wishlist": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity"],
+  // Buyer retention: follows, saved searches, opt-in alerts. Reads saved items via wishlist and new matches via search (public APIs only).
+  "@cnote/alerts": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/search", "@cnote/wishlist"],
   "@cnote/bulk": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media"],
   "@cnote/reviews": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity"],
   "@cnote/leadgen": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity"],
@@ -77,7 +79,7 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   "@cnote/domains": ["@cnote/core", "@cnote/db", "@cnote/storefront"],
   "@cnote/email": ["@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/templates"],
   "@cnote/notifications": [
-    "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/email", "@cnote/enquiry", "@cnote/identity", "@cnote/reviews", "@cnote/templates",
+    "@cnote/alerts", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/email", "@cnote/enquiry", "@cnote/identity", "@cnote/reviews", "@cnote/templates",
   ],
   "@cnote/whatsapp": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media", "@cnote/templates"],
   // Next.js glue shared by the apps: the one package (besides ui) that may sit on top of many modules.

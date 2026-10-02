@@ -10,6 +10,7 @@ import { RatingStars } from "@/features/reviews/stars";
 import { getUiLabels } from "@/features/search/labels";
 import { evidenceItems, responseText, yearsText } from "./evidence-items";
 import type { SupplierTrust } from "./model";
+import { FollowIsland } from "@/features/retention/follow-island";
 import { VerifiedDisclosure } from "./verified-disclosure";
 
 /**
@@ -98,6 +99,7 @@ export async function SellerCard({
             <Link href={sellerPath(seller.businessId)} className={buttonClasses("outline-brand", "md")}>
               {t("card.viewProfile")}
             </Link>
+            <FollowIsland businessId={seller.businessId} name={seller.name} />
             {contact}
           </div>
         </div>

@@ -43,7 +43,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
             else router.refresh();
           });
         }}
-        className="min-h-8 rounded-md border border-current/30 bg-transparent px-1.5 py-0.5 text-inherit focus-visible:outline-2 focus-visible:outline-offset-2"
+        className="min-h-11 rounded-md border border-current/30 lg:min-h-8 bg-transparent px-1.5 py-0.5 text-inherit focus-visible:outline-2 focus-visible:outline-offset-2"
       >
         {LOCALES.map((code) => (
           <option key={code} value={code} lang={LOCALE_META[code].bcp47} className="text-ink">
