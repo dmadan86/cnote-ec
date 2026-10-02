@@ -241,6 +241,50 @@ describe("coupon port", () => {
     await failOrder(c.orderId, "declined");
     expect(release).toHaveBeenCalledWith(c.orderId, "declined");
   });
+  it("M3 edges: amount mismatch releases the hold; a missing port or a failing release never blocks fulfilment", async () => {
+    const b = await biz();
+    const release = vi.fn(async () => { throw new Error("release down"); });
+    const port = { quote: async () => ({ discountPaise: 100, creditsBonus: 3, couponId: "c" }), reserve: async () => ({}), release, redeem: async () => ({ creditsGranted: 3 }) };
+    setCouponPort(port);
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const c1 = await startCheckout({ businessId: b }, { purpose: "credit_pack", packId: "credits_20", couponCode: "X" });
+    await send(c1.orderId, { amountPaise: 1 }); // wrong amount: order fails, hold released (release itself failing is logged, not thrown)
+    expect(release).toHaveBeenCalledWith(c1.orderId, "amount_mismatch");
+    expect((await prisma.paymentOrder.findUniqueOrThrow({ where: { id: c1.orderId } })).status).toBe("failed");
+    // port unregistered by the time the (late) payment arrives: purchase fulfils, bonus stripped, discrepancy recorded
+    const c2 = await startCheckout({ businessId: b }, { purpose: "credit_pack", packId: "credits_20", couponCode: "X" });
+    setCouponPort(null);
+    await send(c2.orderId);
+    expect(await getBalance(b)).toBe(20);
+    expect((await prisma.paymentOrder.findUniqueOrThrow({ where: { id: c2.orderId } })).failureReason).toContain("coupon port not registered");
+    // lower-level order with a coupon but no port is refused before any payment can be made
+    const { createProviderOrder } = await import("../src/payments");
+    await expect(createProviderOrder({ businessId: b }, { purpose: "credit_pack", purposeRef: "credits_20", description: "x", amountPaise: 100, gstPaise: 18, totalPaise: 118, coupon: { couponId: "c", listPaise: 100, discountPaise: 0, creditsBonus: 0 } })).rejects.toMatchObject({ code: "validation" });
+    // a provider that cannot create the order releases the hold
+    setCouponPort(port);
+    release.mockClear();
+    release.mockResolvedValue(1 as never);
+    process.env.PAYMENTS_PROVIDER = "razorpay";
+    delete process.env.RAZORPAY_KEY_ID;
+    await expect(createProviderOrder({ businessId: b }, { purpose: "credit_pack", purposeRef: "credits_20", description: "x", amountPaise: 100, gstPaise: 18, totalPaise: 118, coupon: { couponId: "c", listPaise: 100, discountPaise: 0, creditsBonus: 0 } })).rejects.toBeTruthy();
+    expect(release).toHaveBeenCalledWith(expect.any(String), "provider_create_failed");
+    err.mockRestore();
+  });
+  it("M3: a subscription checkout reserves and redeems with its plan code; a non-integer amount is never fulfilled", async () => {
+    const b = await biz();
+    const reserve = vi.fn(async () => ({}));
+    const redeem = vi.fn(async () => ({ creditsGranted: 0 }));
+    setCouponPort({ quote: async () => ({ discountPaise: 100, creditsBonus: 0, couponId: "cp" }), reserve, release: async () => 0, redeem });
+    const c = await startCheckout({ businessId: b }, { purpose: "subscription", planCode: "starter", couponCode: "X" });
+    expect(reserve).toHaveBeenCalledWith("cp", expect.objectContaining({ planCode: "starter" }));
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect((await fulfilOrder(c.orderId, { amountPaise: 1.5 })).fulfilled).toBe(false);
+    expect(redeem).not.toHaveBeenCalled();
+    err.mockRestore();
+    await send(c.orderId);
+    expect(redeem).toHaveBeenCalledWith(expect.anything(), "cp", expect.objectContaining({ planCode: "starter" }));
+    expect((await getActiveSubscription(b))!.planCode).toBe("starter");
+  });
   it("couponPortFromModule uses typeof guards", async () => {
     expect(couponPortFromModule({})).toBeNull();
     expect(couponPortFromModule({ quoteCoupon: 1, redeemCouponTx: () => 1 })).toBeNull();
