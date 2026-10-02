@@ -14,7 +14,7 @@ export { expect, devices, type Locator, type Page } from "@playwright/test";
 
 /** A valid, current `cnote_consent` value that rejects analytics and marketing (same format the app writes). */
 export const rejectAllConsentValue = () =>
-  serializeConsent({ version: CONSENT_POLICY_VERSION, id: newConsentId(), analytics: false, marketing: false, gpc: false, at: Math.floor(Date.now() / 1000) - 60 });
+  serializeConsent({ version: CONSENT_POLICY_VERSION, id: newConsentId(), analytics: false, marketing: false, functional: false, gpc: false, at: Math.floor(Date.now() / 1000) - 60 });
 
 export const test = base.extend<{ consent: boolean }>({
   /** Pre-seed a reject-all consent cookie (default). Set `false` to start as a brand-new visitor. */

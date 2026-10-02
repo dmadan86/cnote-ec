@@ -64,15 +64,15 @@ describe("preferences dialog (second layer)", () => {
     const html = render(<PreferencesDialog {...props} />);
     expect(html).toMatch(/<dialog[^>]*aria-labelledby="consent-dialog-title"/);
     expect(html).toMatch(/<h2[^>]*id="consent-dialog-title"[^>]*>Cookie preferences<\/h2>/);
-    for (const c of ["Strictly necessary", "Analytics", "Marketing and attribution"]) expect(html).toContain(c);
-    expect((html.match(/aria-expanded="false"/g) ?? []).length).toBe(3);
-    expect((html.match(/aria-controls=/g) ?? []).length).toBe(3);
+    for (const c of ["Strictly necessary", "Analytics", "Marketing and attribution", "Preferences and personalisation"]) expect(html).toContain(c);
+    expect((html.match(/aria-expanded="false"/g) ?? []).length).toBe(4);
+    expect((html.match(/aria-controls=/g) ?? []).length).toBe(4);
     expect(html).toContain("Always active");
   });
-  it("has role=switch toggles for analytics and marketing, both OFF by default (nothing pre-ticked), with visible state text and names", () => {
+  it("has role=switch toggles for analytics, marketing and functional, all OFF by default (nothing pre-ticked), with visible state text and names", () => {
     const html = render(<PreferencesDialog {...props} />);
     const sw = buttons(html).filter((b) => b.attrs.includes('role="switch"'));
-    expect(sw).toHaveLength(2);
+    expect(sw).toHaveLength(3);
     for (const s of sw) {
       expect(s.attrs).toContain('aria-checked="false"');
       expect(s.attrs).toMatch(/aria-labelledby="[^"]+"/);
@@ -82,11 +82,11 @@ describe("preferences dialog (second layer)", () => {
     expect(html).not.toContain("Global Privacy Control");
   });
   it("reflects a stored choice and offers Accept all / Reject all / Save choices with equal styling", () => {
-    const initial: ConsentState = { version: CONSENT_POLICY_VERSION, id: "d".repeat(32), analytics: true, marketing: false, gpc: false, at: 1 };
+    const initial: ConsentState = { version: CONSENT_POLICY_VERSION, id: "d".repeat(32), analytics: true, marketing: false, functional: false, gpc: false, at: 1 };
     const html = render(<PreferencesDialog {...props} initial={initial} />);
     const sw = buttons(html).filter((b) => b.attrs.includes('role="switch"'));
-    expect(sw.map((s) => /aria-checked="(\w+)"/.exec(s.attrs)![1])).toEqual(["true", "false"]);
-    expect(sw.map((s) => s.text)).toEqual(["On", "Off"]);
+    expect(sw.map((s) => /aria-checked="(\w+)"/.exec(s.attrs)![1])).toEqual(["true", "false", "false"]);
+    expect(sw.map((s) => s.text)).toEqual(["On", "Off", "Off"]);
     const foot = buttons(html).filter((b) => ["Accept all", "Reject all", "Save choices"].includes(b.text));
     expect(foot.map((b) => b.text)).toEqual(["Accept all", "Reject all", "Save choices"]);
     expect(new Set(foot.map((b) => b.cls)).size).toBe(1);
@@ -122,7 +122,7 @@ describe("cookie table (dialog + policy page)", () => {
     const h = render(<CookieTable category="necessary" label="ज़रूरी" />, "hi");
     expect(h).toContain("cnote_consent");
     expect(h).toContain("30 दिन");
-    expect(CATEGORIES).toHaveLength(3);
+    expect(CATEGORIES).toHaveLength(4);
   });
 });
 

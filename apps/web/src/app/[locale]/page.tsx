@@ -13,6 +13,7 @@ import { CategoryGrid, CategoryGridSkeleton } from "@/features/shell/home/catego
 import { Hero } from "@/features/shell/home/hero";
 import { PopularRails, PopularRailSkeleton } from "@/features/shell/home/popular-products";
 import { PromoPanels } from "@/features/shell/home/promo-panels";
+import { RecentlyViewedRail } from "@/features/recently-viewed/rail";
 import { PromoCollections, PromoHeroBanner, PromoStrip } from "@/features/promotions/home";
 import { SITE_NAME } from "@/features/shell/site";
 import { loadSuggestions } from "@/features/search/data";
@@ -104,6 +105,9 @@ export default async function Home(props: PageProps<"/[locale]">) {
             <PopularRails locale={locale} />
           </Suspense>
         </section>
+
+        {/* Client island: reads this device's history after hydration, so the page stays static. Renders nothing when empty. */}
+        <RecentlyViewedRail />
       </Container>
     </>
   );

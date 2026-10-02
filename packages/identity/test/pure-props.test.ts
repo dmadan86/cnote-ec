@@ -355,7 +355,7 @@ describe("trust score (property)", () => {
     expect(a).toBe(b);
     expect(computeTrustScore({ ...emptySignals(1), inactiveDays: 31 }).score).toBeLessThan(a);
   });
-  it("consent purposes are the ADR-010 purposes plus credit underwriting (ADR-019)", () => expect([...CONSENT_PURPOSES].sort()).toEqual(["analytics_cookies", "counterparty_sharing", "credit_underwriting", "marketing", "marketing_cookies", "matching", "voice_retention"]));
+  it("consent purposes are the ADR-010 purposes plus credit underwriting (ADR-019)", () => expect([...CONSENT_PURPOSES].sort()).toEqual(["analytics_cookies", "counterparty_sharing", "credit_underwriting", "functional_cookies", "marketing", "marketing_cookies", "matching", "voice_retention"]));
 });
 
 describe("TOTP / base32 (property)", () => {

@@ -31,6 +31,8 @@ import { SponsoredSimilar } from "@/features/ads/similar";
 import { stateLabel } from "@/features/identity/states";
 import { loadSupplierTrust } from "@/features/supplier/data";
 import { SellerCard } from "@/features/supplier/seller-card";
+import { SupplierContact } from "@/features/contact/supplier-contact";
+import { RecentlyViewedRail, RecentlyViewedTracker } from "@/features/recently-viewed/rail";
 
 // Product pages are static: the top 100 listings are prerendered at build time, everything else renders on first
 // request and is then cached (ISR). Regenerated at most every 5 min, and immediately (stale-while-revalidate, or
@@ -177,7 +179,11 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
               trust={supplierTrust}
               locale={locale}
               place={[seller.city, sellerState].filter(Boolean).join(", ")}
-              contact={<UnlockButton trigger="pdp_contact_seller" unlock="seller_contact" listingId={listing.id} listingTitle={listing.title} label={t("contactSeller")} variant="outline" size="md" />}
+              contact={
+                <SupplierContact listingId={listing.id} listingTitle={listing.title}>
+                  <UnlockButton trigger="pdp_contact_seller" unlock="seller_contact" listingId={listing.id} listingTitle={listing.title} label={t("contactSeller")} variant="outline" size="md" />
+                </SupplierContact>
+              }
             />
           ) : null}
 
@@ -246,6 +252,8 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
       ) : null}
 
       <SponsoredSimilar listingId={listing.id} locale={locale} />
+      <RecentlyViewedTracker id={listing.id} />
+      <RecentlyViewedRail excludeId={listing.id} className="mt-12" />
     </Container>
   );
 }

@@ -338,7 +338,7 @@
   },
   "consent": {
     "aria": "Cookie notice",
-    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this site. With your permission we also use analytics cookies to improve it and marketing cookies to measure campaigns. Nothing optional is used unless you accept. <link>Cookie policy</link>",
+    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this site. With your permission we also use analytics cookies to improve it, marketing cookies to measure campaigns and preference cookies to remember things like recently viewed products. Nothing optional is used unless you accept. <link>Cookie policy</link>",
     "acceptAll": "Accept all",
     "rejectAll": "Reject all",
     "customise": "Customise",
@@ -356,6 +356,8 @@
     "analyticsDesc": "Microsoft Clarity records anonymised usage (clicks, scrolling, page views) so we can find and fix problems. Form entries are masked.",
     "marketingTitle": "Marketing and attribution",
     "marketingDesc": "Remembers an anonymous visitor ID, which sponsored listing you clicked and where you came from (campaign links), and how often we show supplier-quote prompts.",
+    "functionalTitle": "Preferences and personalisation",
+    "functionalDesc": "Remembers things that make the site easier for you, such as the products you recently viewed on this device. Nothing here is used for advertising.",
     "colName": "Name",
     "colProvider": "Provider",
     "colPurpose": "Purpose",
@@ -399,6 +401,7 @@
       "nudgeHistory": "Counts how often we showed a supplier-quote prompt, so we do not repeat it too often.",
       "nudgeViews": "Counts the products you viewed in this visit, to decide when to show a quote prompt.",
       "nudgeSession": "Marks the start of this visit for the quote prompt.",
+      "recentlyViewed": "Remembers the products you viewed on this device, so we can show them again as “Recently viewed”. Never sent to our servers.",
       "consentPending": "Holds your latest cookie choice until our server confirms it has saved the record of it.",
       "consentSync": "Remembers, for this visit only, that your cookie choice was checked against your account."
     },

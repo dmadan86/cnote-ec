@@ -102,5 +102,22 @@ test.describe("runtime cookie audit", () => {
     await page.getByRole("button", { name: /get best price|contact seller/i }).first().click();
     const seen = audit("accept all / after lead CTA", await held(page));
     expect(seen.map((s) => s.key)).toContain("cnote_vid");
+    // and the functional writer: viewing a product records it for the "Recently viewed" rail
+    expect(seen.map((s) => s.key)).toContain("cnote_recent_v1");
+    expect(seen.find((s) => s.key === "cnote_recent_v1")?.category).toBe("functional");
+  });
+
+  test("Preferences only: recently viewed is stored (functional) and nothing from analytics or marketing is", async ({ page }) => {
+    await page.goto("/");
+    await settle(page);
+    await page.getByRole("region", { name: "Cookie notice" }).getByRole("button", { name: "Customise" }).click();
+    const d = page.getByRole("dialog", { name: "Cookie preferences" });
+    await d.getByRole("switch", { name: "Preferences and personalisation" }).click();
+    await d.getByRole("button", { name: "Save choices" }).click();
+    await expect(page.getByRole("region", { name: "Cookie notice" })).toHaveCount(0);
+    await browse(page, "functional only");
+    const seen = audit("functional only", await held(page));
+    expect(seen.map((s) => `${s.kind}:${s.key}:${s.category}`)).toContain("localStorage:cnote_recent_v1:functional");
+    expect(seen.filter((s) => s.category === "analytics" || s.category === "marketing").map((s) => s.key)).toEqual([]);
   });
 });

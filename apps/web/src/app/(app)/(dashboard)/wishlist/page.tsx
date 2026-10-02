@@ -3,14 +3,16 @@ import Link from "next/link";
 import { Heart } from "lucide-react";
 import { requireSession } from "@cnote/next-kit";
 import { Badge, buttonClasses, Card, CardBody, cn, Container, EmptyState, Money, PageHeader } from "@cnote/ui";
-import { getList, getOrCreateDefaultList, listLists } from "@cnote/wishlist";
+import { getList, getOrCreateDefaultList, getShare, listLists } from "@cnote/wishlist";
 import { getTranslations } from "next-intl/server";
 import { formatNumber } from "@/i18n/config";
 import { getRequestLocale } from "@/lib/request-locale";
 import { productPath } from "@/lib/paths";
 import { moqText } from "@/features/search/format";
 import { ProductImage } from "@/features/search/product-image";
+import { BulkRfqBar, SelectProduct } from "@/features/wishlist/bulk-rfq";
 import { ItemControls } from "@/features/wishlist/item-controls";
+import { ShareList } from "@/features/wishlist/share-list";
 import { CreateListForm, ManageList } from "@/features/wishlist/list-forms";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -30,7 +32,7 @@ export default async function WishlistPage(props: PageProps<"/wishlist">) {
   await getOrCreateDefaultList(s.personId);
   const lists = await listLists(s.personId);
   const current = lists.find((l) => wanted && UUID.test(wanted) && l.id === wanted) ?? lists[0]!;
-  const detail = await getList(s.personId, current.id);
+  const [detail, share] = await Promise.all([getList(s.personId, current.id), getShare(s.personId, current.id)]);
   const available = detail.items.filter((i) => i.listing);
   const others = lists.filter((l) => l.id !== current.id).map((l) => ({ id: l.id, name: l.name }));
 
@@ -72,25 +74,9 @@ export default async function WishlistPage(props: PageProps<"/wishlist">) {
             {!detail.isDefault ? <ManageList listId={detail.id} name={detail.name} itemCount={detail.itemCount} /> : null}
           </div>
 
-          {available.length ? (
-            <details className="rounded-card border border-accent-100 bg-accent-50">
-              <summary className="flex min-h-11 cursor-pointer items-center px-4 text-sm font-semibold text-ink focus-visible:outline-2 focus-visible:outline-accent-700">
-                {t("requestAll", { count: available.length })}
-              </summary>
-              <div className="border-t border-accent-100 px-4 py-3">
-                <p className="text-xs text-muted">{t("requestAllHint")}</p>
-                <ul className="mt-2 flex flex-col gap-1">
-                  {available.map((i) => (
-                    <li key={i.id}>
-                      <Link href={`/rfq/new?listing=${i.listingId}`} className="inline-flex min-h-9 items-center text-sm font-medium text-brand-700 hover:underline">
-                        {t("requestQuoteFor", { title: i.listing!.title })}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </details>
-          ) : null}
+          <ShareList key={detail.id} listId={detail.id} token={share?.token ?? null} />
+
+          {available.length ? <BulkRfqBar listId={detail.id} /> : null}
 
           {detail.items.length === 0 ? (
             <EmptyState
@@ -109,6 +95,7 @@ export default async function WishlistPage(props: PageProps<"/wishlist">) {
                   <Card>
                     <CardBody>
                       <div className="flex gap-3 sm:gap-4">
+                        {i.listing ? <SelectProduct listingId={i.listingId} title={i.listing.title} /> : null}
                         <div className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-canvas sm:size-28">
                           <ProductImage src={i.listing?.imageUrls[0]} blur={i.listing?.imageBlurs?.[0]} sizes="112px" />
                         </div>

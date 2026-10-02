@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { serializeConsent, CONSENT_COOKIE, CONSENT_POLICY_VERSION } from "@/features/consent/state";
 
 // Marketing gating of the leadgen browser helpers: with no consent nothing is written; with consent they persist.
-const consentCookie = (marketing: boolean) => `${CONSENT_COOKIE}=${serializeConsent({ version: CONSENT_POLICY_VERSION, id: "c".repeat(32), analytics: false, marketing, gpc: false, at: Math.floor(Date.now() / 1000) - 5 })}`;
+const consentCookie = (marketing: boolean) => `${CONSENT_COOKIE}=${serializeConsent({ version: CONSENT_POLICY_VERSION, id: "c".repeat(32), analytics: false, marketing, functional: false, gpc: false, at: Math.floor(Date.now() / 1000) - 5 })}`;
 
 function browser(cookie: string) {
   const store = () => {

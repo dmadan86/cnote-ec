@@ -56,7 +56,7 @@ describe("recordCookieConsent", () => {
     expect(out.createdAt).toBe(row.createdAt.toISOString());
     // data minimisation: the table has no IP / user-agent columns at all
     const cols = (await prisma.$queryRaw<{ column_name: string }[]>`SELECT column_name FROM information_schema.columns WHERE table_name = 'cookie_consent_receipts'`).map((c) => c.column_name);
-    expect(cols.sort()).toEqual(["action", "analytics", "client_at", "consent_id", "created_at", "gpc", "id", "locale", "marketing", "person_id", "policy_version", "registry_hash"]);
+    expect(cols.sort()).toEqual(["action", "analytics", "client_at", "consent_id", "created_at", "functional", "gpc", "id", "locale", "marketing", "person_id", "policy_version", "registry_hash"]);
   });
   it("throws a validation DomainError for invalid input and writes nothing", async () => {
     const id = cid();
@@ -239,5 +239,31 @@ describe("erasure", () => {
     expect(await anonymizeCookieConsentReceipts(p.id)).toBe(0); // idempotent
     expect(await anonymizeCookieConsentReceipts("not-a-uuid")).toBe(0);
     expect((await listCookieConsentReceipts(id))[0]).toMatchObject({ personId: null, analytics: true, registryHash: "c".repeat(64) });
+  });
+});
+
+describe("functional (preferences & personalisation) choice", () => {
+  const id = cid;
+  it("defaults to off for a receipt that omits it (an older queued browser build)", async () => {
+    const c = id();
+    await recordCookieConsent({ ...base(c), at: 1_790_000_001 });
+    expect((await listCookieConsentReceipts(c))[0]).toMatchObject({ functional: false });
+  });
+  it("is stored independently of analytics and marketing, and reject_all must not carry it", async () => {
+    const ok = { ...base(id()), at: 1_790_000_002 };
+    await recordCookieConsent({ ...ok, analytics: false, marketing: false, functional: true, gpc: true });
+    expect((await listCookieConsentReceipts(ok.consentId))[0]).toMatchObject({ analytics: false, marketing: false, functional: true, gpc: true });
+    expect(cookieConsentSchema.safeParse({ ...ok, action: "reject_all", analytics: false, marketing: false, functional: true }).success).toBe(false);
+    expect(cookieConsentSchema.safeParse({ ...ok, action: "reject_all", analytics: false, marketing: false, functional: false }).success).toBe(true);
+  });
+  it("counts grants per category in the stats", () => {
+    const s = foldConsentStats([{ day: "2026-10-01", locale: "en", action: "custom", gpc: false, n: 4, analytics: 1, marketing: 2, functional: 3 }], { from: new Date(0), to: new Date(1) });
+    expect(s.granted).toEqual({ analytics: 1, marketing: 2, functional: 3 });
+  });
+  it("cookieConsentStats aggregates the grant counts from the table", async () => {
+    const c = id();
+    await recordCookieConsent({ ...base(c), functional: true, at: 1_790_000_003 });
+    const s = await cookieConsentStats({ from: new Date(Date.now() - 3_600_000), to: new Date(Date.now() + 3_600_000) });
+    expect(s.granted.functional).toBeGreaterThanOrEqual(1);
   });
 });

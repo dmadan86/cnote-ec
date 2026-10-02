@@ -67,8 +67,9 @@ export async function POST(req: NextRequest) {
   }
 
   if (saved && session?.personId && typeof input.analytics === "boolean" && typeof input.marketing === "boolean") {
+    const functional = input.functional === true; // absent (an older queued receipt) means not granted
     // Best effort: the receipt is the proof, the ledger is a convenience for other devices. Never fail the request over it.
-    await syncCookieConsentToLedger(session.personId, { analytics: input.analytics, marketing: input.marketing }, { clientAt: typeof input.at === "number" ? input.at : undefined }).catch((err) =>
+    await syncCookieConsentToLedger(session.personId, { analytics: input.analytics, marketing: input.marketing, functional }, { clientAt: typeof input.at === "number" ? input.at : undefined }).catch((err) =>
       console.error("[web] /api/consent ledger sync failed:", err instanceof Error ? err.message : err),
     );
   }

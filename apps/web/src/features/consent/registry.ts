@@ -7,6 +7,8 @@
 //              rail toggle, compare tray, dismissing a banner). Exempt from consent (DPDP s.7; ePrivacy Art 5(3)).
 //   analytics  Microsoft Clarity session analytics.
 //   marketing  visitor id, ad-click + campaign attribution, lead-gen nudge history.
+//   functional preferences & personalisation the visitor did not explicitly ask for, e.g. "recently viewed" (opt-in, default off;
+//              Global Privacy Control does not affect it).
 import type { OptionalCategory } from "./state";
 
 export type StorageCategory = "necessary" | OptionalCategory;
@@ -68,9 +70,13 @@ export const STORAGE_REGISTRY: readonly StorageEntry[] = [
   firstParty("cnote_lg_v1", "marketing", "localStorage", "nudgeHistory", { unit: "persistent" }),
   firstParty("cnote_lg_views", "marketing", "sessionStorage", "nudgeViews", { unit: "session" }),
   firstParty("cnote_lg_session", "marketing", "sessionStorage", "nudgeSession", { unit: "session" }),
+  // --- functional: preferences & personalisation (opt-in, default off, not affected by Global Privacy Control) ---------
+  // Recently viewed rail (features/recently-viewed/store.ts): the ids of the last products opened on this device. Written only
+  // with functional granted; otherwise kept in memory for the page load. Nothing is sent to the server.
+  firstParty("cnote_recent_v1", "functional", "localStorage", "recentlyViewed", { unit: "persistent" }),
 ];
 
-export const CATEGORIES: readonly StorageCategory[] = ["necessary", "analytics", "marketing"];
+export const CATEGORIES: readonly StorageCategory[] = ["necessary", "analytics", "marketing", "functional"];
 
 export const entriesOf = (category: StorageCategory): StorageEntry[] => STORAGE_REGISTRY.filter((e) => e.category === category);
 

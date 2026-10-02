@@ -12,7 +12,7 @@ const { CONSENT_POLICY_VERSION, serializeConsent } = await import("@/features/co
 
 // `consent`: marketing granted (cnote_consent, features/consent/state.ts); `vid`: an existing visitor cookie.
 const consentValue = (marketing: boolean) =>
-  serializeConsent({ version: CONSENT_POLICY_VERSION, id: "f".repeat(32), analytics: false, marketing, gpc: false, at: Math.floor(Date.now() / 1000) - 5 });
+  serializeConsent({ version: CONSENT_POLICY_VERSION, id: "f".repeat(32), analytics: false, marketing, functional: false, gpc: false, at: Math.floor(Date.now() / 1000) - 5 });
 const req = (url: string, o: { vid?: string; marketing?: boolean } = {}) => {
   const u = new URL(url);
   const jar: Record<string, string> = { ...(o.vid ? { cnote_vid: o.vid } : {}), ...(o.marketing === undefined ? {} : { cnote_consent: consentValue(o.marketing) }) };

@@ -34,6 +34,8 @@ export interface ConsentReceiptBody {
   policyVersion: number;
   analytics: boolean;
   marketing: boolean;
+  /** absent on receipts queued by an older build: counts as false */
+  functional?: boolean;
   gpc: boolean;
   action: ConsentAction;
   locale: string;
@@ -64,7 +66,7 @@ const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFin
 export function isReceiptBody(v: unknown): v is ConsentReceiptBody {
   if (typeof v !== "object" || v === null) return false;
   const r = v as Record<string, unknown>;
-  return isConsentId(r.consentId) && isNum(r.policyVersion) && typeof r.analytics === "boolean" && typeof r.marketing === "boolean" && typeof r.gpc === "boolean" && typeof r.action === "string" && typeof r.locale === "string" && isNum(r.at);
+  return isConsentId(r.consentId) && isNum(r.policyVersion) && typeof r.analytics === "boolean" && typeof r.marketing === "boolean" && (r.functional === undefined || typeof r.functional === "boolean") && typeof r.gpc === "boolean" && typeof r.action === "string" && typeof r.locale === "string" && isNum(r.at);
 }
 
 /** Global Privacy Control (https://globalprivacycontrol.org): `navigator.globalPrivacyControl === true`. */
@@ -221,6 +223,7 @@ export function applyConsent(
     policyVersion: state.version,
     analytics: state.analytics,
     marketing: state.marketing,
+    functional: state.functional,
     gpc: state.gpc,
     action: deriveAction(requested, prev, choices),
     locale,

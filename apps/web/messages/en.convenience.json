@@ -1,0 +1,58 @@
+{
+  "convenience": {
+    "contact": {
+      "heading": "Contact {seller}",
+      "call": "Call",
+      "callSr": "{seller} by phone",
+      "whatsapp": "WhatsApp",
+      "whatsappSr": "{seller} on WhatsApp (opens in a new tab)",
+      "email": "Email",
+      "emailSr": "{seller}",
+      "sendEnquiry": "Send enquiry",
+      "whatsappMessage": "Hello, I found \"{title}\" on {site} and I am interested. Please share the price, minimum order and delivery details.",
+      "emailSubject": "Enquiry about {title}",
+      "noDirect": "{seller} has not shared a phone number or email. Continue in your enquiry chat."
+    },
+    "recent": {
+      "title": "Recently viewed",
+      "clear": "Clear history",
+      "priceOnRequest": "Price on request"
+    },
+    "wishlist": {
+      "selectAll": "Select all products",
+      "selectItem": "Select {title} for a quote request",
+      "requestSelected": "Request quotes for selected",
+      "requestSelectedCount": "Request quotes for selected ({count})",
+      "requesting": "Sending requests…",
+      "selectSome": "Select at least one product first.",
+      "tooManyProducts": "Select at most {max} products at a time.",
+      "tooManySuppliers": "The selected products come from more than {max} suppliers. Select products from at most {max} suppliers at a time.",
+      "bulkHint": "We send one request to each supplier of the products you tick, so no one gets a broadcast. Your private notes are never sent.",
+      "bulkDone": "Sent {created, plural, one {# request} other {# requests}}, one per supplier.",
+      "bulkPartial": "{failed, plural, one {# supplier} other {# suppliers}} could not be reached. Try those again in a while.",
+      "viewEnquiries": "View your requests",
+      "shareTitle": "Share this list",
+      "shareOff": "Only you can see this list. Create a link to let anyone view the products in it, read-only.",
+      "shareOn": "Anyone with this link can view the products in this list. Your name, notes and contact details are never shown.",
+      "shareCreate": "Create share link",
+      "shareCreating": "Creating…",
+      "shareLinkLabel": "Share link",
+      "shareCopy": "Copy link",
+      "shareCopied": "Link copied",
+      "shareRevoke": "Stop sharing",
+      "shareRevoking": "Stopping…",
+      "shareRevokeConfirm": "Stop sharing? The current link will stop working at once."
+    },
+    "shared": {
+      "metaTitle": "Shared list",
+      "title": "Shared list: {name}",
+      "intro": "A read-only list of products, shared with you. It shows no personal details of the person who shared it.",
+      "empty": "None of the products in this list are available right now.",
+      "signIn": "Sign in to save products of your own",
+      "notFoundTitle": "This link is not active",
+      "notFoundBody": "The list may have stopped being shared. Ask the sender for a new link.",
+      "browse": "Browse products",
+      "priceOnRequest": "Price on request"
+    }
+  }
+}

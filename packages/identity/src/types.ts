@@ -1,8 +1,8 @@
 import type { Realm } from "./constants";
-export type ConsentPurpose = "matching" | "marketing" | "voice_retention" | "counterparty_sharing" | "credit_underwriting" | "analytics_cookies" | "marketing_cookies";
-export const CONSENT_PURPOSES: readonly ConsentPurpose[] = ["matching", "marketing", "voice_retention", "counterparty_sharing", "credit_underwriting", "analytics_cookies", "marketing_cookies"];
+export type ConsentPurpose = "matching" | "marketing" | "voice_retention" | "counterparty_sharing" | "credit_underwriting" | "analytics_cookies" | "marketing_cookies" | "functional_cookies";
+export const CONSENT_PURPOSES: readonly ConsentPurpose[] = ["matching", "marketing", "voice_retention", "counterparty_sharing", "credit_underwriting", "analytics_cookies", "marketing_cookies", "functional_cookies"];
 /** Cookie-banner choices mirrored into the ledger for signed-in people (written by the buyer web's POST /api/consent, not by account forms). */
-export const COOKIE_CONSENT_PURPOSES = ["analytics_cookies", "marketing_cookies"] as const satisfies readonly ConsentPurpose[];
+export const COOKIE_CONSENT_PURPOSES = ["analytics_cookies", "marketing_cookies", "functional_cookies"] as const satisfies readonly ConsentPurpose[];
 
 export interface SessionBusiness {
   id: string;

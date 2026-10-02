@@ -82,6 +82,8 @@ model CookieConsentReceipt {
   /// per-category choices (strictly necessary is always on and needs no consent)
   analytics     Boolean
   marketing     Boolean
+  /// preferences & personalisation (e.g. recently viewed); false on rows from before this category existed
+  functional    Boolean  @default(false)
   /// the Global Privacy Control signal was on when the choice was made
   gpc           Boolean
   /// "accept_all" | "reject_all" | "custom" | "withdraw"

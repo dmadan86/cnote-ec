@@ -17,6 +17,7 @@ import { getUiLabels } from "@/features/search/labels";
 import { loadOffers } from "@/features/promotions/data";
 import { stateLabel } from "@/features/identity/states";
 import { UnlockButton } from "@/features/leadgen/unlock-buttons";
+import { SupplierContact } from "@/features/contact/supplier-contact";
 import { RatingStars, Stars } from "@/features/reviews/stars";
 import { loadSellerReviews, loadSupplierTrust } from "@/features/supplier/data";
 import { evidenceItems, responseText, yearsText } from "@/features/supplier/evidence-items";
@@ -242,7 +243,11 @@ export default async function ManufacturerPage(props: PageProps<"/[locale]/manuf
             <Link href={`/rfq/new?seller=${id}`} className={buttonClasses("accent", "lg")}>
               {tsh("requestQuote")}
             </Link>
-            {firstListing ? <UnlockButton trigger="pdp_contact_seller" unlock="seller_contact" listingId={firstListing.id} listingTitle={firstListing.title} label={tx("profile.contact")} variant="outline" size="lg" /> : null}
+            {firstListing ? (
+              <SupplierContact listingId={firstListing.id} listingTitle={firstListing.title}>
+                <UnlockButton trigger="pdp_contact_seller" unlock="seller_contact" listingId={firstListing.id} listingTitle={firstListing.title} label={tx("profile.contact")} variant="outline" size="lg" />
+              </SupplierContact>
+            ) : null}
             <ShareButton label={tx("profile.share")} copiedLabel={tx("profile.shareCopied")} title={seller.name} />
             {trust?.storefrontSlug ? (
               <a href={`/store/${trust.storefrontSlug}`} className={buttonClasses("outline", "md")}>
