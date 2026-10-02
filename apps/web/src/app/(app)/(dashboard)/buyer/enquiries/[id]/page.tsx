@@ -12,6 +12,7 @@ import { MatchedSellers } from "@/features/enquiry/matched-sellers";
 import { NegotiationAssist } from "@/features/negotiation/negotiation-assist";
 import { PickSellersForm } from "@/features/enquiry/pick-sellers-form";
 import { EnquiryStatusBadge } from "@/features/enquiry/status";
+import { canRequestAgain, RequestAgain } from "@/features/retention/request-again";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations({ locale: await getRequestLocale(), namespace: "titles" });
@@ -38,7 +39,7 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
 
   return (
     <Container className="max-w-4xl py-8">
-      <PageHeader title={e.title} description={t("posted", { date: formatDate(e.createdAt, locale) })} actions={<EnquiryStatusBadge enquiry={e} />} />
+      <PageHeader title={e.title} description={t("posted", { date: formatDate(e.createdAt, locale) })} actions={<>{canRequestAgain(e) ? <RequestAgain enquiryId={e.id} locale={locale} /> : null}<EnquiryStatusBadge enquiry={e} /></>} />
 
       <div className="mt-6 flex flex-col gap-6">
         {e.status === "review" ? <Alert tone="warning">{t("detailReview")}</Alert> : null}

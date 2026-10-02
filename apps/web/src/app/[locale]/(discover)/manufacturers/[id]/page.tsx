@@ -24,6 +24,7 @@ import { evidenceItems, responseText, yearsText } from "@/features/supplier/evid
 import { FilterableProducts } from "@/features/supplier/filterable-products";
 import { ProfileTabs } from "@/features/supplier/profile-tabs";
 import { ShareButton } from "@/features/supplier/share-button";
+import { FollowIsland } from "@/features/retention/follow-island";
 
 // Static + ISR like product pages: top sellers prerendered, the rest on first request; purged by seller:<id> / seller-listings:<id>.
 // The tab state lives in the URL hash (client side), so nothing here reads the query string or cookies.
@@ -248,6 +249,7 @@ export default async function ManufacturerPage(props: PageProps<"/[locale]/manuf
                 <UnlockButton trigger="pdp_contact_seller" unlock="seller_contact" listingId={firstListing.id} listingTitle={firstListing.title} label={tx("profile.contact")} variant="outline" size="lg" />
               </SupplierContact>
             ) : null}
+            <FollowIsland businessId={id} name={seller.name} size="lg" />
             <ShareButton label={tx("profile.share")} copiedLabel={tx("profile.shareCopied")} title={seller.name} />
             {trust?.storefrontSlug ? (
               <a href={`/store/${trust.storefrontSlug}`} className={buttonClasses("outline", "md")}>

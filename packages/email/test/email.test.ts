@@ -16,6 +16,14 @@ defineTemplates([
   },
 ]);
 
+const ALERT = `test.alert_${tag}`;
+defineTemplates([
+  {
+    key: ALERT, name: "Alert", description: "d", category: "alert", channels: ["email"], variables: [{ name: "unsubscribeUrl", description: "u", example: "https://x" }],
+    defaults: { email: { subject: "Price drop", body: "<p>Cheaper now</p>" } },
+  },
+]);
+
 const sent: OutgoingEmail[] = [];
 let behaviour: "ok" | "transient" | "permanent" = "ok";
 const provider: EmailProvider = {
@@ -103,6 +111,16 @@ describe("sendEmail", () => {
     expect(sent[0]!.html).toContain("Unsubscribe");
     expect(sent[0]!.headers?.["List-Unsubscribe"]).toBeTruthy();
     expect(queue).toBeTruthy();
+  });
+
+  it("alert emails need no marketing consent, show the unsubscribe link and send List-Unsubscribe", async () => {
+    const p = await person();
+    const id = await sendEmail({ template: ALERT, to: { email: "al@example.com", personId: p.id }, vars: { unsubscribeUrl: "https://app.example/unsubscribe/alerts?t=abc" } });
+    expect(id).toBeTruthy();
+    await drain(queue);
+    const mail = sent.find((m) => m.id === id)!;
+    expect(mail.html).toContain("https://app.example/unsubscribe/alerts?t=abc");
+    expect(mail.headers?.["List-Unsubscribe"]).toBe("<https://app.example/unsubscribe/alerts?t=abc>");
   });
 
   it("rejects unknown templates and bad addresses", async () => {

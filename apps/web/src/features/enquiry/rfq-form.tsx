@@ -100,19 +100,26 @@ export function rfqUnit(u: string | undefined): string {
 
 export interface RfqFormProps {
   categories: { slug: string; name: string }[];
-  defaults?: { title?: string; requirement?: string; categorySlug?: string; preferredListingId?: string; preferredSellerId?: string; quantity?: number; unit?: string; targetPriceRupees?: string };
+  defaults?: {
+    title?: string; requirement?: string; categorySlug?: string; preferredListingId?: string; preferredSellerId?: string; quantity?: number; unit?: string; targetPriceRupees?: string;
+    /** "Request again" (docs/design/buyer-retention.md): the rest of the earlier requirement, so the buyer only reviews and sends. */
+    deliveryCity?: string; deliveryPincode?: string; budgetMinRupees?: string; budgetMaxRupees?: string; minSellerTier?: number; expiresInDays?: number;
+    /** The supplier of the earlier requirement/order: offered as a checkbox ("Send to X first") that sets preferredSellerId. */
+    sameSupplier?: { id: string; name: string };
+  };
 }
 
 export function RfqForm({ categories, defaults }: RfqFormProps) {
   const t = useTranslations("rfq");
   const tb = useTranslations("buyer");
   const t2 = useTranslations("rfq2");
+  const tr = useTranslations("retention");
   const tc = useTranslations("cards");
   const tierLabels = trustLabels(tc).tiers;
   // "Deliver to" pincode (cnote_pincode, non-httpOnly) prefills the delivery pincode; once the buyer types, their value wins.
   const cookiePin = useSyncExternalStore(noopSubscribe, readPincodeCookie, () => null);
   const [typedPin, setTypedPin] = useState<string | null>(null);
-  const pincode = typedPin ?? cookiePin ?? "";
+  const pincode = typedPin ?? defaults?.deliveryPincode ?? cookiePin ?? "";
   const [state, action, pending] = useActionState<ActionResult<EnquiryView> | null, FormData>(postRfqAction, null);
   if (state?.ok) return <RfqResult enquiry={state.data} />;
   const err = (k: string) => (state && !state.ok ? state.fieldErrors?.[k] : undefined);
@@ -121,7 +128,16 @@ export function RfqForm({ categories, defaults }: RfqFormProps) {
     <form action={action} className="flex flex-col gap-5" noValidate>
       {state && !state.ok ? <Alert tone="danger">{state.error}</Alert> : null}
       {defaults?.preferredListingId ? <input type="hidden" name="preferredListingId" value={defaults.preferredListingId} /> : null}
-      {defaults?.preferredSellerId ? <input type="hidden" name="preferredSellerId" value={defaults.preferredSellerId} /> : null}
+      {defaults?.preferredSellerId && !defaults.sameSupplier ? <input type="hidden" name="preferredSellerId" value={defaults.preferredSellerId} /> : null}
+      {defaults?.sameSupplier ? (
+        <label className="flex items-start gap-3 rounded-lg border border-line bg-surface p-3 text-sm">
+          <input type="checkbox" name="preferredSellerId" value={defaults.sameSupplier.id} defaultChecked className="mt-0.5 size-5 accent-brand-600" data-testid="same-supplier" />
+          <span>
+            <span className="font-medium text-ink">{tr("again.sameSupplier", { supplier: defaults.sameSupplier.name })}</span>
+            <span className="block text-muted">{tr("again.sameSupplierHint")}</span>
+          </span>
+        </label>
+      ) : null}
 
       <Field label={t("whatYouNeed")} htmlFor="title" error={err("title")} hint={t("whatYouNeedHint")}>
         <Input id="title" name="title" required maxLength={140} defaultValue={defaults?.title} aria-invalid={!!err("title")} />
@@ -158,7 +174,7 @@ export function RfqForm({ categories, defaults }: RfqFormProps) {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label={t("deliveryCity")} htmlFor="deliveryCity" error={err("deliveryCity")}>
-          <Input id="deliveryCity" name="deliveryCity" autoComplete="address-level2" />
+          <Input id="deliveryCity" name="deliveryCity" autoComplete="address-level2" defaultValue={defaults?.deliveryCity} />
         </Field>
         <Field label={t("pincode")} htmlFor="deliveryPincode" error={err("deliveryPincode")} hint={t2("pincodeHint")}>
           <Input id="deliveryPincode" name="deliveryPincode" inputMode="numeric" maxLength={6} autoComplete="postal-code" value={pincode} onChange={(e) => setTypedPin(e.target.value.replace(/\D/g, ""))} />
@@ -173,22 +189,22 @@ export function RfqForm({ categories, defaults }: RfqFormProps) {
         <p className="text-xs text-muted">{t2("optionalDetailsHint")}</p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t2("budgetMin")} htmlFor="budgetMin" error={err("budgetMinPaise")} hint={t2("budgetHint")}>
-            <Input id="budgetMin" name="budgetMin" type="number" inputMode="decimal" min={0} step="0.01" />
+            <Input id="budgetMin" name="budgetMin" type="number" inputMode="decimal" min={0} step="0.01" defaultValue={defaults?.budgetMinRupees} />
           </Field>
           <Field label={t2("budgetMax")} htmlFor="budgetMax" error={err("budgetMaxPaise")}>
-            <Input id="budgetMax" name="budgetMax" type="number" inputMode="decimal" min={0} step="0.01" />
+            <Input id="budgetMax" name="budgetMax" type="number" inputMode="decimal" min={0} step="0.01" defaultValue={defaults?.budgetMaxRupees} />
           </Field>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t2("expiry")} htmlFor="expiresInDays" error={err("expiresInDays")} hint={t2("expiryHint")}>
-            <Select id="expiresInDays" name="expiresInDays" defaultValue="7">
+            <Select id="expiresInDays" name="expiresInDays" defaultValue={String(defaults?.expiresInDays && EXPIRY_DAYS.includes(defaults.expiresInDays) ? defaults.expiresInDays : 7)}>
               {EXPIRY_DAYS.map((d) => (
                 <option key={d} value={d}>{t2("expiryDays", { days: d })}</option>
               ))}
             </Select>
           </Field>
           <Field label={t2("minTier")} htmlFor="minSellerTier" error={err("minSellerTier")} hint={t2("minTierHint")}>
-            <Select id="minSellerTier" name="minSellerTier" defaultValue="">
+            <Select id="minSellerTier" name="minSellerTier" defaultValue={defaults?.minSellerTier ? String(defaults.minSellerTier) : ""}>
               <option value="">{t2("tierAny")}</option>
               {[1, 2, 3].map((tier) => (
                 <option key={tier} value={tier}>{t2("tierOrHigher", { label: tierLabels[tier] ?? String(tier) })}</option>

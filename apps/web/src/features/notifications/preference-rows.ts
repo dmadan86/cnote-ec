@@ -9,7 +9,7 @@ export interface PreferenceRow {
   channels: { channel: "in_app" | "email"; label: string; enabled: boolean; locked: null | "required" | "consent" }[];
 }
 
-const CATEGORIES: NotificationCategory[] = ["leads", "messages", "reviews", "security", "marketing"];
+const CATEGORIES: NotificationCategory[] = ["leads", "messages", "reviews", "security", "alerts", "marketing"];
 
 /** View model for the preferences form: stored prefs merged with defaults, plus why a toggle is locked. */
 export async function loadPreferenceRows(personId: string): Promise<{ rows: PreferenceRow[]; marketingConsent: boolean }> {

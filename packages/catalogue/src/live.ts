@@ -171,8 +171,19 @@ export async function publishVersion(versionId: string, now = new Date()): Promi
     if (previous) await tx.listingVersion.update({ where: { id: previous }, data: { status: "superseded" } });
     await tx.listingVersion.update({ where: { id: v.id }, data: { status: "published", publishedAt: now } });
     await tx.listing.update({ where: { id: v.listingId }, data: { liveVersionId: v.id, status: "published", moderationStatus: "approved", moderationReason: null } });
-    await recordPrice(v.listingId, proj.snap.pricePaise, proj.snap.priceUnit, tx, now); // append-only, only when the published price changed
+    const priorPrice = await tx.listingPriceHistory.findFirst({ where: { listingId: v.listingId }, orderBy: [{ effectiveFrom: "desc" }, { id: "desc" }] });
+    const priceChanged = await recordPrice(v.listingId, proj.snap.pricePaise, proj.snap.priceUnit, tx, now); // append-only, only when the published price changed
     const base = { listingId: v.listingId, sellerBusinessId: listing.sellerBusinessId };
+    // versioned price-change event (same transaction as the change); the first publish is not a "change"
+    if (priceChanged && priorPrice) {
+      await emit(tx, "ListingPriceChanged", { type: "listing", id: v.listingId }, {
+        ...base,
+        fromPricePaise: priorPrice.pricePaise === null ? null : Number(priorPrice.pricePaise),
+        toPricePaise: proj.snap.pricePaise === null ? null : Math.round(proj.snap.pricePaise),
+        fromPriceUnit: priorPrice.priceUnit,
+        priceUnit: proj.snap.priceUnit,
+      });
+    }
     await emit(tx, "ListingVersionPublished", { type: "listing", id: v.listingId }, { ...base, versionId: v.id, version: v.version, previousVersionId: previous });
     if (!fresh.liveVersionId) await emit(tx, "ListingPublished", { type: "listing", id: v.listingId }, { ...base, categoryId: proj.category.id });
     return "published" as const;
