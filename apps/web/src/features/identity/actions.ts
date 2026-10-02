@@ -1,7 +1,7 @@
 "use server";
 import { DomainError } from "@cnote/core";
 import {
-  createBusiness, erasePerson, getConsents, requestPhoneOtp, setConsent, signOutAllSessions, updateProfile, verifyPhoneOtp,
+  createBusiness, erasePersonWithStepUp, getConsents, requestPhoneOtp, setConsent, signOutAllSessions, updateProfile, verifyPhoneOtp,
   CONSENT_PURPOSES, COOKIE_CONSENT_PURPOSES,
 } from "@cnote/identity";
 import { clearAuthCookies, requireSession, safeNext, type ActionResult } from "@cnote/next-kit";
@@ -79,7 +79,8 @@ export async function deleteAccountAction(_prev: ActionResult | null, fd: FormDa
     const msg = (await getTranslations({ locale: await getRequestLocale(), namespace: "actions" }))("typeDelete");
     return { ok: false, error: msg, fieldErrors: { confirm: msg } };
   }
-  const r = await runLocalized(() => erasePerson(s.personId));
+  // Irreversible: re-verify the owner right now (password, MFA code, or an OTP verified in the last 5 minutes; audit M10).
+  const r = await runLocalized(() => erasePersonWithStepUp(s.personId, { password: str(fd, "password"), mfaCode: str(fd, "mfaCode") }));
   if (!r.ok) return r;
   clearAuthCookies(await cookies());
   redirect("/");

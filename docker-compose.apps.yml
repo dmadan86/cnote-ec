@@ -7,7 +7,7 @@
 x-app-env: &app-env
   DATABASE_URL: postgres://cnote:cnote@postgres:5432/cnote
   LIVE_DATABASE_URL: postgres://cnote:cnote@postgres:5432/cnote_live
-  REDIS_URL: redis://redis:6379
+  REDIS_URL: redis://:${REDIS_PASSWORD:-cnote-dev-redis}@redis:6379
   AI_PROVIDER: heuristic
   JWT_SECRET: dev-only-insecure-jwt-secret-change-me-please-0123456789
   OTP_DEV_ECHO: "true"
@@ -21,9 +21,11 @@ x-app-env: &app-env
   SEARCH_BACKEND: postgres
   EMAIL_PROVIDER: console
 
-x-build-args: &build-args
-  DATABASE_URL: postgres://cnote:cnote@host.docker.internal:5432/cnote
-  REDIS_URL: redis://host.docker.internal:6379
+# `next build` reads the database (generateStaticParams). The URLs reach the build as a BUILD SECRET (never a build arg: args are stored in
+# the image history). deploy/docker/build.env.dev holds LOCAL-DEV PLACEHOLDERS only; point `build_env` at an untracked file for anything else.
+secrets:
+  build_env:
+    file: ./deploy/docker/build.env.dev
 
 services:
   migrate:
@@ -36,32 +38,32 @@ services:
     restart: "no"
 
   web:
-    build: { context: ., dockerfile: apps/web/Dockerfile, args: *build-args }
+    build: { context: ., dockerfile: apps/web/Dockerfile, secrets: [build_env] }
     environment: *app-env
-    ports: ["3000:3000"]
+    ports: ["127.0.0.1:3000:3000"]
     volumes:
       - media:/data/media
     depends_on: &after-migrate
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
   seller:
-    build: { context: ., dockerfile: apps/seller/Dockerfile, args: *build-args }
+    build: { context: ., dockerfile: apps/seller/Dockerfile, secrets: [build_env] }
     environment: *app-env
-    ports: ["3002:3002"]
+    ports: ["127.0.0.1:3002:3002"]
     volumes:
       - media:/data/media
     depends_on: *after-migrate
   admin:
-    build: { context: ., dockerfile: apps/admin/Dockerfile, args: *build-args }
+    build: { context: ., dockerfile: apps/admin/Dockerfile, secrets: [build_env] }
     environment: *app-env
-    ports: ["3001:3001"]
+    ports: ["127.0.0.1:3001:3001"]
     volumes:
       - media:/data/media
     depends_on: *after-migrate
   studio:
-    build: { context: ., dockerfile: apps/studio/Dockerfile, args: *build-args }
+    build: { context: ., dockerfile: apps/studio/Dockerfile, secrets: [build_env] }
     environment: *app-env
-    ports: ["3004:3004"]
+    ports: ["127.0.0.1:3004:3004"]
     volumes:
       - media:/data/media
     depends_on: *after-migrate
@@ -70,7 +72,7 @@ services:
     environment:
       <<: *app-env
       API_CORS_ORIGINS: http://localhost:3000,http://localhost:3002
-    ports: ["3003:3003"]
+    ports: ["127.0.0.1:3003:3003"]
     init: true
     depends_on: *after-migrate
   worker:

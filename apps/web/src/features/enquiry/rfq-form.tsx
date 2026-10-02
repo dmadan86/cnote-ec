@@ -5,6 +5,7 @@ import { Alert, Button, Field, Input, Select, Textarea } from "@cnote/ui";
 import { useTranslations } from "next-intl";
 import { useActionState, useState, useSyncExternalStore } from "react";
 import { PINCODE_COOKIE } from "@/features/shell/site";
+import { hasFileEntries, submitFormAsAction } from "@cnote/next-kit/upload-client";
 import { postRfqAction } from "./actions";
 import { RfqResult } from "./rfq-result";
 import { trustLabels } from "./trust-labels";
@@ -120,7 +121,11 @@ export function RfqForm({ categories, defaults }: RfqFormProps) {
   const cookiePin = useSyncExternalStore(noopSubscribe, readPincodeCookie, () => null);
   const [typedPin, setTypedPin] = useState<string | null>(null);
   const pincode = typedPin ?? defaults?.deliveryPincode ?? cookiePin ?? "";
-  const [state, action, pending] = useActionState<ActionResult<EnquiryView> | null, FormData>(postRfqAction, null);
+  // Text-only posts use the server action; posts WITH drawings go to POST /api/rfq (server actions are capped at 2 MB app-wide).
+  const [state, action, pending] = useActionState<ActionResult<EnquiryView> | null, FormData>(
+    (prev, fd) => (hasFileEntries(fd) ? submitFormAsAction<EnquiryView>("/api/rfq", fd, { refreshUrl: "/api/me" }) : postRfqAction(prev, fd)),
+    null,
+  );
   if (state?.ok) return <RfqResult enquiry={state.data} />;
   const err = (k: string) => (state && !state.ok ? state.fieldErrors?.[k] : undefined);
 

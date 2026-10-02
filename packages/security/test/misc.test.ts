@@ -74,8 +74,8 @@ describe("human verification", () => {
 describe("secrets validator", () => {
   const good = () => ({
     NODE_ENV: "production",
-    DATABASE_URL: "postgres://x",
-    REDIS_URL: "redis://x",
+    DATABASE_URL: "postgres://x/db?sslmode=require",
+    REDIS_URL: "rediss://x",
     JWT_SECRET_WEB: "Zq8vK3mPx7Ld0Rt5YhNc2WbGe9UfAj4S1oXi6",
     FIELD_ENCRYPTION_KEYS: `k1:${Buffer.alloc(32, 7).toString("base64")}`,
     BLIND_INDEX_KEY: Buffer.from("0123456789abcdefghijklmnopqrstuvwxyz").toString("base64"),

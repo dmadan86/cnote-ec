@@ -21,11 +21,17 @@ describe("probes and docs", () => {
   it("health is open; ready probes dependencies and config", async () => {
     const app = make({ probes: { postgres: async () => 1, redis: async () => "PONG" } });
     expect((await app.request("/health")).status).toBe(200);
-    expect(await (await app.request("/ready")).json()).toEqual({ status: "ready", backend: "postgres" });
+    // anonymous: status only (no backend name, no problems list); a valid service token adds the details
+    expect(await (await app.request("/ready")).json()).toEqual({ status: "ready" });
+    expect(await (await app.request("/ready", { headers: auth })).json()).toEqual({ status: "ready", backend: "postgres" });
     const bad = make({ config: cfg({ tokenSecret: "" }), env: { SEARCH_BACKEND: "opensearch" }, probes: { postgres: async () => { throw new Error("down"); }, redis: async () => 1 } });
     const r = await bad.request("/ready");
     expect(r.status).toBe(503);
-    expect((await r.json() as any).problems).toEqual(["SEARCH_SERVICE_TOKEN_SECRET not set", "postgres unreachable"]);
+    expect(await r.json()).toEqual({ status: "not_ready" });
+    const down = make({ probes: { postgres: async () => { throw new Error("down"); }, redis: async () => 1 } });
+    const rd = await down.request("/ready", { headers: auth });
+    expect(rd.status).toBe(503);
+    expect((await rd.json() as any).problems).toEqual(["postgres unreachable"]);
   });
   it("serves OpenAPI and 404s unknown routes", async () => {
     const spec = (await (await make().request("/openapi.json")).json()) as any;
