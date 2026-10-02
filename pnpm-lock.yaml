@@ -59,6 +59,9 @@ importers:
       '@cnote/compliance':
         specifier: workspace:*
         version: link:../../packages/compliance
+      '@cnote/consent':
+        specifier: workspace:*
+        version: link:../../packages/consent
       '@cnote/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -384,6 +387,9 @@ importers:
       '@cnote/compliance':
         specifier: workspace:*
         version: link:../../packages/compliance
+      '@cnote/consent':
+        specifier: workspace:*
+        version: link:../../packages/consent
       '@cnote/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -505,6 +511,9 @@ importers:
       '@cnote/catalogue':
         specifier: workspace:*
         version: link:../../packages/catalogue
+      '@cnote/consent':
+        specifier: workspace:*
+        version: link:../../packages/consent
       '@cnote/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -599,6 +608,9 @@ importers:
       '@cnote/compliance':
         specifier: workspace:*
         version: link:../../packages/compliance
+      '@cnote/consent':
+        specifier: workspace:*
+        version: link:../../packages/consent
       '@cnote/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -1057,6 +1069,8 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
 
+  packages/consent: {}
+
   packages/core:
     dependencies:
       '@cnote/db':
@@ -1358,6 +1372,9 @@ importers:
       '@cnote/admin':
         specifier: workspace:*
         version: link:../admin
+      '@cnote/consent':
+        specifier: workspace:*
+        version: link:../consent
       '@cnote/core':
         specifier: workspace:*
         version: link:../core
@@ -1389,9 +1406,15 @@ importers:
       '@types/react-dom':
         specifier: ^19
         version: 19.3.0(@types/react@19.3.0)
+      lucide-react:
+        specifier: ^1.49.0
+        version: 1.49.0(@types/react@19.3.0)(react@19.3.0)
       next:
         specifier: 16.3.7
         version: 16.3.7(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      next-intl:
+        specifier: ^4.14.8
+        version: 4.14.8(@swc/helpers@0.5.23)(@types/react@19.3.0)(next@16.3.7(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
       react:
         specifier: 19.3.0
         version: 19.3.0

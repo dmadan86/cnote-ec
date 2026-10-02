@@ -34,6 +34,12 @@ export interface CspOptions {
   forms?: boolean;
   /** Allow Microsoft Clarity. Web only. Default: on when NEXT_PUBLIC_CLARITY_PROJECT_ID is set. */
   analytics?: boolean;
+  /**
+   * Allow the privacy-enhanced third-party embeds of seller storefronts in `frame-src` (EMBED_FRAME_ORIGINS). Web only; default on.
+   * The frames still load only after the visitor's consent (the buyer web's <ConsentGate>): the CSP is the second line of defence, so
+   * a page can never frame any other origin.
+   */
+  embeds?: boolean;
   /** Nonce <style> elements and keep 'unsafe-inline' only for style attributes (CSP_STRICT_STYLES=1). Needs nonce mode. */
   strictStyles?: boolean;
   /** Override process.env (tests, edge runtimes). */
@@ -44,6 +50,12 @@ export const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
 const CLARITY_SCRIPT = "https://www.clarity.ms";
 const CLARITY_CONNECT = ["https://*.clarity.ms", "https://c.bing.com"];
 const GOOGLE_ACCOUNTS = "https://accounts.google.com";
+/**
+ * The only third-party origins a page may frame: the storefront `embed` block's providers (YouTube via the privacy-enhanced
+ * youtube-nocookie.com host, OpenStreetMap). Mirrors EMBED_FRAME_ORIGINS in @cnote/storefront (apps/web/test/consent-gate.test.ts
+ * asserts they stay equal; security may not depend on storefront).
+ */
+export const EMBED_FRAME_ORIGINS = ["https://www.youtube-nocookie.com", "https://www.openstreetmap.org"] as const;
 
 const truthy = (v: string | undefined) => v === "1" || v === "true";
 
@@ -78,6 +90,7 @@ export function buildCsp(opts: CspOptions): string {
   const dev = env.NODE_ENV === "development";
   const allow = opts.allow ?? {};
   const turnstile = opts.forms ?? ((app === "web" || app === "seller") && !!env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
+  const embeds = app === "web" && (opts.embeds ?? true);
   const clarity = app === "web" && (opts.analytics ?? !!env.NEXT_PUBLIC_CLARITY_PROJECT_ID);
   const strictStyles = !!nonce && (opts.strictStyles ?? truthy(env.CSP_STRICT_STYLES));
   const media = originOf(env.MEDIA_PUBLIC_BASE_URL);
@@ -100,7 +113,7 @@ export function buildCsp(opts: CspOptions): string {
     "font-src": uniq(["'self'", "data:", ...(allow.fonts ?? [])]),
     "connect-src": uniq(["'self'", dev && "ws:", dev && "wss:", sentry, ...(clarity ? CLARITY_CONNECT : []), turnstile && TURNSTILE_ORIGIN, ...(allow.connect ?? [])]),
     "media-src": uniq(["'self'", "blob:", media]),
-    "frame-src": uniq([turnstile && TURNSTILE_ORIGIN, ...(allow.frames ?? [])]),
+    "frame-src": uniq([turnstile && TURNSTILE_ORIGIN, ...(embeds ? EMBED_FRAME_ORIGINS : []), ...(allow.frames ?? [])]),
     "worker-src": ["'self'", "blob:"],
     "manifest-src": ["'self'"],
     "object-src": ["'none'"],

@@ -56,7 +56,7 @@ describe("recordCookieConsent", () => {
     expect(out.createdAt).toBe(row.createdAt.toISOString());
     // data minimisation: the table has no IP / user-agent columns at all
     const cols = (await prisma.$queryRaw<{ column_name: string }[]>`SELECT column_name FROM information_schema.columns WHERE table_name = 'cookie_consent_receipts'`).map((c) => c.column_name);
-    expect(cols.sort()).toEqual(["action", "analytics", "client_at", "consent_id", "created_at", "functional", "gpc", "id", "locale", "marketing", "person_id", "policy_version", "registry_hash"]);
+    expect(cols.sort()).toEqual(["action", "analytics", "app", "client_at", "consent_id", "created_at", "functional", "gpc", "id", "locale", "marketing", "person_id", "policy_version", "registry_hash"]);
   });
   it("throws a validation DomainError for invalid input and writes nothing", async () => {
     const id = cid();
@@ -265,5 +265,25 @@ describe("functional (preferences & personalisation) choice", () => {
     await recordCookieConsent({ ...base(c), functional: true, at: 1_790_000_003 });
     const s = await cookieConsentStats({ from: new Date(Date.now() - 3_600_000), to: new Date(Date.now() + 3_600_000) });
     expect(s.granted.functional).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("app column (receipts from more than one app)", () => {
+  async function recordAs(consentId: string, ctx: { app?: "web" | "seller" | "studio" | "admin" }) {
+    await recordCookieConsent({ ...base(consentId), at: 1_790_200_000 }, ctx);
+    return listCookieConsentReceipts(consentId);
+  }
+  it("records the app the notice was shown in (default web), falls back to web for an unknown app, and filters the staff search by it", async () => {
+    const web = cid();
+    const seller = cid();
+    const odd = cid();
+    expect((await recordAs(web, {}))[0]!.app).toBe("web");
+    expect((await recordAs(seller, { app: "seller" }))[0]!.app).toBe("seller");
+    expect((await recordAs(odd, { app: "nope" as never }))[0]!.app).toBe("web");
+    expect((await searchCookieConsentReceipts({ consentId: seller, app: "seller" })).items).toHaveLength(1);
+    expect((await searchCookieConsentReceipts({ consentId: seller, app: "web" })).items).toHaveLength(0);
+  });
+  it("never takes the app from the browser: it is not part of the strict receipt body", async () => {
+    await expect(recordCookieConsent({ ...base(cid()), app: "seller" } as never)).rejects.toMatchObject({ code: "validation" });
   });
 });

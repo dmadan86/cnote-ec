@@ -5,6 +5,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { APP_NAME } from "@/lib/brand";
 import { bcp47, isLocale, DEFAULT_LOCALE } from "@/i18n/config";
+import { SellerConsentManager } from "@/features/consent/manager";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
@@ -22,6 +23,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         <NextIntlClientProvider locale={locale} messages={await getMessages()} timeZone="Asia/Kolkata">
           {children}
+          {/* DPDP s.6 / ePrivacy 5(3): optional storage (onboarding timing, referral attribution) only after opt-in; see docs/design/cookie-consent.md */}
+          <SellerConsentManager />
         </NextIntlClientProvider>
       </body>
     </html>

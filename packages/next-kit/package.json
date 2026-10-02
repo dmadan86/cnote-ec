@@ -6,6 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
+    "./consent": "./src/consent/index.ts",
+    "./consent-route": "./src/consent-route.ts",
     "./errors": "./src/error-catalogue.ts",
     "./mfa-labels": "./src/mfa-labels.ts",
     "./proxy": "./src/proxy.ts",
@@ -17,6 +19,7 @@
   },
   "dependencies": {
     "@cnote/admin": "workspace:*",
+    "@cnote/consent": "workspace:*",
     "@cnote/core": "workspace:*",
     "@cnote/email": "workspace:*",
     "@cnote/identity": "workspace:*",
@@ -28,12 +31,16 @@
   },
   "peerDependencies": {
     "next": "^16",
-    "react": "^19"
+    "react": "^19",
+    "next-intl": "^4.14.8",
+    "lucide-react": "^1.49.0"
   },
   "devDependencies": {
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "lucide-react": "^1.49.0",
     "next": "16.3.7",
+    "next-intl": "^4.14.8",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   }

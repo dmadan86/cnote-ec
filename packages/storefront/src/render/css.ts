@@ -66,6 +66,9 @@ export const STOREFRONT_CSS = `
 .sf-faq details p{padding:0 16px 14px}
 .sf-quote{padding:18px;border:1px solid var(--sf-line);border-radius:var(--sf-r);background:var(--sf-bg);color:var(--sf-text)}
 .sf-quote blockquote{margin:8px 0 0}
+.sf-embed{max-width:760px}
+.sf-embed iframe{display:block;width:100%;aspect-ratio:16/9;border:0;border-radius:var(--sf-r);background:var(--sf-surface)}
+.sf-embed-gate{display:flex;flex-direction:column;gap:12px;align-items:flex-start;padding:20px;border:1px solid var(--sf-line);border-radius:var(--sf-r);background:var(--sf-surface)}
 .sf-gallery{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))}
 .sf-divider{border:0;border-top:1px solid var(--sf-line);margin:0 auto;max-width:1088px}
 .sf-note{padding:12px 14px;border:1px dashed var(--sf-line);border-radius:var(--sf-r);font-size:.9rem}

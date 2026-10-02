@@ -35,6 +35,7 @@ export default async function CookiePolicyPage(props: { params: Promise<{ locale
       <section className="mt-8" aria-labelledby="ck-cats">
         <h2 id="ck-cats" className="text-lg font-semibold text-ink">{t("categoriesTitle")}</h2>
         <p className="mt-1 text-sm text-muted">{t("categoriesBody", { site: SITE_NAME })}</p>
+        <p className="mt-2 text-sm text-muted">{t("embedsNote")}</p>
       </section>
 
       <section className="mt-8" aria-labelledby="ck-table">

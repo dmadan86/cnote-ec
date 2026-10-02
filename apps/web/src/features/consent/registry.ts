@@ -9,31 +9,11 @@
 //   marketing  visitor id, ad-click + campaign attribution, lead-gen nudge history.
 //   functional preferences & personalisation the visitor did not explicitly ask for, e.g. "recently viewed" (opt-in, default off;
 //              Global Privacy Control does not affect it).
-import type { OptionalCategory } from "./state";
+import { ALL_CATEGORIES, clientClearable as clientClearableOf, entriesOf as entriesOfRegistry, firstParty, serverClearable as serverClearableOf, type OptionalCategory, type StorageCategory, type StorageEntry } from "@cnote/consent";
 
-export type StorageCategory = "necessary" | OptionalCategory;
-export type StorageKind = "cookie" | "localStorage" | "sessionStorage";
-export type StorageProvider = "firstParty" | "clarity";
-export type Duration = { unit: "session" } | { unit: "persistent" } | { unit: "minutes" | "days" | "months" | "years"; n: number };
+export type { Duration, StorageCategory, StorageEntry, StorageKind, StorageProvider } from "@cnote/consent";
+import type { Duration } from "@cnote/consent";
 
-export interface StorageEntry {
-  /** cookie name or storage key, exactly as written by code */
-  name: string;
-  category: StorageCategory;
-  kind: StorageKind;
-  provider: StorageProvider;
-  /** key under messages `consent.purpose.*` */
-  purpose: string;
-  duration: Duration;
-  /** httpOnly cookies are set by the server and expired by POST /api/consent; client code cannot touch them */
-  httpOnly?: boolean;
-  /** Also written server-side as an httpOnly cookie of the same name (cnote_vid), so POST /api/consent expires it too. */
-  alsoServerSet?: boolean;
-}
-
-const firstParty = (name: string, category: StorageCategory, kind: StorageKind, purpose: string, duration: Duration, httpOnly = false): StorageEntry => ({
-  name, category, kind, provider: "firstParty", purpose, duration, ...(httpOnly ? { httpOnly } : {}),
-});
 const clarity = (name: string, purpose: string, duration: Duration): StorageEntry => ({ name, category: "analytics", kind: "cookie", provider: "clarity", purpose, duration });
 
 export const STORAGE_REGISTRY: readonly StorageEntry[] = [
@@ -76,12 +56,11 @@ export const STORAGE_REGISTRY: readonly StorageEntry[] = [
   firstParty("cnote_recent_v1", "functional", "localStorage", "recentlyViewed", { unit: "persistent" }),
 ];
 
-export const CATEGORIES: readonly StorageCategory[] = ["necessary", "analytics", "marketing", "functional"];
+export const CATEGORIES: readonly StorageCategory[] = ALL_CATEGORIES;
 
-export const entriesOf = (category: StorageCategory): StorageEntry[] => STORAGE_REGISTRY.filter((e) => e.category === category);
+export const entriesOf = (category: StorageCategory): StorageEntry[] => entriesOfRegistry(STORAGE_REGISTRY, category);
 
 /** Everything client code may (and, on withdrawal, must) delete for a category. httpOnly cookies are the server's job. */
-export const clientClearable = (category: OptionalCategory): StorageEntry[] => entriesOf(category).filter((e) => !e.httpOnly);
+export const clientClearable = (category: OptionalCategory): StorageEntry[] => clientClearableOf(STORAGE_REGISTRY, category);
 /** Cookies the server expires when the category is not granted (POST /api/consent): httpOnly ones and server-written twins. */
-export const serverClearable = (category: OptionalCategory): StorageEntry[] => entriesOf(category).filter((e) => e.httpOnly || e.alsoServerSet);
-
+export const serverClearable = (category: OptionalCategory): StorageEntry[] => serverClearableOf(STORAGE_REGISTRY, category);

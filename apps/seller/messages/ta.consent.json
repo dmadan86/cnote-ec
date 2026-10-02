@@ -1,0 +1,59 @@
+{
+  "consent": {
+    "aria": "குக்கீ அறிவிப்பு",
+    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie.",
+    "acceptAll": "அனைத்தையும் ஏற்கவும்",
+    "rejectAll": "அனைத்தையும் நிராகரிக்கவும்",
+    "customise": "தேர்வு செய்யவும்",
+    "dialogTitle": "குக்கீ விருப்பத்தேர்வுகள்",
+    "dialogIntro": "{site} பயன்படுத்தக்கூடிய விருப்பத் தேர்வு குக்கீகளையும் அது போன்ற சேமிப்பையும் தேர்ந்தெடுக்கவும். அத்தியாவசியமானவை இல்லாமல் தளம் இயங்காது என்பதால் அவை எப்போதும் இயக்கத்தில் இருக்கும். உங்கள் தேர்வை எப்போது வேண்டுமானாலும் அடிக்குறிப்பில் உள்ள \"குக்கீ அமைப்புகள்\" மூலம் மாற்றலாம்.",
+    "close": "மூடு",
+    "saveChoices": "தேர்வுகளைச் சேமி",
+    "alwaysActive": "எப்போதும் செயலில்",
+    "on": "இயக்கம்",
+    "off": "நிறுத்தம்",
+    "gpcNote": "உங்கள் உலாவியின் குளோபல் பிரைவசி கண்ட்ரோல் சிக்னல் இயக்கத்தில் உள்ளது, எனவே நீங்கள் இங்கே இயக்காத வரை சந்தைப்படுத்தல் நிறுத்தத்தில் இருக்கும்.",
+    "necessaryTitle": "முற்றிலும் அவசியமானவை",
+    "analyticsTitle": "பகுப்பாய்வு",
+    "marketingTitle": "சந்தைப்படுத்தல் மற்றும் மூலக் கண்காணிப்பு",
+    "colName": "பெயர்",
+    "colProvider": "வழங்குநர்",
+    "colPurpose": "நோக்கம்",
+    "colDuration": "காலம்",
+    "tableCaption": "{category}: குக்கீகள் மற்றும் சேமிப்பு விசைகள்",
+    "necessaryDesc": "Needed for sign-in, security, your language and your onboarding progress, and to remember this choice. They cannot be switched off.",
+    "analyticsDesc": "Records when you created your business, only to measure how long onboarding takes (time to your first listing and to finishing). Nothing else, and nothing is shared with other companies.",
+    "marketingDesc": "Remembers the referral code from the link you followed (for example from another seller), so the person who referred you can be credited when you create your business.",
+    "openSettings": "Cookie settings",
+    "kind": {
+      "cookie": "குக்கீ",
+      "localStorage": "லோக்கல் ஸ்டோரேஜ்",
+      "sessionStorage": "செஷன் ஸ்டோரேஜ்"
+    },
+    "provider": {
+      "firstParty": "முதல் தரப்பு"
+    },
+    "duration": {
+      "session": "செஷன்",
+      "persistent": "நீங்கள் நீக்கும் வரை",
+      "minutes": "{count, plural, one {# நிமிடம்} other {# நிமிடங்கள்}}",
+      "days": "{count, plural, one {# நாள்} other {# நாட்கள்}}",
+      "months": "{count, plural, one {# மாதம்} other {# மாதங்கள்}}",
+      "years": "{count, plural, one {# ஆண்டு} other {# ஆண்டுகள்}}"
+    },
+    "purpose": {
+      "consent": "உங்கள் குக்கீ தேர்வை நினைவில் கொள்கிறது.",
+      "consentPending": "உங்கள் சமீபத்திய குக்கீ தேர்வின் பதிவை எங்கள் சேவையகம் சேமித்துவிட்டது என உறுதிசெய்யும் வரை அதை வைத்திருக்கும்.",
+      "auth": "சில நிமிடங்களுக்கு உங்களை உள்நுழைந்த நிலையில் வைக்கிறது (குறுகிய கால அணுகல் டோக்கன்).",
+      "session": "இந்தச் சாதனத்தில் உங்களை உள்நுழைந்த நிலையில் வைக்கிறது (புதுப்பிப்பு டோக்கன், வெளியேறும்போது ரத்தாகும்).",
+      "oauth": "Google உள்நுழைவு செயல்முறையை போலி கோரிக்கைகளிலிருந்து பாதுகாக்கிறது.",
+      "mfa": "நிலுவையில் உள்ள இரண்டு-படி உள்நுழைவைச் சில நிமிடங்களுக்கு வைத்திருக்கிறது.",
+      "locale": "நீங்கள் தேர்ந்தெடுத்த மொழியை நினைவில் கொள்கிறது.",
+      "onboardingDone": "Remembers that you finished onboarding.",
+      "onboardingSkip": "Remembers an onboarding step you chose to skip.",
+      "onboardingStart": "Records when you created your business, to measure how long onboarding takes.",
+      "onboardingFirstListing": "Remembers that you submitted your first listing, so onboarding can show you the result.",
+      "referral": "Remembers the referral code from the link you followed until you create your business."
+    }
+  }
+}

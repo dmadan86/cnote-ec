@@ -1,4 +1,5 @@
 import { ConsentManager } from "@/features/consent";
+import { SITE_ORIGIN } from "@/lib/site-url";
 import { Clarity } from "./clarity";
 
 /**
@@ -11,7 +12,7 @@ export function Analytics() {
   return (
     <>
       {projectId ? <Clarity projectId={projectId} /> : null}
-      <ConsentManager />
+      <ConsentManager siteOrigin={SITE_ORIGIN} />
     </>
   );
 }

@@ -143,7 +143,8 @@ export async function saveListingAction(_prev: SaveResult | null, fd: FormData):
       listing = (await catalogue.getListing(listing.id)) ?? listing;
       logEvent("seller.listing_publish_attempt", { businessId: actor.businessId, listingId: listing.id, status: version.status, version: version.version, aiGenerated: listing.aiGenerated });
       if (version.status !== "rejected" && !(await readOnb(ONB.firstListing))) {
-        // ADR-004 metric: time from business creation to first listing submitted for publication.
+        // ADR-004 metric: time from business creation to first listing submitted for publication. The start time (seller_onb_t0) is an
+        // analytics cookie, so it exists only after opt-in; without it the event is still logged, with no timing.
         const t0 = Number(await readOnb(ONB.startedAt));
         logEvent("seller.first_listing_published", { businessId: actor.businessId, listingId: listing.id, timeToFirstListingMs: Number.isFinite(t0) && t0 > 0 ? Date.now() - t0 : null });
         await writeOnb(ONB.firstListing, String(Date.now()));

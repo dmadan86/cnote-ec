@@ -1,0 +1,59 @@
+{
+  "consent": {
+    "aria": "कुकी सूचना",
+    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie.",
+    "acceptAll": "सर्व स्वीकारा",
+    "rejectAll": "सर्व नाकारा",
+    "customise": "निवड करा",
+    "dialogTitle": "कुकी प्राधान्ये",
+    "dialogIntro": "{site} कोणत्या पर्यायी कुकी आणि तत्सम स्टोरेज वापरू शकते ते निवडा. आवश्यक कुकीशिवाय साइट चालू शकत नाही, म्हणून त्या नेहमी चालू असतात. तुमची निवड तुम्ही केव्हाही फूटरमधील \"कुकी सेटिंग्ज\" मधून बदलू शकता.",
+    "close": "बंद करा",
+    "saveChoices": "निवड जतन करा",
+    "alwaysActive": "नेहमी सक्रिय",
+    "on": "चालू",
+    "off": "बंद",
+    "gpcNote": "तुमच्या ब्राउझरचा ग्लोबल प्रायव्हसी कंट्रोल सिग्नल चालू आहे, म्हणून तुम्ही येथे चालू करेपर्यंत मार्केटिंग बंद राहते.",
+    "necessaryTitle": "अत्यावश्यक",
+    "analyticsTitle": "अ‍ॅनालिटिक्स",
+    "marketingTitle": "मार्केटिंग आणि एट्रिब्यूशन",
+    "colName": "नाव",
+    "colProvider": "प्रदाता",
+    "colPurpose": "उद्देश",
+    "colDuration": "कालावधी",
+    "tableCaption": "{category}: कुकी आणि स्टोरेज की",
+    "necessaryDesc": "Needed for sign-in, security, your language and your onboarding progress, and to remember this choice. They cannot be switched off.",
+    "analyticsDesc": "Records when you created your business, only to measure how long onboarding takes (time to your first listing and to finishing). Nothing else, and nothing is shared with other companies.",
+    "marketingDesc": "Remembers the referral code from the link you followed (for example from another seller), so the person who referred you can be credited when you create your business.",
+    "openSettings": "Cookie settings",
+    "kind": {
+      "cookie": "कुकी",
+      "localStorage": "लोकल स्टोरेज",
+      "sessionStorage": "सेशन स्टोरेज"
+    },
+    "provider": {
+      "firstParty": "फर्स्ट पार्टी"
+    },
+    "duration": {
+      "session": "सेशन",
+      "persistent": "तुम्ही हटवेपर्यंत",
+      "minutes": "{count, plural, one {# मिनिट} other {# मिनिटे}}",
+      "days": "{count, plural, one {# दिवस} other {# दिवस}}",
+      "months": "{count, plural, one {# महिना} other {# महिने}}",
+      "years": "{count, plural, one {# वर्ष} other {# वर्षे}}"
+    },
+    "purpose": {
+      "consent": "तुमची कुकी निवड लक्षात ठेवते.",
+      "consentPending": "तुमच्या नवीनतम कुकी निवडीची नोंद आमच्या सर्व्हरने जतन केल्याची खात्री होईपर्यंत ती ठेवते.",
+      "auth": "तुम्हाला काही मिनिटे साइन-इन ठेवते (अल्पकालीन अ‍ॅक्सेस टोकन).",
+      "session": "या डिव्हाइसवर तुम्हाला साइन-इन ठेवते (रिफ्रेश टोकन, साइन-आउट केल्यावर रद्द होते).",
+      "oauth": "Google साइन-इन प्रक्रियेचे बनावट विनंत्यांपासून संरक्षण करते.",
+      "mfa": "प्रलंबित दोन-टप्प्यांतील साइन-इन काही मिनिटे धरून ठेवते.",
+      "locale": "तुम्ही निवडलेली भाषा लक्षात ठेवते.",
+      "onboardingDone": "Remembers that you finished onboarding.",
+      "onboardingSkip": "Remembers an onboarding step you chose to skip.",
+      "onboardingStart": "Records when you created your business, to measure how long onboarding takes.",
+      "onboardingFirstListing": "Remembers that you submitted your first listing, so onboarding can show you the result.",
+      "referral": "Remembers the referral code from the link you followed until you create your business."
+    }
+  }
+}

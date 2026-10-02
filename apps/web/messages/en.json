@@ -430,7 +430,14 @@
     "idCopied": "Consent ID copied.",
     "idCopyFailed": "Could not copy. Select the ID and copy it by hand.",
     "noChoiceYet": "You have not made a choice yet, so there is no consent ID.",
-    "downloadRecord": "Download my consent record"
+    "downloadRecord": "Download my consent record",
+    "embedsNote": "Videos and maps from other companies (YouTube, OpenStreetMap) on seller storefronts load only after you allow marketing (videos) or preference (maps) cookies here, or choose “Load it” on that item. Those companies may then set their own cookies.",
+    "gate": {
+      "body": "This content is from {provider}, which may set cookies.",
+      "load": "Load it",
+      "settings": "Change cookie settings",
+      "hint": "“Load it” shows only this item. Your cookie settings stay as they are."
+    }
   },
   "leadgen": {
     "nudgeAria": "Get prices from suppliers",

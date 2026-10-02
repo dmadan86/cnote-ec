@@ -1,4 +1,4 @@
-import type { ImageProps, LinkProps, RenderData, RenderHrefs, ImageComponent, LinkComponent } from "./types";
+import type { EmbedComponent, EmbedProps, ImageProps, LinkProps, RenderData, RenderHrefs, ImageComponent, LinkComponent } from "./types";
 import { type Page, type StorefrontDocument, type Section } from "../document/schema";
 import { STOREFRONT_CSS } from "./css";
 import { Pic, SectionView, type Ctx } from "./sections";
@@ -8,6 +8,16 @@ const PlainLink = ({ href, children, ...rest }: LinkProps) => <a href={href} {..
 // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
 const PlainImage = ({ src, alt, width, height, sizes, priority, ...rest }: ImageProps) => <img src={src} alt={alt} width={width} height={height} sizes={sizes} loading={priority ? "eager" : "lazy"} decoding="async" {...rest} />;
 
+/**
+ * Default for hosts without a consent gate (Studio preview, tests, emails): NO third-party frame, only a link the visitor chooses to
+ * follow. The renderer itself never emits an <iframe>.
+ */
+const PlainEmbed = ({ href, provider, title }: EmbedProps) => (
+  <p>
+    <a href={href} rel="noopener noreferrer nofollow" target="_blank">{title}: open on {provider}<span className="sf-sr"> (opens in a new tab)</span></a>
+  </p>
+);
+
 export interface StorefrontViewProps {
   document: StorefrontDocument;
   /** page slug to render; unknown slugs fall back to the first page */
@@ -16,6 +26,8 @@ export interface StorefrontViewProps {
   hrefs: RenderHrefs;
   Link?: LinkComponent;
   Image?: ImageComponent;
+  /** third-party video/map frame (the buyer web passes a consent-gated one); default: a plain link, no frame */
+  Embed?: EmbedComponent;
   /** editor/preview affordances (explains empty platform-driven blocks) */
   preview?: boolean;
 }
@@ -27,9 +39,9 @@ export const findPage = (doc: StorefrontDocument, slug?: string): Page => doc.pa
  * Web passes next/link + next/image; Studio's preview passes inert equivalents. The platform trust strip is always
  * present: if a page does not place one, it is prepended, so a seller cannot hide verification status.
  */
-export function StorefrontView({ document: doc, pageSlug, data, hrefs, Link = PlainLink, Image = PlainImage, preview = false }: StorefrontViewProps) {
+export function StorefrontView({ document: doc, pageSlug, data, hrefs, Link = PlainLink, Image = PlainImage, Embed = PlainEmbed, preview = false }: StorefrontViewProps) {
   const page = findPage(doc, pageSlug);
-  const ctx: Ctx = { doc, page, data, hrefs, Link, Image, preview, h1Taken: { current: false } };
+  const ctx: Ctx = { doc, page, data, hrefs, Link, Image, Embed, preview, h1Taken: { current: false } };
   const hasHero = page.sections.some((s) => s.type === "hero");
   const sections: Section[] = page.sections.some((s) => s.type === "trustStrip") ? page.sections : [{ id: "platform-trust", type: "trustStrip", tone: "default" }, ...page.sections];
   const multi = doc.pages.length > 1;

@@ -1,6 +1,8 @@
-# Cookie consent manager (buyer web)
+# Cookie consent manager (buyer web, seller app, storefronts)
 
-Status: implemented in `apps/web/src/features/consent`. Owner: buyer web + `@cnote/compliance` (receipts).
+Status: implemented. The framework-free core is `@cnote/consent`, the shared banner/dialog is `@cnote/next-kit/consent`; the buyer web
+(`apps/web/src/features/consent`) and the seller app (`apps/seller/src/features/consent`) each bind them to their own registry. Admin and studio
+have only strictly necessary storage and show no banner (see "Other apps"). Owner: buyer web + seller + `@cnote/compliance` (receipts).
 Related: ADR-004 (Bharat-native UX), ADR-010 (compliance), `DESIGN.md` (tokens, a11y), `docs/guides/i18n.md`.
 
 ## Why
@@ -206,6 +208,8 @@ Reject all. It complements the source-grep unit test, which cannot see what the 
 
 ## Adding a cookie or storage key
 
+(Buyer web. For the seller, admin and studio apps see "Other apps"; the steps are the same with that app's registry file.)
+
 1. Add the entry to `STORAGE_REGISTRY` (`registry.ts`): name exactly as written by code, category, kind, provider, purpose
    key, duration (and `httpOnly` / `alsoServerSet` if the server writes it).
 2. Add `consent.purpose.<key>` (and any new duration/provider key) to **all 8** `apps/web/messages/*.json` catalogues.
@@ -215,6 +219,12 @@ Reject all. It complements the source-grep unit test, which cannot see what the 
    whenever the registry or a notice string changes. The snapshot test enforces this, so a bump now accompanies even a strictly
    necessary key or a reworded purpose; a bump asks everybody again, which is the safe default for proof.
 5. `pnpm --filter @cnote/web test` (registry completeness and the snapshot) must pass.
+
+## Policy version 4 (embeds)
+
+Adds the sentence about third-party embeds (`consent.embedsNote`, in `NOTICE_KEYS`) to the dialog and `/cookies`, so the snapshot is `policy-snapshots/v4.json`
+and everybody is asked again. No registry entry changed: YouTube and OpenStreetMap set their own cookies on their own hosts and only after the gate
+opens, so they are disclosed (provider named at the point of use and in the notice) rather than listed as our keys.
 
 ## Judgment calls
 
@@ -256,6 +266,140 @@ detaches the person's cookie-consent receipts (see "Erasure" above).
   list or TC string. Revisit if that changes.
 - **Children's data: not applicable.** The product is B2B for registered businesses; we do not target or knowingly serve people under
   18 (DPDP s.9 verifiable parental consent and the ban on tracking children are not triggered). Revisit if a consumer surface is added.
+
+## Other apps (seller, admin, studio, storefronts)
+
+Cookies are host-scoped and the apps are deployed on separate hosts, so **each app has its own consent record, registry, policy version
+and snapshots**. Only an app with optional storage shows a banner.
+
+### Storage audit
+
+Method: grep of every app's `src` for cookie writes (`cookies().set`, `res.cookies.set`, `Set-Cookie`, `document.cookie`), `localStorage`,
+`sessionStorage`, `indexedDB`, `next/script` / created `<script>`, `<iframe>`, plus each app's Sentry and Clarity configuration, and the cookies
+that `@cnote/next-kit` and `@cnote/identity` write for the app's auth realm. The tests below keep the table true.
+
+| App | Key / script | Kind | Written by | Class | Gate / notes |
+|---|---|---|---|---|---|
+| **seller** (`apps/seller`) | `cnote_seller_at`, `cnote_seller_rt` (`__Host-` in prod) | httpOnly cookie, 15 min / 30 days | next-kit auth | necessary | sign-in and session |
+| seller | `cnote_seller_oauth`, `cnote_seller_mfa` | httpOnly cookie, 10 min / 5 min | next-kit | necessary | Google round trip and pending two-step sign-in |
+| seller | `seller_locale` | httpOnly cookie, 1 year | language switcher; onboarding | necessary | the language the seller chose (first business language at onboarding) |
+| seller | `seller_onb_done`, `seller_onb_skip_gst`, `seller_onb_skip_listing` | httpOnly cookie, 1 year | onboarding actions | necessary | the seller's own "finished" / "skip this step"; without them onboarding would ask again |
+| seller | `seller_onb_t1` | httpOnly cookie, 1 year | first listing submitted | necessary | the seller's own action "I submitted my first listing" (and when): shows the outcome for two minutes and stops it being counted twice. State of something the seller did, not measurement |
+| seller | `seller_onb_t0` | httpOnly cookie, 1 year | business created | **analytics (optional)** | start time for the onboarding-duration metric (ADR-004: time to first listing and to finishing). Written only with `analytics`; without it the events are still logged, with no timing |
+| seller | `seller_ref` | httpOnly cookie, 30 days | proxy from `?ref=`; `/api/consent/ref` | **marketing (optional)** | referral attribution (ADR-025). Written only with `marketing`; a grant made after landing hands the code over from the address bar |
+| seller | `seller_consent` | cookie, 12 months | consent manager | necessary | the consent record |
+| seller | `seller_consent_pending` | localStorage | consent manager | necessary | receipt not yet acknowledged, deleted after a 200 |
+| seller | Cloudflare Turnstile (`challenges.cloudflare.com`, only when `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is set) | third-party script + frame on the auth forms | next-kit | necessary | bot protection on sign-in / sign-up (security of a service the seller asked for). No other page loads it |
+| seller | Sentry browser SDK | no cookie, no web storage; sends scrubbed error events | `instrumentation-client.ts` | necessary (service integrity) | `sendDefaultPii: false`, PII scrubbing in `@cnote/observability`, **no session replay and no tracing integration** (a test fails if one is added) |
+| seller | Microsoft Clarity | not loaded | n/a | n/a | Clarity is buyer web only (CSP and code) |
+| **admin** (`apps/admin`) | `cnote_admin_at`, `cnote_admin_rt`, `cnote_admin_oauth`, `cnote_admin_mfa` | httpOnly cookies, 5 min / 12 h / 10 min / 5 min | next-kit auth | necessary | staff sign-in. **No banner** |
+| admin | template preview `<iframe srcDoc sandbox="">` | sandboxed same-document preview | template studio | n/a | no `src`: nothing is loaded from anywhere |
+| admin | Sentry browser SDK | no storage | `instrumentation-client.ts` | necessary | as above |
+| **studio** (`apps/studio`) | `cnote_seller_at`, `cnote_seller_rt`, `cnote_seller_oauth`, `cnote_seller_mfa` | httpOnly cookies | next-kit auth (seller realm, studio's own host) | necessary | seller sign-in. **No banner**. The editor keeps drafts on the server, nothing in localStorage |
+| studio | Sentry browser SDK | no storage | `instrumentation-client.ts` | necessary | as above |
+| **storefronts** (`/store/[slug]`, custom domains, `<slug>.<root>` subdomains) | everything the buyer web sets (see the table above) | | | | Storefront pages are rendered by the buyer web under its root layout, so they carry the **same banner, registry and gating** as any buyer page. The platform is the data fiduciary for these cookies. A seller cannot add storage: the document model has no script, style or HTML block |
+| storefronts | Microsoft Clarity | script | buyer web `<Analytics />` | analytics | loads only when `NEXT_PUBLIC_CLARITY_PROJECT_ID` is set **and** `analytics` is granted, on a storefront exactly as on any page (e2e: no `_cl*` before consent) |
+| storefronts | `cnote_vid`, `cnote_ad_click`, `cnote_attr`, `cnote_lg_*` | | buyer web | marketing | only after `marketing`; the storefront's RFQ link goes to the marketplace, where the lead-gen helpers are gated the same way |
+| storefronts | traffic metering (`@cnote/domains`) | none on the device | proxy, server side | n/a | counts requests and a daily-salted SHA-256 of IP + user agent in a HyperLogLog; no cookie, no storage, raw IP/UA never stored |
+| storefronts | YouTube (`youtube-nocookie.com`) and OpenStreetMap frames | third-party iframe | `embed` block | **marketing** / **functional (optional)** | behind `<ConsentGate>` (see below); nothing is requested before the visitor allows the category or chooses "Load it" |
+
+Result: **two apps have optional storage and get a banner** (buyer web, already; seller, new). **Admin and studio have only strictly necessary
+storage, so they get no banner**; instead each has a registry and a test that fails the day optional storage appears.
+
+### Why a package, and which one (ADR-006)
+
+The consent core is browser-and-server logic with no framework: the cookie format (`parseConsent` / `serializeConsent`, 12-month expiry, policy
+version), categories, the registry types and helpers, Global Privacy Control, the receipt outbox (`applyConsent`, `flushPendingReceipts`),
+withdrawal cleanup, policy snapshot hashing and the source scanners for the registry tests. It is a new leaf package, **`@cnote/consent`**
+(`ALLOWED_DEPS`: none, no react, no next, no database), not a `next-kit` module, because three of its four users (the registry tests of admin and
+studio, the compliance receipts, the snapshot hashing) must not pull in Next, and because `next-kit` already sits on top of many modules.
+
+The React pieces are framework code and sit where framework glue belongs, **`@cnote/next-kit/consent`** (banner, preferences dialog, cookie table,
+switch, consent record, settings button, `ConsentManager`) and **`@cnote/next-kit/consent-route`** (the shared `POST /api/consent` handler, with
+the receipt writer injected because `@cnote/compliance` sits above the domain modules and `next-kit` may not depend on it). The buyer web's old
+files are now thin wrappers that bind them to the web's registry, site name and consent-record download, so its tests and imports did not move.
+Messages stay in each app's own `consent` namespace (a shared component needs the same keys in both apps).
+
+What is per app: cookie name (`cnote_consent` vs `seller_consent`, so a shared `localhost` in dev and e2e cannot cross-read), policy version, registry,
+snapshots (`policy-snapshots/v<N>.json`), notice strings, and which categories are offered. The dialog only lists categories that have at least one
+registry entry (`categoriesOf`): a switch that controls nothing would be a dark pattern, so the seller dialog has no "Preferences and personalisation".
+
+### Receipts: the `app` column
+
+`compliance.cookie_consent_receipts.app` (`text not null default 'web'`, migration `cookie_consent_app`; all earlier rows are the buyer web).
+The browser never sends it: `createConsentPost({ app })` supplies it server side and the strict body schema rejects an `app` key. `policy_version` and
+`registry_hash` are per app. The admin consent log has an App filter and column, and the CSV export an `app` column. Retention, erasure and the
+other columns are unchanged. The seller route does not mirror choices into the identity consent ledger (the buyer web does, for signed-in people):
+a seller's choice is per device.
+
+### The seller app
+
+`seller_consent` (cookie `v=1&id=&a=&m=&f=0&t=&gpc=`), registry `apps/seller/src/features/consent/registry.ts`, banner and dialog from
+`@cnote/next-kit/consent` mounted in the root layout, a "Cookie settings" link in the landing footer, the auth layout and the portal shell, receipts at
+`POST /api/consent` (same-origin, same limits as the buyer web). Gating:
+
+- `writeOnb()` (`apps/seller/src/lib/cookies.ts`) writes `seller_onb_t0` only with `analytics`; the metric events are logged either way, with `timeToFirstListingMs` / `totalMs` null when there is no start time. (`seller_onb_t1`, "I submitted my first listing", is necessary: gating it broke the "Submitted for review" confirmation, which the full e2e run caught.)
+- `proxy.ts` stores `seller_ref` only with `marketing`. A visitor who accepts after landing on `/?ref=CODE` is covered: the manager posts the code
+  to `/api/consent/ref`, which stores it only when the consent cookie says `marketing` and the code matches `^[A-Za-z0-9_-]{4,64}$`.
+- Withdrawal expires the httpOnly cookies of every category not granted (`createConsentPost`, from the registry's `httpOnly` entries).
+- The banner has no cookie-policy page to link to (the seller app has none); its text says to choose Customise, where the full table of names, purposes
+  and durations is the notice. A seller policy page is a follow-up.
+
+### Admin and studio: necessary only, enforced
+
+`apps/admin/src/lib/storage-registry.ts` and `apps/studio/src/lib/storage-registry.ts` list the auth cookies. Their tests (`storage-registry.test.ts`)
+run `auditNecessaryOnlyApp` from `@cnote/consent/testing` and fail when: the registry holds a non-necessary entry, source mentions an unregistered
+`cnote_admin_*` / `cnote_seller_*` key, source writes a cookie or uses `localStorage` / `sessionStorage` / `indexedDB` outside the listed files,
+loads a third-party script, or renders an iframe with a third-party `src`; and when Sentry gains a replay or tracing integration. The failure message
+says what to do: add a banner (copy the seller's), gate the write, bump the policy version. Do not edit the test to make it pass.
+
+### Seller registry and runtime tests
+
+`apps/seller/test/consent-registry.test.ts` (registry completeness against the source, the realm's auth cookies, classification, no unaccounted
+storage writes, no scripts or iframes, Sentry settings), `consent-gating.test.ts` (optional cookies are written only with their category; the seller
+does not read the buyer's cookie; `/api/consent/ref`), `consent-policy-snapshot.test.ts` (proof of what was shown), and the e2e
+`e2e/functional/seller-cookie-consent.spec.ts` (banner, equal buttons, nothing optional before opt-in, receipt stored with `app = 'seller'`, referral
+handling, withdrawal, GPC, Hindi, and a runtime audit of the browser's real cookies and storage).
+
+## Consent gate for third-party embeds
+
+`<ConsentGate category="marketing|analytics|functional" provider="YouTube">…</ConsentGate>`
+(`apps/web/src/features/consent/consent-gate.tsx`). Until the category is granted it renders an accessible placeholder, a labelled group with
+"This content is from {provider}, which may set cookies.", **Load it** and **Change cookie settings** (real buttons, 44px targets, en/hi and the
+six other catalogues), and **does not create the children**: no iframe, so no request to the provider, no cookie, no IP disclosure.
+
+- The consent cookie is read after hydration (`useSyncExternalStore`), so the static pages stay static and the first client render matches the server.
+- Granting the category in the dialog loads every embed of that category **live** (the `cnote:consent` event); withdrawing removes them again.
+- **Load it** shows that one item for this page view. It is a specific, informed act for one named provider (DPDP s.6(1); EDPB 05/2020), not a stored
+  choice: it writes nothing and the banner keeps asking. After the click focus moves to the loaded content.
+- The cookie notice names the embeds (`consent.embedsNote`, in the dialog and on `/cookies`), which is why this change is **policy version 4**.
+
+Where it is used: the storefront **`embed` block** (new; there were no third-party iframes in the codebase before). A seller picks a **YouTube video**
+(paste a link; we keep only the 11-character id, `youtubeIdFromInput`) or a **map** (latitude, longitude, zoom). The seller never supplies a URL or HTML:
+`embedSpec()` (`@cnote/storefront/document`) builds the iframe URL from a fixed privacy-enhanced host, `youtube-nocookie.com/embed/<id>` or
+`openstreetmap.org/export/embed.html?bbox=…`, and names the provider and category: video is **marketing** (a video platform profiles viewers), a plain
+map tile server is **functional** (GPC does not affect it). The renderer never emits an `<iframe>` itself: it hands an `Embed` component the spec.
+The buyer web passes `StoreEmbed` (`<ConsentGate>` around the sandboxed, lazy iframe); Studio's preview and any host without a gate get a plain link
+("Factory tour: open on YouTube"), never a frame.
+
+**CSP.** `frame-src` on the buyer web is exactly `https://www.youtube-nocookie.com https://www.openstreetmap.org` (plus Turnstile when configured), and
+`'none'` on seller, admin, studio and api (`EMBED_FRAME_ORIGINS` in `@cnote/security`; `buildCsp({ embeds })`). The regular `youtube.com` is never framed.
+A web test asserts the security package's list equals the storefront's and that every URL `embedSpec` builds is inside the CSP.
+
+**Enforcement.** `apps/web/test/consent-gate.test.tsx` scans every `src` in `apps/*` and `packages/*` and fails when an `<iframe` with a
+third-party or dynamic `src` is not inside `<ConsentGate>…</ConsentGate>` (`findUngatedIframes`), and pins the full list of such frames to the one in
+`StoreEmbed` (the only others are the admin template preview, a sandboxed `srcDoc` with no `src`). e2e `e2e/a11y/storefront-embed.spec.ts` (provider
+hosts stubbed): placeholders and the banner before consent with no request to either host and axe clean; Load it loads one item through the nocookie
+host and leaves the cookie alone; Change cookie settings then Save loads it live without a reload; Accept all loads both and survives a reload;
+withdrawing marketing removes the video; Reject all keeps both gated; preferences-only loads the map but not the video; GPC loads the map but not the
+video; no CSP violation anywhere.
+
+### Storefront pages on custom domains
+
+A storefront on its own domain (or `<slug>.<root>`) is the buyer web serving a rewritten path, so it shows the same banner. Its consent cookie is
+host-only, so **each custom domain asks separately**, and receipts post to that host's `/api/consent` (`/api/` passes through the host router untouched).
+The banner's "Cookie policy" link would resolve inside the storefront (`/cookies` is rewritten to `/store/<slug>/cookies`), so on a host that is not the
+marketplace origin it links to `${APP_URL}/cookies` instead (`ConsentManager siteOrigin`).
 
 ## Preferences and personalisation (`functional`), policy version 3
 

@@ -1,0 +1,59 @@
+{
+  "consent": {
+    "aria": "কুকি বিজ্ঞপ্তি",
+    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie.",
+    "acceptAll": "সব গ্রহণ করুন",
+    "rejectAll": "সব প্রত্যাখ্যান করুন",
+    "customise": "পছন্দ বেছে নিন",
+    "dialogTitle": "কুকি পছন্দ",
+    "dialogIntro": "{site} কোন ঐচ্ছিক কুকি এবং অনুরূপ স্টোরেজ ব্যবহার করতে পারবে তা বেছে নিন। প্রয়োজনীয় কুকি ছাড়া সাইট চলে না, তাই সেগুলো সবসময় চালু থাকে। আপনি যেকোনো সময় ফুটারের \"কুকি সেটিংস\" থেকে আপনার পছন্দ বদলাতে পারেন।",
+    "close": "বন্ধ করুন",
+    "saveChoices": "পছন্দ সংরক্ষণ করুন",
+    "alwaysActive": "সবসময় সক্রিয়",
+    "on": "চালু",
+    "off": "বন্ধ",
+    "gpcNote": "আপনার ব্রাউজারের গ্লোবাল প্রাইভেসি কন্ট্রোল সিগন্যাল চালু আছে, তাই আপনি এখানে চালু না করলে মার্কেটিং বন্ধ থাকবে।",
+    "necessaryTitle": "একান্ত প্রয়োজনীয়",
+    "analyticsTitle": "অ্যানালিটিক্স",
+    "marketingTitle": "মার্কেটিং ও অ্যাট্রিবিউশন",
+    "colName": "নাম",
+    "colProvider": "প্রদানকারী",
+    "colPurpose": "উদ্দেশ্য",
+    "colDuration": "মেয়াদ",
+    "tableCaption": "{category}: কুকি ও স্টোরেজ কী",
+    "necessaryDesc": "Needed for sign-in, security, your language and your onboarding progress, and to remember this choice. They cannot be switched off.",
+    "analyticsDesc": "Records when you created your business, only to measure how long onboarding takes (time to your first listing and to finishing). Nothing else, and nothing is shared with other companies.",
+    "marketingDesc": "Remembers the referral code from the link you followed (for example from another seller), so the person who referred you can be credited when you create your business.",
+    "openSettings": "Cookie settings",
+    "kind": {
+      "cookie": "কুকি",
+      "localStorage": "লোকাল স্টোরেজ",
+      "sessionStorage": "সেশন স্টোরেজ"
+    },
+    "provider": {
+      "firstParty": "ফার্স্ট পার্টি"
+    },
+    "duration": {
+      "session": "সেশন",
+      "persistent": "আপনি মুছে না ফেলা পর্যন্ত",
+      "minutes": "{count, plural, one {# মিনিট} other {# মিনিট}}",
+      "days": "{count, plural, one {# দিন} other {# দিন}}",
+      "months": "{count, plural, one {# মাস} other {# মাস}}",
+      "years": "{count, plural, one {# বছর} other {# বছর}}"
+    },
+    "purpose": {
+      "consent": "আপনার কুকি পছন্দ মনে রাখে।",
+      "consentPending": "আপনার সাম্প্রতিক কুকি পছন্দের রেকর্ড আমাদের সার্ভার সংরক্ষণ করেছে নিশ্চিত না হওয়া পর্যন্ত এটি ধরে রাখে।",
+      "auth": "কয়েক মিনিটের জন্য আপনাকে সাইন-ইন রাখে (স্বল্পমেয়াদি অ্যাক্সেস টোকেন)।",
+      "session": "এই ডিভাইসে আপনাকে সাইন-ইন রাখে (রিফ্রেশ টোকেন, সাইন-আউট করলে বাতিল হয়)।",
+      "oauth": "Google সাইন-ইন প্রক্রিয়াকে জাল অনুরোধ থেকে রক্ষা করে।",
+      "mfa": "অসম্পূর্ণ দুই-ধাপের সাইন-ইন কয়েক মিনিট ধরে রাখে।",
+      "locale": "আপনার বেছে নেওয়া ভাষা মনে রাখে।",
+      "onboardingDone": "Remembers that you finished onboarding.",
+      "onboardingSkip": "Remembers an onboarding step you chose to skip.",
+      "onboardingStart": "Records when you created your business, to measure how long onboarding takes.",
+      "onboardingFirstListing": "Remembers that you submitted your first listing, so onboarding can show you the result.",
+      "referral": "Remembers the referral code from the link you followed until you create your business."
+    }
+  }
+}

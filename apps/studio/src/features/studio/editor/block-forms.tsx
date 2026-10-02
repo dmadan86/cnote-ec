@@ -1,7 +1,7 @@
 "use client";
-import { LIMITS, parseMarkup, richTextSchema, toMarkup, type ImageRef, type Section, type SectionOf } from "@cnote/storefront/document";
+import { LIMITS, parseMarkup, richTextSchema, toMarkup, youtubeIdFromInput, type EmbedSource, type ImageRef, type Section, type SectionOf } from "@cnote/storefront/document";
 import type { RenderData } from "@cnote/storefront/render";
-import { Alert, Field, Select, Textarea } from "@cnote/ui";
+import { Alert, Field, Input, Select, Textarea } from "@cnote/ui";
 import { useId, useState } from "react";
 import { CheckField, ListEditor, NumberField, SelectField, TextField } from "./fields";
 import { ImagePicker, ProductMultiPicker } from "./pickers";
@@ -60,6 +60,7 @@ export function BlockForm({ s, set, ...common }: { s: Section; set: (patch: Reco
     case "about": return <AboutForm key={k} s={s} set={set} {...common} />;
     case "certifications": return <CertForm key={k} s={s} set={set} {...common} />;
     case "gallery": return <GalleryForm key={k} s={s} set={set} {...common} />;
+    case "embed": return <EmbedForm key={k} s={s} set={set} {...common} />;
     case "stats": return <StatsForm key={k} s={s} set={set} {...common} />;
     case "testimonials": return <TestimonialsForm key={k} s={s} set={set} {...common} />;
     case "faq": return <FaqForm key={k} s={s} set={set} {...common} />;
@@ -71,6 +72,82 @@ export function BlockForm({ s, set, ...common }: { s: Section; set: (patch: Reco
     case "divider":
       return <p className="text-sm text-muted">A thin line between sections. Nothing to configure.</p>;
   }
+}
+
+/** A decimal that keeps its own draft, and only reports a value inside [min, max] (so a half-typed "18." never invalidates the document). */
+function DecimalField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (v: number) => void }) {
+  const id = useId();
+  const [draft, setDraft] = useState(String(value));
+  const n = Number(draft);
+  const bad = draft.trim() === "" || !Number.isFinite(n) || n < min || n > max;
+  return (
+    <Field label={label} htmlFor={id} error={bad ? `Enter a number from ${min} to ${max}.` : undefined}>
+      <Input
+        id={id}
+        type="number"
+        step="any"
+        inputMode="decimal"
+        min={min}
+        max={max}
+        value={draft}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          const v = Number(e.target.value);
+          if (e.target.value.trim() !== "" && Number.isFinite(v) && v >= min && v <= max) onChange(v);
+        }}
+      />
+    </Field>
+  );
+}
+
+/**
+ * Video or map from a fixed list of providers. The seller pastes a YouTube link (we keep only the 11-character id) or gives map
+ * coordinates; the platform builds the privacy-enhanced frame URL itself, and the frame loads on the live storefront only after the
+ * visitor agrees to cookies (Studio's preview shows a plain link, never the third-party frame). docs/design/cookie-consent.md.
+ */
+function EmbedForm({ s, set }: P<"embed">) {
+  const [kind, setKind] = useState<EmbedSource["kind"]>(s.source.kind);
+  const [link, setLink] = useState(s.source.kind === "youtube" ? s.source.videoId : "");
+  const id = useId();
+  const parsed = link.trim() ? youtubeIdFromInput(link) : null;
+  const map = s.source.kind === "map" ? s.source : { kind: "map" as const, lat: 20.5937, lng: 78.9629, zoom: 5 };
+  return (
+    <div className="space-y-4">
+      <TextField label="Title" value={s.title} max={LIMITS.title} hint="Names the video or map for people using a screen reader." onChange={(title) => set({ title })} />
+      <SelectField
+        label="What to show"
+        value={kind}
+        onChange={(next) => {
+          setKind(next);
+          if (next === "map") set({ source: map });
+          else if (parsed) set({ source: { kind: "youtube", videoId: parsed } });
+        }}
+        options={[{ value: "youtube", label: "A YouTube video" }, { value: "map", label: "A map of your location" }]}
+        hint="Visitors see a cookie notice first. The video or map loads only after they agree, or choose to load it."
+      />
+      {kind === "youtube" ? (
+        <Field label="YouTube link" htmlFor={id} hint="Paste the video's link, e.g. https://www.youtube.com/watch?v=..." error={link.trim() && !parsed ? "That is not a YouTube video link." : undefined}>
+          <Input
+            id={id}
+            value={link}
+            spellCheck={false}
+            onChange={(e) => {
+              setLink(e.target.value);
+              const v = youtubeIdFromInput(e.target.value);
+              if (v) set({ source: { kind: "youtube", videoId: v } });
+            }}
+          />
+        </Field>
+      ) : (
+        <>
+          <DecimalField label="Latitude" value={map.lat} min={-90} max={90} onChange={(lat) => set({ source: { ...map, lat } })} />
+          <DecimalField label="Longitude" value={map.lng} min={-180} max={180} onChange={(lng) => set({ source: { ...map, lng } })} />
+          <NumberField label="Zoom (3 = country, 15 = street)" value={map.zoom} min={3} max={18} onChange={(zoom) => set({ source: { ...map, zoom } })} />
+        </>
+      )}
+      <Tone s={s} set={set} />
+    </div>
+  );
 }
 
 function HeroForm({ s, set, images }: P<"hero">) {

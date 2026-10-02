@@ -1,0 +1,59 @@
+{
+  "consent": {
+    "aria": "કૂકી સૂચના",
+    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie.",
+    "acceptAll": "બધું સ્વીકારો",
+    "rejectAll": "બધું નકારો",
+    "customise": "પસંદગી કરો",
+    "dialogTitle": "કૂકી પસંદગીઓ",
+    "dialogIntro": "{site} કઈ વૈકલ્પિક કૂકી અને તેવા સંગ્રહનો ઉપયોગ કરી શકે તે પસંદ કરો. જરૂરી કૂકી વિના સાઇટ ચાલી શકતી નથી, તેથી તે હંમેશાં ચાલુ રહે છે. તમે તમારી પસંદગી ગમે ત્યારે ફૂટરમાં \"કૂકી સેટિંગ્સ\" માંથી બદલી શકો છો.",
+    "close": "બંધ કરો",
+    "saveChoices": "પસંદગીઓ સાચવો",
+    "alwaysActive": "હંમેશાં સક્રિય",
+    "on": "ચાલુ",
+    "off": "બંધ",
+    "gpcNote": "તમારા બ્રાઉઝરનો ગ્લોબલ પ્રાઇવસી કંટ્રોલ સિગ્નલ ચાલુ છે, તેથી તમે અહીં ચાલુ ન કરો ત્યાં સુધી માર્કેટિંગ બંધ રહે છે.",
+    "necessaryTitle": "અત્યંત જરૂરી",
+    "analyticsTitle": "એનાલિટિક્સ",
+    "marketingTitle": "માર્કેટિંગ અને એટ્રિબ્યુશન",
+    "colName": "નામ",
+    "colProvider": "પ્રદાતા",
+    "colPurpose": "હેતુ",
+    "colDuration": "સમયગાળો",
+    "tableCaption": "{category}: કૂકી અને સંગ્રહ કી",
+    "necessaryDesc": "Needed for sign-in, security, your language and your onboarding progress, and to remember this choice. They cannot be switched off.",
+    "analyticsDesc": "Records when you created your business, only to measure how long onboarding takes (time to your first listing and to finishing). Nothing else, and nothing is shared with other companies.",
+    "marketingDesc": "Remembers the referral code from the link you followed (for example from another seller), so the person who referred you can be credited when you create your business.",
+    "openSettings": "Cookie settings",
+    "kind": {
+      "cookie": "કૂકી",
+      "localStorage": "લોકલ સ્ટોરેજ",
+      "sessionStorage": "સેશન સ્ટોરેજ"
+    },
+    "provider": {
+      "firstParty": "ફર્સ્ટ પાર્ટી"
+    },
+    "duration": {
+      "session": "સેશન",
+      "persistent": "તમે કાઢી નાખો ત્યાં સુધી",
+      "minutes": "{count, plural, one {# મિનિટ} other {# મિનિટ}}",
+      "days": "{count, plural, one {# દિવસ} other {# દિવસ}}",
+      "months": "{count, plural, one {# મહિનો} other {# મહિના}}",
+      "years": "{count, plural, one {# વર્ષ} other {# વર્ષ}}"
+    },
+    "purpose": {
+      "consent": "તમારી કૂકી પસંદગી યાદ રાખે છે.",
+      "consentPending": "તમારી તાજેતરની કૂકી પસંદગીની નોંધ અમારા સર્વરે સાચવી છે તેની પુષ્ટિ થાય ત્યાં સુધી તેને રાખે છે.",
+      "auth": "તમને થોડી મિનિટ સુધી સાઇન-ઇન રાખે છે (ટૂંકા ગાળાનો એક્સેસ ટોકન).",
+      "session": "આ ડિવાઇસ પર તમને સાઇન-ઇન રાખે છે (રિફ્રેશ ટોકન, સાઇન-આઉટ કરતાં રદ થાય છે).",
+      "oauth": "Google સાઇન-ઇન પ્રક્રિયાને બનાવટી વિનંતીઓથી બચાવે છે.",
+      "mfa": "બાકી રહેલું બે-પગલાંનું સાઇન-ઇન થોડી મિનિટ માટે રાખે છે.",
+      "locale": "તમે પસંદ કરેલી ભાષા યાદ રાખે છે.",
+      "onboardingDone": "Remembers that you finished onboarding.",
+      "onboardingSkip": "Remembers an onboarding step you chose to skip.",
+      "onboardingStart": "Records when you created your business, to measure how long onboarding takes.",
+      "onboardingFirstListing": "Remembers that you submitted your first listing, so onboarding can show you the result.",
+      "referral": "Remembers the referral code from the link you followed until you create your business."
+    }
+  }
+}

@@ -78,6 +78,10 @@ model RetentionRun {
 model CookieConsentReceipt {
   id            String   @id @default(uuid()) @db.Uuid
   consentId     String   @map("consent_id")
+  /// which app showed the notice: "web" | "seller" (| "studio" | "admin" if they ever need a banner). Cookies are host-scoped per
+  /// app, so each app has its own consent, registry and policy version; `policy_version` is per `app`. Rows from before this
+  /// column are all the buyer web.
+  app           String   @default("web")
   policyVersion Int      @map("policy_version")
   /// per-category choices (strictly necessary is always on and needs no consent)
   analytics     Boolean

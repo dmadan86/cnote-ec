@@ -4,6 +4,7 @@ import { StorefrontView, findPage } from "@cnote/storefront/render";
 import type { ImageProps, LinkProps, RenderData, RenderHrefs, RenderProduct } from "@cnote/storefront/render";
 import type { StorefrontDocument } from "@cnote/storefront/document";
 import { productPath } from "@/lib/paths";
+import { StoreEmbed } from "./embed";
 
 const StoreLink = ({ href, children, ...rest }: LinkProps) => (
   <Link href={href} prefetch={false} {...rest}>{children}</Link>
@@ -22,5 +23,5 @@ export function StorefrontPage({ slug, document, pageSlug, data }: { slug: strin
     product: (p: RenderProduct) => productPath(p),
     rfq: `/rfq/new?seller=${data.business.id}`,
   };
-  return <StorefrontView document={document} pageSlug={findPage(document, pageSlug).slug} data={data} hrefs={hrefs} Link={StoreLink} Image={StoreImage} />;
+  return <StorefrontView document={document} pageSlug={findPage(document, pageSlug).slug} data={data} hrefs={hrefs} Link={StoreLink} Image={StoreImage} Embed={StoreEmbed} />;
 }

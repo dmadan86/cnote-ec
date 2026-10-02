@@ -14,6 +14,10 @@ describe("parseConsentFilters", () => {
       expect(parseConsentFilters(bad).problem, JSON.stringify(bad)).toEqual(expect.any(String));
     }
   });
+  it("filters by app and rejects an unknown one", () => {
+    expect(parseConsentFilters({ app: "seller" }).filters).toEqual({ app: "seller" });
+    expect(parseConsentFilters({ app: "mobile" }).problem).toBe("Unknown app.");
+  });
   it("accepts an empty filter set", () => expect(parseConsentFilters({})).toEqual({ filters: {}, problem: null }));
 });
 
@@ -25,7 +29,7 @@ describe("CSV", () => {
     expect(csvCell(false)).toBe("false");
   });
   it("writes one row per receipt matching the header", () => {
-    const row = csvRow({ id: "r1", createdAt: "2026-10-01T00:00:00.000Z", clientAt: 1_790_000_000, consentId: "a".repeat(32), personId: null, policyVersion: 1, registryHash: "f".repeat(64), action: "custom", analytics: true, marketing: false, functional: true, gpc: false, locale: "hi" });
+    const row = csvRow({ id: "r1", createdAt: "2026-10-01T00:00:00.000Z", clientAt: 1_790_000_000, consentId: "a".repeat(32), personId: null, app: "web", policyVersion: 1, registryHash: "f".repeat(64), action: "custom", analytics: true, marketing: false, functional: true, gpc: false, locale: "hi" });
     expect(row.split(",")).toHaveLength(CSV_HEADER.length);
     expect(row).toContain(",,");
   });

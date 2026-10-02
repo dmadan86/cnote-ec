@@ -1,0 +1,59 @@
+{
+  "consent": {
+    "aria": "Cookie notice",
+    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie.",
+    "acceptAll": "Accept all",
+    "rejectAll": "Reject all",
+    "customise": "Customise",
+    "dialogTitle": "Cookie preferences",
+    "dialogIntro": "Choose which optional cookies and similar storage {site} may use. Essential ones are always on because the site cannot work without them. You can change your choice at any time from Cookie settings in the footer.",
+    "close": "Close",
+    "saveChoices": "Save choices",
+    "alwaysActive": "Always active",
+    "on": "On",
+    "off": "Off",
+    "gpcNote": "Your browser's Global Privacy Control signal is on, so marketing stays off unless you switch it on here.",
+    "necessaryTitle": "Strictly necessary",
+    "analyticsTitle": "Analytics",
+    "marketingTitle": "Marketing and attribution",
+    "colName": "Name",
+    "colProvider": "Provider",
+    "colPurpose": "Purpose",
+    "colDuration": "Duration",
+    "tableCaption": "{category}: cookies and storage keys",
+    "necessaryDesc": "Needed for sign-in, security, your language and your onboarding progress, and to remember this choice. They cannot be switched off.",
+    "analyticsDesc": "Records when you created your business, only to measure how long onboarding takes (time to your first listing and to finishing). Nothing else, and nothing is shared with other companies.",
+    "marketingDesc": "Remembers the referral code from the link you followed (for example from another seller), so the person who referred you can be credited when you create your business.",
+    "openSettings": "Cookie settings",
+    "kind": {
+      "cookie": "Cookie",
+      "localStorage": "Local storage",
+      "sessionStorage": "Session storage"
+    },
+    "provider": {
+      "firstParty": "First party"
+    },
+    "duration": {
+      "session": "Session",
+      "persistent": "Until you clear it",
+      "minutes": "{count, plural, one {# minute} other {# minutes}}",
+      "days": "{count, plural, one {# day} other {# days}}",
+      "months": "{count, plural, one {# month} other {# months}}",
+      "years": "{count, plural, one {# year} other {# years}}"
+    },
+    "purpose": {
+      "consent": "Remembers your cookie choice.",
+      "consentPending": "Holds your latest cookie choice until our server confirms it has saved the record of it.",
+      "auth": "Keeps you signed in for a few minutes at a time (short-lived access token).",
+      "session": "Keeps you signed in on this device (refresh token, revoked when you sign out).",
+      "oauth": "Protects the Google sign-in round trip against forgery.",
+      "mfa": "Holds a pending two-step sign-in for a few minutes.",
+      "locale": "Remembers the language you chose.",
+      "onboardingDone": "Remembers that you finished onboarding.",
+      "onboardingSkip": "Remembers an onboarding step you chose to skip.",
+      "onboardingStart": "Records when you created your business, to measure how long onboarding takes.",
+      "onboardingFirstListing": "Remembers that you submitted your first listing, so onboarding can show you the result.",
+      "referral": "Remembers the referral code from the link you followed until you create your business."
+    }
+  }
+}

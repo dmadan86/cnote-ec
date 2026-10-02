@@ -17,6 +17,7 @@
     "@cnote/billing": "workspace:*",
     "@cnote/catalogue": "workspace:*",
     "@cnote/compliance": "workspace:*",
+    "@cnote/consent": "workspace:*",
     "@cnote/core": "workspace:*",
     "@cnote/credit": "workspace:*",
     "@cnote/developer": "workspace:*",

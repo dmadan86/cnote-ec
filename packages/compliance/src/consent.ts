@@ -1,5 +1,6 @@
 // Cookie-consent receipts (ADR-010; DPDP Act 2023 s.6(10): the Data Fiduciary bears the burden of proving that notice was
-// given and consent obtained; GDPR Art 7(1)). Written by the buyer web's POST /api/consent after each choice.
+// given and consent obtained; GDPR Art 7(1)). Written by POST /api/consent of every app that shows a cookie banner (buyer web,
+// seller; the `app` column says which: cookies are host-scoped, so each app has its own consent, registry and policy version).
 //
 // Data minimisation: the receipt holds the random consent id from the browser's cookie, policy version, the per-category
 // choices, the Global Privacy Control flag, the action, the language, the browser's timestamp and the sha256 of the policy
@@ -14,6 +15,9 @@ import { z } from "zod";
 import { isUuid, parse } from "./util";
 
 export const COOKIE_CONSENT_ACTIONS = ["accept_all", "reject_all", "custom", "withdraw"] as const;
+/** Apps that can show a cookie banner (mirrors CONSENT_APPS of @cnote/consent; compliance may not depend on it). Set by the server, never by the browser. */
+export const COOKIE_CONSENT_APPS = ["web", "seller", "studio", "admin"] as const;
+export type CookieConsentApp = (typeof COOKIE_CONSENT_APPS)[number];
 export type CookieConsentAction = (typeof COOKIE_CONSENT_ACTIONS)[number];
 /** Catalogue locales (apps/web ALL_LOCALES). A receipt records the language the notice was shown in. */
 export const CONSENT_LOCALES = ["en", "hi", "kn", "ta", "te", "mr", "gu", "bn"] as const;
@@ -40,6 +44,8 @@ export type CookieConsentInput = z.input<typeof cookieConsentSchema>;
 
 export interface CookieConsentReceiptView {
   id: string;
+  /** the app whose notice the visitor saw */
+  app: CookieConsentApp;
   consentId: string;
   policyVersion: number;
   analytics: boolean;
@@ -59,6 +65,7 @@ export interface CookieConsentReceiptView {
 type ReceiptRow = Prisma.CookieConsentReceiptGetPayload<object>;
 const toView = (r: ReceiptRow): CookieConsentReceiptView => ({
   id: r.id,
+  app: (COOKIE_CONSENT_APPS as readonly string[]).includes(r.app) ? (r.app as CookieConsentApp) : "web",
   consentId: r.consentId,
   policyVersion: r.policyVersion,
   analytics: r.analytics,
@@ -83,13 +90,14 @@ const HASH_RE = /^[a-f0-9]{64}$/;
  */
 export async function recordCookieConsent(
   input: unknown,
-  ctx: { personId?: string | null; registryHash?: string | null } = {},
+  ctx: { personId?: string | null; registryHash?: string | null; /** which app showed the notice; default "web" */ app?: CookieConsentApp } = {},
 ): Promise<{ id: string; createdAt: string; duplicate: boolean }> {
   const v = parse(cookieConsentSchema, input);
   const personId = ctx.personId && isUuid(ctx.personId) ? ctx.personId : null;
   const registryHash = ctx.registryHash && HASH_RE.test(ctx.registryHash) ? ctx.registryHash : null;
   const clientAt = v.at ?? null;
-  const data = { consentId: v.consentId, policyVersion: v.policyVersion, analytics: v.analytics, marketing: v.marketing, functional: v.functional, gpc: v.gpc, action: v.action, locale: v.locale, personId, clientAt, registryHash };
+  const app = ctx.app && (COOKIE_CONSENT_APPS as readonly string[]).includes(ctx.app) ? ctx.app : "web";
+  const data = { app, consentId: v.consentId, policyVersion: v.policyVersion, analytics: v.analytics, marketing: v.marketing, functional: v.functional, gpc: v.gpc, action: v.action, locale: v.locale, personId, clientAt, registryHash };
   if (clientAt === null) {
     const row = await prisma.cookieConsentReceipt.create({ data });
     return { id: row.id, createdAt: row.createdAt.toISOString(), duplicate: false };
@@ -119,6 +127,8 @@ export interface CookieConsentSearch {
   to?: Date;
   policyVersion?: number;
   action?: CookieConsentAction;
+  /** only receipts from this app (policy versions are per app) */
+  app?: CookieConsentApp;
 }
 
 const searchWhere = (f: CookieConsentSearch): Prisma.CookieConsentReceiptWhereInput => {
@@ -136,6 +146,7 @@ const searchWhere = (f: CookieConsentSearch): Prisma.CookieConsentReceiptWhereIn
   if (f.from || f.to) where.createdAt = { ...(f.from ? { gte: f.from } : {}), ...(f.to ? { lt: f.to } : {}) };
   if (f.policyVersion !== undefined) where.policyVersion = f.policyVersion;
   if (f.action) where.action = f.action;
+  if (f.app) where.app = f.app;
   return where;
 };
 

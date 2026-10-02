@@ -39,7 +39,7 @@ function PreviewLink({ href, children, className, style, ...rest }: LinkProps) {
 const summaryOf = (s: Section): string => {
   switch (s.type) {
     case "hero": return s.headline;
-    case "productGrid": case "featuredProduct": case "certifications": case "gallery": case "testimonials": case "faq": case "contact": return s.title;
+    case "productGrid": case "featuredProduct": case "certifications": case "gallery": case "embed": case "testimonials": case "faq": case "contact": return s.title;
     case "about": return s.title || richTextToPlain(s.body).slice(0, 40);
     case "stats": return s.items.map((i) => i.value).join(" · ");
     case "spacer": return `${s.size} space`;

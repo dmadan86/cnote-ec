@@ -3,4 +3,4 @@ export { StorefrontView, findPage, type StorefrontViewProps } from "./view";
 export { RichTextView, selectProducts } from "./sections";
 export { STOREFRONT_CSS } from "./css";
 export { themeVars, formatRupees, trustLabel } from "./util";
-export type { RenderData, RenderProduct, RenderTestimonial, RenderHrefs, LinkComponent, ImageComponent, LinkProps, ImageProps } from "./types";
+export type { RenderData, RenderProduct, RenderTestimonial, RenderHrefs, LinkComponent, ImageComponent, EmbedComponent, EmbedProps, LinkProps, ImageProps } from "./types";
