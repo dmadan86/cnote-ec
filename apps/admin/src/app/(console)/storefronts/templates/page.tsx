@@ -18,7 +18,7 @@ export default async function StorefrontTemplatesPage() {
       <PageHeader
         title="Storefront templates"
         description="The Studio gallery sellers pick from. Each template is a validated storefront document with placeholder content; colours are checked for WCAG AA. Deactivating hides a template from new sellers only."
-        actions={<div className="flex items-start gap-3"><Link href="/storefronts/templates/new" className={buttonClasses("primary")}>New template</Link><SeedTemplatesForm /></div>}
+        actions={<div className="flex items-start gap-3"><Link href="/storefronts/templates/new" className={buttonClasses("primary", "md", "shrink-0 whitespace-nowrap")}>New template</Link><SeedTemplatesForm /></div>}
       />
       {list.length === 0 ? <EmptyState title="No templates yet" description="Seed the six built-in templates, or create your own." /> : (
         <Table>

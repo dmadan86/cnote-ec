@@ -1,6 +1,6 @@
 import { listCampaignsForAdmin } from "@cnote/ads";
 import { hasPrivilege } from "@cnote/admin";
-import { Alert, Badge, EmptyState, PageHeader, type BadgeTone } from "@cnote/ui";
+import { Alert, Badge, EmptyState, LinkTabs, PageHeader, type BadgeTone } from "@cnote/ui";
 import Link from "next/link";
 import { Mono, Table, Td, Th } from "@/components/table";
 import { requireStaff } from "@/lib/auth";
@@ -21,10 +21,7 @@ export default async function CampaignsPage({ searchParams }: PageProps<"/ads/ca
     <>
       <PageHeader title="Ad campaigns" description="Every campaign. Suspend is the kill switch for one campaign: it stops serving immediately." />
       <AdsNav active="/ads/campaigns" />
-      <nav aria-label="Filter by status" className="flex flex-wrap gap-2 text-sm">
-        <Link href="/ads/campaigns" className={!status ? "font-bold text-ink" : "text-brand-700 underline"}>All</Link>
-        {STATUSES.map((s) => <Link key={s} href={`/ads/campaigns?status=${s}`} className={status === s ? "font-bold text-ink" : "text-brand-700 underline"}>{s.replace("_", " ")}</Link>)}
-      </nav>
+      <LinkTabs label="Filter by status" items={[{ href: "/ads/campaigns", label: "All", active: !status }, ...STATUSES.map((s) => ({ href: `/ads/campaigns?status=${s}`, label: s.replace("_", " "), active: status === s }))]} />
       {rows === null ? <Alert tone="warning">Campaigns are unavailable.</Alert> : rows.length === 0 ? <EmptyState title="No campaigns" description="Nothing matches this filter." /> : (
         <Table>
           <thead><tr><Th>Campaign</Th><Th>Seller</Th><Th>Status</Th><Th>Halted for</Th><Th>Daily budget</Th><Th>Created</Th>{canSuspend ? <Th>Action</Th> : null}</tr></thead>

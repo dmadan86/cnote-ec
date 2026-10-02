@@ -1,6 +1,7 @@
 import { listApiKeysForStaff } from "@cnote/developer";
-import { Badge, Button, EmptyState, Input, PageHeader, Select } from "@cnote/ui";
+import { Badge, EmptyState, PageHeader } from "@cnote/ui";
 import Link from "next/link";
+import { FilterActions, FilterBar, FilterField, FilterInput, FilterSelect } from "@/components/filters";
 import { Mono, Table, Td, Th } from "@/components/table";
 import { revokeApiKeyAction } from "@/features/developers/actions";
 import { RevokeKey } from "@/features/developers/revoke-button";
@@ -26,15 +27,16 @@ export default async function DevelopersPage({ searchParams }: PageProps<"/devel
   return (
     <>
       <PageHeader title="Developer keys" description="Personal API keys across all users. Metadata and usage only: secrets are never stored or shown. Sparkline = daily requests, last 14 days." />
-      <form className="flex flex-wrap items-end gap-2" role="search">
-        <Input name="q" defaultValue={q} placeholder="name, prefix, key/person/business id" className="w-72" aria-label="Search keys" />
-        <Select name="status" defaultValue={status ?? ""} className="w-40" aria-label="Status">
-          <option value="">All statuses</option>
-          {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </Select>
-        <Button type="submit" variant="outline">Filter</Button>
-        <Link href="/developers" className="px-2 text-sm text-muted hover:underline">Reset</Link>
-      </form>
+      <FilterBar label="Filter API keys">
+        <FilterField label="Search" width="2xl"><FilterInput name="q" defaultValue={q} placeholder="name, prefix, key/person/business id" /></FilterField>
+        <FilterField label="Status" width="md">
+          <FilterSelect name="status" defaultValue={status ?? ""}>
+            <option value="">All statuses</option>
+            {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </FilterSelect>
+        </FilterField>
+        <FilterActions clearHref="/developers" clearLabel="Reset" />
+      </FilterBar>
       {items.length === 0 ? <EmptyState title="No matching keys" /> : (
         <>
           <Table>

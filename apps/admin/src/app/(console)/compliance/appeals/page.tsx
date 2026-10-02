@@ -29,7 +29,7 @@ export default async function AppealsPage({ searchParams }: PageProps<"/complian
                 <Td>{a.subjectType.replace("_", " ")}</Td>
                 <Td className="max-w-md"><span className="line-clamp-2">{a.reason}</span></Td>
                 <Td><Badge tone={a.status === "resolved" ? "success" : a.status === "rejected" ? "danger" : "neutral"}>{a.status}</Badge>{a.needsFollowUp ? <Badge tone="warning" className="ml-1">follow-up</Badge> : null}</Td>
-                <Td><Link className="text-brand-700 underline" href={`/compliance/appeals/${a.id}`}>Review <span className="sr-only">appeal {shortId(a.id)}</span></Link></Td>
+                <Td><Link className="font-medium text-brand-700 hover:underline" href={`/compliance/appeals/${a.id}`}>Review <span className="sr-only">appeal {shortId(a.id)}</span></Link></Td>
               </tr>
             ))}
           </tbody>

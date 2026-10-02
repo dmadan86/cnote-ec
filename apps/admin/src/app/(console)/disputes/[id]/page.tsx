@@ -29,8 +29,8 @@ export default async function DisputeDetailPage({ params }: { params: Promise<{ 
       <PageHeader title={`Dispute ${id.slice(0, 8)}`} description={`${d.type.replace(/_/g, " ")} · order ${d.orderId.slice(0, 8)}`} actions={<Badge tone={d.overdue ? "danger" : "brand"}>{d.status.replace(/_/g, " ")}</Badge>} />
       <Card>
         <CardBody className="grid gap-2 text-sm sm:grid-cols-2">
-          <p>Buyer: <Link className="text-brand-700 underline" href={`/businesses/${d.buyerBusinessId}`}><Mono>{d.buyerBusinessId}</Mono></Link></p>
-          <p>Seller: <Link className="text-brand-700 underline" href={`/businesses/${d.sellerBusinessId}`}><Mono>{d.sellerBusinessId}</Mono></Link></p>
+          <p>Buyer: <Link className="font-medium text-brand-700 hover:underline" href={`/businesses/${d.buyerBusinessId}`}><Mono>{d.buyerBusinessId}</Mono></Link></p>
+          <p>Seller: <Link className="font-medium text-brand-700 hover:underline" href={`/businesses/${d.sellerBusinessId}`}><Mono>{d.sellerBusinessId}</Mono></Link></p>
           <p>Amount held: <strong>{inr(d.atStakePaise)}</strong> · Claimed: {d.amountPaise === null ? "not stated" : inr(d.amountPaise)}</p>
           <p>Opened {fmtDate(d.createdAt)} · SLA due {fmtDate(d.dueAt)}{d.overdue ? " (overdue)" : ""} · Response window ends {fmtDate(d.responseDueAt)}</p>
           <p className="sm:col-span-2 whitespace-pre-wrap">{d.description}</p>

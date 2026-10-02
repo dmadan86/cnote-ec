@@ -1,8 +1,9 @@
 import { audited } from "@cnote/admin";
 import { COOKIE_CONSENT_ACTIONS, COOKIE_CONSENT_APPS, cookieConsentStats, searchCookieConsentReceipts, type CookieConsentStats } from "@cnote/compliance";
 import { DomainError } from "@cnote/core";
-import { Alert, Badge, Button, Card, CardBody, CardHeader, CardTitle, EmptyState, Input, Select } from "@cnote/ui";
+import { Alert, Badge, Card, CardBody, CardHeader, CardTitle, EmptyState } from "@cnote/ui";
 import Link from "next/link";
+import { FilterActions, FilterBar, FilterField, FilterInput, FilterSelect } from "@/components/filters";
 import { Mono, Table, Td, Th } from "@/components/table";
 import { parseConsentFilters } from "@/features/compliance/consent-filters";
 import { requireStaff } from "@/lib/auth";
@@ -104,27 +105,27 @@ export default async function ConsentLogPage({ searchParams }: PageProps<"/compl
         Searching and exporting are audited.
       </p>
       {stats ? <StatsView stats={stats} /> : stats === null && !filterProblem ? <Alert tone="warning">Summary metrics are currently unavailable.</Alert> : null}
-      <form className="flex flex-wrap items-end gap-2" role="search" aria-label="Search consent receipts">
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted">Consent ID or person ID<Input name="q" defaultValue={raw.q} className="w-80 font-mono" placeholder="32 hex characters or a person UUID" /></label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted">From<Input type="date" name="from" defaultValue={raw.from} className="w-40" /></label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted">To<Input type="date" name="to" defaultValue={raw.to} className="w-40" /></label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted">App
-          <Select name="app" defaultValue={raw.app ?? ""} className="w-32">
+      <FilterBar label="Search consent receipts">
+        <FilterField label="Consent ID or person ID" width="2xl"><FilterInput name="q" defaultValue={raw.q} className="font-mono" placeholder="32 hex characters or a person UUID" /></FilterField>
+        <FilterField label="From" width="md"><FilterInput type="date" name="from" defaultValue={raw.from} /></FilterField>
+        <FilterField label="To" width="md"><FilterInput type="date" name="to" defaultValue={raw.to} /></FilterField>
+        <FilterField label="App" width="sm">
+          <FilterSelect name="app" defaultValue={raw.app ?? ""}>
             <option value="">Any</option>
             {COOKIE_CONSENT_APPS.map((a) => <option key={a} value={a}>{a}</option>)}
-          </Select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted">Policy version<Input type="number" min={1} name="v" defaultValue={raw.v} className="w-28" /></label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted">Action
-          <Select name="action" defaultValue={raw.action ?? ""} className="w-40">
+          </FilterSelect>
+        </FilterField>
+        <FilterField label="Policy version" width="sm"><FilterInput type="number" min={1} name="v" defaultValue={raw.v} /></FilterField>
+        <FilterField label="Action" width="md">
+          <FilterSelect name="action" defaultValue={raw.action ?? ""}>
             <option value="">Any</option>
             {COOKIE_CONSENT_ACTIONS.map((a) => <option key={a} value={a}>{a.replace("_", " ")}</option>)}
-          </Select>
-        </label>
-        <Button type="submit" variant="outline">Search</Button>
-        <Link href="/compliance/consent" className="px-2 text-sm text-muted hover:underline">Reset</Link>
-        {!problem ? <a href={`/compliance/consent/export${qs() ? `?${qs()}` : ""}`} className="ml-auto text-sm font-medium text-brand-700 hover:underline" download>Export CSV</a> : null}
-      </form>
+          </FilterSelect>
+        </FilterField>
+        <FilterActions submitLabel="Search" clearHref="/compliance/consent" clearLabel="Reset">
+          {!problem ? <a href={`/compliance/consent/export${qs() ? `?${qs()}` : ""}`} className="inline-flex min-h-6 items-center text-sm font-medium text-brand-700 hover:underline" download>Export CSV</a> : null}
+        </FilterActions>
+      </FilterBar>
       {problem ? <Alert tone="danger">{problem}</Alert> : page && page.items.length === 0 ? <EmptyState title="No matching receipts" description="Nothing matches these filters." /> : page ? (
         <>
           <Table>

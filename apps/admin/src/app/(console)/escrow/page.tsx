@@ -27,14 +27,14 @@ export default async function EscrowPage({ searchParams }: PageProps<"/escrow">)
       <PageHeader title="Escrow" description="Order payments held by the payment-aggregator partner. Release follows delivery milestones; a dispute freezes the money." />
       <LinkTabs label="Status" items={[{ href: q({ status: undefined }), label: "All", active: !status }, ...STATUSES.map((s) => ({ href: q({ status: s }), label: s.replace("_", " "), active: s === status }))]} />
       <LinkTabs label="Dispute overlay" items={[{ href: q({ frozen: undefined }), label: "Any", active: !frozen }, { href: q({ frozen: "1" }), label: "Frozen only", active: frozen }]} />
-      <p className="text-sm"><Link href="/escrow/reconciliation" className="text-brand-700 underline">Reconciliation issues</Link></p>
+      <p className="text-sm"><Link href="/escrow/reconciliation" className="font-medium text-brand-700 hover:underline">Reconciliation issues</Link></p>
       {rows === null ? <Alert tone="warning">Escrow data is currently unavailable.</Alert> : rows.length === 0 ? <EmptyState title="No escrows" description="Nothing matches this filter." /> : (
         <Table>
           <thead><tr><Th>Escrow</Th><Th>Created</Th><Th>Order</Th><Th>Buyer</Th><Th>Seller</Th><Th>Amount</Th><Th>Held</Th><Th>Partner</Th><Th>Status</Th></tr></thead>
           <tbody>
             {rows.map((e) => (
               <tr key={e.id}>
-                <Td><Link href={`/escrow/${e.id}`} className="text-brand-700 underline"><Mono>{shortId(e.id)}</Mono></Link></Td>
+                <Td><Link href={`/escrow/${e.id}`} className="font-medium text-brand-700 hover:underline"><Mono>{shortId(e.id)}</Mono></Link></Td>
                 <Td className="whitespace-nowrap">{fmtDate(e.createdAt)}</Td>
                 <Td><Mono>{shortId(e.orderId)}</Mono></Td>
                 <Td><Link href={`/businesses/${e.buyerBusinessId}`}><Mono>{shortId(e.buyerBusinessId)}</Mono></Link></Td>

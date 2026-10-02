@@ -1,6 +1,7 @@
 import { EMAIL_STATUSES, listEmailLog } from "@cnote/notifications";
-import { Alert, Badge, Button, EmptyState, Field, Input, LinkTabs, PageHeader, Select } from "@cnote/ui";
+import { Alert, Badge, EmptyState, LinkTabs, PageHeader } from "@cnote/ui";
 import Link from "next/link";
+import { FilterActions, FilterBar, FilterField, FilterInput, FilterSelect } from "@/components/filters";
 import { Mono, Table, Td, Th } from "@/components/table";
 import { requireStaff } from "@/lib/auth";
 import { fmtDate, one, safe } from "@/lib/util";
@@ -30,19 +31,18 @@ export default async function EmailLogPage({ searchParams }: PageProps<"/queues/
     <>
       <PageHeader title="Email delivery log" description="Every outbound email with its delivery status. Recipients are masked and message bodies are never stored." />
       <LinkTabs label="View" items={[{ href: "/queues", label: "Dead letters", active: false }, { href: "/queues/email", label: "Email delivery log", active: true }]} />
-      <form method="get" action="/queues/email" className="flex flex-wrap items-end gap-3">
-        <Field label="Status" htmlFor="status">
-          <Select id="status" name="status" defaultValue={status ?? ""}>
+      <FilterBar label="Filter email log" action="/queues/email">
+        <FilterField label="Status" width="md">
+          <FilterSelect id="status" name="status" defaultValue={status ?? ""}>
             <option value="">Any</option>
             {EMAIL_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </Select>
-        </Field>
-        <Field label="Template contains" htmlFor="template">
-          <Input id="template" name="template" defaultValue={template ?? ""} placeholder="lead.matched" maxLength={100} />
-        </Field>
-        <Button type="submit" variant="outline">Filter</Button>
-        {status || template ? <Link href="/queues/email" className="pb-2 text-sm font-medium text-brand-700 hover:underline">Clear</Link> : null}
-      </form>
+          </FilterSelect>
+        </FilterField>
+        <FilterField label="Template contains" width="lg">
+          <FilterInput id="template" name="template" defaultValue={template ?? ""} placeholder="lead.matched" maxLength={100} />
+        </FilterField>
+        <FilterActions clearHref={status || template ? "/queues/email" : undefined} />
+      </FilterBar>
       {log === null ? (
         <Alert tone="warning">The delivery log is currently unavailable.</Alert>
       ) : log.items.length === 0 ? (

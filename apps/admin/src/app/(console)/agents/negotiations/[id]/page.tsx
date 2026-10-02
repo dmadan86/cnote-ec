@@ -20,7 +20,7 @@ export default async function NegotiationPage({ params }: { params: Promise<{ id
   return (
     <>
       <PageHeader title={`Negotiation ${id.slice(0, 8)}`} description="Structured transcript of typed protocol messages. Private limits of either party are never included." />
-      <p className="text-sm"><Link className="underline" href="/agents">Back to agents</Link></p>
+      <p className="text-sm"><Link className="font-medium text-brand-700 hover:underline" href="/agents">Back to agents</Link></p>
       {!isA2aEnabled() ? <Alert tone="warning">A2A_ENABLED is off: agents do not run. This record is read-only.</Alert> : null}
       {n.flagged ? <Alert tone="warning">This negotiation was flagged for unusual agent behaviour.</Alert> : null}
       {n.realiseError ? <Alert tone="danger">Could not create the quote/order: {n.realiseError}</Alert> : null}

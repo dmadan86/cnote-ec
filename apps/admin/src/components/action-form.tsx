@@ -1,13 +1,13 @@
 "use client";
 import type { ActionResult } from "@cnote/next-kit";
-import { Alert, Button, type ButtonProps } from "@cnote/ui";
+import { Alert, Button, cn, type ButtonProps } from "@cnote/ui";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 export function SubmitButton({ children, ...rest }: ButtonProps) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending || rest.disabled} {...rest}>
+    <Button type="submit" disabled={pending || rest.disabled} {...rest} className={cn("whitespace-nowrap", rest.size === "sm" && "h-9 lg:h-9", rest.className)}>
       {pending ? "Working…" : children}
     </Button>
   );

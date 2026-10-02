@@ -19,7 +19,7 @@ export default async function PromotionsPage({ searchParams }: PageProps<"/promo
       <PageHeader
         title="Promotions"
         description="Editorial banners, collections and strips. Never sold: paid placement is an ad and lives elsewhere. Authors draft, a different person approves."
-        actions={hasPrivilege(staff, "promotions.manage") ? <Link href="/promotions/new" className={buttonClasses("primary", "md")}>New promotion</Link> : undefined}
+        actions={hasPrivilege(staff, "promotions.manage") ? <Link href="/promotions/new" className={buttonClasses("primary", "md", "shrink-0 whitespace-nowrap")}>New promotion</Link> : undefined}
       />
       <LinkTabs label="Status" items={[{ href: "/promotions", label: "All", active: !status }, ...PROMOTION_STATUSES.map((s) => ({ href: `/promotions?status=${s}`, label: s.replace("_", " "), active: s === status }))]} />
       {rows === null ? <Alert tone="warning">Promotions are currently unavailable.</Alert> : rows.length === 0 ? <EmptyState title="No promotions" description="Nothing matches this filter." /> : (

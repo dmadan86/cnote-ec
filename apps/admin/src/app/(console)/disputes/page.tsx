@@ -41,7 +41,7 @@ export default async function DisputesPage({ searchParams }: { searchParams: Pro
           <tbody>
             {rows.map((d) => (
               <tr key={d.id}>
-                <Td><Link href={`/disputes/${d.id}`} className="text-brand-700 underline"><Mono>{shortId(d.id)}</Mono></Link>{d.hasOpenAppeal ? <Badge tone="danger" className="ml-2">appeal</Badge> : null}{d.escalated ? <Badge tone="warning" className="ml-2">escalated</Badge> : null}</Td>
+                <Td><Link href={`/disputes/${d.id}`} className="font-medium text-brand-700 hover:underline"><Mono>{shortId(d.id)}</Mono></Link>{d.hasOpenAppeal ? <Badge tone="danger" className="ml-2">appeal</Badge> : null}{d.escalated ? <Badge tone="warning" className="ml-2">escalated</Badge> : null}</Td>
                 <Td>{d.type.replace(/_/g, " ")}</Td>
                 <Td className="tabular-nums">{inr(d.atStakePaise)}</Td>
                 <Td className="tabular-nums">{d.amountPaise === null ? "-" : inr(d.amountPaise)}</Td>

@@ -1,7 +1,8 @@
 import { type AuditFilters, listAuditLog } from "@cnote/admin";
-import { Alert, Badge, Button, EmptyState, Input, PageHeader } from "@cnote/ui";
+import { Alert, Badge, EmptyState, PageHeader } from "@cnote/ui";
 import Link from "next/link";
 import { ZodError } from "zod";
+import { FilterActions, FilterBar, FilterField, FilterInput } from "@/components/filters";
 import { Mono, Table, Td, Th } from "@/components/table";
 import { requireStaff } from "@/lib/auth";
 import { fmtDate, json, one } from "@/lib/util";
@@ -35,17 +36,16 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
   return (
     <>
       <PageHeader title="Audit log" description="Append-only record of every privileged action, including denied and failed attempts. Times in IST. Action supports a trailing * wildcard." />
-      <form className="flex flex-wrap items-end gap-2" role="search">
-        <Input name="action" defaultValue={f.action} placeholder="action e.g. review.*" className="w-48" aria-label="Action" />
-        <Input name="privilege" defaultValue={f.privilege} placeholder="privilege" className="w-40" aria-label="Privilege" />
-        <Input name="subjectType" defaultValue={f.subjectType} placeholder="subject type" className="w-36" aria-label="Subject type" />
-        <Input name="subjectId" defaultValue={f.subjectId} placeholder="subject id" className="w-48" aria-label="Subject id" />
-        <Input name="staffId" defaultValue={f.staffId} placeholder="staff id" className="w-48" aria-label="Staff id" />
-        <Input type="date" name="from" defaultValue={f.from} className="w-40" aria-label="From date" />
-        <Input type="date" name="to" defaultValue={f.to} className="w-40" aria-label="To date" />
-        <Button type="submit" variant="outline">Filter</Button>
-        <Link href="/audit" className="px-2 text-sm text-muted hover:underline">Reset</Link>
-      </form>
+      <FilterBar label="Filter audit log">
+        <FilterField label="Action" width="lg"><FilterInput name="action" defaultValue={f.action} placeholder="e.g. review.*" /></FilterField>
+        <FilterField label="Privilege" width="md"><FilterInput name="privilege" defaultValue={f.privilege} placeholder="privilege" /></FilterField>
+        <FilterField label="Subject type" width="md"><FilterInput name="subjectType" defaultValue={f.subjectType} placeholder="subject type" /></FilterField>
+        <FilterField label="Subject id" width="lg"><FilterInput name="subjectId" defaultValue={f.subjectId} placeholder="subject id" /></FilterField>
+        <FilterField label="Staff id" width="lg"><FilterInput name="staffId" defaultValue={f.staffId} placeholder="staff id" /></FilterField>
+        <FilterField label="From" width="md"><FilterInput type="date" name="from" defaultValue={f.from} /></FilterField>
+        <FilterField label="To" width="md"><FilterInput type="date" name="to" defaultValue={f.to} /></FilterField>
+        <FilterActions clearHref="/audit" clearLabel="Reset" />
+      </FilterBar>
       {problem ? <Alert tone="danger">{problem}</Alert> : data && data.items.length === 0 ? <EmptyState title="No matching entries" /> : data ? (
         <>
           <Table>

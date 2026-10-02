@@ -1,7 +1,8 @@
 import { a2aMetrics, adminListMandates, adminListNegotiations, isA2aEnabled, listAnomalies, listSuspensions } from "@cnote/a2a";
 import { hasPrivilege } from "@cnote/admin";
-import { Alert, Badge, Button, EmptyState, PageHeader, Select } from "@cnote/ui";
+import { Alert, Badge, EmptyState, PageHeader } from "@cnote/ui";
 import Link from "next/link";
+import { FilterActions, FilterBar, FilterCheckbox, FilterField, FilterSelect, SectionNav } from "@/components/filters";
 import { Mono, Table, Td, Th } from "@/components/table";
 import { requireStaff } from "@/lib/auth";
 import { fmtDate, json, one, safe, shortId } from "@/lib/util";
@@ -47,14 +48,11 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
     <>
       <PageHeader title="Agents" description="Agent-to-agent commerce (ADR-020). Staff review behaviour and terms only: no party's private limits, floors or ceilings are shown anywhere in this console." />
       {!isA2aEnabled() ? <Alert tone="warning">A2A_ENABLED is off: agents do not run and the agent API returns 404. Existing records are shown read-only for review.</Alert> : null}
-      <nav aria-label="Sections" className="mt-2 flex flex-wrap gap-3 text-sm">
-        <a className="underline" href="#mandates">Mandates</a><a className="underline" href="#negotiations">Negotiations</a>
-        <a className="underline" href="#anomalies">Anomalies</a><a className="underline" href="#suspensions">Suspensions</a>
-      </nav>
+      <SectionNav items={[{ id: "mandates", label: "Mandates" }, { id: "negotiations", label: "Negotiations" }, { id: "anomalies", label: "Anomalies" }, { id: "suspensions", label: "Suspensions" }]} />
 
       <h2 className="mt-6 text-lg font-semibold">Last 30 days</h2>
       {metrics === null ? <Alert tone="warning">Metrics are currently unavailable.</Alert> : (
-        <dl className="mt-2 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <Stat label="Agent-closed deals" value={String(metrics.agentClosedDeals)} hint={`of ${metrics.negotiations} negotiations`} />
           <Stat label="Auto-accept share" value={pct(metrics.autoAcceptShare)} hint="both sides auto-confirmed" />
           <Stat label="Median rounds to close" value={num(metrics.medianRoundsToClose)} />
@@ -65,12 +63,12 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
       )}
 
       <h2 id="mandates" className="mt-8 text-lg font-semibold">Mandates</h2>
-      <form method="get" className="mt-2 flex flex-wrap items-end gap-2" aria-label="Filter mandates">
+      <FilterBar label="Filter mandates">
         {nStatus ? <input type="hidden" name="nstatus" value={nStatus} /> : null}{flagged ? <input type="hidden" name="flagged" value="1" /> : null}
-        <label className="text-xs">Side<Select name="side" defaultValue={side ?? ""} className="mt-1 h-9 w-32 text-xs"><option value="">All</option><option value="buyer">Buyer</option><option value="seller">Seller</option></Select></label>
-        <label className="text-xs">Status<Select name="mstatus" defaultValue={mStatus ?? ""} className="mt-1 h-9 w-36 text-xs"><option value="">All</option>{MANDATE_STATUS.map((s) => <option key={s} value={s}>{s}</option>)}</Select></label>
-        <Button type="submit" size="sm" variant="outline">Filter</Button>
-      </form>
+        <FilterField label="Side" width="sm"><FilterSelect name="side" defaultValue={side ?? ""}><option value="">All</option><option value="buyer">Buyer</option><option value="seller">Seller</option></FilterSelect></FilterField>
+        <FilterField label="Status" width="md"><FilterSelect name="mstatus" defaultValue={mStatus ?? ""}><option value="">All</option>{MANDATE_STATUS.map((s) => <option key={s} value={s}>{s}</option>)}</FilterSelect></FilterField>
+        <FilterActions />
+      </FilterBar>
       {mandates === null ? <Alert tone="warning">Unavailable.</Alert> : mandates.length === 0 ? <EmptyState title="No mandates match" /> : (
         <Table>
           <thead><tr><Th>Business</Th><Th>Mandate</Th><Th>Side</Th><Th>Status</Th><Th>Auto-accept</Th><Th>Recurrence</Th><Th>Expiry</Th>{canSuspend ? <Th>Suspend</Th> : null}</tr></thead>
@@ -92,19 +90,19 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
       )}
 
       <h2 id="negotiations" className="mt-8 text-lg font-semibold">Negotiations</h2>
-      <form method="get" className="mt-2 flex flex-wrap items-end gap-2" aria-label="Filter negotiations">
+      <FilterBar label="Filter negotiations">
         {side ? <input type="hidden" name="side" value={side} /> : null}{mStatus ? <input type="hidden" name="mstatus" value={mStatus} /> : null}
-        <label className="text-xs">Status<Select name="nstatus" defaultValue={nStatus ?? ""} className="mt-1 h-9 w-36 text-xs"><option value="">All</option>{NEG_STATUS.map((s) => <option key={s} value={s}>{s}</option>)}</Select></label>
-        <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="flagged" value="1" defaultChecked={flagged} className="size-4" />Flagged only</label>
-        <Button type="submit" size="sm" variant="outline">Filter</Button>
-      </form>
+        <FilterField label="Status" width="md"><FilterSelect name="nstatus" defaultValue={nStatus ?? ""}><option value="">All</option>{NEG_STATUS.map((s) => <option key={s} value={s}>{s}</option>)}</FilterSelect></FilterField>
+        <FilterCheckbox label="Flagged only" name="flagged" value="1" defaultChecked={flagged} />
+        <FilterActions />
+      </FilterBar>
       {negotiations === null ? <Alert tone="warning">Unavailable.</Alert> : negotiations.length === 0 ? <EmptyState title="No negotiations match" /> : (
         <Table>
           <thead><tr><Th>Negotiation</Th><Th>Status</Th><Th>Buyer</Th><Th>Seller</Th><Th>Round</Th><Th>Agreed price</Th><Th>External</Th><Th>Flagged</Th><Th>Created</Th></tr></thead>
           <tbody>
             {negotiations.map((n) => (
               <tr key={n.id}>
-                <Td><Link className="underline" href={`/agents/negotiations/${n.id}`}>{shortId(n.id)}</Link></Td>
+                <Td><Link className="font-medium text-brand-700 hover:underline" href={`/agents/negotiations/${n.id}`}>{shortId(n.id)}</Link></Td>
                 <Td><Badge tone={n.status === "accepted" ? "success" : "neutral"}>{n.status}</Badge></Td>
                 <Td>{n.buyer.name}</Td><Td>{n.seller.name}</Td>
                 <Td>{n.round}/{n.maxRounds}</Td><Td>{rupees(n.agreedPricePaise)}</Td>
@@ -125,7 +123,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
             {anomalies.map((a) => (
               <tr key={a.id}>
                 <Td>{fmtDate(a.createdAt)}</Td><Td>{a.kind.replaceAll("_", " ")}</Td><Td><Mono>{shortId(a.businessId)}</Mono></Td>
-                <Td>{a.negotiationId ? <Link className="underline" href={`/agents/negotiations/${a.negotiationId}`}>{shortId(a.negotiationId)}</Link> : "—"}</Td>
+                <Td>{a.negotiationId ? <Link className="font-medium text-brand-700 hover:underline" href={`/agents/negotiations/${a.negotiationId}`}>{shortId(a.negotiationId)}</Link> : "—"}</Td>
                 <Td>{a.apiKeyId ? <Mono>{a.apiKeyId}</Mono> : "—"}</Td>
                 <Td><pre className="max-w-md whitespace-pre-wrap text-xs">{json(a.details, 600)}</pre></Td>
               </tr>

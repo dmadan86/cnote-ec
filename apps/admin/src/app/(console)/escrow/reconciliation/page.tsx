@@ -26,7 +26,7 @@ export default async function ReconciliationPage({ searchParams }: PageProps<"/e
         { href: "/escrow/reconciliation?status=all", label: "All", active: status === undefined },
       ]} />
       {canManage ? <RunReconciliationForm /> : null}
-      <p className="text-sm"><Link href="/escrow" className="text-brand-700 underline">Back to escrows</Link></p>
+      <p className="text-sm"><Link href="/escrow" className="font-medium text-brand-700 hover:underline">Back to escrows</Link></p>
       {rows === null ? <Alert tone="warning">Reconciliation data is currently unavailable.</Alert> : rows.length === 0 ? <EmptyState title="No issues" description="Nothing matches this filter." /> : (
         <Table>
           <thead><tr><Th>Found</Th><Th>Kind</Th><Th>Escrow</Th><Th>Ledger</Th><Th>Partner</Th><Th>Detail</Th><Th>Status</Th>{canManage ? <Th>Resolve</Th> : null}</tr></thead>
@@ -35,7 +35,7 @@ export default async function ReconciliationPage({ searchParams }: PageProps<"/e
               <tr key={i.id}>
                 <Td className="whitespace-nowrap">{fmtDate(i.createdAt)}</Td>
                 <Td>{i.kind.replace(/_/g, " ")}</Td>
-                <Td>{i.escrowId ? <Link href={`/escrow/${i.escrowId}`} className="text-brand-700 underline"><Mono>{shortId(i.escrowId)}</Mono></Link> : "-"}</Td>
+                <Td>{i.escrowId ? <Link href={`/escrow/${i.escrowId}`} className="font-medium text-brand-700 hover:underline"><Mono>{shortId(i.escrowId)}</Mono></Link> : "-"}</Td>
                 <Td className="tabular-nums">{i.expectedPaise === null ? "-" : inr(i.expectedPaise)}</Td>
                 <Td className="tabular-nums">{i.actualPaise === null ? "-" : inr(i.actualPaise)}</Td>
                 <Td>{i.detail}{i.resolutionNote ? <span className="text-muted"> Resolved: {i.resolutionNote}</span> : null}</Td>
