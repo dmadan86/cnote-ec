@@ -14,6 +14,10 @@ export const TIMEOUT_MS = 8_000;
 /** Vision calls carry image tokens and take longer than text-only ones. */
 export const VISION_TIMEOUT_MS = 25_000;
 
+/** Which model answers reasoning-heavy vs cheap capabilities. Shadow mode (AI_SHADOW_PROVIDER) builds a second set from AI_SHADOW_MODEL_*. */
+export interface ModelSet { reasoning: string; fast: string }
+export const defaultModels = (): ModelSet => ({ reasoning: REASONING_MODEL, fast: FAST_MODEL });
+
 export const PROMPT_VERSIONS = { intent: "intent-v1", extract: "extract-v1", extractImage: "extract-image-v1", moderate: "moderate-v1" } as const;
 
 /** The subset of the SDK we use; lets tests inject a fake without network. */
@@ -108,21 +112,21 @@ async function callJson<S extends z.ZodType>(
 }
 
 export class AnthropicIntentScorer implements IntentScorer {
-  constructor(private client: MessagesClient = createAnthropicClient()) {}
+  constructor(private client: MessagesClient = createAnthropicClient(), private models: ModelSet = defaultModels()) {}
   async score(input: IntentInput): Promise<ProviderResult<IntentOutput>> {
-    const out = await callJson(this.client, REASONING_MODEL, INTENT_SYSTEM, redactDeep(input), IntentSchema);
+    const out = await callJson(this.client, this.models.reasoning, INTENT_SYSTEM, redactDeep(input), IntentSchema);
     return {
       output: { score: Math.round(Math.max(0, Math.min(100, out.score))), reasons: out.reasons.slice(0, 8) },
-      confidence: clamp01(out.confidence), provider: "anthropic", modelId: REASONING_MODEL, promptVersion: PROMPT_VERSIONS.intent,
+      confidence: clamp01(out.confidence), provider: "anthropic", modelId: this.models.reasoning, promptVersion: PROMPT_VERSIONS.intent,
     };
   }
 }
 
 export class AnthropicListingExtractor implements ListingExtractor {
-  constructor(private client: MessagesClient = createAnthropicClient()) {}
+  constructor(private client: MessagesClient = createAnthropicClient(), private models: ModelSet = defaultModels()) {}
   async extract(input: ExtractListingInput): Promise<ProviderResult<ExtractListingOutput>> {
     const payload = redactDeep({ text: input.text, language: input.language, categories: input.categories });
-    const out = await callJson(this.client, REASONING_MODEL, EXTRACT_SYSTEM, payload, ExtractSchema);
+    const out = await callJson(this.client, this.models.reasoning, EXTRACT_SYSTEM, payload, ExtractSchema);
     const slugs = new Set(input.categories.map((c) => c.slug));
     return {
       output: {
@@ -133,7 +137,7 @@ export class AnthropicListingExtractor implements ListingExtractor {
         priceUnit: out.priceUnit, moq: out.moq, moqUnit: out.moqUnit,
         hsn: out.hsn && /^\d{4,8}$/.test(out.hsn) ? out.hsn : null,
       },
-      confidence: clamp01(out.confidence), provider: "anthropic", modelId: REASONING_MODEL, promptVersion: PROMPT_VERSIONS.extract,
+      confidence: clamp01(out.confidence), provider: "anthropic", modelId: this.models.reasoning, promptVersion: PROMPT_VERSIONS.extract,
     };
   }
 }
@@ -148,11 +152,11 @@ const toAttributes = (pairs: { key: string; value: string }[]) => {
 };
 
 export class AnthropicImageExtractor implements ImageListingExtractor {
-  constructor(private client: MessagesClient = createAnthropicClient()) {}
+  constructor(private client: MessagesClient = createAnthropicClient(), private models: ModelSet = defaultModels()) {}
   async extract(input: ExtractListingFromImagesInput): Promise<ProviderResult<ExtractListingFromImagesOutput>> {
     // Only the hint is text; image bytes go as content blocks. Callers hand us already-validated, EXIF-stripped, <=1568px images.
     const payload = redactDeep({ hintText: input.hintText ?? null, language: input.language, categories: input.categories });
-    const out = await callJson(this.client, REASONING_MODEL, EXTRACT_IMAGE_SYSTEM, payload, ExtractImageSchema, {
+    const out = await callJson(this.client, this.models.reasoning, EXTRACT_IMAGE_SYSTEM, payload, ExtractImageSchema, {
       images: input.images, timeoutMs: VISION_TIMEOUT_MS,
     });
     const slugs = new Set(input.categories.map((c) => c.slug));
@@ -167,18 +171,18 @@ export class AnthropicImageExtractor implements ImageListingExtractor {
         visualAttributes: Object.fromEntries(out.visualAttributes.map((a) => [a.key, a.value])),
         detected: { productType: out.detected.productType, quantityVisible: out.detected.quantityVisible },
       },
-      confidence: clamp01(out.confidence), provider: "anthropic", modelId: REASONING_MODEL, promptVersion: PROMPT_VERSIONS.extractImage,
+      confidence: clamp01(out.confidence), provider: "anthropic", modelId: this.models.reasoning, promptVersion: PROMPT_VERSIONS.extractImage,
     };
   }
 }
 
 export class AnthropicModerator implements Moderator {
-  constructor(private client: MessagesClient = createAnthropicClient()) {}
+  constructor(private client: MessagesClient = createAnthropicClient(), private models: ModelSet = defaultModels()) {}
   async moderate(input: ModerateInput): Promise<ProviderResult<ModerateOutput>> {
-    const out = await callJson(this.client, FAST_MODEL, MODERATE_SYSTEM, { text: redactPii(input.text), categorySlug: input.categorySlug ?? null }, ModerateSchema);
+    const out = await callJson(this.client, this.models.fast, MODERATE_SYSTEM, { text: redactPii(input.text), categorySlug: input.categorySlug ?? null }, ModerateSchema);
     return {
       output: { verdict: out.verdict, flags: out.flags, reason: out.reason },
-      confidence: clamp01(out.confidence), provider: "anthropic", modelId: FAST_MODEL, promptVersion: PROMPT_VERSIONS.moderate,
+      confidence: clamp01(out.confidence), provider: "anthropic", modelId: this.models.fast, promptVersion: PROMPT_VERSIONS.moderate,
     };
   }
 }

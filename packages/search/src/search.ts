@@ -5,7 +5,7 @@ import { cachedTagged, cacheTags } from "@cnote/core";
 import { getTrustProfiles } from "@cnote/identity";
 import { z } from "zod";
 import { filtersSchema, hasActiveFilters, isSearchSort, matchesFilters, normaliseFilters, sortOrganic, type IndexFilters, type OrganicItem, type SearchFilters, type SearchSort } from "./filters";
-import { fusionWeights, INDIC_LEXICAL_WEIGHT, locationBoost, rrfFuse, toCandidates, trustFactor } from "./fusion";
+import { fusionWeights, INDIC_LEXICAL_WEIGHT, organicScore, rrfFuse, toCandidates } from "./fusion";
 import { getSearchIndex, type SearchFacets } from "./index-port";
 import { normaliseQuery } from "./normalise";
 import { blendVectors, ORIGINAL_BLEND, planSemantic } from "./semantic";
@@ -134,7 +134,7 @@ async function run(nq: ReturnType<typeof normaliseQuery>, filters: SearchFilters
   const scored = cands.flatMap((c) => {
     const seller = profiles.get(c.sellerBusinessId);
     const rel = fused.get(c.listingId) ?? 0;
-    return seller && rel > 0 ? [{ id: c.listingId, seller, score: rel * trustFactor(seller) * locationBoost(seller.city, nq.location) }] : [];
+    return seller && rel > 0 ? [{ id: c.listingId, seller, score: organicScore(rel, seller, nq.location) }] : [];
   });
 
   // Relevance order is decided before hydration (cheap). Other sorts need listing facts (price, publish date), so hydrate the

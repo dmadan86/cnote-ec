@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "provider": "heuristic",
+  "generatedAt": "2026-10-02T05:46:02.810Z",
+  "models": [],
+  "metrics": {
+    "intentBandAccuracy": {
+      "value": 1,
+      "threshold": 0.85,
+      "pass": true
+    },
+    "extractionFieldAccuracy": {
+      "value": 1,
+      "threshold": 0.85,
+      "pass": true
+    },
+    "moderationBlockPrecision": {
+      "value": 1,
+      "threshold": 0.95,
+      "pass": true
+    },
+    "moderationBlockRecall": {
+      "value": 1,
+      "threshold": 0.9,
+      "pass": true
+    },
+    "moderationFlagAccuracy": {
+      "value": 1,
+      "threshold": 0.85,
+      "pass": true
+    },
+    "moderationScriptBlockRecall": {
+      "value": 1,
+      "threshold": 0.9,
+      "pass": true
+    },
+    "intentAutoAcceptAccuracy": {
+      "value": 1,
+      "threshold": 0.8,
+      "pass": true
+    },
+    "extractionAutoAcceptAccuracy": {
+      "value": 1,
+      "threshold": 0.8,
+      "pass": true
+    },
+    "moderationAutoAcceptAccuracy": {
+      "value": 1,
+      "threshold": 0.9,
+      "pass": true
+    },
+    "embeddingTripletAccuracy": {
+      "value": 1,
+      "threshold": 0.9,
+      "pass": true
+    },
+    "visionHintFieldAccuracy": {
+      "value": 1,
+      "threshold": 0.85,
+      "pass": true
+    },
+    "visionHeuristicNeedsReviewRate": {
+      "value": 1,
+      "threshold": 1,
+      "pass": true
+    },
+    "asrWordAccuracy": {
+      "value": 1,
+      "threshold": 0.85,
+      "pass": true
+    }
+  },
+  "calibration": {
+    "intent": {
+      "n": 27,
+      "reviewRate": 0.481,
+      "accuracy": 1,
+      "accuracyAutoAccepted": 1,
+      "accuracyHumanRouted": 1,
+      "autoAcceptErrorRate": 0,
+      "meanConfidence": 0.588,
+      "ece": 0.412
+    },
+    "extract": {
+      "n": 21,
+      "reviewRate": 0,
+      "accuracy": 1,
+      "accuracyAutoAccepted": 1,
+      "accuracyHumanRouted": null,
+      "autoAcceptErrorRate": 0,
+      "meanConfidence": 0.919,
+      "ece": 0.081
+    },
+    "moderate": {
+      "n": 101,
+      "reviewRate": 0.139,
+      "accuracy": 1,
+      "accuracyAutoAccepted": 1,
+      "accuracyHumanRouted": 1,
+      "autoAcceptErrorRate": 0,
+      "meanConfidence": 0.882,
+      "ece": 0.118
+    }
+  },
+  "latencyMs": {
+    "intent": {
+      "n": 27,
+      "p50": 0,
+      "p95": 0
+    },
+    "extract": {
+      "n": 21,
+      "p50": 1,
+      "p95": 4
+    },
+    "moderate": {
+      "n": 101,
+      "p50": 0,
+      "p95": 0
+    },
+    "extract_image": {
+      "n": 4,
+      "p50": 0,
+      "p95": 0
+    }
+  },
+  "cost": {
+    "totalUsd": 0,
+    "perCapability": {}
+  },
+  "errors": {
+    "intent": 0,
+    "extract": 0,
+    "moderate": 0,
+    "extract_image": 0
+  },
+  "failures": [],
+  "details": {
+    "moderationVerdictAccuracy": "1",
+    "embeddingMeanMargin": "0.858",
+    "visionLive": "skipped (set AI_PROVIDER=anthropic + ANTHROPIC_API_KEY)"
+  }
+}

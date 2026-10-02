@@ -33,11 +33,17 @@ model AiDecision {
   subjectType   String?  @map("subject_type")
   subjectId     String?  @map("subject_id")
   latencyMs     Int      @map("latency_ms")
+  /// ADR-008 shadow mode: a candidate model's decision, logged beside the live one and never shown to users or reviewed.
+  shadow        Boolean  @default(false)
+  /// The live decision this shadow decision ran alongside.
+  shadowOfId    String?  @map("shadow_of_id") @db.Uuid
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   reviews ReviewItem[]
 
   @@index([subjectType, subjectId])
+  @@index([shadow, capability, createdAt])
+  @@index([shadowOfId])
   @@map("ai_decisions")
 }
 
