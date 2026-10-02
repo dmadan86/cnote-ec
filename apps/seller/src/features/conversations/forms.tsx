@@ -28,6 +28,7 @@ export function MessageForm({ conversationId }: { conversationId: string }) {
 
 export function QuoteForm({ conversationId }: { conversationId: string }) {
   const t = useTranslations("leads.conversation");
+  const tr = useTranslations("rfqLead");
   const [state, action] = useActionState<ConvResult | null, FormData>(sendQuoteAction, null);
   return (
     <form action={action} key={state?.ok ? "sent" : "draft"} className="space-y-4">
@@ -88,6 +89,9 @@ export function QuoteForm({ conversationId }: { conversationId: string }) {
       </details>
       <Field label={t("notes")} htmlFor="q-notes" hint={t("notesHint")} error={fieldError(state, "notes")}>
         <Textarea id="q-notes" name="notes" maxLength={1000} />
+      </Field>
+      <Field label={tr("quoteAttachments")} htmlFor="q-files" hint={tr("quoteAttachmentsHint")} error={fieldError(state, "attachments")}>
+        <Input id="q-files" name="attachments" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="h-auto min-h-11 py-2" />
       </Field>
       <FormAlert state={state} />
       {state?.ok ? <Alert tone="success">{t("quoteSent")}</Alert> : null}

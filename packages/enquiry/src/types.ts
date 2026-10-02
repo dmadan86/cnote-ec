@@ -1,4 +1,5 @@
 // Public view/input types of @cnote/enquiry (re-exported from index.ts).
+import type { AttachmentUpload, AttachmentView } from "./attachments";
 import type { QuoteView } from "./quotes";
 
 export interface EnquiryInput {
@@ -13,6 +14,15 @@ export interface EnquiryInput {
   neededBy?: string | null; // ISO date
   language?: string;
   buyerPicks?: boolean;
+  /** Optional budget range per unit, integer paise. */
+  budgetMinPaise?: number | null;
+  budgetMaxPaise?: number | null;
+  /** Quote expiry in days (1-30, default 7). */
+  expiresInDays?: number | null;
+  /** Preferred supplier tier: only sellers at this verification tier or above are matched (1-3). */
+  minSellerTier?: number | null;
+  /** Up to 5 drawings/specs (PDF/JPG/PNG, 10 MB each). Stored privately; never sent to an AI model. */
+  attachments?: AttachmentUpload[] | null;
   /** Optional: enquiry started from a listing page — that seller is ranked first if eligible. */
   preferredListingId?: string | null;
   /** Optional: enquiry started from a seller's storefront — that seller is ranked first if eligible. */
@@ -71,6 +81,14 @@ export interface EnquiryView {
   buyerPicks?: boolean;
   /** Max sellers this lead is offered to (N, ADR-002). */
   sellerCap?: number;
+  budgetMinPaise: number | null;
+  budgetMaxPaise: number | null;
+  /** ISO timestamp after which the requirement is expired (null on legacy rows). */
+  expiresAt: string | null;
+  minSellerTier: number | null;
+  attachments: AttachmentView[];
+  /** Quotes received across all matched sellers (buyer board only). */
+  quoteCount?: number;
   /** buyerPicks enquiry with no sellers picked yet (status stays "scoring"; there is no dedicated status). */
   awaitingPick?: boolean;
 }

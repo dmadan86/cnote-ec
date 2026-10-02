@@ -3,6 +3,7 @@ import * as billing from "@cnote/billing";
 import { DomainError, emit } from "@cnote/core";
 import { prisma, type Enquiry, type Match, type Tx } from "@cnote/db";
 import * as identity from "@cnote/identity";
+import { requirementAttachments } from "./attachments";
 import { cascade } from "./matching";
 import { cascadeSafe } from "./safe";
 import { runMatching } from "./matching";
@@ -17,6 +18,7 @@ async function toLeadViews(rows: { match: Match; enquiry: Enquiry; conversationI
   const profs = await profiles(rows.map((r) => r.enquiry.buyerBusinessId));
   const out: LeadView[] = [];
   const pending = await pendingChecksByMatch(rows.map((r) => r.match.id));
+  const files = await requirementAttachments([...new Set(rows.map((r) => r.enquiry.id))]);
   for (const { match, enquiry, conversationId } of rows) {
     const buyer = profs.get(enquiry.buyerBusinessId);
     const revealed = match.status === "accepted";
@@ -30,7 +32,7 @@ async function toLeadViews(rows: { match: Match; enquiry: Enquiry; conversationI
     }
     out.push({
       matchId: match.id,
-      enquiry: enquiryBase(enquiry, cats.find((c) => c.id === enquiry.categoryId) ?? null),
+      enquiry: enquiryBase(enquiry, cats.find((c) => c.id === enquiry.categoryId) ?? null, files.get(enquiry.id) ?? []),
       rank: match.rank,
       of: enquiry.sellerCap,
       status: match.status,
@@ -83,6 +85,7 @@ export async function acceptLead(actor: Actor, matchId: string): Promise<LeadVie
       if (now > m.respondBy) throw new DomainError("conflict", "The 2-hour response window for this lead has passed.");
       const enq = await tx.enquiry.findUnique({ where: { id: m.enquiryId } });
       if (!enq || enq.status !== "matched") throw new DomainError("conflict", "This requirement is no longer open.");
+      if (enq.expiresAt && enq.expiresAt < now) throw new DomainError("conflict", "The buyer's quote deadline for this requirement has passed.");
 
       const creditTxnId = await billing.consumeCredit(tx, actor.businessId, { refType: "match", refId: matchId });
       await tx.match.update({ where: { id: matchId }, data: { status: "accepted", respondedAt: now, creditTxnId } });

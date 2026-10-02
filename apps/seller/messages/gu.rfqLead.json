@@ -1,0 +1,18 @@
+{
+  "rfqLead": {
+    "_meta": {
+      "review": "machine-drafted; needs native review"
+    },
+    "targetPrice": "પ્રતિ યુનિટ ટાર્ગેટ કિંમત",
+    "budget": "પ્રતિ યુનિટ બજેટ",
+    "pincode": "ડિલિવરી પિનકોડ",
+    "quoteDeadline": "કોટ આપવાની છેલ્લી તારીખ",
+    "deadlinePassed": "સમયમર્યાદા પૂરી",
+    "preferredTier": "ખરીદદારની પસંદગી",
+    "tierPlus": "ટિયર {tier} અથવા તેથી ઉપર",
+    "attachments": "ડ્રોઇંગ અને સ્પેસિફિકેશન",
+    "download": "{name} ડાઉનલોડ કરો",
+    "quoteAttachments": "ફાઇલો જોડો (વૈકલ્પિક)",
+    "quoteAttachmentsHint": "વધુમાં વધુ 3 ફાઇલો, PDF, JPG અથવા PNG, દરેક 5 MB સુધી. ખરીદદાર તેને તમારા કોટ સાથે જુએ છે."
+  }
+}
