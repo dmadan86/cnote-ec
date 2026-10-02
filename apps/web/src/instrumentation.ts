@@ -7,6 +7,14 @@ export async function register() {
     const { assertRequiredSecrets } = await import("@cnote/security");
     assertRequiredSecrets("web");
     (await import("@cnote/compliance")).assertIndiaResidency();
+    // Legal entity details (footer, /contact): loud in production when unset; fatal only when LEGAL_ENTITY_STRICT=true.
+    const { assertLegalEntity } = await import("@/features/legal/entity");
+    try {
+      assertLegalEntity();
+    } catch (e) {
+      if (process.env.LEGAL_ENTITY_STRICT === "true") throw e;
+      console.error(`[legal] ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
   const { sentryOptions } = await import("@cnote/observability");
   if (process.env.NEXT_RUNTIME === "nodejs") Sentry.init(sentryOptions("web", "nodejs"));

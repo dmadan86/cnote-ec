@@ -1,0 +1,619 @@
+{
+  "_meta": "DRAFT FOR COUNSEL REVIEW. Legal and information page copy. Not legal advice.",
+  "legal": {
+    "common": {
+      "versionLine": "Version {version}, effective {date}. Draft pending legal review.",
+      "onThisPage": "On this page",
+      "registered": "Registered office",
+      "emailLabel": "Email",
+      "phoneLabel": "Phone",
+      "whatsappLabel": "WhatsApp",
+      "hoursLabel": "Support hours",
+      "legalNameLabel": "Legal name",
+      "cinLabel": "CIN",
+      "gstinLabel": "GSTIN",
+      "addressLabel": "Registered address"
+    },
+    "links": {
+      "grievance": "Grievance redressal",
+      "cookies": "Cookie policy",
+      "account": "your account",
+      "accountExport": "data export in your account",
+      "dispute": "Dispute policy",
+      "ranking": "How ranking and ads work",
+      "pricing": "Seller pricing",
+      "prohibited": "Prohibited items policy",
+      "report": "Report abuse",
+      "terms": "Terms of Use",
+      "privacy": "Privacy Policy",
+      "refund": "Refund policy",
+      "trust": "Trust and Safety",
+      "contact": "Contact us",
+      "security": "Security and responsible disclosure",
+      "accessibility": "Accessibility statement",
+      "about": "About us",
+      "help": "Help centre",
+      "sitemap": "Sitemap",
+      "signin": "Sign in"
+    },
+    "footer": {
+      "company": "Company",
+      "about": "About us",
+      "contact": "Contact us",
+      "help": "Help centre",
+      "trust": "Trust and Safety",
+      "sitemap": "Sitemap",
+      "terms": "Terms of Use",
+      "privacy": "Privacy Policy",
+      "refund": "Refund policy",
+      "prohibited": "Prohibited items",
+      "report": "Report abuse",
+      "accessibility": "Accessibility",
+      "security": "Security",
+      "cin": "CIN",
+      "gstin": "GSTIN",
+      "registeredOffice": "Registered office"
+    },
+    "terms": {
+      "title": "Terms of Use",
+      "description": "The terms on which you may use {site}: our role as an intermediary, how leads work, your responsibilities and the limits of our liability.",
+      "intro": "These Terms of Use are the user agreement for {site} under the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021 and the Consumer Protection (E-Commerce) Rules, 2020. By creating an account or using the platform you agree to them.",
+      "sections": [
+        {
+          "title": "Who we are and what we do",
+          "body": [
+            "{site} is an online marketplace that helps Indian businesses find and contact each other. We are an intermediary: we provide the platform, and buyers and sellers deal with each other directly. We do not own, stock, sell, buy or deliver the goods and services listed, and we are not a party to any contract between a buyer and a seller.",
+            "In the current phase of the platform, deals between buyers and sellers close off-platform. Price, quality, delivery and payment are agreed between the two businesses. We may ask you later whether a deal closed, to improve matching and to administer lead credits. Where we offer optional protections such as escrow or dispute resolution, they apply only when they are enabled and you opt in, as described in the [[dispute]]."
+          ]
+        },
+        {
+          "title": "Accepting these terms and changes",
+          "body": [
+            "You must be at least 18 years old and able to enter into a binding contract under Indian law. If you use {site} for a business, you confirm that you are authorised to bind that business.",
+            "We may update these terms, for example when the law or our services change. We will publish the new version with a new version number and effective date on this page, and we will notify registered users of material changes in advance. If you keep using the platform after the effective date, you accept the updated terms. If you do not agree, you may close your account."
+          ]
+        },
+        {
+          "title": "Your account",
+          "items": [
+            "Give accurate and current information, including your business details. Do not impersonate another person or business.",
+            "Keep your password and any verification codes secret. You are responsible for activity under your account. Tell us at once through [[contact]] if you suspect unauthorised use.",
+            "One business should hold one account. We may merge or close duplicate or fake accounts.",
+            "Verification tiers (T0 to T3) describe the checks completed on a business at a point in time. They are not a guarantee of quality, and they never depend on payment. See [[trust]]."
+          ]
+        },
+        {
+          "title": "How leads and ranking work",
+          "body": [
+            "When a buyer posts a requirement, we send it to at most a fixed number of suitable sellers (3 by default, and configurable per category), never to everyone. Each seller sees the intent score of the requirement, the number of sellers it was sent to and their own rank.",
+            "If a seller declines, or does not respond within 2 hours, the slot passes to the next suitable seller. A seller pays a lead credit only for a lead they accept. If the buyer turns out to be unreachable or fake, the credit is refunded automatically within 72 hours without a support ticket. Credits roll over for 90 days. See the [[refund]] and [[pricing]].",
+            "Search and matching results are ranked by relevance and trust score. A seller can never buy a higher position on payment alone, and sponsored placements are always labelled as such. See [[ranking]]."
+          ]
+        },
+        {
+          "title": "Rules for using the platform",
+          "body": ["You agree not to do any of the following."],
+          "items": [
+            "List, request or promote anything on our [[prohibited]], or anything unlawful, infringing, misleading, defamatory, obscene or harmful to minors.",
+            "Post false, deceptive or fake enquiries, reviews, prices, certificates or verification documents, or manipulate ranking, reviews or lead credits.",
+            "Harvest, scrape or copy data from the platform by automated means without our written permission, or resell the contact details of other users.",
+            "Use the platform to send unsolicited commercial messages, to harass anyone, or to collect payment outside the agreed process by deception.",
+            "Interfere with the security or operation of the platform, probe it for weaknesses outside our [[security]] policy, or introduce malware.",
+            "Circumvent a suspension, a moderation decision or a limit that we applied to you."
+          ]
+        },
+        {
+          "title": "Content you provide",
+          "body": [
+            "You keep ownership of the listings, images, messages and other content you submit. You give {site} a non-exclusive, worldwide, royalty-free licence to host, display, adapt for format and language, translate and index that content to operate and promote the platform, and to create catalogue data and AI-generated drafts from it for you. The licence ends when you delete the content or your account, except for copies we must keep by law or for dispute purposes, and content already shared with other users.",
+            "You confirm that you have the rights to what you upload. We moderate content, including AI-generated listings, against our [[prohibited]]. We may remove or restrict content that breaks these terms or the law, and we will tell you why, with a way to appeal."
+          ]
+        },
+        {
+          "title": "Intellectual property",
+          "body": [
+            "The platform, its design, software, trademarks and logos belong to {site} or its licensors. These terms give you a limited, revocable, non-transferable right to use the platform for its intended purpose. You may not copy, modify, reverse engineer or exploit it otherwise.",
+            "If you believe content on the platform infringes your intellectual property rights, use [[report]]. We act on valid notices and operate a counter-notice process."
+          ]
+        },
+        {
+          "title": "Fees and payments",
+          "body": [
+            "Buying and browsing are free. Sellers may buy plans and lead credits at the public prices on [[pricing]]. Prices are shown before you pay. We do not upgrade your plan or renew a subscription without your explicit confirmation. Taxes are charged as applicable and shown on the invoice. We do not store card details on our servers; payments are handled by licensed payment partners."
+          ]
+        },
+        {
+          "title": "Third-party content and links",
+          "body": [
+            "Listings, prices, certificates and claims come from sellers. We take reasonable steps to check them but we do not warrant that they are accurate, complete, lawful or fit for your purpose. Please do your own checks before you pay or ship, and follow the safety advice in [[trust]]. The platform may link to third-party sites that we do not control."
+          ]
+        },
+        {
+          "title": "Disclaimers and limitation of liability",
+          "body": [
+            "The platform is provided on an as-is and as-available basis. To the extent permitted by law, we do not give warranties other than those required by law, including for uninterrupted or error-free service.",
+            "As an intermediary, we are not liable for the acts, omissions, goods or services of buyers and sellers, or for deals between them. To the extent permitted by law, our total liability to you for any claim relating to the platform is limited to the fees you paid to us in the 12 months before the claim, and we are not liable for indirect, incidental or consequential loss or loss of profit. Nothing in these terms limits liability that cannot be limited under applicable law, including liability for fraud and your rights as a consumer."
+          ]
+        },
+        {
+          "title": "Indemnity",
+          "body": [
+            "You agree to indemnify and hold {site}, its directors, employees and partners harmless against claims, losses and reasonable costs arising from your content, your breach of these terms or the law, or your infringement of another person's rights, to the extent permitted by law."
+          ]
+        },
+        {
+          "title": "Suspension and termination",
+          "body": [
+            "You may close your account at any time from [[account]]. We may suspend or terminate an account, remove content or limit features if you break these terms or the law, if we are required to by an authority, or to protect other users. Where practical we will give notice and the reason, and you may appeal through [[grievance]]. Unused paid credits are handled as set out in the [[refund]]. Clauses that by their nature should survive termination, including content licence for retained records, disclaimers, liability and indemnity, continue to apply."
+          ]
+        },
+        {
+          "title": "Grievances and notices",
+          "body": [
+            "Complaints about content, accounts or personal data go to our Grievance Officer through [[grievance]]. We acknowledge within 24 hours and aim to resolve within 15 days. Notices of infringing or unlawful content go through [[report]]. You may also write to us at {email}."
+          ]
+        },
+        {
+          "title": "Governing law and jurisdiction",
+          "body": [
+            "These terms are governed by the laws of India. Subject to any right you have as a consumer to approach a consumer commission at your place of residence or work, the courts at the city of our registered office have exclusive jurisdiction. We encourage you to contact us first so that we can try to resolve a dispute informally."
+          ]
+        },
+        {
+          "title": "Contact",
+          "body": ["Questions about these terms: write to {email} or see [[contact]] for our registered address and support hours."]
+        }
+      ]
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "description": "How {site} collects, uses, stores and protects your personal data, and the rights you have under the Digital Personal Data Protection Act, 2023.",
+      "intro": "This is the notice under the Digital Personal Data Protection Act, 2023 (DPDP Act) and the DPDP Rules, 2025 that tells you what personal data {site} processes, why, for how long, and how you can exercise your rights.",
+      "sections": [
+        {
+          "title": "Who is responsible",
+          "body": ["The company named on [[contact]] is the Data Fiduciary for the personal data described here. You can reach our Data Protection Officer and Grievance Officer at {grievanceEmail} or through [[grievance]]."]
+        },
+        {
+          "title": "Personal data we process, and why",
+          "body": ["We collect only what we need for each purpose."],
+          "items": [
+            "Account and identity: name, email address, phone number, password (stored only as a hash), language and pincode. Purpose: to create your account, sign you in, keep it secure and show content in your language.",
+            "Business and verification: business name, GSTIN, Udyam number, PAN and address details, and for higher verification tiers identity documents, images and a video check. Purpose: to verify the tier shown on a business profile. Document images are deleted after the retention period below, and the verification result is kept.",
+            "Enquiries and conversations: requirements you post, quotes, messages and attachments. Purpose: to match your requirement with suitable sellers and to let you talk to them.",
+            "Listings and media: product details, images and, for sellers who choose to use it, voice notes and photos from which we draft listings. Purpose: to publish and moderate listings.",
+            "Billing: plan and credit history, invoices and GST details. We do not store card numbers; our payment partners handle them. Purpose: to provide paid services and meet tax law.",
+            "Device and usage: IP address, browser, session records and security logs. Purpose: to keep the platform secure, prevent fraud and fix errors. With your consent, anonymised usage analytics (clicks, scrolling and page views) and campaign attribution, as set out in the [[cookies]].",
+            "Support and complaints: your messages to us, grievances and appeals. Purpose: to respond to you and to meet our legal duties.",
+            "Messaging: if you use our WhatsApp service, your phone number and the messages you exchange with it. Purpose: onboarding and notifications that you asked for."
+          ]
+        },
+        {
+          "title": "Legal basis",
+          "body": [
+            "We process your personal data on the basis of your consent, which is free, specific, informed and given by a clear action, and which you can withdraw at any time. Consent is recorded in a purpose-by-purpose ledger.",
+            "Some processing does not need consent because the DPDP Act allows it as a legitimate use under section 7, for example to deliver a service you requested, to comply with a law or a court order, to respond to a medical emergency, or to prevent and investigate fraud. We rely on these only where they apply."
+          ]
+        },
+        {
+          "title": "Who we share data with",
+          "body": [
+            "We do not sell your personal data. We share it only as needed to provide the service:"
+          ],
+          "items": [
+            "Other users: a seller who accepts your requirement sees the details you chose to share in that requirement, and your business profile is visible as described on the profile.",
+            "Processors acting on our instructions: cloud hosting and storage, email and SMS delivery, payment partners, identity and verification providers, WhatsApp Business messaging, error monitoring with personal data scrubbed, and AI model providers. They are bound by contracts to protect the data and use it only for us.",
+            "Authorities: when the law or a valid order requires, and to protect the rights and safety of users."
+          ]
+        },
+        {
+          "title": "Where your data is stored",
+          "body": ["We store and process personal data in data centres located in India. We do not transfer it outside India except where the law allows it and, where required, with your consent. If a processor operates outside India for a specific feature, we will say so before you use that feature."]
+        },
+        {
+          "title": "AI processing",
+          "body": [
+            "We use AI to classify intent, match requirements to sellers, check listings against prohibited categories, draft listings from photos and voice, and transcribe voice notes. Before data is sent to an external model provider we remove or mask personal identifiers such as names, phone numbers and emails. We record which model and prompt version made a decision, and decisions that affect you with low confidence are reviewed by a person. You can ask for a human review of a decision through [[grievance]]."
+          ]
+        },
+        {
+          "title": "Voice notes",
+          "body": ["A voice note is personal data. We process it only with your consent. By default it is deleted within 24 hours after the transcript is made. If you separately give consent to voice retention, we keep it for up to 180 days so that you can reuse and correct your listings. You can withdraw that consent at any time and the note is then deleted."]
+        },
+        {
+          "title": "How long we keep data",
+          "body": ["We keep personal data only as long as the purpose needs, then delete or anonymise it. The main periods are:"],
+          "items": [
+            "Message bodies in conversations inactive for 24 months: replaced by a marker, and metadata kept.",
+            "Login sessions, device and IP records: 90 days after they expire or are revoked.",
+            "Identity document images from verification: 90 days after the decision. The masked fields and result are kept as the verification record.",
+            "Seller voice notes: 24 hours, or up to 180 days with your voice retention consent.",
+            "Images that a seller deleted: 30 days. WhatsApp message bodies: 30 days.",
+            "Dispute evidence: 3 years after resolution. Records needed for accounting and tax: up to 8 years.",
+            "Cookie consent receipts: 3 years. Abandoned lead captures that never verified: 90 days.",
+            "Your consent records are kept to prove what you agreed to. When you ask us to erase your account we erase or anonymise your data except what we must keep by law."
+          ]
+        },
+        {
+          "title": "Your rights",
+          "body": ["Under the DPDP Act you have the right to:"],
+          "items": [
+            "access a summary of the personal data we process and who we share it with. You can download your data from the [[accountExport]].",
+            "correct inaccurate or incomplete data and update data that is out of date.",
+            "have your personal data erased when it is no longer needed for the purpose or you withdraw consent, unless the law requires us to keep it.",
+            "nominate another person to exercise your rights if you die or cannot do so.",
+            "get your grievance redressed. File it through [[grievance]]. We acknowledge it within 24 hours and aim to resolve it within 15 days."
+          ]
+        },
+        {
+          "title": "Withdrawing consent",
+          "body": ["You can withdraw consent as easily as you gave it. Use Cookie settings in the footer for cookies and analytics, the notification and marketing settings in [[account]], or write to us at {email}. Withdrawal does not affect processing done before you withdrew, and it may mean we can no longer provide the related feature."]
+        },
+        {
+          "title": "Cookies and similar technologies",
+          "body": ["We use essential cookies for sign-in, security, language and your delivery pincode. Analytics and marketing cookies are off until you choose them. The full list, with names, purposes and durations, is in the [[cookies]]. We respect the Global Privacy Control signal from your browser."]
+        },
+        {
+          "title": "Children",
+          "body": ["The platform is for businesses and adults. We do not knowingly process the personal data of children under 18. If you think we have, contact us and we will delete it."]
+        },
+        {
+          "title": "Security and breaches",
+          "body": ["We protect personal data with encryption in transit, access controls, audit logging and regular security testing. If a personal data breach affects you, we will tell you and the Data Protection Board of India as the law requires. To report a vulnerability, see [[security]]."]
+        },
+        {
+          "title": "Complaints to the Data Protection Board",
+          "body": ["Please raise your concern with us first through [[grievance]]. If you are not satisfied with our response, or we do not respond within the time allowed, you may make a complaint to the Data Protection Board of India."]
+        },
+        {
+          "title": "Consent Manager",
+          "body": ["You may give, manage, review and withdraw consent through a Consent Manager registered with the Data Protection Board of India once it is available to you. We will list the Consent Managers we accept here when they are operational."]
+        },
+        {
+          "title": "Changes and contact",
+          "body": ["We will publish any change to this notice here with a new version and date, and notify you of material changes. Contact our Data Protection Officer at {grievanceEmail}, or see [[contact]] for the registered address."]
+        }
+      ]
+    },
+    "refund": {
+      "title": "Refund policy",
+      "description": "When and how you get money or credits back on {site}: lead credit refunds, credit rollover, subscription cancellation and disputes.",
+      "intro": "Buying and selling on {site} happens directly between the buyer and the seller. This policy explains what we refund, which is what you pay us, not what you pay each other.",
+      "sections": [
+        {
+          "title": "Deals between buyers and sellers",
+          "body": [
+            "In the current phase, a buyer and a seller agree on price, payment and delivery between themselves, outside the platform. {site} does not collect or hold the payment for the goods and is not a party to the sale. Refunds, returns and replacements for goods or services are therefore a matter between you and the other business under your agreement and the law. Our [[trust]] page has tips for safe dealing."
+          ]
+        },
+        {
+          "title": "Lead credit refunds (sellers)",
+          "body": ["A lead credit is used only when you accept a lead. We refund it automatically, without a support ticket, in these cases:"],
+          "items": [
+            "The buyer is unreachable. We try to reach the buyer, and if they cannot be reached the credit is returned.",
+            "The buyer or the requirement is fake or invalid, as found by our checks or reported by you with reasons.",
+            "A technical error on our side caused the lead to be charged twice or to be sent wrongly."
+          ]
+        },
+        {
+          "title": "The 72 hour window",
+          "body": ["Report an unreachable or fake buyer within 72 hours of accepting the lead. Refunds are returned to your credit balance as credits, usually within the same window. If you think a refund was wrongly refused, use [[grievance]] and we will review it."]
+        },
+        {
+          "title": "Credit rollover and expiry",
+          "body": ["Unused lead credits roll over for 90 days from the date they were granted. We show the expiry date of every credit in your account before it lapses."]
+        },
+        {
+          "title": "Subscriptions and cancellation",
+          "body": [
+            "Plans are priced publicly on [[pricing]]. We never upgrade a plan, and we never renew a subscription, without your explicit confirmation. You can cancel from your seller account in a few taps at any time. After you cancel, the plan runs to the end of the period you paid for, and you will not be charged again.",
+            "If you buy an annual plan and cancel part-way, we refund the unused full months on a pro-rata basis, where your plan terms say so. Refunds are returned to the original payment method within the timelines of your payment partner."
+          ]
+        },
+        {
+          "title": "Escrow and protected payments",
+          "body": ["Where escrow or protected payments are enabled for an order, funds are held until the buyer confirms delivery or a dispute is resolved. Refund rules for those orders are in the [[dispute]]. These features apply only when they are enabled and you have chosen to use them."]
+        },
+        {
+          "title": "How to ask for a refund or raise a dispute",
+          "body": ["For a lead credit, use the report option on the lead in your seller account. For billing problems or anything else, contact us at {email} or through [[grievance]], with your order or invoice reference. We acknowledge within 24 hours. If you are not satisfied you can appeal, and you also keep your rights under consumer law."]
+        }
+      ]
+    },
+    "prohibited": {
+      "title": "Prohibited items and content policy",
+      "description": "What may not be listed or requested on {site}, how we check listings including AI-generated ones, and how to appeal a decision.",
+      "intro": "{site} is a marketplace for lawful business trade. These rules apply to every listing, requirement and message, whether a person or an AI wrote it.",
+      "sections": [
+        {
+          "title": "Prohibited categories",
+          "body": ["We do not allow listings or requirements for the following. Our classifier blocks the strongest matches automatically and sends doubtful ones to a person."],
+          "items": [
+            "Prescription and controlled medicines and pharmaceuticals, including Schedule H drugs.",
+            "Narcotics and psychotropic substances, including cannabis products.",
+            "Explosives, detonators, fireworks and firecrackers, and gunpowder.",
+            "Firearms, ammunition, bladed or stun weapons and similar items.",
+            "Hazardous chemicals and banned or restricted pesticides, strong acids, and asbestos, unless a lawful licence and category are shown.",
+            "Wildlife products, including ivory, shahtoosh, pangolin products, and protected species parts.",
+            "Counterfeit, replica, first-copy or mirror-copy goods, and goods that infringe a trademark or design.",
+            "Adult and sexually explicit products or services.",
+            "Tobacco, e-cigarettes, vapes, gutka and alcohol."
+          ]
+        },
+        {
+          "title": "Other prohibited conduct",
+          "items": [
+            "Anything unlawful in India or in the place of delivery, or that needs a licence you do not hold.",
+            "Misleading claims, fake certificates, or prices and quantities you cannot honour.",
+            "Content that is defamatory, hateful, harassing or harmful to minors, and listings that collect personal data by deception."
+          ]
+        },
+        {
+          "title": "Some items need extra proof",
+          "body": ["Some regulated goods are lawful to sell with the right licence or certification, for example BIS-marked goods or food products with FSSAI registration. We may ask for proof before we publish them, and we show the verification tier of the seller on every listing."]
+        },
+        {
+          "title": "How we check listings",
+          "body": [
+            "Every listing is checked when it is submitted and again when it changes. This includes listings that were created or drafted by AI from a photo, voice note or text. AI-generated listings go through the same prohibited-category classifier as any other listing, and the seller remains responsible for the final content.",
+            "Listings in a prohibited category are rejected. Listings the classifier is unsure about are held for review by our team before they appear."
+          ]
+        },
+        {
+          "title": "Reporting a listing",
+          "body": ["If you see a listing that breaks these rules, use [[report]]. We acknowledge a report within 24 hours."]
+        },
+        {
+          "title": "What happens when a rule is broken",
+          "body": ["We may reject or remove a listing, restrict features, lower the trust score, suspend or terminate the account, and where the law requires report to the authorities. We always tell the seller what was decided and why."]
+        },
+        {
+          "title": "Appeals",
+          "body": ["If you think we made a mistake, appeal the decision through [[grievance]] using the content or moderation category and the listing reference. A reviewer who was not involved in the first decision looks at it, and we reply with a reason. See also the [[terms]]."]
+        }
+      ]
+    },
+    "about": {
+      "title": "About {site}",
+      "description": "{site} is a trust-first B2B marketplace for Indian MSMEs that matches each requirement to a few verified suppliers.",
+      "intro": "{site} helps Indian businesses find the right supplier, and helps suppliers meet serious buyers, without leads being sold to everyone.",
+      "sections": [
+        {
+          "title": "Our mission",
+          "body": ["Small and medium businesses in India deserve a marketplace where reliability matters more than who pays most. We use AI to understand what a buyer needs, in their own language, and we put it in front of a few suppliers who can really deliver it."]
+        },
+        {
+          "title": "How matching works",
+          "items": [
+            "A buyer describes a requirement once, in English, Hindi or Hinglish, by text or voice.",
+            "We score how serious the requirement is, and match it to suppliers by relevance and trust.",
+            "It goes to at most 3 suppliers (the number can differ by category), not to the whole market.",
+            "A supplier who declines or does not reply within 2 hours passes the slot to the next one.",
+            "The buyer compares quotes and chooses. In this phase, the deal itself closes directly between the two businesses."
+          ]
+        },
+        {
+          "title": "Our trust-first principles",
+          "items": [
+            "Verification is real. Badges show the actual verification tier, and never depend on payment.",
+            "Ranking is relevance multiplied by trust. A supplier cannot pay to rank higher on their own, and sponsored positions are always labelled. See [[ranking]].",
+            "Few suppliers per lead. This keeps buyers from being flooded and gives sellers a fair chance.",
+            "Fair money for sellers. Lead credits are refunded automatically if a buyer is fake or unreachable, and unused credits roll over for 90 days. See [[pricing]].",
+            "Pricing is public, and nothing renews without your confirmation.",
+            "Your data stays in India and you control it. See [[privacy]]."
+          ]
+        },
+        {
+          "title": "Get in touch",
+          "body": ["Read [[trust]] to see how we keep the marketplace safe, visit the [[help]] or reach us through [[contact]]."]
+        }
+      ]
+    },
+    "contact": {
+      "title": "Contact us",
+      "description": "Reach {site} support, the Grievance Officer and our sales team, with our registered address and support hours.",
+      "intro": "We reply to every message. For legal complaints and data requests please use the dedicated forms so that they are tracked.",
+      "supportTitle": "Customer support",
+      "supportBody": "Help with your account, leads, billing or a listing.",
+      "entityTitle": "Registered company details",
+      "waysTitle": "Other ways to reach us",
+      "grievanceDesc": "Privacy, data and content complaints go to our Grievance Officer. We acknowledge within 24 hours.",
+      "reportDesc": "Report a listing or a supplier for IPR infringement, counterfeit goods, fraud or prohibited items.",
+      "salesTitle": "Sales and partnerships",
+      "salesDesc": "Questions about plans for sellers or a business partnership.",
+      "salesCta": "See seller pricing and write to us",
+      "helpDesc": "Answers to common questions.",
+      "officerTitle": "Grievance Officer and Data Protection Officer",
+      "officerName": "Name"
+    },
+    "trust": {
+      "title": "Trust and Safety",
+      "description": "How {site} protects buyers and sellers: verification tiers, honest ranking, scam-safety tips, refunds for fake buyers and how to report a problem.",
+      "intro": "Trust is the product. This page explains what our badges mean, how ranking works and what to do if something feels wrong.",
+      "sections": [
+        {
+          "title": "Verification tiers",
+          "body": ["Each business shows the highest tier it has completed. A tier is a statement about checks done, not about the quality of its goods."],
+          "items": [
+            "T0, phone verified: the business controls a working mobile number confirmed by a one-time code. It does not prove who they are.",
+            "T1, GSTIN and Udyam checked: the business registration was checked against GST and Udyam records, including status and registered address.",
+            "T2, documents and video checked: identity and business documents were checked, including image forensics and a live video KYC.",
+            "T3, audited: a physical or third-party audit by a partner, used where a category needs it."
+          ]
+        },
+        {
+          "title": "What a badge does not mean",
+          "items": [
+            "No badge means a supplier paid for it. Tiers are earned by checks only.",
+            "A tier is not a guarantee that a deal will go well. It does not cover product quality, delivery or payment terms.",
+            "A badge can be removed. Our trust score looks at response time, buyer feedback, dispute outcomes and moderation flags, and a badge is revoked automatically if it falls too low."
+          ]
+        },
+        {
+          "title": "How ranking works",
+          "body": ["Results are ordered by how relevant they are to what you searched for, multiplied by the supplier's trust score. Paying for a plan never moves a supplier up on its own. Sponsored positions are labelled. Read the full explanation in [[ranking]]."]
+        },
+        {
+          "title": "Staying safe from scams",
+          "items": [
+            "Check the verification tier and profile, and ask for the GSTIN. Compare the name on the GST record with the name you are paying.",
+            "Be careful with prices far below the market, urgent demands and requests for full payment in advance. For a first order, prefer to pay in stages.",
+            "Ask for samples, a proforma invoice and written terms. Visit or arrange a third-party inspection for big orders.",
+            "Pay only to a bank account in the registered business name. Never share OTPs, UPI PINs or card details with anyone, including someone saying they are from us. We will never ask for them.",
+            "Keep the conversation and the deal record on the platform where you can, because it helps if you need to raise a dispute."
+          ]
+        },
+        {
+          "title": "Fake or unreachable buyers",
+          "body": ["If you are a seller and an accepted lead turns out to be fake or the buyer cannot be reached, you get your lead credit back automatically within 72 hours, without raising a ticket. See the [[refund]]."]
+        },
+        {
+          "title": "How to report a problem",
+          "body": ["Use [[report]] to report a listing or supplier. For disputes about an order see the [[dispute]]. For privacy and account issues use [[grievance]]. If you have lost money to fraud, also report it to the National Cyber Crime Reporting Portal at cybercrime.gov.in or call 1930."]
+        }
+      ]
+    },
+    "accessibility": {
+      "title": "Accessibility statement",
+      "description": "{site} aims to meet WCAG 2.2 level AA. Read what we support, the known limitations and how to send us feedback.",
+      "intro": "We want everyone to be able to use {site}, including people who use screen readers, keyboards, magnification or voice input.",
+      "sections": [
+        {
+          "title": "Our commitment",
+          "body": ["We design and test the buyer website to meet the Web Content Accessibility Guidelines (WCAG) 2.2 level AA, in line with the Rights of Persons with Disabilities Act, 2016. Accessibility is a release requirement for us: pages are checked automatically on every change and reviewed by hand."]
+        },
+        {
+          "title": "What we do",
+          "items": [
+            "You can use every feature with a keyboard, with visible focus and no keyboard traps.",
+            "Pages have clear headings, landmarks and labelled form fields, and errors are announced to screen readers.",
+            "Text has at least 4.5 to 1 colour contrast, and information is never shown by colour alone.",
+            "Touch targets are large enough, and we respect your reduced-motion setting.",
+            "The site works in English and Hindi, and is built for mobile and slow connections."
+          ]
+        },
+        {
+          "title": "Known limitations",
+          "items": [
+            "Product images, documents and videos uploaded by sellers may not have a good text description. We ask sellers to add one, and we generate descriptions where we can.",
+            "Some PDF certificates uploaded by sellers may not be accessible.",
+            "Machine-translated text can contain mistakes. We are working with native speakers to review it.",
+            "The seller and admin applications are not yet held to the same standard as the buyer website."
+          ]
+        },
+        {
+          "title": "Feedback and help",
+          "body": ["If you find a barrier, or need information in another format, tell us at {email} or through [[contact]]. Please say which page you were on and what assistive technology you use. We reply within 5 working days. If we cannot fix something quickly we will suggest another way to get what you need."]
+        }
+      ]
+    },
+    "security": {
+      "title": "Security and responsible disclosure",
+      "description": "How to report a security vulnerability in {site}, what is in scope, and the safe harbour we offer to good-faith researchers.",
+      "intro": "We welcome reports from security researchers. If you find a vulnerability, please tell us and give us a reasonable time to fix it before you make it public.",
+      "sections": [
+        {
+          "title": "How to report",
+          "body": ["Email {email} with the subject Security report. Include the steps to reproduce, the affected URL or component and the impact. Please do not include real personal data of other people. Our machine-readable contact is at /.well-known/security.txt. We acknowledge reports within 3 working days and keep you informed about the fix."]
+        },
+        {
+          "title": "In scope",
+          "items": [
+            "The buyer website, the seller and admin applications and the public API of {site}.",
+            "Authentication and session handling, access control, injection, cross-site scripting, request forgery and exposure of personal data."
+          ]
+        },
+        {
+          "title": "Out of scope",
+          "items": [
+            "Denial of service, spam, social engineering of our staff or users and physical attacks.",
+            "Findings from automated scanners without a demonstrated impact, and missing best-practice headers without a working attack.",
+            "Third-party services we do not control, and accounts that are not your own."
+          ]
+        },
+        {
+          "title": "Safe harbour",
+          "body": ["If you act in good faith and follow this policy, we will not start legal action against you or ask the authorities to. This means you: test only on accounts you own or have permission to use, do not access or change other users' data beyond what is needed to prove the issue, do not disrupt the service and tell us promptly. This policy does not authorise anything that is unlawful."]
+        },
+        {
+          "title": "Recognition",
+          "body": ["We do not run a paid bounty programme yet. With your permission we will thank you by name once the issue is fixed."]
+        }
+      ]
+    },
+    "report": {
+      "title": "Report abuse or infringement",
+      "description": "Report a listing or supplier on {site} for IPR infringement, counterfeit goods, a prohibited item, fraud or another abuse.",
+      "intro": "Use this form to report content that infringes your rights or breaks the law or our policies. It is also the channel for takedown notices under the IT Rules, 2021.",
+      "sections": [
+        {
+          "title": "What happens next",
+          "items": [
+            "We acknowledge your report within 24 hours and give you a reference.",
+            "For a notice that meets the requirements of the IT Rules, 2021 we act within 36 hours, by removing or disabling access to the content where it is unlawful, or by telling you why we did not.",
+            "We tell the seller what was reported and why, unless the law stops us.",
+            "We keep a record of the notice, the action and the reasons."
+          ]
+        },
+        {
+          "title": "Counter-notice and appeal",
+          "body": ["If your content was removed after a report, you may send a counter-notice with your reasons and proof of your rights to {email}, or file a content or moderation complaint through [[grievance]]. We review it again with a person who was not involved, and restore the content if the notice was wrong. If a claimant does not accept the result, they may go to the courts. See also the [[terms]] and the [[prohibited]]."]
+        },
+        {
+          "title": "False or abusive reports",
+          "body": ["Please report only in good faith. Knowingly false reports can lead to action against the reporter's account and may carry legal consequences."]
+        }
+      ],
+      "form": {
+        "heading": "Report details",
+        "url": "Link to the listing or supplier",
+        "urlHint": "Copy the address of the page from your browser.",
+        "type": "Type of report",
+        "typeChoose": "Choose a type",
+        "name": "Your name or the rights holder",
+        "email": "Your email address",
+        "emailHint": "We reply and send the reference here.",
+        "details": "Describe the problem",
+        "detailsHint": "Say what is wrong and, for an IPR claim, which right is infringed (trademark, copyright, design or patent) and its registration number if any.",
+        "proof": "Link to proof (optional)",
+        "proofHint": "A link to a registration certificate, original work or other evidence. Do not include passwords.",
+        "declaration": "I declare in good faith that the information in this report is accurate and that I am the rights holder or authorised to act for them.",
+        "submit": "Send report",
+        "submitting": "Sending",
+        "type_ipr": "IPR infringement (trademark, copyright, design, patent)",
+        "type_counterfeit": "Counterfeit or fake goods",
+        "type_prohibited": "Prohibited item",
+        "type_fraud": "Fraud or scam",
+        "type_other": "Something else",
+        "done": "Your report has been received.",
+        "doneBody": "Reference: {id}. We will acknowledge it within 24 hours at the email address you gave.",
+        "errorSummary": "Please correct the highlighted fields."
+      },
+      "err": {
+        "urlRequired": "Enter the link to the listing or supplier.",
+        "urlInvalid": "Enter a full link that starts with http:// or https://.",
+        "typeRequired": "Choose a type of report.",
+        "nameRequired": "Enter your name.",
+        "emailInvalid": "Enter a valid email address.",
+        "detailsShort": "Describe the problem in at least 20 characters.",
+        "detailsLong": "Keep the description under 3000 characters.",
+        "proofInvalid": "Enter a full link that starts with http:// or https://, or leave this empty.",
+        "declarationRequired": "You must confirm the declaration to send the report."
+      }
+    },
+    "sitemap": {
+      "title": "Sitemap",
+      "description": "Every category and every policy and information page on {site} in one place.",
+      "intro": "A list of the main pages of {site}.",
+      "categoriesTitle": "Shop by category",
+      "allCategories": "All categories",
+      "noCategories": "Categories are not available right now.",
+      "marketTitle": "Marketplace",
+      "marketProducts": "All products",
+      "marketManufacturers": "Manufacturers",
+      "marketRfq": "Post a requirement",
+      "companyTitle": "Company",
+      "legalTitle": "Legal and policies"
+    }
+  }
+}
