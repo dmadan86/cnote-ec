@@ -266,19 +266,35 @@ export const KINDS: NotificationKind[] = [
   }),
   kind({
     key: "billing.subscription_cancelled",
-    name: "Subscription cancelled",
-    description: "A plan subscription was cancelled.",
+    name: "Subscription ended after cancellation",
+    description: "A cancelled plan reached the end of its paid period and moved to Free.",
     category: "billing",
     app: "seller",
     event: "SubscriptionCancelled",
     variables: [v("planCode", "Plan code", "growth"), v("refund", "Refund line, empty when nothing is refunded", "₹12,000 is being refunded to your original payment method."), RECIPIENT_NAME, HREF],
     defaults: {
-      in_app: { subject: "Your {{planCode}} plan was cancelled", body: "{{refund}} Credits you already have stay spendable until their own expiry. You can subscribe again any time from Billing." },
-      email: { subject: "Your {{planCode}} plan was cancelled", body: "Hi {{recipientName}},\n\nYour {{planCode}} plan was cancelled. {{refund}}\nCredits you already have stay spendable until their own expiry.\n\nBilling: {{href}}" },
+      in_app: { subject: "Your {{planCode}} plan has ended", body: "{{refund}} Credits you already have stay spendable until their own expiry. You can subscribe again any time from Billing." },
+      email: { subject: "Your {{planCode}} plan has ended", body: "Hi {{recipientName}},\n\nYour cancelled {{planCode}} plan has ended and you are on the Free plan. {{refund}}\nCredits you already have stay spendable until their own expiry.\n\nBilling: {{href}}" },
     },
     async resolve(e: DomainEvent<"SubscriptionCancelled">, dir) {
-      const refund = e.payload.refundPaise > 0 ? `${inr(e.payload.refundPaise)} is being refunded to your original payment method.` : "";
+      const refund = e.payload.refundPaise > 0 ? `${inr(e.payload.refundPaise)} was refunded when you cancelled.` : "";
       return fan(await membersOf(dir, e.payload.businessId, { ownersOnly: true }), { businessId: e.payload.businessId, vars: { planCode: e.payload.planCode, refund }, href: "/billing" });
+    },
+  }),
+  kind({
+    key: "billing.refund_completed",
+    name: "Refund completed",
+    description: "The payment provider confirmed a refund (for example after cancelling an annual plan) is back with the payer.",
+    category: "billing",
+    app: "seller",
+    event: "RefundCompleted",
+    variables: [v("amount", "Refunded amount", "₹9,430.55"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "Your refund of {{amount}} is complete", body: "The payment provider confirmed it. It can take a few days to show on your statement." },
+      email: { subject: "Your refund of {{amount}} is complete", body: "Hi {{recipientName}},\n\nYour refund of {{amount}} is complete. The payment provider confirmed it; it can take a few days to show on your statement.\n\nBilling: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"RefundCompleted">, dir) {
+      return fan(await membersOf(dir, e.payload.businessId, { ownersOnly: true }), { businessId: e.payload.businessId, vars: { amount: inr(e.payload.amountPaise) }, href: "/billing" });
     },
   }),
   kind({

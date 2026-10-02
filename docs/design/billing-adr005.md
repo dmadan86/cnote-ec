@@ -15,18 +15,23 @@ Principles (ADR-005): public self-serve pricing, no auto-upgrade, no auto-renew 
 - A subscription records `billingInterval`, `paymentOrderId`, `nextGrantAt`, `renewalRemindedAt` (migration `billing_annual_plans`). Credits are granted one month at a time by the `billing.annual-credits` job, so each grant keeps its own 90-day rollover.
 - Auto-renew is never on. `billing.renewal-reminders` emits `SubscriptionRenewalDue` 3 days (monthly) or 14 days (annual) before the end; notifications sends the `billing.renewal_due` template, which asks the owner to confirm and says nothing is charged otherwise. Buying the same plan again is allowed in that window (explicit renewal) or to switch interval.
 
-## Cancellation and refund
+## Cancellation, access and refund
 
-- Refund = floor(amount actually paid, GST included, x unused full months / 12). The first month always counts as used (its credits are granted up front) and a started month is not refunded. Capped to what remains refundable. Monthly plans refund nothing.
-- The refund goes through the payment provider port (`refundPayment`: mock, Razorpay, Cashfree all implement it) with a credit note. It runs after the cancellation commits; a provider failure is logged and leaves a failed `PaymentRefund` row for finance, the cancellation stands.
-- `SubscriptionCancelled` is version 2: adds `billingInterval`, `refundPaise`, `unusedMonths`, `effectiveAt`, `reason`. It is emitted in the same transaction as the state change. Cancelling twice, or concurrently, is rejected with `not_found` after the first (business advisory lock), so there is one event and one refund.
-- The paid plan ends immediately and the business moves to Free until the original period end (capped at 30 days, then the lapse job re-grants Free credits). Credits already held stay spendable until their own expiry.
+- Cancelling schedules the end (`cancelAtPeriodEnd`): the plan stays active, Billing shows "Ends on <date>", nothing renews. Monthly: access to the paid period end, no refund. Annual: the unused full months are refunded now and access runs to the end of the month counted as used (the period is shortened to that date, no more monthly grants).
+- Refund = floor(amount actually paid, GST included, x unused full months / 12). The first month always counts as used (its credits are granted up front). Capped to what remains refundable.
+- "Undo cancellation" is one tap before the end date, only while nothing was refunded and the period was not shortened; otherwise the owner buys the plan again.
+- The `billing.end-subscriptions` job ends the plan at its end date, emits `SubscriptionCancelled` (v2: `effectiveAt` is now the actual end date, `refundPaise` what was requested at cancel time; same shape, no bump) and starts Free.
+- Credits already held stay spendable until their own expiry. Cancelling twice or concurrently is rejected with `conflict`, so the refund is requested once.
 
-## Cancel in 3 taps (seller app)
+## Refund honesty, retry and dead letter
 
-1. Billing: "Cancel plan" (link to `/billing/cancel`).
-2. Confirm screen, computed by `previewCancellation` (the same code the cancellation runs): end date, refund amount and unused months (or "no refund" and why), credits kept with each lot's expiry, "nothing renews automatically". One optional reason select (nothing preselected), one "Yes, cancel my plan" button, one "Keep my plan" link.
-3. Redirect to Billing with "Your plan is cancelled" and the refund line. That is 2 activations; the e2e asserts at most 3.
+- A cancellation refund goes through `refundPayment(..., { retry: true })`. Row states: `pending` (providerRefundId set = the provider accepted it; null = reserved), `processed` (confirmed by the provider response or a refund webhook), `retrying`, `dead`, `failed` (staff refund that errored; surfaced to the staff member).
+- `billing.refund-retry` (every 5 min): a compare-and-set lease claims a due row, the provider is called with the row id as idempotency key (Razorpay `X-Refund-Idempotency`, Cashfree `x-idempotency-key` plus its unique refund_id), backoff 10 min doubling to a 12 h cap, 6 attempts, then `dead`: `RefundDeadLettered` event (metric `refund_dead_letters`) and a loud `ALERT` log for ops.
+- Seller-facing status on Billing: "Refund of X initiated" only once the provider accepted it; "Refund of X is processing; we'll retry automatically" while reserved or retrying; "Refunded X" when confirmed; "needs attention; our team has been alerted" when dead. `RefundCompleted` triggers the `billing.refund_completed` notification template. Razorpay `refund.processed/failed` and Cashfree `REFUND_STATUS_WEBHOOK` confirm or fail a pending refund.
+
+## Mock gateway in production builds
+
+`PAYMENTS_ALLOW_MOCK_IN_PRODUCTION=1` is for the e2e servers only (default off, documented in `.env.example`). `mockAllowed()` honours it only when `PAYMENTS_PROVIDER` is `mock` and logs a warning; with razorpay or cashfree configured it is ignored with an error log.
 
 ## Pricing calculator
 
@@ -36,5 +41,6 @@ Principles (ADR-005): public self-serve pricing, no auto-upgrade, no auto-renew 
 
 ## Open questions
 
-- Monthly cancel ends the paid plan now with no refund; an alternative is keeping access until the period end (needs a cancel-at-period-end state).
+- Undo is not offered after an annual refund was started (it would need a re-charge).
+- Refund confirmation relies on the provider response and the refund webhooks; there is no polling of provider refund status.
 - Non-English catalogues are machine drafted and marked `_meta.review` for native review.

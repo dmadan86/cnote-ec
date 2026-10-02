@@ -20,6 +20,8 @@ export interface ParsedWebhook {
   providerPaymentId?: string;
   amountPaise?: number;
   failureReason?: string;
+  /** refund lifecycle notice (not a payment): matched to our PaymentRefund by provider id or our refund id */
+  refund?: { providerRefundId?: string; refundId?: string; status: "processed" | "failed" };
   /** payload with payer identifiers (card, vpa, email, phone, bank) stripped */
   redacted: Record<string, unknown>;
 }
@@ -129,6 +131,10 @@ export function razorpay(env: NodeJS.ProcessEnv = process.env): PaymentProvider 
       if (type === "payment_link.expired" || type === "payment_link.cancelled") {
         return { eventId, type, outcome: "failed", orderId, providerOrderId: str(link.id), failureReason: type.replace("payment_link.", "link_"), redacted };
       }
+      if (type === "refund.processed" || type === "refund.failed") {
+        const rf = obj(obj(p.refund).entity);
+        return { eventId, type, outcome: "ignored", redacted, refund: { providerRefundId: str(rf.id), refundId: str(rf.receipt), status: type === "refund.processed" ? "processed" : "failed" } };
+      }
       return { eventId, type, outcome: "ignored", orderId, redacted };
     },
     async fetchPayment(o) {
@@ -143,7 +149,8 @@ export function razorpay(env: NodeJS.ProcessEnv = process.env): PaymentProvider 
     async refund(i) {
       if (!i.providerPaymentId) throw new DomainError("conflict", "razorpay: payment id unknown");
       const r = await call(`${base}/payments/${encodeURIComponent(i.providerPaymentId)}/refund`, {
-        method: "POST", headers: headers(), body: JSON.stringify({ amount: i.amountPaise, receipt: i.refundId, notes: { reason: i.reason.slice(0, 200) } }),
+        // X-Refund-Idempotency: a retry of the same refund row can never refund twice.
+        method: "POST", headers: { ...headers(), "X-Refund-Idempotency": i.refundId }, body: JSON.stringify({ amount: i.amountPaise, receipt: i.refundId, notes: { reason: i.reason.slice(0, 200) } }),
       }, "razorpay refund");
       return { providerRefundId: str(r.id) ?? i.refundId, status: r.status === "processed" ? "processed" : "pending" };
     },
@@ -197,6 +204,13 @@ export function cashfree(env: NodeJS.ProcessEnv = process.env): PaymentProvider 
       const base_ = { eventId, type, orderId: str(order.order_id), providerPaymentId: paymentId, redacted };
       if (type === "PAYMENT_SUCCESS_WEBHOOK") return { ...base_, outcome: "paid", amountPaise: amt === undefined ? undefined : Math.round(amt * 100) };
       if (type === "PAYMENT_FAILED_WEBHOOK") return { ...base_, outcome: "failed", failureReason: str(pay.payment_message) ?? "payment_failed" };
+      if (type === "REFUND_STATUS_WEBHOOK") {
+        const rf = obj(data.refund);
+        const st = str(rf.refund_status);
+        const done = st === "SUCCESS" ? "processed" : st === "FAILED" || st === "CANCELLED" ? "failed" : null;
+        const rid = str(rf.refund_id);
+        if (done) return { ...base_, outcome: "ignored", eventId: `${type}:${str(rf.cf_refund_id) ?? rid ?? sha(raw)}:${st}`, refund: { providerRefundId: str(rf.cf_refund_id), refundId: rid, status: done } };
+      }
       return { ...base_, outcome: "ignored" };
     },
     async fetchPayment(o) {
@@ -210,7 +224,7 @@ export function cashfree(env: NodeJS.ProcessEnv = process.env): PaymentProvider 
     async refund(i) {
       // Cashfree refunds are addressed by OUR order_id (we used the PaymentOrder id as order_id).
       const r = await call(`${base}/orders/${encodeURIComponent(i.orderId)}/refunds`, {
-        method: "POST", headers: headers(), body: JSON.stringify({ refund_amount: rupees(i.amountPaise), refund_id: i.refundId.replace(/-/g, ""), refund_note: i.reason.slice(0, 100) }),
+        method: "POST", headers: { ...headers(), "x-idempotency-key": i.refundId }, body: JSON.stringify({ refund_amount: rupees(i.amountPaise), refund_id: i.refundId.replace(/-/g, ""), refund_note: i.reason.slice(0, 100) }),
       }, "cashfree refund");
       return { providerRefundId: str(r.cf_refund_id) ?? i.refundId, status: r.refund_status === "SUCCESS" ? "processed" : "pending" };
     },
@@ -239,6 +253,7 @@ export function mock(env: NodeJS.ProcessEnv = process.env): PaymentProvider {
       const common = { eventId, type, orderId: str(b.orderId), providerPaymentId: str(b.paymentId), redacted: b };
       if (type === "payment.paid") return { ...common, outcome: "paid", amountPaise: num(b.amountPaise) };
       if (type === "payment.failed") return { ...common, outcome: "failed", failureReason: str(b.reason) ?? "mock_failed" };
+      if (type === "refund.processed" || type === "refund.failed") return { ...common, outcome: "ignored", refund: { providerRefundId: str(b.providerRefundId), refundId: str(b.refundId), status: type === "refund.processed" ? "processed" : "failed" } };
       return { ...common, outcome: "ignored" };
     },
     async fetchPayment() {
@@ -258,9 +273,29 @@ export function configuredProvider(env: NodeJS.ProcessEnv = process.env): Provid
   if (!isProviderName(v)) throw new DomainError("conflict", `Unknown PAYMENTS_PROVIDER "${v}"`);
   return v;
 }
+let warnedMock = false;
+/**
+ * The mock gateway is for dev, tests and the e2e servers only. Outside production it is always allowed. In production it
+ * needs PAYMENTS_ALLOW_MOCK_IN_PRODUCTION=1 (e2e only, default off) AND no real provider configured, so a live deployment
+ * with Razorpay/Cashfree can never be switched to fake payments by that flag. Turning it on logs a loud warning.
+ */
+export function mockAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.NODE_ENV !== "production") return true;
+  if (env.PAYMENTS_ALLOW_MOCK_IN_PRODUCTION !== "1") return false;
+  const configured = env.PAYMENTS_PROVIDER || "mock";
+  if (configured !== "mock") {
+    console.error(`[billing] SECURITY: PAYMENTS_ALLOW_MOCK_IN_PRODUCTION=1 is IGNORED because PAYMENTS_PROVIDER=${configured} is configured in production`);
+    return false;
+  }
+  if (!warnedMock) {
+    warnedMock = true;
+    console.warn("[billing] WARNING: PAYMENTS_ALLOW_MOCK_IN_PRODUCTION=1, the MOCK payment gateway is active in a production build. This is for e2e only; never set it on a real deployment.");
+  }
+  return true;
+}
 export function getProvider(name: ProviderName = configuredProvider(), env: NodeJS.ProcessEnv = process.env): PaymentProvider {
   if (name === "mock") {
-    if (env.NODE_ENV === "production" && env.PAYMENTS_ALLOW_MOCK_IN_PRODUCTION !== "1") throw new DomainError("conflict", "The mock payment provider is disabled in production");
+    if (!mockAllowed(env)) throw new DomainError("conflict", "The mock payment provider is disabled in production");
     return mock(env);
   }
   return name === "razorpay" ? razorpay(env) : cashfree(env);

@@ -4,7 +4,7 @@ export type { PlanView, SubscriptionView, LedgerEntryView, CancellationQuote, Cr
 export * from "./pricing";
 export { listPlans, seedPlans } from "./plans";
 export { getBalance, getLedger, getCreditLots, consumeCredit, refundCredit, grantCredits, expireLapsedCredits } from "./ledger";
-export { getActiveSubscription, subscribe, cancelSubscription, cancelSubscriptionWithQuote, previewCancellation, endLapsedSubscriptions, grantDueAnnualCredits, sendRenewalReminders } from "./subscriptions";
+export { getActiveSubscription, subscribe, cancelSubscription, cancelSubscriptionWithQuote, previewCancellation, undoCancellation, endLapsedSubscriptions, grantDueAnnualCredits, sendRenewalReminders } from "./subscriptions";
 export { worker } from "./worker";
 export * from "./payments";
 export * from "./invoices";

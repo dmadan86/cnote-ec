@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Alert, Card, CardBody, PageHeader } from "@cnote/ui";
 import { requireSeller } from "@/lib/auth";
@@ -25,6 +26,8 @@ export default async function CancelPlanPage() {
   const loc = await getLocale();
   const locale = isLocale(loc) ? loc : "en";
   const id = session.business.id;
+  const active = await load(() => billing.getActiveSubscription(id));
+  if (active.ok && active.data?.cancelAtPeriodEnd) redirect("/billing"); // already scheduled: nothing to confirm
   const [quote, plans] = await Promise.all([load(() => billing.previewCancellation(id)), load(() => billing.listPlans())]);
 
   if (!quote.ok) {

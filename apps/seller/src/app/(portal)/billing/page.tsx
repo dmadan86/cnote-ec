@@ -8,7 +8,7 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { load } from "@/lib/safe";
 import { billing } from "@/lib/services";
 import { formatPaise } from "@/features/billing/format-paise";
-import { SubscribeButton } from "@/features/billing/plan-actions";
+import { SubscribeButton, UndoCancel } from "@/features/billing/plan-actions";
 import { PricingCalculator } from "@/features/billing/pricing-calculator";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -25,15 +25,16 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const loc = await getLocale();
   const locale = isLocale(loc) ? loc : "en";
   const id = session.business.id;
-  const [balance, sub, plans, ledger, invoices] = await Promise.all([
+  const [balance, sub, plans, ledger, invoices, refunds] = await Promise.all([
     load(() => billing.getBalance(id)),
     load(() => billing.getActiveSubscription(id)),
     load(() => billing.listPlans()),
     load(() => billing.getLedger(id, 30)),
     load(() => billing.listInvoices({ businessId: id }, { limit: 20 })),
+    load(() => billing.listBusinessRefunds(id, 5)),
   ]);
+  const ending = sub.ok && sub.data?.status === "active" && sub.data.cancelAtPeriodEnd ? sub.data : null;
   const packs = billing.listCreditPacks();
-  const refundedPaise = Math.max(0, Number.parseInt(one(sp.refund) ?? "0", 10) || 0);
   const gstRateBps = billing.platformSupplier().gstRateBps;
   const activeCode = sub.ok && sub.data?.status === "active" ? sub.data.planCode : null;
   const activePlan = plans.ok ? plans.data.find((p) => p.code === activeCode) : undefined;
@@ -42,24 +43,27 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     <div className="space-y-8">
       <PageHeader title={t("title")} description={t("description")} />
 
-      {one(sp.cancelled) === "1" ? (
+      {one(sp.cancelled) === "1" && ending ? (
         <Alert tone="success">
           <p className="font-semibold">{ta("cancelled.title")}</p>
-          <p>{refundedPaise > 0 ? ta("cancelled.refund", { amount: formatPaise(refundedPaise) }) : ta("cancelled.noRefund")} {ta("cancelled.creditsKept")}</p>
+          <p>{ta("cancelled.stays", { date: formatDate(ending.periodEnd, locale) })} {ta("cancelled.creditsKept")}</p>
         </Alert>
       ) : null}
+      {one(sp.undone) === "1" ? <Alert tone="success">{t("planRuns", { date: sub.ok && sub.data ? formatDate(sub.data.periodEnd, locale) : "" })}</Alert> : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Stat label={t("leadCredits")} value={balance.ok ? balance.data : "-"} hint={t("leadCreditsHint")} />
         <Stat
           label={t("currentPlan")}
           value={activePlan?.name ?? (activeCode ?? t("none"))}
-          hint={sub.ok && sub.data && sub.data.status === "active" ? t("planRuns", { date: formatDate(sub.data.periodEnd, locale) }) : undefined}
+          hint={ending ? ta("status.endsOn", { date: formatDate(ending.periodEnd, locale) }) : sub.ok && sub.data && sub.data.status === "active" ? t("planRuns", { date: formatDate(sub.data.periodEnd, locale) }) : undefined}
         />
       </div>
       {!balance.ok ? <Alert tone="danger">{balance.error}</Alert> : null}
 
-      {sub.ok && sub.data?.status === "active" && activeCode && activePlan && activePlan.monthlyPricePaise > 0 ? (
+      {ending ? (
+        ending.cancelUndoable ? <UndoCancel /> : <p className="text-sm text-muted">{ta("undo.locked")}</p>
+      ) : sub.ok && sub.data?.status === "active" && activeCode && activePlan && activePlan.monthlyPricePaise > 0 ? (
         <Link href="/billing/cancel" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line px-4 text-sm font-semibold text-ink hover:bg-canvas">{t("cancelPlan")}</Link>
       ) : null}
 
@@ -119,6 +123,22 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           ))}
         </ul>
       </section>
+
+      {refunds.ok && refunds.data.length > 0 ? (
+        <Card>
+          <CardHeader><CardTitle>{ta("refunds.title")}</CardTitle></CardHeader>
+          <CardBody>
+            <ul className="divide-y divide-line" aria-live="polite">
+              {refunds.data.map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <span className="text-ink">{ta(`refunds.${r.status}`, { amount: formatPaise(r.amountPaise) })}</span>
+                  <span className="text-xs text-muted">{formatDate(r.createdAt, locale)}</span>
+                </li>
+              ))}
+            </ul>
+          </CardBody>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader><CardTitle>{t("invoices")}</CardTitle></CardHeader>

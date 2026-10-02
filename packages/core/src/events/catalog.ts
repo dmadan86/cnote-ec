@@ -94,6 +94,10 @@ export interface DomainEventPayloads {
   PaymentSucceeded: { paymentOrderId: string; businessId: string; purpose: string; totalPaise: number; invoiceNumber: string | null };
   PaymentFailed: { paymentOrderId: string; businessId: string; purpose: string; reason: string };
   PaymentRefunded: { paymentOrderId: string; businessId: string; amountPaise: number; creditNoteNumber: string | null };
+  /** The provider confirmed the money is back with the payer (immediately, via webhook or a retry). */
+  RefundCompleted: { refundId: string; paymentOrderId: string; businessId: string; amountPaise: number };
+  /** A refund exhausted its automatic retries: ops must act (alert + metric). */
+  RefundDeadLettered: { refundId: string; paymentOrderId: string; businessId: string; amountPaise: number; attempts: number; lastError: string | null };
   // escrow via PA partner (ADR-012, Phase 2, flag ESCROW_ENABLED)
   EscrowCreated:          { escrowId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; amountPaise: number; feePaise: number; partner: string };
   /** v2 adds matchId (null for network orders) so the ADR-012 gate "accepted leads -> escrowed orders" is measurable */
@@ -241,6 +245,8 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   PaymentSucceeded: 1,
   PaymentFailed: 1,
   PaymentRefunded: 1,
+  RefundCompleted: 1,
+  RefundDeadLettered: 1,
   KycSubmitted: 1,
   KycDecided: 1,
   AuditCompleted: 1,

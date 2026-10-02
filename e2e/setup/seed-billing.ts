@@ -10,7 +10,7 @@ import { createHash, randomBytes, scrypt as scryptCb } from "node:crypto";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { BILLING_E2E_ACCOUNTS, BILLING_E2E_PASSWORD, E2E_PAID_TOTAL_PAISE, billingE2eEmail } from "../support/billing";
+import { BILLING_E2E_ACCOUNTS, BILLING_E2E_PASSWORD, BILLING_E2E_UNDO_ACCOUNTS, E2E_PAID_TOTAL_PAISE, billingE2eEmail, billingUndoEmail } from "../support/billing";
 
 const req = createRequire(path.resolve(__dirname, "../../apps/worker/package.json"));
 const load = <T>(id: string) => import(pathToFileURL(req.resolve(id)).href) as Promise<T>;
@@ -38,8 +38,11 @@ async function main() {
   await billing.seedPlans();
   const hash = await hashPassword(BILLING_E2E_PASSWORD);
   const DAY = 86_400_000;
-  for (let n = 0; n < BILLING_E2E_ACCOUNTS; n++) {
-    const email = billingE2eEmail(n);
+  const accounts = [
+    ...Array.from({ length: BILLING_E2E_ACCOUNTS }, (_, n) => ({ n, email: billingE2eEmail(n), annual: true })),
+    ...Array.from({ length: BILLING_E2E_UNDO_ACCOUNTS }, (_, n) => ({ n: 100 + n, email: billingUndoEmail(n), annual: false })),
+  ];
+  for (const { n, email, annual } of accounts) {
     const personId = stableId(`person:${n}`);
     const businessId = stableId(`business:${n}`);
     await prisma.person.upsert({ where: { email }, update: { passwordHash: hash }, create: { id: personId, email, emailVerifiedAt: new Date(), name: `Billing E2E ${n}`, passwordHash: hash } });
@@ -55,6 +58,13 @@ async function main() {
     await prisma.paymentOrder.deleteMany({ where: { businessId } });
     await prisma.creditLedgerEntry.deleteMany({ where: { businessId } });
 
+    if (!annual) {
+      // monthly Starter, nothing paid through us: cancelling refunds nothing, so the cancellation can be undone
+      const now = new Date();
+      const sub = await prisma.subscription.create({ data: { businessId, planCode: "starter", status: "active", periodStart: now, periodEnd: new Date(now.getTime() + 30 * DAY), autoRenew: false, billingInterval: "monthly" } });
+      await billing.grantCredits(businessId, 60, "plan:starter", { refType: "subscription", refId: sub.id });
+      continue;
+    }
     const orderId = stableId(`order:${n}`);
     await prisma.paymentOrder.create({
       data: { id: orderId, businessId, purpose: "subscription", purposeRef: "starter:annual", provider: "mock", status: "paid", amountPaise: 959_040n, gstPaise: 172_627n, totalPaise: BigInt(E2E_PAID_TOTAL_PAISE), fulfilledAt: new Date() },
@@ -67,7 +77,7 @@ async function main() {
     });
     await billing.grantCredits(businessId, 60, "plan:starter", { refType: "subscription", refId: sub.id });
   }
-  console.log(`[e2e] seeded ${BILLING_E2E_ACCOUNTS} annual-plan sellers for the cancel flow`);
+  console.log(`[e2e] seeded ${accounts.length} paid-plan sellers for the cancel flow`);
   process.exit(0);
 }
 main().catch((e) => {

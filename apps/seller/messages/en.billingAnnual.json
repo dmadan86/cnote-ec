@@ -27,19 +27,19 @@
     "intervalMonthly": "Billed once for one month. It does not renew by itself.",
     "cancelled": {
       "title": "Your plan is cancelled",
-      "refund": "{amount} is on its way back to your original payment method.",
       "noRefund": "No refund was due.",
-      "creditsKept": "Your lead credits stay usable until they expire."
+      "creditsKept": "Your lead credits stay usable until they expire.",
+      "stays": "It stays active until {date}."
     },
     "cancel": {
       "metaTitle": "Cancel plan",
       "title": "Cancel your {plan} plan",
       "description": "Here is exactly what happens when you confirm. Nothing else is needed.",
       "endsLabel": "Your plan ends",
-      "endsValue": "Today, {date}. You move to the Free plan.",
+      "endsValue": "{date}. You keep your plan until then, then move to the Free plan.",
       "noRenew": "Nothing renews automatically, so you will not be charged again.",
       "refundLabel": "Refund",
-      "refundValue": "{amount} including GST, returned to your original payment method for {months, plural, one {# unused month} other {# unused months}}.",
+      "refundValue": "{amount} including GST for {months, plural, one {# unused month} other {# unused months}}. We start the refund when you confirm and show its status on Billing.",
       "noRefund": "No refund. Monthly plans are not refunded because the month you paid for has started.",
       "creditsLabel": "Lead credits you keep",
       "creditsValue": "{count, plural, one {# credit} other {# credits}}, usable until they expire.",
@@ -59,6 +59,22 @@
       "noPlan": "You have no paid plan to cancel.",
       "back": "Back to billing",
       "cancelling": "Cancelling…"
+    },
+    "status": {
+      "endsOn": "Ends on {date}"
+    },
+    "undo": {
+      "button": "Undo cancellation",
+      "pending": "Undoing…",
+      "hint": "You cancelled this plan. You can undo this until it ends.",
+      "locked": "A refund was already started, so this cannot be undone. Buy the plan again to continue after it ends."
+    },
+    "refunds": {
+      "title": "Refunds",
+      "initiated": "Refund of {amount} initiated",
+      "processing": "Refund of {amount} is processing; we'll retry automatically",
+      "completed": "Refunded {amount}",
+      "attention": "Refund of {amount} needs attention; our team has been alerted"
     }
   }
 }

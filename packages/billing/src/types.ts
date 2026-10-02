@@ -16,6 +16,10 @@ export interface SubscriptionView {
   periodEnd: string;
   autoRenew: boolean;
   billingInterval: "monthly" | "annual";
+  /** Cancelled by the owner: still active until periodEnd, then ends (nothing renews). */
+  cancelAtPeriodEnd: boolean;
+  /** One-tap undo is possible (no refund was started and the period was not shortened). */
+  cancelUndoable: boolean;
 }
 export interface LedgerEntryView {
   id: string;

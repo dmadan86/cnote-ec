@@ -63,11 +63,18 @@ describe("billingAnnual message keys", () => {
     expect(wanted.length).toBeGreaterThan(25);
     for (const k of wanted) expect(keys.has(k), k).toBe(true);
   });
+  it("has a message for every refund status the seller can see, none claiming more than is true", () => {
+    for (const st of ["completed", "initiated", "processing", "attention"]) expect(keys.has(`refunds.${st}`), st).toBe(true);
+    const en2 = (en as unknown as { billingAnnual: { refunds: Record<string, string> } }).billingAnnual.refunds;
+    expect(en2.initiated).toBe("Refund of {amount} initiated");
+    expect(en2.processing).toContain("we'll retry automatically");
+  });
   it("has a label for every cancel reason the server accepts", () => {
     for (const r of CANCEL_REASONS) expect(keys.has(`cancel.reason.${r}`), r).toBe(true);
   });
   it("the cancel page shows refund, end date and credits kept, and asks for no retention step", () => {
     const page = src("app/(portal)/billing/cancel/page.tsx");
+    for (const k of ["undo.button", "undo.hint", "undo.pending", "undo.locked", "status.endsOn", "cancelled.stays"]) expect(keys.has(k), k).toBe(true);
     for (const k of ["endsValue", "refundValue", "creditsValue", "lot"]) expect(page).toContain(`t("${k}"`);
     const form = src("features/billing/cancel-form.tsx");
     expect(form.match(/<SubmitButton/g)).toHaveLength(1); // one confirm button

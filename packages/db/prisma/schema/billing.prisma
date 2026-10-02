@@ -52,6 +52,12 @@ model Subscription {
   nextGrantAt     DateTime?      @map("next_grant_at") @db.Timestamptz
   /// Set once the "confirm your renewal" reminder was emitted for this period
   renewalRemindedAt DateTime?    @map("renewal_reminded_at") @db.Timestamptz
+  /// Cancelled by the owner: stays active until periodEnd (annual: end of the month counted as used), then the lapse job ends it
+  cancelAtPeriodEnd Boolean      @default(false) @map("cancel_at_period_end")
+  /// What the cancellation requested back (GST-inclusive paise) and the unused full months it was based on; both 0 = undo is allowed
+  cancelRefundPaise BigInt       @default(0) @map("cancel_refund_paise")
+  cancelUnusedMonths Int         @default(0) @map("cancel_unused_months")
+  cancelReason      String?      @map("cancel_reason")
 
   business Business @relation(fields: [businessId], references: [id])
   plan     Plan     @relation(fields: [planCode], references: [code])
@@ -231,13 +237,21 @@ model PaymentRefund {
   amountPaise      BigInt   @map("amount_paise")
   reason           String
   providerRefundId String?  @unique @map("provider_refund_id")
-  status           String   @default("pending") // pending | processed | failed
+  /// pending (provider accepted, awaiting confirmation; reserved only while providerRefundId is null) | processed | retrying | dead | failed
+  status           String   @default("pending")
+  /// Provider calls made by the retry job (exponential backoff, then dead letter); idempotency key = this row's id
+  attempts         Int      @default(0)
+  nextAttemptAt    DateTime? @map("next_attempt_at") @db.Timestamptz
+  lastError        String?  @map("last_error")
+  /// Cancellation refunds retry on their own; staff-initiated ones surface the error to the staff member instead
+  autoRetry        Boolean  @default(false) @map("auto_retry")
   creditNoteId     String?  @unique @map("credit_note_id") @db.Uuid
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   paymentOrder PaymentOrder @relation(fields: [paymentOrderId], references: [id])
 
   @@index([paymentOrderId])
+  @@index([status, nextAttemptAt])
   @@map("payment_refunds")
 }
 

@@ -10,9 +10,15 @@ const PERIOD_DAYS = 30;
 /** Remind this long before a paid period ends (annual plans need longer notice). */
 const REMINDER_LEAD_DAYS: Record<BillingInterval, number> = { monthly: 3, annual: 14 };
 
-type SubRow = { id: string; planCode: string; status: SubscriptionView["status"]; periodStart: Date; periodEnd: Date; autoRenew: boolean; billingInterval: string };
+type SubRow = {
+  id: string; planCode: string; status: SubscriptionView["status"]; periodStart: Date; periodEnd: Date; autoRenew: boolean; billingInterval: string;
+  cancelAtPeriodEnd?: boolean; cancelRefundPaise?: bigint; cancelUnusedMonths?: number;
+};
 type PaidSubRow = SubRow & { paymentOrderId: string | null };
 const intervalOf = (v: string): BillingInterval => (v === "annual" ? "annual" : "monthly");
+
+/** Undo is possible while nothing was refunded and the period was not shortened. */
+const cancelUndoable = (s: SubRow): boolean => !!s.cancelAtPeriodEnd && (s.cancelRefundPaise ?? 0n) === 0n && (s.cancelUnusedMonths ?? 0) === 0;
 
 function toView(s: SubRow): SubscriptionView {
   return {
@@ -23,6 +29,8 @@ function toView(s: SubRow): SubscriptionView {
     periodEnd: s.periodEnd.toISOString(),
     autoRenew: s.autoRenew,
     billingInterval: intervalOf(s.billingInterval),
+    cancelAtPeriodEnd: !!s.cancelAtPeriodEnd,
+    cancelUndoable: cancelUndoable(s),
   };
 }
 
@@ -86,8 +94,11 @@ export async function subscribe(businessId: string, planCode: string): Promise<S
 }
 
 // ---- cancellation (ADR-005: self-serve, pro-rated refund of unused full months on annual plans) ---------------------
+// Cancelling schedules the end: the plan stays active (cancelAtPeriodEnd) until the end of the paid period, or for an annual
+// plan until the end of the month counted as used. The lapse job then ends it and emits SubscriptionCancelled. Nothing renews.
 
 type Reader = Pick<Tx, "paymentOrder" | "paymentRefund">;
+type CancelRow = PaidSubRow & { cancelAtPeriodEnd: boolean };
 
 /** GST-inclusive refund for cancelling `sub` at `now`: unused full months of what was actually paid, never more than is left. */
 async function refundFor(db: Reader, sub: PaidSubRow, now: Date): Promise<{ refundPaise: number; unusedMonths: number }> {
@@ -96,7 +107,7 @@ async function refundFor(db: Reader, sub: PaidSubRow, now: Date): Promise<{ refu
   if (!sub.paymentOrderId) return { refundPaise: 0, unusedMonths }; // dev/manual subscription: nothing was paid through us
   const order = await db.paymentOrder.findUnique({ where: { id: sub.paymentOrderId } });
   if (!order?.fulfilledAt || (order.status !== "paid" && order.status !== "partially_refunded")) return { refundPaise: 0, unusedMonths };
-  const refunded = (await db.paymentRefund.findMany({ where: { paymentOrderId: order.id, status: { not: "failed" } } })).reduce((a, r) => a + Number(r.amountPaise), 0);
+  const refunded = (await db.paymentRefund.findMany({ where: { paymentOrderId: order.id, status: { notIn: ["failed", "dead"] } } })).reduce((a, r) => a + Number(r.amountPaise), 0);
   const refundPaise = Math.min(annualRefundPaise(Number(order.totalPaise), unusedMonths), Number(order.totalPaise) - refunded);
   return { refundPaise: Math.max(0, refundPaise), unusedMonths };
 }
@@ -104,59 +115,79 @@ async function refundFor(db: Reader, sub: PaidSubRow, now: Date): Promise<{ refu
 async function buildQuote(db: Reader, sub: PaidSubRow, businessId: string, now: Date): Promise<CancellationQuote> {
   const { refundPaise, unusedMonths } = await refundFor(db, sub, now);
   const creditLots = await getCreditLots(businessId);
+  // monthly: the paid month runs out; annual: the month counted as used runs out (the unused ones were refunded)
+  const accessEnd = intervalOf(sub.billingInterval) === "annual" ? addMonths(sub.periodStart, ANNUAL_MONTHS - unusedMonths) : sub.periodEnd;
   return {
     subscriptionId: sub.id, planCode: sub.planCode, billingInterval: intervalOf(sub.billingInterval), refundPaise, unusedMonths,
-    effectiveAt: now.toISOString(), originalPeriodEnd: sub.periodEnd.toISOString(),
+    effectiveAt: (accessEnd < sub.periodEnd ? accessEnd : sub.periodEnd).toISOString(), originalPeriodEnd: sub.periodEnd.toISOString(),
     creditsKept: creditLots.reduce((a, l) => a + l.remaining, 0), creditLots,
   };
+}
+
+async function currentPaid(db: Pick<Tx, "subscription">, businessId: string, now: Date): Promise<CancelRow> {
+  const current = await db.subscription.findFirst({ where: { businessId, status: "active", periodEnd: { gt: now } }, orderBy: { periodStart: "desc" } });
+  if (!current || current.planCode === "free") throw new DomainError("not_found", "You have no paid plan to cancel.");
+  return current;
 }
 
 /** Read-only: exactly what cancelling right now would do (the confirm screen shows this). */
 export async function previewCancellation(businessId: string): Promise<CancellationQuote> {
   const now = new Date();
-  const current = await prisma.subscription.findFirst({ where: { businessId, status: "active", periodEnd: { gt: now } }, orderBy: { periodStart: "desc" } });
-  if (!current || current.planCode === "free") throw new DomainError("not_found", "You have no paid plan to cancel.");
+  const current = await currentPaid(prisma, businessId, now);
+  if (current.cancelAtPeriodEnd) throw new DomainError("conflict", "This plan is already cancelled and ends on its end date.");
   return buildQuote(prisma, current, businessId, now);
 }
 
 /**
- * Self-serve cancel. Credits already granted stay spendable until their own expiry. The business
- * falls back to the free plan for the rest of the period WITHOUT a fresh grant (no farming free
- * credits by subscribing/cancelling); the monthly job re-grants at period end.
- * Idempotent: the business lock serialises concurrent calls and the second finds no paid plan (not_found), so the
- * event and the refund happen once.
+ * Self-serve cancel. The plan stays active until `effectiveAt` (see above); credits already granted stay spendable until their
+ * own expiry. Annual plans get the unused full months refunded now, through the payment provider with automatic retries.
+ * Idempotent: the business lock serialises concurrent calls and the second finds the cancellation already scheduled
+ * (conflict), so the refund is requested once. The SubscriptionCancelled event is emitted when the plan actually ends.
  */
 export async function cancelSubscriptionWithQuote(businessId: string, opts: { reason?: string } = {}): Promise<CancellationQuote> {
   const reason = opts.reason && (CANCEL_REASONS as readonly string[]).includes(opts.reason) ? opts.reason : null;
   const done = await prisma.$transaction(async (tx) => {
     await lockBusiness(tx, businessId);
     const now = new Date();
-    const current = await tx.subscription.findFirst({ where: { businessId, status: "active", periodEnd: { gt: now } }, orderBy: { periodStart: "desc" } });
-    if (!current || current.planCode === "free") throw new DomainError("not_found", "You have no paid plan to cancel.");
+    const current = await currentPaid(tx, businessId, now);
+    if (current.cancelAtPeriodEnd) throw new DomainError("conflict", "This plan is already cancelled and ends on its end date.");
     const quote = await buildQuote(tx, current, businessId, now);
-    await tx.subscription.update({ where: { id: current.id }, data: { status: "cancelled", cancelledAt: now } });
-    await emit(tx, "SubscriptionCancelled", { type: "business", id: businessId }, {
-      businessId, subscriptionId: current.id, planCode: current.planCode, billingInterval: quote.billingInterval, refundPaise: quote.refundPaise,
-      unusedMonths: quote.unusedMonths, effectiveAt: quote.effectiveAt, reason,
+    await tx.subscription.update({
+      where: { id: current.id },
+      data: {
+        cancelAtPeriodEnd: true, cancelledAt: now, cancelRefundPaise: BigInt(quote.refundPaise), cancelUnusedMonths: quote.unusedMonths, cancelReason: reason,
+        periodEnd: new Date(quote.effectiveAt), nextGrantAt: null, // no more monthly grants; the month counted as used already had its credits
+      },
     });
-    // Free for the rest of the paid period (an annual one is capped at a month; the lapse job then re-grants Free's monthly credits).
-    const freeEnd = addDays(now, PERIOD_DAYS);
-    await startPeriod(tx, businessId, "free", { grant: false, periodEnd: current.periodEnd < freeEnd ? current.periodEnd : freeEnd });
     return { quote, paymentOrderId: current.paymentOrderId };
   });
-  // Money back through the payment provider after the cancel committed; a provider failure is logged for finance and
-  // leaves a failed PaymentRefund row (the cancellation itself stands).
   const { quote, paymentOrderId } = done;
   if (quote.refundPaise > 0 && paymentOrderId) {
     const { refundPayment } = await import("./payments");
-    await refundPayment(paymentOrderId, quote.refundPaise, `Pro-rata refund on cancelling ${quote.planCode} (${quote.unusedMonths} unused months)`)
-      .catch((e) => console.error(`[billing] pro-rata refund failed business=${businessId}`, e));
+    // retry: a provider failure never fails the cancellation; the refund row retries on its own (billing.refund-retry)
+    await refundPayment(paymentOrderId, quote.refundPaise, `Pro-rata refund on cancelling ${quote.planCode} (${quote.unusedMonths} unused months)`, undefined, { retry: true })
+      .catch((e) => console.error(`[billing] pro-rata refund could not be started business=${businessId}`, e));
   }
   return quote;
 }
 
 export async function cancelSubscription(businessId: string): Promise<void> {
   await cancelSubscriptionWithQuote(businessId);
+}
+
+/**
+ * One-tap "Undo cancellation" before the end date. Only while nothing was refunded and the period was not shortened;
+ * otherwise money already went back and the owner buys the plan again.
+ */
+export async function undoCancellation(businessId: string): Promise<SubscriptionView> {
+  const s = await prisma.$transaction(async (tx) => {
+    await lockBusiness(tx, businessId);
+    const current = await currentPaid(tx, businessId, new Date());
+    if (!current.cancelAtPeriodEnd) throw new DomainError("conflict", "This plan is not cancelled.");
+    if (!cancelUndoable(current)) throw new DomainError("validation", "A refund was already started for this cancellation, so it cannot be undone. Buy the plan again to continue.");
+    return tx.subscription.update({ where: { id: current.id }, data: { cancelAtPeriodEnd: false, cancelledAt: null, cancelReason: null } });
+  });
+  return toView(s);
 }
 
 /** BusinessCreated → free plan + its monthly credits. Idempotent (redelivery-safe). */
@@ -181,6 +212,12 @@ export async function endLapsedSubscriptions(now = new Date()): Promise<number> 
       await lockBusiness(tx, s.businessId);
       const { count } = await tx.subscription.updateMany({ where: { id: s.id, status: "active" }, data: { status: "expired" } });
       if (count === 0) return false;
+      if (s.cancelAtPeriodEnd) {
+        await emit(tx, "SubscriptionCancelled", { type: "business", id: s.businessId }, {
+          businessId: s.businessId, subscriptionId: s.id, planCode: s.planCode, billingInterval: intervalOf(s.billingInterval), refundPaise: Number(s.cancelRefundPaise),
+          unusedMonths: s.cancelUnusedMonths, effectiveAt: s.periodEnd.toISOString(), reason: s.cancelReason,
+        });
+      }
       const stillActive = await tx.subscription.findFirst({ where: { businessId: s.businessId, status: "active", periodEnd: { gt: now } } });
       if (!stillActive) await startPeriod(tx, s.businessId, "free", { grant: true });
       return true;
@@ -195,7 +232,7 @@ export async function endLapsedSubscriptions(now = new Date()): Promise<number> 
  * refId and a compare-and-set on nextGrantAt, so redelivery or two workers never double-grant.
  */
 export async function grantDueAnnualCredits(now = new Date()): Promise<number> {
-  const due = await prisma.subscription.findMany({ where: { status: "active", billingInterval: "annual", nextGrantAt: { lte: now } }, take: 500 });
+  const due = await prisma.subscription.findMany({ where: { status: "active", billingInterval: "annual", cancelAtPeriodEnd: false, nextGrantAt: { lte: now } }, take: 500 });
   let n = 0;
   for (const s of due) {
     const granted = await prisma.$transaction(async (tx) => {
@@ -223,7 +260,7 @@ export async function grantDueAnnualCredits(now = new Date()): Promise<number> {
 export async function sendRenewalReminders(now = new Date()): Promise<number> {
   const horizon = addDays(now, Math.max(...Object.values(REMINDER_LEAD_DAYS)));
   const cands = await prisma.subscription.findMany({
-    where: { status: "active", planCode: { not: "free" }, renewalRemindedAt: null, periodEnd: { gt: now, lte: horizon } },
+    where: { status: "active", planCode: { not: "free" }, cancelAtPeriodEnd: false, renewalRemindedAt: null, periodEnd: { gt: now, lte: horizon } },
     take: 500,
   });
   let n = 0;

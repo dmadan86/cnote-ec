@@ -90,6 +90,20 @@ export async function cancelPlanAction(_prev: BillingResult | null, fd: FormData
     refresh();
     return q.refundPaise;
   });
-  if (res.ok) redirect(`/billing?cancelled=1&refund=${res.data}`);
+  if (res.ok) redirect("/billing?cancelled=1");
+  return res;
+}
+
+/** One tap: restores a plan that was cancelled but has not ended yet (only possible while no refund was started). */
+export async function undoCancelAction(_prev: BillingResult | null): Promise<BillingResult> {
+  void _prev;
+  const session = await requireSeller("/billing");
+  const res = await run(async () => {
+    await billing.undoCancellation(session.business.id);
+    logEvent("seller.plan_cancel_undone", { businessId: session.business.id });
+    refresh();
+    return null;
+  });
+  if (res.ok) redirect("/billing?undone=1");
   return res;
 }
