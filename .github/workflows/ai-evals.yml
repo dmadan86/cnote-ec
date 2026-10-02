@@ -66,7 +66,9 @@ jobs:
           baseline_touched=false
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             base="origin/${{ github.base_ref }}"
-            if ! git diff --quiet "$base"...HEAD -- packages/ai/prompts.manifest.json; then prompts_changed=true; fi
+            # The PR that introduces the manifest has nothing to compare with; later PRs diff against the base manifest.
+            if git cat-file -e "$base:packages/ai/prompts.manifest.json" 2>/dev/null \
+              && ! git diff --quiet "$base"...HEAD -- packages/ai/prompts.manifest.json; then prompts_changed=true; fi
             if ! git diff --quiet "$base"...HEAD -- packages/ai/evals/baseline/anthropic.json; then baseline_touched=true; fi
           fi
           echo "prompts_changed=$prompts_changed" >> "$GITHUB_OUTPUT"

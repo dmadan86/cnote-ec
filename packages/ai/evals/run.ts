@@ -1,7 +1,7 @@
 // pnpm --filter @cnote/ai eval [--provider heuristic|anthropic] [--out dir] [--update-baseline]
 // Runs every golden set against one provider, writes <out>/<provider>.json + .md, compares with
 // evals/baseline/<provider>.json and exits 1 on a hard-floor breach or a regression beyond tolerance (ADR-008).
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createAnthropicClient } from "../src/anthropic";
 import { anthropicProviders, heuristicProviders } from "../src/registry";
 import extractionSet from "./data/extraction.json";
@@ -44,7 +44,12 @@ const report = await runEvals(providers, new Date(), undefined, { skipTags, onCa
 const run = buildRun({ provider, report, latencies, usage: meter.usage, models: [...meter.models].sort() });
 if (meter.unpriced.size) run.details.unpricedModels = [...meter.unpriced].join(", ");
 
-const baseline: EvalRun | null = existsSync(baselinePath) ? (JSON.parse(readFileSync(baselinePath, "utf8")) as EvalRun) : null;
+let baseline: EvalRun | null = null;
+try {
+  baseline = JSON.parse(readFileSync(baselinePath, "utf8")) as EvalRun;
+} catch (err) {
+  if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err; // no baseline yet: hard floors only
+}
 const cases = {
   intent: intentSet.length,
   extract: extractionSet.length,
