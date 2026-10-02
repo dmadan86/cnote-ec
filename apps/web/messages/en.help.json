@@ -1,0 +1,230 @@
+{
+  "help": {
+    "metaTitle": "Help centre",
+    "metaDescription": "Answers about posting requirements, supplier verification and ranking, lead credits, refunds, your data and staying safe.",
+    "heroTitle": "How can we help?",
+    "heroSubtitle": "Guides for buyers and suppliers, written in plain words.",
+    "searchLabel": "Search help articles",
+    "searchPlaceholder": "Search for a topic, e.g. verification or credits",
+    "resultsCount": "{count, plural, one {# article found} other {# articles found}}",
+    "noResults": "No article matches your search. Try fewer or different words, or browse the topics below.",
+    "clearSearch": "Clear search",
+    "topicsHeading": "Browse by topic",
+    "popularHeading": "Popular articles",
+    "articleCount": "{count, plural, one {# article} other {# articles}}",
+    "breadcrumbLabel": "Breadcrumb",
+    "home": "Home",
+    "helpCentre": "Help centre",
+    "topicMetaDescription": "{count, plural, one {# article} other {# articles}} in {topic}.",
+    "relatedHeading": "Related articles",
+    "faqHeading": "Frequently asked questions",
+    "usefulLinks": "Useful links",
+    "backToTopic": "Back to {topic}",
+    "stillTitle": "Still need help?",
+    "stillBody": "If your question is about your personal data or something on the platform that is not right, tell us and we will look into it.",
+    "stillGrievance": "Raise a grievance",
+    "stillReport": "Report a problem",
+    "topic": {
+      "buying": {
+        "title": "Buying and requirements",
+        "desc": "Post a requirement, search in your language and close the loop."
+      },
+      "suppliers": {
+        "title": "Suppliers and verification",
+        "desc": "What the badges mean and how suppliers are ranked."
+      },
+      "sellers": {
+        "title": "Leads and credits for sellers",
+        "desc": "How lead credits, declines and renewals work."
+      },
+      "payments": {
+        "title": "Payments and refunds",
+        "desc": "How money moves today and when credits come back."
+      },
+      "account": {
+        "title": "Account and privacy",
+        "desc": "Cookies, your data and how to raise a grievance."
+      },
+      "safety": {
+        "title": "Safety and reporting",
+        "desc": "Spot red flags and report anything wrong."
+      }
+    },
+    "link": {
+      "rfq": "Post a requirement",
+      "ranking": "Read the ranking and ads page",
+      "pricing": "See public pricing",
+      "cookies": "Cookie policy",
+      "grievance": "Raise a grievance",
+      "report": "Report a problem",
+      "search": "Go to search",
+      "manufacturers": "Browse suppliers"
+    },
+    "offlineTitle": "You are offline",
+    "offlineBody": "We could not reach the network. Pages you opened recently, including help articles, may still be available. Check your connection and try again.",
+    "offlineRetry": "Try again",
+    "offlineHelp": "Open the help centre",
+    "a": {
+      "post-requirement": {
+        "title": "How to post a requirement",
+        "summary": "Describe what you need once and get quotes from up to 3 matched suppliers.",
+        "h1": "Post it once",
+        "p1": "Choose Post your requirement or Request quote, then say what you need, how much, your pincode and when you need it. You need a free account so we can show replies and the status of your requirement.",
+        "h2": "Who receives it",
+        "p2": "Your requirement goes to at most 3 suppliers, never a broadcast to everyone. The limit is 3 by default and can differ by category. Suppliers are chosen for relevance and trust. If a supplier declines within 2 hours, the slot moves to the next best match, so you are not left waiting.",
+        "q": "Why only 3 suppliers?",
+        "ans": "Fewer, better matched suppliers means each one can give you a proper answer, and sellers only pay for leads they accept. It is the opposite of a broadcast to dozens of sellers."
+      },
+      "search-and-voice": {
+        "title": "Search in your language, by voice or by photo",
+        "summary": "Search works in English and Hindi, understands mixed scripts and Hinglish, and accepts voice.",
+        "h1": "Type the way you speak",
+        "p1": "Search understands English, Hindi, mixed scripts and transliterated words, so you can write in the way that is natural to you. Switch the page language from the language menu in the header.",
+        "h2": "Voice and photo",
+        "p2": "On the search page, tap the microphone, speak, check the words we heard and press Search. Your voice is recorded only while you speak, turned into text and deleted straight away. We do not keep the recording. You can also search with a photo.",
+        "q": "Why does my browser ask for the microphone?",
+        "ans": "Only the search page can use the microphone or camera, and only after you tap those buttons. If you block access you can still type your search."
+      },
+      "did-this-close": {
+        "title": "The “did this close?” prompt",
+        "summary": "Why we ask whether a deal happened, and how to answer.",
+        "h1": "Why we ask",
+        "p1": "Many deals are agreed outside the site, on a call or in chat. After you talk to a supplier we ask whether the deal closed, so we can see which suppliers deliver and keep trust scores honest.",
+        "h2": "How to answer",
+        "p2": "Choose Yes, deal done, No, it fell through, or Still talking. You can change your answer at any time from the conversation. It costs you nothing.",
+        "q": "Do I have to answer?",
+        "ans": "No. It is optional, and Still talking is a perfectly good answer."
+      },
+      "verification-tiers": {
+        "title": "What the verification tiers mean",
+        "summary": "Four tiers, from phone check to independent audit.",
+        "h1": "The four tiers",
+        "p1": "Phone verified: the phone number was confirmed with a one-time code. GST verified: GSTIN and Udyam details were checked against official records. KYC verified: documents and a video KYC check passed. Audited: an independent physical or third-party audit, used only where a category needs it.",
+        "h2": "What a badge does and does not mean",
+        "p2": "A badge shows the highest tier a supplier has actually completed. It can never be bought, and it can be removed if a supplier later fails a check. Verification is one input to the trust score, which also reflects how a supplier behaves on the platform.",
+        "q": "Can a supplier pay for a higher badge?",
+        "ans": "No. Tiers come from checks, never from payment."
+      },
+      "how-ranked": {
+        "title": "How suppliers are ranked",
+        "summary": "Relevance multiplied by trust, never paid tier alone.",
+        "h1": "Relevance times trust",
+        "p1": "Results are ordered by how well they match what you searched for, adjusted by the supplier's trust score. Suppliers in the city you mention get a small boost.",
+        "h2": "Never by payment alone",
+        "p2": "A paid plan does not move a supplier up the normal results on its own. Anything paid is labelled. The current ranking rules, with their numbers, are published on the ranking and ads page.",
+        "q": "Does a paying supplier always rank first?",
+        "ans": "No. Position in normal results comes from relevance and trust, and paying more does not change it."
+      },
+      "sponsored-labels": {
+        "title": "Sponsored listings and how to spot them",
+        "summary": "Sponsored means advertisement, and it is always labelled.",
+        "h1": "Always labelled",
+        "p1": "A product marked Sponsored is an advertisement. It is shown in a separate, labelled block and never mixed into the normal order. Prices per click are public and fixed, with no bidding.",
+        "h2": "What cannot be bought",
+        "p2": "Verification badges and tiers, priority for the enquiries sellers receive, and position in normal search results are never for sale. Only suppliers above a minimum verification tier and trust score can advertise.",
+        "q": "Is a Sponsored product more trustworthy?",
+        "ans": "Not because it is sponsored. Check the verification tier and trust details on the supplier's profile, as you would for any result."
+      },
+      "lead-credits": {
+        "title": "How lead credits work",
+        "summary": "Sellers use a credit only when they accept a lead.",
+        "h1": "Pay only for accepted leads",
+        "p1": "Sellers buy lead credits. A credit is used only when you accept a lead, not when one is offered. Before you accept, you see the buyer's intent score, how many suppliers received the lead and your rank among them.",
+        "h2": "Public, self-serve pricing",
+        "p2": "Prices are published on the pricing page. Nothing upgrades on its own and nothing renews without your confirmation.",
+        "q": "Do I pay if I decline a lead?",
+        "ans": "No. A credit is used only on a lead you accept."
+      },
+      "decline-cascade": {
+        "title": "Declining a lead and the 2-hour cascade",
+        "summary": "Decline within 2 hours and the lead moves on to the next supplier.",
+        "h1": "You can say no",
+        "p1": "If a lead is not right for you, decline it within 2 hours. The slot passes straight to the next best matched supplier, so the buyer is not kept waiting.",
+        "h2": "Why it matters",
+        "p2": "Each lead goes to at most 3 suppliers, a number that can differ by category. A quick decline helps the buyer, and reliability in replying is part of a supplier's trust score.",
+        "q": "Does declining cost anything?",
+        "ans": "No credit is used when you decline."
+      },
+      "rollover-renewal": {
+        "title": "Credit rollover, renewals and upgrades",
+        "summary": "Credits roll over for 90 days and nothing renews or upgrades on its own.",
+        "h1": "90-day rollover",
+        "p1": "Unused lead credits roll over for 90 days instead of lapsing early, so a quiet month does not waste what you paid for.",
+        "h2": "No surprise charges",
+        "p2": "We never upgrade your plan automatically, and nothing renews without your confirmation. Changing plan or buying more credits is always your choice.",
+        "q": "Where can I see my credit balance?",
+        "ans": "In the seller app, where your balance and credit history are shown."
+      },
+      "auto-refund": {
+        "title": "Automatic refunds for unreachable or fake buyers",
+        "summary": "Lead credits come back within 72 hours when a buyer cannot be reached or is fake.",
+        "h1": "How it works",
+        "p1": "If a buyer turns out to be unreachable after automated outreach, or is flagged as fake, within 72 hours of the lead, the seller's lead credit is returned automatically.",
+        "h2": "No ticket needed",
+        "p2": "Sellers do not need to raise a support ticket or argue the case. The credit goes back to the balance and appears in the credit history.",
+        "q": "Is the refund money or credit?",
+        "ans": "The lead credit is returned to your balance so you can use it on other leads."
+      },
+      "payments-today": {
+        "title": "How payments work today",
+        "summary": "Deals close directly between buyer and supplier, and we hold no card data.",
+        "h1": "Deals close directly",
+        "p1": "In this phase, buyers and suppliers agree price, payment and delivery between themselves. We do not hold your money and we do not store card details.",
+        "h2": "Protect yourself",
+        "p2": "Confirm details in writing in the conversation, check the supplier's verification tier, and answer the did-this-close prompt so we know how it went. If something goes wrong, tell us.",
+        "q": "Does it cost anything to post a requirement?",
+        "ans": "No. Buyers can sign up and post requirements for free. Suppliers pay for the leads they accept."
+      },
+      "cookie-settings": {
+        "title": "Manage your cookie settings",
+        "summary": "Switch analytics and marketing cookies on or off at any time.",
+        "h1": "Change your choice any time",
+        "p1": "Open Cookie settings from the footer to switch Analytics and Marketing on or off. Strictly necessary storage stays on because sign-in, security and your language depend on it.",
+        "h2": "What each choice does",
+        "p2": "Analytics uses Microsoft Clarity to record anonymised usage, with form entries masked. Marketing remembers an anonymous visitor ID and which sponsored listing you clicked. Withdrawing consent is as easy as giving it.",
+        "q": "Where is the full list of cookies?",
+        "ans": "On the cookie policy page, which lists every item by category."
+      },
+      "data-export": {
+        "title": "Download, correct or erase your data",
+        "summary": "Use your rights under India's DPDP Act, in a few steps.",
+        "h1": "Download your data",
+        "p1": "When signed in, open Your account and choose Export data. You get a file with the personal data we hold about you.",
+        "h2": "Correct or erase",
+        "p2": "To correct or erase your personal data, or to withdraw a consent, raise a grievance and pick the matching category. We acknowledge it and respond within the legal timeline.",
+        "q": "Where is my data stored?",
+        "ans": "Personal data is stored and processed in India regions only."
+      },
+      "grievance": {
+        "title": "How to raise a grievance",
+        "summary": "Tell our Grievance Officer about a data, consent or content concern.",
+        "h1": "Who it goes to",
+        "p1": "Use the grievance form for a concern about your personal data, your consent or content on the platform. It goes straight to our Grievance Officer. Give an email address so we can reply.",
+        "h2": "What happens next",
+        "p2": "You get a reference number, and we acknowledge and respond within the statutory window shown on the form. Signed-in people can follow the status under Your account, Grievances. If you are not satisfied, you may complain to the Data Protection Board of India.",
+        "q": "Can I raise a grievance without signing in?",
+        "ans": "Yes. Add your email address so we can reply."
+      },
+      "report-abuse": {
+        "title": "Report a listing, supplier or message",
+        "summary": "Tell us about fake listings, prohibited products or abusive messages.",
+        "h1": "How to report",
+        "p1": "Use the report page to tell us about a fake listing, a misleading supplier, a prohibited product or an abusive message. Add links or references and describe what happened.",
+        "h2": "What we do",
+        "p2": "Our team reviews reports. Listings in prohibited categories are removed, and a supplier found to be fraudulent can lose their verification badge.",
+        "q": "Should I report or raise a grievance?",
+        "ans": "Report anything unsafe or fake on the platform. Raise a grievance for your personal data, your consent or a content moderation complaint."
+      },
+      "stay-safe": {
+        "title": "Staying safe when you buy",
+        "summary": "Check before you commit, and know the red flags.",
+        "h1": "Check before you commit",
+        "p1": "Look at the verification tier and trust details on the supplier's profile, and compare quotes from more than one supplier. Ask for a sample or a written quote before you pay anything.",
+        "h2": "Red flags",
+        "p2": "Be careful if a supplier asks for a large advance to a personal account, pushes you to leave the platform at once, or will not confirm details in writing. Tell us using the report page.",
+        "q": "Will you ever ask for my password or card?",
+        "ans": "No. We hold no card data in this phase and never ask for your password. Do not share one-time codes with anyone."
+      }
+    }
+  }
+}

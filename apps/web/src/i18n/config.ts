@@ -130,7 +130,7 @@ export function splitLocale(pathname: string): { locale: Locale; prefixed: boole
  * Public path prefixes that exist per locale (the [locale] route tree). Everything else (account, buyer, rfq, auth,
  * storefronts, APIs) is not localised yet and stays unprefixed and English.
  */
-export const LOCALIZED_PREFIXES = ["/search", "/categories", "/c/", "/s/", "/p/", "/products/", "/manufacturers", "/pricing", "/ranking-and-ads", "/dispute-policy", "/cookies", "/terms", "/privacy", "/refund-policy", "/prohibited-items", "/report", "/about", "/contact", "/trust", "/accessibility", "/security", "/sitemap", "/coming-soon/"] as const;
+export const LOCALIZED_PREFIXES = ["/search", "/categories", "/c/", "/s/", "/p/", "/products/", "/manufacturers", "/pricing", "/ranking-and-ads", "/dispute-policy", "/cookies", "/help", "/terms", "/privacy", "/refund-policy", "/prohibited-items", "/report", "/about", "/contact", "/trust", "/accessibility", "/security", "/sitemap", "/offline", "/coming-soon/"] as const;
 
 export function isLocalizedPath(rest: string): boolean {
   return rest === "/" || LOCALIZED_PREFIXES.some((p) => (p.endsWith("/") ? rest.startsWith(p) : rest === p || rest.startsWith(`${p}/`)));

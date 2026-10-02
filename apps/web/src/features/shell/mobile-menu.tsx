@@ -2,11 +2,11 @@
 import { Menu, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import { Badge, buttonClasses } from "@cnote/ui";
+import { buttonClasses } from "@cnote/ui";
 import { useUserState } from "@/features/user-state/store";
 import { LanguageSwitcher } from "@/i18n/language-switcher";
 import { LocaleLink as Link } from "@/i18n/link";
-import { NAV, SELLER_APP_URL, SITE_NAME } from "./site";
+import { SELLER_APP_URL, SITE_NAME, visibleNav } from "./site";
 
 /** Mobile navigation sheet (dialog with Esc-to-close and scroll lock). */
 export function MobileMenu() {
@@ -74,7 +74,12 @@ export function MobileMenu() {
               </button>
             </div>
             <nav aria-label={t("mobileNav")} className="mt-2 flex flex-col">
-              {NAV.map((g) => (
+              {visibleNav().map((g) =>
+                g.href ? (
+                  <Link key={g.key} href={g.href} className="flex min-h-12 items-center border-b border-line text-base font-semibold text-ink focus-visible:outline-2 focus-visible:outline-brand-600">
+                    {t(`nav.${g.key}`)}
+                  </Link>
+                ) : (
                 <details key={g.key} className="group border-b border-line">
                   <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between text-base font-semibold text-ink focus-visible:outline-2 focus-visible:outline-brand-600 [&::-webkit-details-marker]:hidden">
                     {t(`nav.${g.key}`)}
@@ -87,13 +92,13 @@ export function MobileMenu() {
                       <li key={it.href}>
                         <Link href={it.href} className="flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm text-ink hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-600">
                           {t(`nav.${it.key}`)}
-                          {it.soon ? <Badge tone="brand">{t("comingSoon")}</Badge> : null}
                         </Link>
                       </li>
                     ))}
                   </ul>
                 </details>
-              ))}
+                ),
+              )}
             </nav>
             <div className="mt-4 flex flex-col gap-2">
               <Link href="/rfq/new" className={buttonClasses("accent", "lg")}>

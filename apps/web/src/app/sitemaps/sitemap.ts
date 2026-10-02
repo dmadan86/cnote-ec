@@ -5,6 +5,7 @@ import { absoluteUrl } from "@/lib/site-url";
 import { loadCategories, loadLandingKeywords, loadListingIndex, loadSellerIndex } from "@/features/search/data";
 import { CONSENT_POLICY_UPDATED } from "@/features/consent/state";
 import { LEGAL_DOCS } from "@/features/legal/docs";
+import { ARTICLES, helpPath, TOPIC_IDS } from "@/features/help/articles";
 import { CHUNK, sitemapLayout } from "@/features/seo/sitemap-layout";
 import { topStorefrontSlugs } from "@/features/storefront/data";
 import { platformCanonicalStorefronts } from "@/features/storefront/seo";
@@ -15,6 +16,8 @@ export const revalidate = 3600;
 
 // Every localised public URL lists its language alternates (hreflang en-IN / hi-IN / x-default) as <xhtml:link>.
 const alt = (path: string) => ({ languages: sitemapLanguages(path, absoluteUrl) });
+
+const HELP_PATHS = [...TOPIC_IDS.map((t) => `/help/${t}`), ...ARTICLES.map(helpPath)];
 
 export async function generateSitemaps() {
   return (await sitemapLayout()).ids.map((id) => ({ id }));
@@ -47,6 +50,8 @@ export default async function sitemap(props: { id: Promise<string> }): Promise<M
         ] as const
       ).map(([path, doc]) => ({ url: absoluteUrl(path), alternates: alt(path), lastModified: new Date(LEGAL_DOCS[doc].effective), changeFrequency: "yearly" as const, priority: 0.3 })),
       ...(["/about", "/contact", "/trust", "/accessibility", "/security", "/report", "/sitemap"] as const).map((path) => ({ url: absoluteUrl(path), alternates: alt(path), lastModified: now, changeFrequency: "yearly" as const, priority: 0.3 })),
+      { url: absoluteUrl("/help"), alternates: alt("/help"), lastModified: now, changeFrequency: "monthly", priority: 0.5 },
+      ...HELP_PATHS.map((path) => ({ url: absoluteUrl(path), alternates: alt(path), lastModified: now, changeFrequency: "monthly" as const, priority: 0.4 })),
       ...categories.map((c) => ({ url: absoluteUrl(categoryPath(c.slug)), alternates: alt(categoryPath(c.slug)), lastModified: now, changeFrequency: "daily" as const, priority: 0.8 })),
       ...Object.entries(keywords).flatMap(([cat, list]) => list.map((kw) => ({ url: absoluteUrl(landingPath(cat, kw)), alternates: alt(landingPath(cat, kw)), lastModified: now, changeFrequency: "weekly" as const, priority: 0.6 }))),
       // Seller storefronts canonical on the marketplace (custom-domain storefronts are indexed on their own host).
