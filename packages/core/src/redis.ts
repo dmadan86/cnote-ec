@@ -7,6 +7,41 @@ export const redis =
   new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", { maxRetriesPerRequest: 3, lazyConnect: false });
 if (process.env.NODE_ENV !== "production") globalForRedis.redis = redis;
 
+const blockingByBase = new WeakMap<Redis, Map<string, Redis>>();
+const allBlocking = new Set<Redis>();
+
+/**
+ * A dedicated connection for blocking reads (XREADGROUP … BLOCK). Redis runs one command at a time per connection, so a
+ * blocking read on the shared client queues everything else behind it: with one BLOCK 1000 per consumer group, an outbox
+ * publish waited ~25s and timed out its Prisma transaction. One duplicate per (base client, key), created lazily.
+ */
+export function blockingConnection(base: Redis, key: string): Redis {
+  let byKey = blockingByBase.get(base);
+  if (!byKey) blockingByBase.set(base, (byKey = new Map()));
+  let conn = byKey.get(key);
+  if (!conn) {
+    conn = base.duplicate();
+    byKey.set(key, conn);
+    allBlocking.add(conn);
+  }
+  return conn;
+}
+
+/** Close every dedicated blocking connection (shutdown, tests). */
+export async function closeBlockingConnections(): Promise<void> {
+  const conns = [...allBlocking];
+  allBlocking.clear();
+  await Promise.all(
+    conns.map(async (c) => {
+      try {
+        await c.quit();
+      } catch {
+        c.disconnect();
+      }
+    }),
+  );
+}
+
 /** Cache-aside helper. */
 export async function cached<T>(key: string, ttlSeconds: number, load: () => Promise<T>): Promise<T> {
   const hit = await redis.get(key);

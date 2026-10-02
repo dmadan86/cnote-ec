@@ -37,10 +37,6 @@
       "expire": "Expired"
     },
     "cancelPlan": "Cancel plan",
-    "cancelConfirmText": "Cancel your plan? It stops on {date}. Credits you already have stay usable until they expire. You can start a plan again any time.",
-    "confirmCancel": "Yes, cancel plan",
-    "keepPlan": "Keep my plan",
-    "cancelling": "Cancelling…",
     "checkout": {
       "metaTitle": "Order summary",
       "title": "Order summary",

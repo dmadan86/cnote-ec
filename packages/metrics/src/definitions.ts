@@ -306,7 +306,8 @@ export const METRICS: readonly MetricDefinition[] = [
   count("enquiries_created", "Enquiries created", "ADR-002", ["EnquiryCreated"], "Enquiries created by buyers."),
   count("orders_recorded", "Orders recorded", "ADR-007", ["OrderRecorded"], "Orders recorded against a match (off-platform in Phase 1)."),
   count("subscription_starts", "Subscription starts", "ADR-005", ["SubscriptionStarted"], "Plan subscriptions started."),
-  count("subscription_cancels", "Subscription cancels", "ADR-005", ["SubscriptionCancelled"], "Plan subscriptions cancelled."),
+  count("subscription_cancels", "Subscription cancels", "ADR-005", ["SubscriptionCancelled"], "Plan subscriptions that ended after being cancelled."),
+  count("refund_dead_letters", "Refunds dead-lettered", "ADR-005", ["RefundDeadLettered"], "Refunds that exhausted their automatic retries and need ops action (alert on any)."),
   count("credits_consumed", "Credits consumed", "ADR-005", ["CreditConsumed"], "Credit ledger consumptions (lead unlocks)."),
   count("credits_refunded", "Credits refunded", "ADR-005", ["CreditRefunded"], "Credit ledger refunds."),
   // ---- Phase 2 (flagged modules; these stay empty until the flags are on) ----

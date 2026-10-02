@@ -2,7 +2,8 @@ import type { PlanView } from "@cnote/billing";
 import { Badge, Card, CardBody, CardTitle, Money } from "@cnote/ui";
 import { Check } from "lucide-react";
 
-export function PlanCards({ plans, sellerUrl, cta, ctaFree }: { plans: PlanView[]; sellerUrl?: string; cta?: string; ctaFree?: string }) {
+/** `annualLines` maps a plan code to its already-translated annual price line (ADR-005 annual billing). */
+export function PlanCards({ plans, sellerUrl, cta, ctaFree, annualLines }: { plans: PlanView[]; sellerUrl?: string; cta?: string; ctaFree?: string; annualLines?: Record<string, string> }) {
   return (
     <div className="grid gap-4 md:grid-cols-3">
       {plans.map((p) => (
@@ -16,6 +17,7 @@ export function PlanCards({ plans, sellerUrl, cta, ctaFree }: { plans: PlanView[
               {p.monthlyPricePaise === 0 ? "₹0" : <Money paise={p.monthlyPricePaise} />}
               <span className="text-sm font-normal text-muted"> / month</span>
             </p>
+            {annualLines?.[p.code] ? <p className="-mt-2 text-sm text-ink">{annualLines[p.code]}</p> : null}
             <p className="text-sm text-ink">
               <strong>{p.monthlyCredits}</strong> lead credits every month
               {p.monthlyPricePaise > 0 ? <span className="text-muted"> (about ₹{Math.round(p.monthlyPricePaise / 100 / p.monthlyCredits)} per lead)</span> : null}

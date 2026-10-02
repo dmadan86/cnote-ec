@@ -6,11 +6,11 @@ import { grantCreditsTx } from "./ledger";
 import { getPlan } from "./plans";
 import { activatePlanTx } from "./subscriptions";
 import {
-  configuredProvider, getProvider, isProviderName, mockSign, type CustomerInfo, type ParsedWebhook, type ProviderName,
+  configuredProvider, getProvider, isProviderName, mockAllowed, mockSign, type CustomerInfo, type ParsedWebhook, type ProviderName,
 } from "./payment-providers";
 import { issueInvoiceTx, isIntraState, placeOfSupply, platformSupplier, splitGst, type InvoiceLineInput, type InvoiceView } from "./invoices";
 import { loadParty } from "./parties";
-import type { CancellationQuote } from "./types";
+import { planPeriodPricePaise, type BillingInterval } from "./pricing";
 
 export { configuredProvider, type ProviderName, type PaymentProvider } from "./payment-providers";
 
@@ -55,7 +55,7 @@ export function registerPaymentPurpose(purpose: string, h: PurposeHandler): void
 
 export interface CheckoutActor extends CustomerInfo { businessId: string }
 export type CheckoutInput =
-  | { purpose: "subscription"; planCode: string; couponCode?: string }
+  | { purpose: "subscription"; planCode: string; couponCode?: string; interval?: BillingInterval }
   | { purpose: "credit_pack"; packId: string; couponCode?: string };
 export interface CheckoutQuote {
   description: string; listPaise: number; discountPaise: number; taxablePaise: number; gstPaise: number; totalPaise: number;
@@ -76,11 +76,22 @@ export function decodeRef(v: string | null): { ref: string; couponId: string | n
 
 // ---- quote + start checkout ----------------------------------------------------------------------------------------
 
+/** purposeRef for a subscription: "<planCode>" (monthly) or "<planCode>:annual". */
+const planRef = (code: string, interval: BillingInterval) => (interval === "annual" ? `${code}:annual` : code);
+export function parsePlanRef(ref: string): { planCode: string; interval: BillingInterval } {
+  const [planCode = "", i] = ref.split(":");
+  return { planCode, interval: i === "annual" ? "annual" : "monthly" };
+}
+
 async function resolveItem(input: CheckoutInput): Promise<{ ref: string; description: string; listPaise: number; planCode?: string }> {
   if (input.purpose === "subscription") {
     const plan = await getPlan(input.planCode);
     if (plan.monthlyPricePaise <= 0) throw new DomainError("validation", "The free plan needs no payment.");
-    return { ref: plan.code, description: `${plan.name} plan - 1 month (${plan.monthlyCredits} lead credits)`, listPaise: plan.monthlyPricePaise, planCode: plan.code };
+    const interval: BillingInterval = input.interval === "annual" ? "annual" : "monthly";
+    const description = interval === "annual"
+      ? `${plan.name} plan - 12 months (${plan.monthlyCredits} lead credits every month)`
+      : `${plan.name} plan - 1 month (${plan.monthlyCredits} lead credits)`;
+    return { ref: planRef(plan.code, interval), description, listPaise: planPeriodPricePaise(plan, interval), planCode: plan.code };
   }
   const pack = CREDIT_PACKS.find((p) => p.id === input.packId);
   if (!pack) throw new DomainError("not_found", "Credit pack not found");
@@ -113,7 +124,10 @@ const bn = (n: number) => BigInt(n);
 export async function startCheckout(actor: CheckoutActor, input: CheckoutInput): Promise<CheckoutResult> {
   if (input.purpose === "subscription") {
     const cur = await prisma.subscription.findFirst({ where: { businessId: actor.businessId, status: "active", periodEnd: { gt: new Date() } } });
-    if (cur?.planCode === input.planCode) throw new DomainError("conflict", "You are already on this plan.");
+    // Re-buying the same plan is allowed to switch the interval, or to renew explicitly shortly before the period ends (no auto-renew, ADR-005).
+    const wanted: BillingInterval = input.interval === "annual" ? "annual" : "monthly";
+    const renewing = !!cur && cur.periodEnd.getTime() - Date.now() <= 14 * 86_400_000;
+    if (cur?.planCode === input.planCode && cur.billingInterval === wanted && !renewing && !cur.cancelAtPeriodEnd) throw new DomainError("conflict", "You are already on this plan.");
   }
   const q = await quoteCheckout(actor, input);
   return createProviderOrder(actor, {
@@ -177,9 +191,10 @@ export async function fulfilOrder(orderId: string, info: { providerPaymentId?: s
     let description = `${order.purpose} ${ref.ref}`;
     let sac = platformSupplier().sac;
     if (order.purpose === "subscription") {
-      const plan = await getPlan(ref.ref);
-      await activatePlanTx(tx, order.businessId, plan.code, { allowSame: true });
-      description = `${plan.name} plan - 1 month`;
+      const { planCode, interval } = parsePlanRef(ref.ref);
+      const plan = await getPlan(planCode);
+      await activatePlanTx(tx, order.businessId, plan.code, { allowSame: true, interval, paymentOrderId: order.id });
+      description = `${plan.name} plan - ${interval === "annual" ? "12 months" : "1 month"}`;
     } else if (order.purpose === "credit_pack") {
       const pack = CREDIT_PACKS.find((p) => p.id === ref.ref);
       if (!pack) throw new DomainError("not_found", "Credit pack not found");
@@ -272,7 +287,9 @@ export async function handlePaymentWebhook(providerName: string, raw: Uint8Array
   }
   try {
     let error: string | null = null;
-    if (parsed.outcome !== "ignored") {
+    if (parsed.refund) {
+      await applyRefundNotice(parsed.refund);
+    } else if (parsed.outcome !== "ignored") {
       if (!orderId) error = "unknown_order";
       else if (parsed.outcome === "paid") await fulfilOrder(orderId, { providerPaymentId: parsed.providerPaymentId, amountPaise: parsed.amountPaise });
       else await failOrder(orderId, parsed.failureReason ?? "payment_failed");
@@ -290,7 +307,7 @@ export async function handlePaymentWebhook(providerName: string, raw: Uint8Array
 const view = (o: OrderRow & { refunds?: { amountPaise: bigint; status: string }[]; invoice?: { id: string } | null }): PaymentOrderView => ({
   id: o.id, businessId: o.businessId, purpose: o.purpose, purposeRef: o.purposeRef, provider: o.provider, status: o.status, amountPaise: Number(o.amountPaise), gstPaise: Number(o.gstPaise),
   totalPaise: Number(o.totalPaise), discountPaise: Number(o.discountPaise), couponCode: o.couponCode, failureReason: o.failureReason, fulfilledAt: o.fulfilledAt?.toISOString() ?? null,
-  createdAt: o.createdAt.toISOString(), refundedPaise: (o.refunds ?? []).filter((r) => r.status !== "failed").reduce((a, r) => a + Number(r.amountPaise), 0), invoiceId: o.invoice?.id ?? null,
+  createdAt: o.createdAt.toISOString(), refundedPaise: (o.refunds ?? []).filter((r) => r.status !== "failed" && r.status !== "dead").reduce((a, r) => a + Number(r.amountPaise), 0), invoiceId: o.invoice?.id ?? null,
 });
 
 /** Owner view + reconciliation: if the webhook is late, ask the provider once and fulfil from its answer. */
@@ -309,7 +326,7 @@ export async function getPaymentStatus(actor: { businessId: string }, orderId: s
 
 /** Dev only: the local "pay" page. Signs a mock webhook and pushes it through the real webhook path. */
 export async function completeMockPayment(actor: { businessId: string }, orderId: string, outcome: "paid" | "failed" = "paid"): Promise<PaymentOrderView> {
-  if (process.env.NODE_ENV === "production" && process.env.PAYMENTS_ALLOW_MOCK_IN_PRODUCTION !== "1") throw new DomainError("forbidden", "Mock payments are disabled");
+  if (!mockAllowed()) throw new DomainError("forbidden", "Mock payments are disabled");
   const o = await prisma.paymentOrder.findUnique({ where: { id: orderId } });
   if (!o || o.businessId !== actor.businessId || o.provider !== "mock") throw new DomainError("not_found", "Payment not found");
   const body = JSON.stringify(
@@ -346,37 +363,35 @@ export async function getPaymentOrderDetail(orderId: string) {
 }
 
 // ---- refunds -----------------------------------------------------------------------------------------------------
+// Row states: pending (providerRefundId null = reserved, call not answered yet; set = the provider accepted it, awaiting
+// confirmation), processed (confirmed: provider said so or sent a webhook), retrying (provider call failed, the retry job
+// resends with the same idempotency key = row id), dead (retries exhausted: alert + metric), failed (staff refund that errored).
 
-/**
- * Refund (full or partial) of a paid order: reserve under the order lock -> provider refund -> credit note -> event.
- * `staffId` is recorded in the reason for the audit trail (the admin app also wraps the call in audited()).
- */
-export async function refundPayment(orderId: string, amountPaise: number, reason: string, staffId?: string): Promise<{ refundId: string; creditNoteNumber: string | null; status: string }> {
-  if (!Number.isInteger(amountPaise) || amountPaise <= 0) throw new DomainError("validation", "Refund amount must be a positive number of paise");
-  if (!reason.trim()) throw new DomainError("validation", "A refund reason is required");
-  const fullReason = staffId ? `${reason.trim()} (by staff ${staffId})` : reason.trim();
-  const { refund, order } = await prisma.$transaction(async (tx) => {
-    const o = await lockOrder(tx, orderId);
-    if (!o) throw new DomainError("not_found", "Payment order not found");
-    if (!o.fulfilledAt || (o.status !== "paid" && o.status !== "partially_refunded")) throw new DomainError("conflict", "Only paid orders can be refunded");
-    const prior = await tx.paymentRefund.findMany({ where: { paymentOrderId: o.id, status: { not: "failed" } } });
-    const already = prior.reduce((a, r) => a + Number(r.amountPaise), 0);
-    if (already + amountPaise > Number(o.totalPaise)) throw new DomainError("validation", "Refund exceeds the amount paid");
-    const r = await tx.paymentRefund.create({ data: { paymentOrderId: o.id, amountPaise: bn(amountPaise), reason: fullReason } });
-    return { refund: r, order: o };
+export const REFUND_MAX_ATTEMPTS = 6;
+/** 10 min, 20, 40, 80, 160 ... capped at 12 h; `attempts` = provider calls made so far. */
+export const refundBackoffMs = (attempts: number): number => Math.min(10 * 60_000 * 2 ** Math.max(0, attempts - 1), 12 * 3_600_000);
+const REFUND_LEASE_MS = 5 * 60_000;
+const COUNTED = { notIn: ["failed", "dead"] };
+
+type ProviderRefund = { providerRefundId: string; status: "processed" | "pending" };
+type RefundRow = NonNullable<Awaited<ReturnType<typeof prisma.paymentRefund.findUnique>>>;
+
+function sendToProvider(order: OrderRow, refund: RefundRow): Promise<ProviderRefund> {
+  return getProvider(order.provider as ProviderName).refund({
+    orderId: order.id, providerOrderId: order.providerOrderId, providerPaymentId: order.providerPaymentId, amountPaise: Number(refund.amountPaise), refundId: refund.id, reason: refund.reason,
   });
-  let providerRefund: { providerRefundId: string; status: "processed" | "pending" };
-  try {
-    providerRefund = await getProvider(order.provider as ProviderName).refund({
-      orderId: order.id, providerOrderId: order.providerOrderId, providerPaymentId: order.providerPaymentId, amountPaise, refundId: refund.id, reason: fullReason,
-    });
-  } catch (e) {
-    await prisma.paymentRefund.update({ where: { id: refund.id }, data: { status: "failed" } });
-    throw e;
-  }
+}
+
+/** Provider accepted the refund: credit note, order status and events, once (re-running on a finished row is a no-op). */
+async function finalizeRefund(refundId: string, pr: ProviderRefund): Promise<{ refundId: string; creditNoteNumber: string | null; status: string }> {
   return prisma.$transaction(async (tx) => {
-    const o = (await lockOrder(tx, orderId))!;
-    const original = await tx.invoice.findUnique({ where: { paymentOrderId: orderId } });
+    const row0 = await tx.paymentRefund.findUnique({ where: { id: refundId } });
+    if (!row0) throw new DomainError("not_found", "Refund not found");
+    const o = (await lockOrder(tx, row0.paymentOrderId))!;
+    const row = (await tx.paymentRefund.findUnique({ where: { id: refundId } }))!;
+    if (row.providerRefundId && (row.status === "pending" || row.status === "processed")) return { refundId, creditNoteNumber: null, status: row.status };
+    const amountPaise = Number(row.amountPaise);
+    const original = await tx.invoice.findUnique({ where: { paymentOrderId: o.id } });
     let noteId: string | null = null;
     let noteNumber: string | null = null;
     if (original) {
@@ -388,23 +403,129 @@ export async function refundPayment(orderId: string, amountPaise: number, reason
       noteId = note.id;
       noteNumber = note.number;
     }
-    await tx.paymentRefund.update({ where: { id: refund.id }, data: { status: providerRefund.status, providerRefundId: providerRefund.providerRefundId, creditNoteId: noteId } });
-    const total = (await tx.paymentRefund.findMany({ where: { paymentOrderId: o.id, status: { not: "failed" } } })).reduce((a, r) => a + Number(r.amountPaise), 0);
+    await tx.paymentRefund.update({ where: { id: refundId }, data: { status: pr.status, providerRefundId: pr.providerRefundId, creditNoteId: noteId, nextAttemptAt: null, lastError: null } });
+    const total = (await tx.paymentRefund.findMany({ where: { paymentOrderId: o.id, status: COUNTED, providerRefundId: { not: null } } })).reduce((a, r) => a + Number(r.amountPaise), 0);
     await tx.paymentOrder.update({ where: { id: o.id }, data: { status: total >= Number(o.totalPaise) ? "refunded" : "partially_refunded" } });
     await emit(tx, "PaymentRefunded", { type: "payment_order", id: o.id }, { paymentOrderId: o.id, businessId: o.businessId, amountPaise, creditNoteNumber: noteNumber });
-    return { refundId: refund.id, creditNoteNumber: noteNumber, status: providerRefund.status };
+    if (pr.status === "processed") await emit(tx, "RefundCompleted", { type: "payment_order", id: o.id }, { refundId, paymentOrderId: o.id, businessId: o.businessId, amountPaise });
+    return { refundId, creditNoteNumber: noteNumber, status: pr.status };
   });
 }
 
-/** Annual-plan cancel: refund the pro-rata share of what was actually paid (tax-inclusive, coupon-aware). */
-export async function refundForCancellation(businessId: string, quote: CancellationQuote): Promise<void> {
-  if (quote.refundPaise <= 0) return;
-  const plan = await getPlan(quote.planCode);
-  const order = await prisma.paymentOrder.findFirst({
-    where: { businessId, purpose: "subscription", status: { in: ["paid", "partially_refunded"] }, purposeRef: { startsWith: quote.planCode } },
-    orderBy: { fulfilledAt: "desc" },
+/**
+ * Refund (full or partial) of a paid order: reserve under the order lock -> provider refund -> credit note -> event.
+ * `staffId` is recorded in the reason for the audit trail (the admin app also wraps the call in audited()).
+ * `opts.retry` (cancellations): a provider failure does not throw; the row goes to "retrying" and the billing.refund-retry job
+ * resends it with backoff. Without it the failure is thrown to the caller and the row is "failed".
+ */
+export async function refundPayment(orderId: string, amountPaise: number, reason: string, staffId?: string, opts: { retry?: boolean } = {}): Promise<{ refundId: string; creditNoteNumber: string | null; status: string }> {
+  if (!Number.isInteger(amountPaise) || amountPaise <= 0) throw new DomainError("validation", "Refund amount must be a positive number of paise");
+  if (!reason.trim()) throw new DomainError("validation", "A refund reason is required");
+  const fullReason = staffId ? `${reason.trim()} (by staff ${staffId})` : reason.trim();
+  const { refund, order } = await prisma.$transaction(async (tx) => {
+    const o = await lockOrder(tx, orderId);
+    if (!o) throw new DomainError("not_found", "Payment order not found");
+    if (!o.fulfilledAt || (o.status !== "paid" && o.status !== "partially_refunded")) throw new DomainError("conflict", "Only paid orders can be refunded");
+    const prior = await tx.paymentRefund.findMany({ where: { paymentOrderId: o.id, status: COUNTED } });
+    const already = prior.reduce((a, r) => a + Number(r.amountPaise), 0);
+    if (already + amountPaise > Number(o.totalPaise)) throw new DomainError("validation", "Refund exceeds the amount paid");
+    const r = await tx.paymentRefund.create({ data: { paymentOrderId: o.id, amountPaise: bn(amountPaise), reason: fullReason, autoRetry: !!opts.retry } });
+    return { refund: r, order: o };
   });
-  if (!order || plan.monthlyPricePaise <= 0) return; // dev/manual subscriptions have nothing to refund
-  const amount = Math.floor((Number(order.totalPaise) * quote.refundPaise) / plan.monthlyPricePaise);
-  if (amount > 0) await refundPayment(order.id, amount, `Pro-rata refund on cancelling ${quote.planCode}`);
+  let pr: ProviderRefund;
+  try {
+    pr = await sendToProvider(order, refund);
+  } catch (e) {
+    const msg = String(e instanceof Error ? e.message : e).slice(0, 300);
+    if (!opts.retry) {
+      await prisma.paymentRefund.update({ where: { id: refund.id }, data: { status: "failed", attempts: 1, lastError: msg } });
+      throw e;
+    }
+    await prisma.paymentRefund.update({ where: { id: refund.id }, data: { status: "retrying", attempts: 1, lastError: msg, nextAttemptAt: new Date(Date.now() + refundBackoffMs(1)) } });
+    console.error(`[billing] refund ${refund.id} failed, will retry automatically: ${msg}`);
+    return { refundId: refund.id, creditNoteNumber: null, status: "retrying" };
+  }
+  await prisma.paymentRefund.update({ where: { id: refund.id }, data: { attempts: 1 } });
+  return finalizeRefund(refund.id, pr);
+}
+
+/**
+ * Job: resend refunds whose provider call failed. Idempotent per refund row: a compare-and-set lease claims the row (two
+ * workers never both send) and the provider gets the row id as its idempotency key (a resend after a lost response cannot
+ * refund twice). After REFUND_MAX_ATTEMPTS the row is dead-lettered: RefundDeadLettered event (metric) plus a loud log for ops.
+ */
+export async function retryDueRefunds(now = new Date()): Promise<{ attempted: number; succeeded: number; dead: number }> {
+  const due = await prisma.paymentRefund.findMany({ where: { status: "retrying", nextAttemptAt: { lte: now } }, orderBy: { nextAttemptAt: "asc" }, take: 50 });
+  const out = { attempted: 0, succeeded: 0, dead: 0 };
+  for (const d of due) {
+    const { count } = await prisma.paymentRefund.updateMany({
+      where: { id: d.id, status: "retrying", nextAttemptAt: { lte: now } },
+      data: { attempts: { increment: 1 }, nextAttemptAt: new Date(now.getTime() + REFUND_LEASE_MS) },
+    });
+    if (count === 0) continue;
+    out.attempted++;
+    const row = (await prisma.paymentRefund.findUnique({ where: { id: d.id } }))!;
+    const order = (await prisma.paymentOrder.findUnique({ where: { id: row.paymentOrderId } }))!;
+    try {
+      await finalizeRefund(row.id, await sendToProvider(order, row));
+      out.succeeded++;
+    } catch (e) {
+      const msg = String(e instanceof Error ? e.message : e).slice(0, 300);
+      if (row.attempts >= REFUND_MAX_ATTEMPTS) {
+        await deadLetter(row.id, msg);
+        out.dead++;
+      } else {
+        await prisma.paymentRefund.update({ where: { id: row.id }, data: { lastError: msg, nextAttemptAt: new Date(now.getTime() + refundBackoffMs(row.attempts)) } });
+      }
+    }
+  }
+  return out;
+}
+
+async function deadLetter(refundId: string, lastError: string | null): Promise<void> {
+  const r = await prisma.$transaction(async (tx) => {
+    const row = await tx.paymentRefund.findUnique({ where: { id: refundId }, include: { paymentOrder: true } });
+    if (!row || row.status === "dead" || row.status === "processed") return null;
+    await tx.paymentRefund.update({ where: { id: refundId }, data: { status: "dead", nextAttemptAt: null, lastError } });
+    await emit(tx, "RefundDeadLettered", { type: "payment_order", id: row.paymentOrderId }, {
+      refundId, paymentOrderId: row.paymentOrderId, businessId: row.paymentOrder.businessId, amountPaise: Number(row.amountPaise), attempts: row.attempts, lastError,
+    });
+    return row;
+  });
+  if (r) console.error(`[billing] ALERT: refund ${refundId} (${r.amountPaise} paise, order ${r.paymentOrderId}) is dead-lettered after ${r.attempts} attempts and needs manual action: ${lastError ?? ""}`);
+}
+
+/** Provider webhook about a refund we sent (confirmation or failure). Unknown refunds are ignored. */
+async function applyRefundNotice(n: NonNullable<ParsedWebhook["refund"]>): Promise<void> {
+  // Cashfree echoes our refund id without dashes.
+  const rid = n.refundId ?? "";
+  const compact = /^[0-9a-f]{32}$/i.test(rid) ? `${rid.slice(0, 8)}-${rid.slice(8, 12)}-${rid.slice(12, 16)}-${rid.slice(16, 20)}-${rid.slice(20)}`.toLowerCase() : rid;
+  const ids = /^[0-9a-f-]{36}$/i.test(compact) ? [compact] : [];
+  const or = [...(n.providerRefundId ? [{ providerRefundId: n.providerRefundId }] : []), ...(ids.length ? [{ id: { in: ids } }] : [])];
+  if (or.length === 0) return;
+  const row = await prisma.paymentRefund.findFirst({ where: { OR: or }, include: { paymentOrder: true } });
+  if (!row) return;
+  if (n.status === "failed") {
+    if (row.status === "pending" && row.providerRefundId) await deadLetter(row.id, "provider reported the refund as failed");
+    return;
+  }
+  await prisma.$transaction(async (tx) => {
+    const { count } = await tx.paymentRefund.updateMany({ where: { id: row.id, status: "pending", providerRefundId: { not: null } }, data: { status: "processed" } });
+    if (count === 0) return;
+    await emit(tx, "RefundCompleted", { type: "payment_order", id: row.paymentOrderId }, { refundId: row.id, paymentOrderId: row.paymentOrderId, businessId: row.paymentOrder.businessId, amountPaise: Number(row.amountPaise) });
+  });
+}
+
+export type RefundDisplayStatus = "completed" | "initiated" | "processing" | "attention";
+export interface RefundView { id: string; amountPaise: number; status: RefundDisplayStatus; createdAt: string }
+/** What the seller may be told: "initiated" only once the provider accepted it, "processing" while we retry, "completed" when confirmed. */
+export function refundDisplayStatus(r: { status: string; providerRefundId: string | null }): RefundDisplayStatus {
+  if (r.status === "processed") return "completed";
+  if (r.status === "pending" && r.providerRefundId) return "initiated";
+  if (r.status === "dead" || r.status === "failed") return "attention";
+  return "processing";
+}
+export async function listBusinessRefunds(businessId: string, limit = 10): Promise<RefundView[]> {
+  const rows = await prisma.paymentRefund.findMany({ where: { paymentOrder: { businessId } }, orderBy: { createdAt: "desc" }, take: limit });
+  return rows.map((r) => ({ id: r.id, amountPaise: Number(r.amountPaise), status: refundDisplayStatus(r), createdAt: r.createdAt.toISOString() }));
 }

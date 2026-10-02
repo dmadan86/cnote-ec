@@ -1,7 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { addDays, balanceAt, CREDIT_TTL_DAYS, lapsedRemainders, replayLots, spendableLots, type LedgerRow } from "../src/credits";
-import { proRataRefundPaise } from "../src/subscriptions";
 
 const T0 = new Date("2026-01-01T00:00:00Z");
 const DAY = 86_400_000;
@@ -132,28 +131,5 @@ describe("credit expiry boundaries (ADR-005 90-day rollover)", () => {
     const e2: LedgerRow = { ...e1, id: "e2", refId: "g" };
     expect(replayLots([g, e1])[0]!.remaining).toBe(5);
     expect(replayLots([g, e2])[0]!.remaining).toBe(0);
-  });
-});
-
-describe("proRataRefundPaise properties", () => {
-  it("is 0 for <=35-day periods; otherwise within [0, price], monotonic non-increasing in elapsed time", () => {
-    fc.assert(
-      fc.property(fc.integer({ min: 0, max: 5_000_000 }), fc.integer({ min: 1, max: 800 }), fc.integer({ min: -50, max: 900 }), fc.integer({ min: 0, max: 50 }), (price, days, elapsed, more) => {
-        const end = addDays(T0, days);
-        const r1 = proRataRefundPaise(price, T0, end, addDays(T0, elapsed));
-        const r2 = proRataRefundPaise(price, T0, end, addDays(T0, elapsed + more));
-        expect(Number.isInteger(r1)).toBe(true);
-        expect(r1).toBeGreaterThanOrEqual(0);
-        expect(r1).toBeLessThanOrEqual(price);
-        expect(r2).toBeLessThanOrEqual(r1);
-        if (days <= 35) expect(r1).toBe(0);
-      }),
-    );
-  });
-  it("edges: before start refunds everything, after end refunds nothing", () => {
-    expect(proRataRefundPaise(1200, T0, addDays(T0, 365), addDays(T0, -5))).toBe(1200);
-    expect(proRataRefundPaise(1200, T0, addDays(T0, 365), addDays(T0, 400))).toBe(0);
-    expect(proRataRefundPaise(1200, T0, addDays(T0, 35), addDays(T0, 1))).toBe(0);
-    expect(proRataRefundPaise(1200, T0, addDays(T0, 36), addDays(T0, 1))).toBeGreaterThan(0);
   });
 });
