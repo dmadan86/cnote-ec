@@ -38,6 +38,10 @@ export const STORAGE_REGISTRY: readonly StorageEntry[] = [
   // --- strictly necessary -------------------------------------------------------------------------------------------
   fp("cnote_consent", "necessary", "cookie", "consent", { unit: "months", n: 12 }),
   // Auth cookies carry a `__Host-` prefix in production (packages/identity cookieNames). httpOnly, set by the server.
+  // The consent record itself, so strictly necessary (DPDP s.6(10) proof): the receipt not yet acknowledged by the server
+  // (resent on the next load until it gets a 200, then deleted) and the once-per-visit "checked against your account" flag.
+  fp("cnote_consent_pending", "necessary", "localStorage", "consentPending", { unit: "persistent" }),
+  fp("cnote_consent_sync", "necessary", "sessionStorage", "consentSync", { unit: "session" }),
   fp("cnote_web_at", "necessary", "cookie", "auth", { unit: "minutes", n: 15 }, true),
   fp("cnote_web_rt", "necessary", "cookie", "session", { unit: "days", n: 30 }, true),
   fp("cnote_web_oauth", "necessary", "cookie", "oauth", { unit: "minutes", n: 10 }, true),

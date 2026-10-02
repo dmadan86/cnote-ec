@@ -33,6 +33,7 @@ export const PRIVILEGES = [
   "metrics.read", // Phase-1 gate scorecard + metric alerts (aggregates only; resolving an alert is audited)
   "compliance.read", // grievance + appeal queues, retention run log, residency status (contacts are masked)
   "compliance.manage", // respond to grievances, decide appeals, trigger retention dry-runs (all audited)
+  "compliance.consent", // search cookie-consent receipts by consent id / person, summary metrics, CSV export (person ids; every search and export is audited)
   "ads.read",
   "ads.review",
   "ads.suspend",
@@ -78,7 +79,7 @@ export const ROLE_PRIVILEGES: Record<Role, readonly Privilege[]> = {
   ops_moderator: [
     "reviews.read", "reviews.resolve", "listings.moderate", "enquiries.review", "businesses.read", "ai.decisions.read",
     "ugc.read", "ugc.moderate", "images.moderate", "api_keys.read", "api_keys.revoke", "queues.read",
-    "storefronts.review", "metrics.read", "compliance.read", "compliance.manage",
+    "storefronts.review", "metrics.read", "compliance.read", "compliance.manage", "compliance.consent",
     "ads.read", "ads.review", "ads.suspend", "ads.fraud.review", "offers.review", "promotions.read", "kyc.review",
     "disputes.read", "quality.review", "verticals.manage", "ondc.manage", "agents.read", "agents.suspend",
   ],

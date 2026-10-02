@@ -3,10 +3,19 @@ import { DomainError, emit, rateLimit } from "@cnote/core";
 import { prisma, type Prisma } from "@cnote/db";
 import { z } from "zod";
 import { grievancePolicy } from "./config";
+import { anonymizeCookieConsentReceipts } from "./consent";
 import { isUuid, maskEmail, parse } from "./util";
 
 export const GRIEVANCE_CATEGORIES = ["access", "correction", "erasure", "consent", "content", "other"] as const;
 export type GrievanceCategory = (typeof GRIEVANCE_CATEGORIES)[number];
+/**
+ * What the person is asking for. The first five are data-principal RIGHTS (DPDP Act ss.11-14: access, correction/erasure,
+ * grievance redressal, nomination; s.6(4) withdrawal of consent) with the longer rights-request SLA; "complaint" is a
+ * grievance about content, consent handling or anything else and follows the grievance SLA.
+ */
+export const REQUEST_TYPES = ["access", "correction", "erasure", "nomination", "withdraw_consent", "complaint"] as const;
+export type RequestType = (typeof REQUEST_TYPES)[number];
+export const isRightsRequest = (t: string): boolean => t !== "complaint";
 export type GrievanceStatus = "open" | "in_progress" | "resolved" | "rejected";
 
 const DAY = 86_400_000;
@@ -14,6 +23,10 @@ const HOUR = 3_600_000;
 const DUE_SOON_MS = 3 * DAY;
 
 export interface GrievanceSla {
+  /** "rights" requests are due in 90 days; "complaint"s follow the grievance policy */
+  kind: "rights" | "complaint";
+  /** whole days until dueAt (negative = overdue); null once the ticket is closed */
+  daysLeft: number | null;
   /** "pending" = still open inside the window; "breached" = still open past the acknowledgement window */
   acknowledgement: "done" | "pending" | "breached";
   resolution: "closed" | "on_track" | "due_soon" | "breached";
@@ -25,6 +38,11 @@ export interface GrievanceView {
   /** masked ("a***@x.com"); the raw address is never returned by this module */
   contactEmail: string | null;
   category: string;
+  requestType: RequestType;
+  /** days allowed to resolve, fixed when the ticket was filed */
+  slaDays: number;
+  /** cookie consent id the raiser referred to (32 hex), if any */
+  consentId: string | null;
   subject: string;
   body: string;
   status: GrievanceStatus;
@@ -39,11 +57,12 @@ export interface GrievanceView {
 type Row = Prisma.GrievanceTicketGetPayload<object>;
 
 /** Pure SLA evaluation (injectable clock). Acknowledgement = the ticket has left "open". */
-export function evaluateSla(t: Pick<Row, "status" | "createdAt" | "dueAt">, now: Date, ackHours = grievancePolicy().ackHours): GrievanceSla {
+export function evaluateSla(t: Pick<Row, "status" | "createdAt" | "dueAt"> & { requestType?: string }, now: Date, ackHours = grievancePolicy().ackHours): GrievanceSla {
   const closed = t.status === "resolved" || t.status === "rejected";
   const acknowledgement = t.status !== "open" ? "done" : now.getTime() > t.createdAt.getTime() + ackHours * HOUR ? "breached" : "pending";
   const resolution = closed ? "closed" : now.getTime() > t.dueAt.getTime() ? "breached" : t.dueAt.getTime() - now.getTime() <= DUE_SOON_MS ? "due_soon" : "on_track";
-  return { acknowledgement, resolution };
+  const daysLeft = closed ? null : Math.floor((t.dueAt.getTime() - now.getTime()) / DAY);
+  return { kind: isRightsRequest(t.requestType ?? "complaint") ? "rights" : "complaint", daysLeft, acknowledgement, resolution };
 }
 
 const view = (r: Row, now: Date): GrievanceView => ({
@@ -51,6 +70,9 @@ const view = (r: Row, now: Date): GrievanceView => ({
   personId: r.personId,
   contactEmail: maskEmail(r.contactEmail),
   category: r.category,
+  requestType: r.requestType as RequestType,
+  slaDays: r.slaDays,
+  consentId: r.consentId,
   subject: r.subject,
   body: r.body,
   status: r.status,
@@ -65,26 +87,40 @@ const view = (r: Row, now: Date): GrievanceView => ({
 const fileSchema = z.object({
   personId: z.uuid().optional(),
   contactEmail: z.email("Enter a valid email address").max(254).optional(),
-  category: z.enum(GRIEVANCE_CATEGORIES, "Choose a category"),
+  /** the right being exercised, or "complaint". Omitted = derived from `category` (legacy callers) */
+  requestType: z.enum(REQUEST_TYPES, "Choose a request type").optional(),
+  /** content/consent/other for complaints; derived from `requestType` for rights requests when omitted */
+  category: z.enum(GRIEVANCE_CATEGORIES, "Choose a category").optional(),
+  consentId: z.string().trim().toLowerCase().regex(/^[a-f0-9]{32}$/, "A consent ID is 32 characters (0-9, a-f)").optional(),
   subject: z.string().trim().min(3, "Add a short subject").max(200),
   body: z.string().trim().min(10, "Describe your grievance (at least 10 characters)").max(5000),
 });
 export type FileGrievanceInput = z.input<typeof fileSchema>;
 
+const CATEGORY_OF: Record<RequestType, GrievanceCategory> = { access: "access", correction: "correction", erasure: "erasure", nomination: "other", withdraw_consent: "consent", complaint: "other" };
+const LEGACY_TYPE: Partial<Record<GrievanceCategory, RequestType>> = { access: "access", correction: "correction", erasure: "erasure" };
+
 /** File a grievance (signed-in or anonymous with a contact email). Rate limited per raiser; dueAt from policy. */
 export async function fileGrievance(input: FileGrievanceInput, now = new Date()): Promise<GrievanceView> {
   const i = parse(fileSchema, input);
+  if (!i.requestType && !i.category) throw new DomainError("validation", "Choose a category", { field: "category" });
+  const requestType: RequestType = i.requestType ?? LEGACY_TYPE[i.category!] ?? "complaint";
+  const category: GrievanceCategory = i.category ?? CATEGORY_OF[requestType];
   if (!i.personId && !i.contactEmail) throw new DomainError("validation", "Provide a contact email so we can reply", { field: "contactEmail" }, "compliance.provideContactEmailReply");
   const policy = grievancePolicy();
   const key = `grievance:${i.personId ?? i.contactEmail!.toLowerCase()}`;
   if (!(await rateLimit(key, policy.perHourLimit, 3600))) throw new DomainError("rate_limited", "Too many grievances submitted. Please try again later.", undefined, "compliance.tooManyGrievancesSubmittedTry");
-  const dueAt = new Date(now.getTime() + policy.resolveDays * DAY);
+  const slaDays = isRightsRequest(requestType) ? policy.rightsRequestDays : policy.resolveDays;
+  const dueAt = new Date(now.getTime() + slaDays * DAY);
   const row = await prisma.$transaction(async (tx) => {
     const t = await tx.grievanceTicket.create({
       data: {
         personId: i.personId ?? null,
         contactEmail: i.contactEmail?.toLowerCase() ?? null,
-        category: i.category,
+        category,
+        requestType,
+        slaDays,
+        consentId: i.consentId ?? null,
         subject: i.subject,
         body: i.body,
         dueAt,
@@ -100,6 +136,9 @@ export async function fileGrievance(input: FileGrievanceInput, now = new Date())
 export interface GrievanceFilters {
   status?: GrievanceStatus;
   category?: string;
+  requestType?: RequestType;
+  /** only data-rights requests (everything except "complaint"); without `status`, only those still open or in progress */
+  rightsOnly?: boolean;
   /** only tickets breaching an SLA right now */
   breachedOnly?: boolean;
   limit?: number;
@@ -109,7 +148,11 @@ export interface GrievanceFilters {
 export async function listGrievances(f: GrievanceFilters = {}, now = new Date()): Promise<GrievanceView[]> {
   const limit = Math.min(Math.max(f.limit ?? 50, 1), 200);
   const policy = grievancePolicy();
-  const where: Prisma.GrievanceTicketWhereInput = { status: f.status, category: f.category };
+  const where: Prisma.GrievanceTicketWhereInput = { status: f.status, category: f.category, requestType: f.requestType };
+  if (f.rightsOnly) {
+    where.requestType = { not: "complaint" };
+    if (!f.status) where.status = { in: ["open", "in_progress"] };
+  }
   if (f.breachedOnly) {
     where.OR = [
       { status: "open", createdAt: { lt: new Date(now.getTime() - policy.ackHours * HOUR) } },
@@ -163,6 +206,8 @@ export async function respondToGrievance(id: string, input: z.input<typeof respo
       data: { status: i.status, handledBy: staffId, ...(i.resolution ? { resolution: i.resolution } : {}), ...(closing ? { resolvedAt: now } : {}) },
     });
     if (res.count === 0) throw new DomainError("conflict", "Grievance was already closed");
+    // Erasure carried out: detach the person from their cookie-consent receipts, keep the anonymous proof (DPDP s.8(7)).
+    if (i.status === "resolved" && t.requestType === "erasure" && t.personId) await anonymizeCookieConsentReceipts(t.personId, tx);
     if (closing) await emit(tx, "GrievanceResolved", { type: "GrievanceTicket", id }, { ticketId: id, personId: t.personId, status: i.status as "resolved" | "rejected" });
     return tx.grievanceTicket.findUniqueOrThrow({ where: { id } });
   });

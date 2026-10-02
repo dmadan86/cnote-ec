@@ -6,14 +6,14 @@ export type { Realm, RealmPolicy } from "./constants";
 export type {
   ConsentPurpose, SessionBusiness, Session, TrustProfile, AuthContext, AuthTokens, CreateBusinessInput,
 } from "./types";
-export { CONSENT_PURPOSES } from "./types";
+export { CONSENT_PURPOSES, COOKIE_CONSENT_PURPOSES } from "./types";
 
 export { signUpWithPassword, signInWithPassword, requestPasswordReset, resetPassword, type SignUpInput } from "./auth";
 export { googleAuthorizationUrl, completeGoogleSignIn, isGoogleConfigured } from "./google";
 export { refreshSession, getSession, signOut, signOutAllSessions, listAuthSessions } from "./sessions";
 export { requestPhoneOtp, verifyPhoneOtp } from "./otp";
 export { createBusiness, ensureSystemBuyerBusiness, updateProfile, getTrustProfiles, listSellers, listSellerIndex, bustSellerCaches, verifyGstin, listVerificationRecords } from "./business";
-export { hasConsent, setConsent, getConsents } from "./consent";
+export { hasConsent, setConsent, getConsents, getConsentStates, type ConsentLedgerState } from "./consent";
 export { exportPersonalData, erasePerson } from "./privacy";
 
 export { computeTrustScore, BADGE_THRESHOLD, type TrustSignals } from "./trust";

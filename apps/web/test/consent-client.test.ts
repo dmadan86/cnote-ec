@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { acceptAll, applyConsent, clearCategoryStorage, clientGranted, expireCookie, readClientConsent, rejectAll, type ConsentEnv, type ConsentReceiptBody } from "@/features/consent/client";
+import { acceptAll, applyConsent, clearCategoryStorage, clientGranted, CONSENT_SYNC_KEY, expireCookie, flushPendingReceipts, isReceiptBody, readClientConsent, rejectAll, syncFromAccount, type ConsentEnv, type ConsentReceiptBody } from "@/features/consent/client";
+import type { AccountConsent } from "@/features/consent/account-sync";
 import { clientClearable, serverClearable } from "@/features/consent/registry";
 import { CONSENT_COOKIE, type ConsentState } from "@/features/consent/state";
 
@@ -13,6 +14,10 @@ function fakeEnv(o: { gpc?: boolean; host?: string; cookies?: Record<string, str
   const writes: string[] = [];
   const events: ConsentState[] = [];
   const receipts: ConsentReceiptBody[] = [];
+  /** receipts the server has not acknowledged (the localStorage outbox) and the answer the fake server gives */
+  let pending: ConsentReceiptBody[] = [];
+  const server = { status: 200 };
+  const flags = new Map<string, string>();
   const env: ConsentEnv = {
     getCookie: () => [...jar].map(([k, v]) => `${k}=${v}`).join("; "),
     setCookie: (c) => {
@@ -32,9 +37,16 @@ function fakeEnv(o: { gpc?: boolean; host?: string; cookies?: Record<string, str
     gpc: () => o.gpc ?? false,
     now: () => NOW,
     emit: (s) => void events.push(s),
-    sendReceipt: (b) => void receipts.push(b),
+    postReceipt: async (b) => {
+      receipts.push(b);
+      return server.status;
+    },
+    readPending: () => [...pending],
+    writePending: (l) => void (pending = [...l]),
+    readSession: (k) => flags.get(k) ?? null,
+    writeSession: (k, v) => void flags.set(k, v),
   };
-  return { env, jar, local, session, writes, events, receipts };
+  return { env, jar, local, session, writes, events, receipts, server, flags, pending: () => pending };
 }
 
 describe("applyConsent", () => {
@@ -44,7 +56,7 @@ describe("applyConsent", () => {
     expect(s).toMatchObject({ analytics: false, marketing: false });
     expect(readClientConsent(f.env)).toMatchObject({ analytics: false, marketing: false, id: s.id });
     expect(f.events).toEqual([s]);
-    expect(f.receipts).toEqual([{ consentId: s.id, policyVersion: s.version, analytics: false, marketing: false, gpc: false, action: "reject_all", locale: "en" }]);
+    expect(f.receipts).toEqual([{ consentId: s.id, policyVersion: s.version, analytics: false, marketing: false, gpc: false, action: "reject_all", locale: "en", at: s.at }]);
     expect(f.jar.has(CONSENT_COOKIE)).toBe(true);
   });
   it("Accept all grants both categories; with GPC on it grants analytics only and records gpc", () => {
@@ -131,5 +143,89 @@ describe("clientGranted without a browser", () => {
     expect(clientGranted("analytics", f.env)).toBe(false);
     acceptAll("en", f.env);
     expect(clientGranted("analytics", f.env)).toBe(true);
+  });
+});
+
+const settle = () => new Promise((r) => setTimeout(r, 0));
+
+describe("reliable receipts (pending outbox)", () => {
+  it("stores the receipt before sending and removes it only after a 200", async () => {
+    const f = fakeEnv();
+    const s = acceptAll("en", f.env);
+    expect(f.pending()).toHaveLength(1); // still pending until the server answered
+    await settle();
+    expect(f.receipts).toHaveLength(1);
+    expect(f.receipts[0]!.at).toBe(s.at);
+    expect(f.pending()).toEqual([]);
+  });
+  it("keeps the receipt when the network fails or the server errors, and resends it on the next load", async () => {
+    for (const status of [0, 503, 429]) {
+      const f = fakeEnv();
+      f.server.status = status;
+      const s = rejectAll("en", f.env);
+      await settle();
+      expect(f.pending().map((p) => p.consentId), `status ${status}`).toEqual([s.id]);
+      f.server.status = 200;
+      await flushPendingReceipts(f.env); // "next page load"
+      expect(f.receipts.filter((r) => r.consentId === s.id)).toHaveLength(2);
+      expect(f.pending()).toEqual([]);
+    }
+  });
+  it("drops a receipt the server rejects for good (400/403/413) instead of retrying forever", async () => {
+    const f = fakeEnv();
+    f.server.status = 400;
+    rejectAll("en", f.env);
+    await settle();
+    expect(f.pending()).toEqual([]);
+  });
+  it("never lets two different choices share the same (consentId, at), even within one second", async () => {
+    const f = fakeEnv();
+    const a = acceptAll("en", f.env);
+    const b = rejectAll("en", f.env); // same fake clock second
+    expect(b.id).toBe(a.id);
+    expect(b.at).toBeGreaterThan(a.at);
+    await settle();
+    expect(new Set(f.receipts.map((r) => `${r.consentId}:${r.at}`)).size).toBe(2);
+  });
+  it("only trusts well-formed stored receipts", () => {
+    expect(isReceiptBody({ consentId: "a".repeat(32), policyVersion: 1, analytics: true, marketing: false, gpc: false, action: "custom", locale: "en", at: 1 })).toBe(true);
+    for (const bad of [null, "x", {}, { consentId: "short" }, { consentId: "a".repeat(32), policyVersion: 1, analytics: true, marketing: false, gpc: false, action: "custom", locale: "en" }]) expect(isReceiptBody(bad)).toBe(false);
+  });
+});
+
+describe("syncFromAccount", () => {
+  const ledger = (o: Partial<AccountConsent>): AccountConsent => ({ signedIn: true, analytics: null, marketing: null, ...o });
+  const nowS = Math.floor(NOW / 1000);
+
+  it("seeds the cookie from the ledger when this browser has no valid choice", async () => {
+    const f = fakeEnv();
+    const adopted = await syncFromAccount("en", f.env, async () => ledger({ analytics: { granted: true, at: nowS - 100 }, marketing: { granted: false, at: nowS - 50 } }));
+    expect(adopted).toBe(true);
+    expect(readClientConsent(f.env)).toMatchObject({ analytics: true, marketing: false });
+    expect(f.flags.get(CONSENT_SYNC_KEY)).toBe("1");
+  });
+  it("does nothing for anonymous visitors, offline, or an empty ledger", async () => {
+    expect(await syncFromAccount("en", fakeEnv().env, async () => ({ signedIn: false, analytics: null, marketing: null }))).toBe(false);
+    expect(await syncFromAccount("en", fakeEnv().env, async () => null)).toBe(false);
+    expect(await syncFromAccount("en", fakeEnv().env, async () => ledger({}))).toBe(false);
+  });
+  it("a withdrawal made elsewhere later wins over this browser's older grant", async () => {
+    const f = fakeEnv();
+    const mine = acceptAll("en", f.env); // cookie: both granted at NOW
+    const adopted = await syncFromAccount("en", f.env, async () => ledger({ analytics: { granted: true, at: nowS - 10 }, marketing: { granted: false, at: mine.at + 60 } }));
+    expect(adopted).toBe(true);
+    expect(readClientConsent(f.env)).toMatchObject({ analytics: true, marketing: false });
+    expect(f.receipts.at(-1)?.action).toBe("withdraw");
+    expect(f.jar.has("cnote_vid")).toBe(false);
+  });
+  it("an older ledger entry never overrides a newer choice made on this device, and the check runs once per visit", async () => {
+    const f = fakeEnv();
+    acceptAll("en", f.env);
+    let calls = 0;
+    const load = async () => (calls++, ledger({ analytics: { granted: false, at: nowS - 500 }, marketing: { granted: false, at: nowS - 500 } }));
+    expect(await syncFromAccount("en", f.env, load)).toBe(false);
+    expect(readClientConsent(f.env)).toMatchObject({ analytics: true, marketing: true });
+    expect(await syncFromAccount("en", f.env, load)).toBe(false);
+    expect(calls).toBe(1);
   });
 });

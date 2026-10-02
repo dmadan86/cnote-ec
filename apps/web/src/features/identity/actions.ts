@@ -2,7 +2,7 @@
 import { DomainError } from "@cnote/core";
 import {
   createBusiness, erasePerson, getConsents, requestPhoneOtp, setConsent, signOutAllSessions, updateProfile, verifyPhoneOtp,
-  CONSENT_PURPOSES,
+  CONSENT_PURPOSES, COOKIE_CONSENT_PURPOSES,
 } from "@cnote/identity";
 import { clearAuthCookies, requireSession, safeNext, type ActionResult } from "@cnote/next-kit";
 import { runLocalized } from "@/i18n/errors";
@@ -56,6 +56,8 @@ export async function saveConsentsAction(_prev: ActionResult | null, fd: FormDat
   const r = await runLocalized(async () => {
     const current = await getConsents(s.personId);
     for (const purpose of CONSENT_PURPOSES) {
+      // Cookie-banner purposes are not on this form (they follow the banner via /api/consent): skip them or a save would withdraw them.
+      if ((COOKIE_CONSENT_PURPOSES as readonly string[]).includes(purpose)) continue;
       const wanted = fd.get(`consent_${purpose}`) === "on";
       if (wanted !== current[purpose]) await setConsent(s.personId, purpose, wanted, "web");
     }

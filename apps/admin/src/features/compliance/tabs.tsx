@@ -6,11 +6,14 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/compliance", label: "Grievances" },
   { href: "/compliance/appeals", label: "Appeals" },
+  { href: "/compliance/consent", label: "Cookie consent", needsConsent: true },
   { href: "/compliance/retention", label: "Retention" },
   { href: "/compliance/residency", label: "Residency" },
 ];
 
-export function ComplianceTabs() {
+/** `canViewConsent`: the staff member holds `compliance.consent` (the consent log lists person ids). */
+export function ComplianceTabs({ canViewConsent = false }: { canViewConsent?: boolean }) {
   const path = usePathname();
-  return <LinkTabs label="Compliance sections" variant="underline" linkComponent={Link} items={TABS.map((t) => ({ ...t, active: t.href === "/compliance" ? path === t.href : path.startsWith(t.href) }))} />;
+  const tabs = TABS.filter((t) => !t.needsConsent || canViewConsent);
+  return <LinkTabs label="Compliance sections" variant="underline" linkComponent={Link} items={tabs.map((t) => ({ href: t.href, label: t.label, active: t.href === "/compliance" ? path === t.href : path.startsWith(t.href) }))} />;
 }

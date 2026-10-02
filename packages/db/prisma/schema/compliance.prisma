@@ -15,7 +15,13 @@ model GrievanceTicket {
   personId    String?              @map("person_id") @db.Uuid // null when raised without an account
   /// contact for anonymous raisers; masked in admin lists
   contactEmail String?             @map("contact_email")
-  category    String // "access" | "correction" | "erasure" | "consent" | "other"
+  category    String // "access" | "correction" | "erasure" | "consent" | "content" | "other"
+  /// DPDP data-principal right or complaint: "access" | "correction" | "erasure" | "nomination" | "withdraw_consent" | "complaint"
+  requestType String               @default("complaint") @map("request_type")
+  /// days allowed to resolve (dueAt = createdAt + slaDays): rights requests 90 (DPDP Rules 2025), complaints per policy
+  slaDays     Int                  @default(15) @map("sla_days")
+  /// optional cookie consent id (cnote_consent) the raiser refers to, so the Grievance Officer can pull the receipts
+  consentId   String?              @map("consent_id")
   subject     String
   body        String
   status      ComplianceCaseStatus @default(open)
@@ -27,6 +33,7 @@ model GrievanceTicket {
   createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz
 
   @@index([status, dueAt])
+  @@index([requestType, status])
   @@map("grievance_tickets")
 }
 
@@ -81,8 +88,14 @@ model CookieConsentReceipt {
   action        String
   locale        String
   personId      String?  @map("person_id") @db.Uuid
+  /// unix seconds the browser stamped on the choice (`t` in the cookie). With consentId it makes POST /api/consent
+  /// idempotent: a resend of the same receipt is a no-op. Null on rows written before this column existed.
+  clientAt      Int?     @map("client_at")
+  /// sha256 of the committed policy snapshot (registry + notice strings) the visitor saw; null on older rows
+  registryHash  String?  @map("registry_hash")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
 
+  @@unique([consentId, clientAt])
   @@index([consentId, createdAt])
   @@index([personId, createdAt])
   @@index([createdAt])

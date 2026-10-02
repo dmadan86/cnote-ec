@@ -275,3 +275,64 @@ test.describe("cookie policy page", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", /^hi/);
   });
 });
+
+test.describe("consent ID and record download", () => {
+  test("shows the visitor's own consent ID with Copy (announced politely) and downloads the JSON history", async ({ page, context }, info) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => undefined); // chromium only; the live region is asserted either way
+    await page.goto("/cookies");
+    await settle(page);
+    // no choice yet: no ID, just a hint
+    await expect(page.getByText("You have not made a choice yet, so there is no consent ID.")).toBeVisible();
+    await banner(page).getByRole("button", { name: "Reject all" }).click();
+    const id = (await consentOf(page))!.get("id")!;
+    await expect(page.getByTestId("consent-id")).toHaveText(id);
+    await expect(page.getByText("Your consent ID:")).toBeVisible();
+    const status = page.getByTestId("consent-record").getByRole("status");
+    await expect(status).toHaveAttribute("aria-live", "polite");
+    await page.getByRole("button", { name: "Copy ID" }).click();
+    await expect(status).toHaveText(/Consent ID copied\.|Could not copy/);
+    await expectNoBlockingViolations(page, info);
+
+    // the receipt reaches the server (retried from localStorage until it does), then the download lists it
+    await expect
+      .poll(async () => ((await (await page.request.get("/api/consent/receipt")).json()) as { receipts?: unknown[] }).receipts?.length ?? 0, { message: "receipt not stored" })
+      .toBeGreaterThanOrEqual(1);
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name: "Download my consent record" }).click()]);
+    expect(download.suggestedFilename()).toBe(`consent-record-${id.slice(0, 8)}.json`);
+    const res = await page.request.get("/api/consent/receipt");
+    expect(res.headers()["cache-control"]).toBe("private, no-store");
+    const body = (await res.json()) as { consentId: string; receipts: { action: string; analytics: boolean; registryHash: string | null }[] };
+    expect(body.consentId).toBe(id);
+    expect(body.receipts.at(-1)).toMatchObject({ action: "reject_all", analytics: false });
+    expect(body.receipts.at(-1)!.registryHash).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  test("the preferences dialog shows the ID too, and the grievance form is prefilled with it", async ({ page }) => {
+    await page.goto("/");
+    await settle(page);
+    await banner(page).getByRole("button", { name: "Accept all" }).click();
+    const id = (await consentOf(page))!.get("id")!;
+    await page.goto("/cookies");
+    await settle(page);
+    await page.getByRole("button", { name: "Open cookie settings" }).click();
+    await expect(dialog(page)).toBeVisible();
+    await expect(dialog(page).getByTestId("consent-id")).toHaveText(id);
+    await expect(dialog(page).getByRole("link", { name: "Download my consent record" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page.goto("/grievance");
+    await settle(page);
+    await expect(page.getByLabel("Cookie consent ID (optional)")).toHaveValue(id);
+  });
+
+  test("a receipt the server did not acknowledge stays pending and is resent on the next load", async ({ page }) => {
+    await page.route("**/api/consent", (route) => (route.request().method() === "POST" ? route.abort() : route.continue()));
+    await page.goto("/");
+    await settle(page);
+    await banner(page).getByRole("button", { name: "Reject all" }).click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("cnote_consent_pending") !== null)).toBe(true);
+    await page.unroute("**/api/consent");
+    await page.reload();
+    await settle(page);
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("cnote_consent_pending")), { message: "pending receipt was not resent" }).toBeNull();
+  });
+});
