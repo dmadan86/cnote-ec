@@ -10,7 +10,7 @@ export function Sparkline({ label, unit, series, width = 120, height = 28 }: { l
   const points = sparklinePoints(series.map((s) => s.value), width, height);
   const [lastX, lastY] = points.split(" ").at(-1)!.split(",").map(Number);
   return (
-    <>
+    <div className="relative overflow-hidden">
       <svg role="img" aria-label={summary} viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="text-brand-700">
         <polyline points={points} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" />
         <circle cx={lastX} cy={lastY} r={2.25} fill="currentColor" />
@@ -24,6 +24,6 @@ export function Sparkline({ label, unit, series, width = 120, height = 28 }: { l
           ))}
         </tbody>
       </table>
-    </>
+    </div>
   );
 }

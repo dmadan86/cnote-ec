@@ -19,7 +19,7 @@ export default async function VerticalsPage() {
       <PageHeader
         title="Verticals"
         description="ADR-016: a new vertical may launch only when every open vertical has at least 200 verified sellers and positive net adds. Gate status is from the latest daily snapshot."
-        actions={hasPrivilege(staff, "verticals.manage") ? <Link href="/verticals/new" className={buttonClasses("primary", "md")}>New vertical</Link> : undefined}
+        actions={hasPrivilege(staff, "verticals.manage") ? <Link href="/verticals/new" className={buttonClasses("primary", "md", "shrink-0 whitespace-nowrap")}>New vertical</Link> : undefined}
       />
       {rows === null ? <Alert tone="warning">Verticals are currently unavailable.</Alert> : rows.length === 0 ? <EmptyState title="No verticals yet" description="Create a candidate from the playbook template." /> : (
         <Table>

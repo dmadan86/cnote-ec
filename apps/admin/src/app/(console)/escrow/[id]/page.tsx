@@ -27,13 +27,13 @@ export default async function EscrowDetailPage({ params }: PageProps<"/escrow/[i
         <CardBody className="grid gap-2 text-sm sm:grid-cols-2">
           <p>Status: <Badge tone="brand">{d.status.replace("_", " ")}</Badge>{d.frozen ? <> <Badge tone="danger">frozen by dispute</Badge></> : null}</p>
           <p>Partner reference: <Mono>{d.partnerRef ?? "-"}</Mono></p>
-          <p>Buyer: <Link href={`/businesses/${d.buyerBusinessId}`} className="text-brand-700 underline"><Mono>{d.buyerBusinessId}</Mono></Link></p>
-          <p>Seller: <Link href={`/businesses/${d.sellerBusinessId}`} className="text-brand-700 underline"><Mono>{d.sellerBusinessId}</Mono></Link></p>
+          <p>Buyer: <Link href={`/businesses/${d.buyerBusinessId}`} className="font-medium text-brand-700 hover:underline"><Mono>{d.buyerBusinessId}</Mono></Link></p>
+          <p>Seller: <Link href={`/businesses/${d.sellerBusinessId}`} className="font-medium text-brand-700 hover:underline"><Mono>{d.sellerBusinessId}</Mono></Link></p>
           <p>Amount: <strong>{inr(d.amountPaise)}</strong> · Held now: <strong>{inr(d.heldPaise)}</strong></p>
           <p>Released: {inr(d.releasedPaise)} · Refunded: {inr(d.refundedPaise)}</p>
           <p>Fee target: {inr(d.feePaise)} · Fee charged: {inr(d.feeChargedPaise)}</p>
           <p>Created: {fmtDate(d.createdAt)}</p>
-          {d.feeInvoiceId ? <p><a className="text-brand-700 underline" href={`/payments/invoices/${d.feeInvoiceId}/pdf`}>Fee tax invoice PDF</a></p> : null}
+          {d.feeInvoiceId ? <p><a className="font-medium text-brand-700 hover:underline" href={`/payments/invoices/${d.feeInvoiceId}/pdf`}>Fee tax invoice PDF</a></p> : null}
         </CardBody>
       </Card>
       {canManage ? (
@@ -89,7 +89,7 @@ export default async function EscrowDetailPage({ params }: PageProps<"/escrow/[i
           {issues === null || issues.length === 0 ? <p className="text-sm text-muted">None.</p> : (
             <ul className="space-y-1 text-sm">{issues.map((i) => <li key={i.id}><Badge tone={i.status === "open" ? "danger" : "neutral"}>{i.status}</Badge> {i.kind.replace(/_/g, " ")}: {i.detail}</li>)}</ul>
           )}
-          <p className="mt-2 text-sm"><Link href="/escrow/reconciliation" className="text-brand-700 underline">All reconciliation issues</Link></p>
+          <p className="mt-2 text-sm"><Link href="/escrow/reconciliation" className="font-medium text-brand-700 hover:underline">All reconciliation issues</Link></p>
         </CardBody>
       </Card>
     </>

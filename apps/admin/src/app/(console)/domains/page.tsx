@@ -1,5 +1,6 @@
 import { adminDomainCounts, adminListDomains, type DomainStatusName } from "@cnote/domains";
 import { Alert, Badge, EmptyState, LinkTabs, PageHeader, type BadgeTone } from "@cnote/ui";
+import { FilterActions, FilterBar, FilterField, FilterInput } from "@/components/filters";
 import { Mono, Table, Td, Th } from "@/components/table";
 import { DomainRowActions } from "@/features/domains/row-actions";
 import { requireStaff } from "@/lib/auth";
@@ -24,12 +25,11 @@ export default async function DomainsPage({ searchParams }: PageProps<"/domains"
         label="Status"
         items={[{ href: "/domains", label: "All", active: !status }, ...STATUSES.map((s) => ({ href: `/domains?status=${s}`, label: `${s.replace("_", " ")} (${counts?.[s] ?? 0})`, active: s === status }))]}
       />
-      <form method="get" role="search" className="flex gap-2">
+      <FilterBar label="Search domains">
         {status ? <input type="hidden" name="status" value={status} /> : null}
-        <label htmlFor="q" className="sr-only">Search hostname</label>
-        <input id="q" name="q" defaultValue={search} placeholder="Search hostname" className="h-9 w-64 rounded-lg border border-line bg-surface px-3 text-sm" />
-        <button type="submit" className="h-9 rounded-lg border border-line bg-surface px-3 text-sm">Search</button>
-      </form>
+        <FilterField label="Hostname" width="xl"><FilterInput name="q" defaultValue={search} placeholder="Search hostname" /></FilterField>
+        <FilterActions submitLabel="Search" clearHref={search ? (status ? `/domains?status=${status}` : "/domains") : undefined} />
+      </FilterBar>
       {rows === null ? <Alert tone="warning">Domains are currently unavailable.</Alert> : rows.length === 0 ? (
         <EmptyState title="No domains" description="Nothing matches this filter." />
       ) : (

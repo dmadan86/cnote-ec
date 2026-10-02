@@ -29,14 +29,14 @@ export default async function PaymentsPage({ searchParams }: PageProps<"/payment
       <PageHeader title="Payments" description="Gateway orders for plans, credit packs and ad top-ups. Fulfilment happens on the provider webhook." />
       <LinkTabs label="Status" items={[{ href: q({ status: undefined }), label: "All", active: !status }, ...STATUSES.map((s) => ({ href: q({ status: s }), label: s.replace("_", " "), active: s === status }))]} />
       <LinkTabs label="Purpose" items={[{ href: q({ purpose: undefined }), label: "Any purpose", active: !purpose }, ...PURPOSES.map((s) => ({ href: q({ purpose: s }), label: s.replace("_", " "), active: s === purpose }))]} />
-      <p className="text-sm"><Link href="/payments/invoices" className="text-brand-700 underline">Invoices and credit notes</Link></p>
+      <p className="text-sm"><Link href="/payments/invoices" className="font-medium text-brand-700 hover:underline">Invoices and credit notes</Link></p>
       {rows === null ? <Alert tone="warning">Payments are currently unavailable.</Alert> : rows.length === 0 ? <EmptyState title="No payments" description="Nothing matches this filter." /> : (
         <Table>
           <thead><tr><Th>Order</Th><Th>Created</Th><Th>Business</Th><Th>Purpose</Th><Th>Provider</Th><Th>Total</Th><Th>Refunded</Th><Th>Status</Th></tr></thead>
           <tbody>
             {rows.map((o) => (
               <tr key={o.id}>
-                <Td><Link href={`/payments/${o.id}`} className="text-brand-700 underline"><Mono>{shortId(o.id)}</Mono></Link></Td>
+                <Td><Link href={`/payments/${o.id}`} className="font-medium text-brand-700 hover:underline"><Mono>{shortId(o.id)}</Mono></Link></Td>
                 <Td className="whitespace-nowrap">{fmtDate(o.createdAt)}</Td>
                 <Td><Link href={`/businesses/${o.businessId}`}><Mono>{shortId(o.businessId)}</Mono></Link></Td>
                 <Td>{o.purpose.replace("_", " ")}{o.purposeRef ? <span className="text-muted"> ({o.purposeRef.split("|")[0]})</span> : null}</Td>

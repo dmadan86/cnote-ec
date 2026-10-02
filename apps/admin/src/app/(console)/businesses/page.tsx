@@ -1,6 +1,7 @@
 import { listSellers } from "@cnote/identity";
-import { Alert, EmptyState, Input, PageHeader, TrustBadge, Button } from "@cnote/ui";
+import { Alert, EmptyState, PageHeader, TrustBadge } from "@cnote/ui";
 import Link from "next/link";
+import { FilterActions, FilterBar, FilterField, FilterInput } from "@/components/filters";
 import { Table, Td, Th } from "@/components/table";
 import { requireStaff } from "@/lib/auth";
 import { one, safe } from "@/lib/util";
@@ -20,11 +21,11 @@ export default async function BusinessesPage({ searchParams }: PageProps<"/busin
     <>
       <PageHeader title="Businesses" description="Sellers ranked by trust. Verified tier and badge come from the identity module, never from plan." />
       <p className="text-sm"><Link href="/businesses/gst-reviews" className="text-brand-700 hover:underline">GST review queue</Link></p>
-      <form className="flex flex-wrap gap-2" role="search">
-        <Input name="q" defaultValue={q} placeholder="Search name…" className="max-w-xs" aria-label="Search by name" />
-        <Input name="city" defaultValue={city} placeholder="City" className="max-w-40" aria-label="City" />
-        <Button type="submit" variant="outline">Search</Button>
-      </form>
+      <FilterBar label="Search businesses">
+        <FilterField label="Name" width="xl"><FilterInput name="q" defaultValue={q} placeholder="Search name…" /></FilterField>
+        <FilterField label="City" width="md"><FilterInput name="city" defaultValue={city} placeholder="City" /></FilterField>
+        <FilterActions submitLabel="Search" clearHref={q || city ? "/businesses" : undefined} />
+      </FilterBar>
       {rows === null ? <Alert tone="warning">Business directory is currently unavailable.</Alert> : rows.length === 0 ? <EmptyState title="No businesses found" /> : (
         <>
           <Table>

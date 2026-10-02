@@ -67,7 +67,7 @@ export default async function ReviewCampaign({ params }: PageProps<"/ads/review/
                   <tr key={l.id}>
                     <Td>{v?.title ?? <Mono>{l.listingId.slice(0, 8)}</Mono>}{v ? <span className="block text-xs text-muted">{v.status} / {v.moderationStatus}</span> : null}</Td>
                     <Td>{v?.category.name ?? ""}</Td>
-                    <Td>{v?.imageUrls[0] ? <a href={v.imageUrls[0]} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">Open image</a> : <span className="text-danger">none</span>}</Td>
+                    <Td>{v?.imageUrls[0] ? <a href={v.imageUrls[0]} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-700 hover:underline">Open image</a> : <span className="text-danger">none</span>}</Td>
                     <Td><Badge tone={TONE[l.reviewStatus] ?? "neutral"}>{l.reviewStatus}</Badge>{l.reviewNote ? <span className="block text-xs text-muted">{l.reviewNote}</span> : null}</Td>
                     <Td><ItemReviewForm campaignId={c.id} subjectType="listing" subjectId={l.id} /></Td>
                   </tr>

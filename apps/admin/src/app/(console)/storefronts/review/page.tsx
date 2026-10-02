@@ -1,6 +1,7 @@
 import { listStorefronts, listStorefrontReviews, type StorefrontStatus } from "@cnote/storefront";
 import { Alert, Badge, EmptyState, PageHeader } from "@cnote/ui";
 import Link from "next/link";
+import { FilterActions, FilterBar, FilterField, FilterInput, FilterSelect } from "@/components/filters";
 import { Mono, Table, Td, Th } from "@/components/table";
 import { ReinstateForm, SuspendForm } from "@/features/storefronts/controls";
 import { requireStaff } from "@/lib/auth";
@@ -43,15 +44,15 @@ export default async function StorefrontReviewPage(props: { searchParams: Promis
 
       <section aria-labelledby="all-h" className="space-y-3">
         <h2 id="all-h" className="text-sm font-semibold uppercase tracking-wide text-muted">All storefronts</h2>
-        <form className="flex flex-wrap items-end gap-2" role="search">
-          <label className="text-sm font-medium">Address contains<input name="q" defaultValue={q ?? ""} className="mt-1 block h-10 rounded-lg border border-line bg-surface px-3 text-sm" /></label>
-          <label className="text-sm font-medium">Status
-            <select name="status" defaultValue={status ?? ""} className="mt-1 block h-10 rounded-lg border border-line bg-surface px-3 text-sm">
+        <FilterBar label="Filter storefronts">
+          <FilterField label="Address contains" width="xl"><FilterInput name="q" defaultValue={q ?? ""} /></FilterField>
+          <FilterField label="Status" width="md">
+            <FilterSelect name="status" defaultValue={status ?? ""}>
               <option value="">Any</option><option value="live">Live</option><option value="draft">Not published</option><option value="suspended">Suspended</option>
-            </select>
-          </label>
-          <button type="submit" className="h-10 rounded-full border border-line bg-surface px-4 text-sm font-medium hover:bg-canvas">Filter</button>
-        </form>
+            </FilterSelect>
+          </FilterField>
+          <FilterActions clearHref={q || status ? "/storefronts/review" : undefined} />
+        </FilterBar>
         {list === null ? <Alert tone="warning">Storefronts are currently unavailable.</Alert> : list.length === 0 ? <EmptyState title="No storefronts found" /> : (
           <Table>
             <thead><tr><Th>Storefront</Th><Th>Status</Th><Th>Updated</Th><Th>Action</Th></tr></thead>

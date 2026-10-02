@@ -17,7 +17,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/payment
   return (
     <>
       <PageHeader title="Invoices" description="GST tax invoices and credit notes, newest first." />
-      <p className="text-sm"><Link href="/payments" className="text-brand-700 underline">Back to payments</Link></p>
+      <p className="text-sm"><Link href="/payments" className="font-medium text-brand-700 hover:underline">Back to payments</Link></p>
       {rows === null ? <Alert tone="warning">Invoices are currently unavailable.</Alert> : rows.length === 0 ? <EmptyState title="No invoices" description="Nothing issued yet." /> : (
         <Table>
           <thead><tr><Th>Number</Th><Th>Type</Th><Th>Issued</Th><Th>Business</Th><Th>Taxable</Th><Th>GST</Th><Th>Total</Th><Th /></tr></thead>
@@ -31,7 +31,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/payment
                 <Td className="tabular-nums">{inr(i.taxablePaise)}</Td>
                 <Td className="tabular-nums">{inr(i.gstPaise)}</Td>
                 <Td className="tabular-nums">{inr(i.totalPaise)}</Td>
-                <Td><a className="text-brand-700 underline" href={`/payments/invoices/${i.id}/pdf`}>PDF</a></Td>
+                <Td><a className="font-medium text-brand-700 hover:underline" href={`/payments/invoices/${i.id}/pdf`}>PDF</a></Td>
               </tr>
             ))}
           </tbody>

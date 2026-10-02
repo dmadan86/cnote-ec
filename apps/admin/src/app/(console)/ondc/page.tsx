@@ -1,6 +1,6 @@
 import { hasPrivilege } from "@cnote/admin";
 import { adminOverview, listFailedCallbacks, listIssues, listMessages, ondcEvaluation, readiness } from "@/lib/ondc";
-import { Alert, EmptyState, PageHeader } from "@cnote/ui";
+import { Alert, EmptyState, LinkTabs, PageHeader } from "@cnote/ui";
 import Link from "next/link";
 import { Mono, Table, Td, Th } from "@/components/table";
 import { requireStaff } from "@/lib/auth";
@@ -113,11 +113,7 @@ export default async function OndcPage({ searchParams }: { searchParams: Promise
         </Table>
       )}
       <h2 className="mt-6 text-lg font-semibold">Message log</h2>
-      <nav aria-label="Filter by direction" className="flex gap-3 text-sm">
-        <Link href="/ondc" className={!direction ? "font-semibold text-brand-700" : "text-brand-700 hover:underline"}>All</Link>
-        <Link href="/ondc?direction=inbound" className={direction === "inbound" ? "font-semibold text-brand-700" : "text-brand-700 hover:underline"}>Inbound</Link>
-        <Link href="/ondc?direction=outbound" className={direction === "outbound" ? "font-semibold text-brand-700" : "text-brand-700 hover:underline"}>Outbound</Link>
-      </nav>
+      <LinkTabs label="Filter by direction" items={[{ href: "/ondc", label: "All", active: !direction }, { href: "/ondc?direction=inbound", label: "Inbound", active: direction === "inbound" }, { href: "/ondc?direction=outbound", label: "Outbound", active: direction === "outbound" }]} />
       {log === null ? <Alert tone="warning">Unavailable.</Alert> : log.length === 0 ? <EmptyState title="No messages yet" /> : (
         <Table>
           <thead><tr><Th>Dir</Th><Th>Action</Th><Th>Counterparty</Th><Th>Status</Th><Th>Transaction</Th><Th>When</Th><Th>Body (redacted)</Th></tr></thead>
