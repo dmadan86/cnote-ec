@@ -47,6 +47,9 @@ export const e2eEnv: Record<string, string> = {
   NEXT_PUBLIC_CLARITY_PROJECT_ID: "",
   GOOGLE_CLIENT_ID: "",
   NEXT_TELEMETRY_DISABLED: "1",
+  // The e2e servers run NODE_ENV=production, where missing legal entity details are fatal. CI sets them (.github/workflows/ci.yml);
+  // a local run without them opts out explicitly instead.
+  ...(process.env.PLATFORM_LEGAL_NAME ? {} : { LEGAL_ENTITY_STRICT: "false" }),
 };
 
 /** Seeded demo accounts (apps/worker/src/seed.ts). */

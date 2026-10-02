@@ -68,5 +68,13 @@ export function assertLegalEntity(env: Env = process.env): void {
   if (missing.length) throw new Error(`Legal entity details are required in production, unset: ${missing.join(", ")} (see .env.example)`);
 }
 
+/**
+ * Whether missing entity details stop the server from starting. Strict is the DEFAULT whenever NODE_ENV=production;
+ * set LEGAL_ENTITY_STRICT=false to opt out (local production builds, preview deploys). Never strict outside production.
+ */
+export function isLegalEntityStrict(env: Env = process.env): boolean {
+  return env.NODE_ENV === "production" && clean(env.LEGAL_ENTITY_STRICT)?.toLowerCase() !== "false";
+}
+
 /** digits and + only, for tel: and wa.me links. */
 export const dialable = (v: string) => v.replace(/[^\d+]/g, "");
