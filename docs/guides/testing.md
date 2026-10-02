@@ -12,13 +12,20 @@ Three layers, all runnable locally and in CI (`.github/workflows/ci.yml`).
 ## Unit tests and coverage
 
 ```bash
-pnpm db:test:prepare          # once: create/migrate cnote_test + cnote_live_test
+pnpm db:test:prepare          # once: create/migrate cnote_test + cnote_live_test (also sets cnote.allow_purge=on as the test DB default, see below)
 pnpm test                     # all workspaces
 pnpm --filter @cnote/enquiry exec vitest run test/matching.test.ts -t "cascades"
 pnpm test:coverage            # fails when a package drops below its threshold
 ```
 
 `vitest.setup.ts` points every test at the `_test` databases and Redis logical DB 1, so tests never touch dev data.
+
+**Append-only tables.** The audit log, credit/ad-wallet/escrow ledgers, consents, domain events and cookie-consent receipts are protected by
+DB triggers (`docs/security/security-architecture.md` section 8). Test cleanup (`deleteMany` on those tables) works because the test and e2e
+databases default `cnote.allow_purge` to `on` (`scripts/allow-test-purge.sh`, run by `pnpm db:test:prepare`, the e2e `prepare-db` step and CI).
+`UPDATE` is never bypassed: do not "fix" a test by updating an append-only row (insert a backdated row instead). To test the denial itself,
+use a client whose sessions start with the setting off, as `packages/db/test/append-only.db.test.ts` does. If you created your test databases
+before this change, re-run `pnpm db:test:prepare` (it is idempotent).
 
 ## UI tests (Playwright)
 
@@ -70,7 +77,7 @@ Useful flags: `--project=desktop`, `-g "pricing"`, `--headed`, `--ui`, `--debug`
   against the seeded DB (needed: static pages read the catalogue at build time). Set `E2E_DEV=1` to use `next dev` instead.
   Rebuild after changing app code; running servers are reused locally, never in CI.
 - Bot check: `HUMAN_VERIFIER=off` (Turnstile is bypassed explicitly, `packages/security/src/human.ts`). `AI_PROVIDER=heuristic`,
-  `QUEUE_DRIVER=memory`, `OTP_DEV_ECHO=true` (honoured only by the dev server: production builds never echo a code, so specs plant one with `e2e/support/otp.ts`), `TRUST_CLOUDFLARE=1` (so the per-context `cf-connecting-ip` fixture is honoured by `clientIp`). Feature flags stay off; a spec that needs one
+  `QUEUE_DRIVER=memory`, `OTP_DEV_ECHO=true` + `ALLOW_OTP_ECHO_IN_PRODUCTION=1` (the production-mode servers echo the OTP only because the sender is the console/log one; see `packages/identity/src/dev-echo.ts`), `TRUST_CLOUDFLARE=1` (so the per-context `cf-connecting-ip` fixture is honoured by `clientIp`). Feature flags stay off; a spec that needs one
   sets it in `e2e/support/env.ts` with a comment.
 - Seed logins: `buyer-demo@example.com` / `DemoBuyer#2026`, `seller-demo@example.com` / `DemoSeller#2026`. Do not build
   specs that depend on specific seed rows; discover data through the UI (`support/pages.ts`).

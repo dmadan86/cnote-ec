@@ -3,8 +3,9 @@
 # Workspace packages ship TypeScript source, so the runtime image keeps the pruned workspace and runs `next start`.
 # Follow-up (needs next.config.ts change, not done here): output: "standalone" + outputFileTracingRoot would shrink the image ~5x.
 
-ARG NODE_VERSION=22
-FROM node:${NODE_VERSION}-bookworm-slim AS base
+# Pinned by digest (supply chain). Refresh: docker buildx imagetools inspect node:22-bookworm-slim, or let Dependabot (docker) do it.
+ARG NODE_IMAGE=node:22-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c
+FROM ${NODE_IMAGE} AS base
 ENV PNPM_HOME=/pnpm \
     PNPM_STORE_DIR=/pnpm/store \
     NEXT_TELEMETRY_DISABLED=1 \
@@ -35,18 +36,23 @@ RUN DATABASE_URL=postgres://build:build@localhost:5432/build \
 ARG NEXT_PUBLIC_SENTRY_DSN=""
 ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT=""
 ARG NEXT_PUBLIC_SENTRY_RELEASE=""
-# Some pages call generateStaticParams against the DB. If the build has no reachable database, pass
-# --build-arg DATABASE_URL=... with --network host (or build inside compose); see docs/architecture/portability.md.
-# The host.docker.internal defaults below are local-dev placeholders (not secrets). Docker Desktop maps that name; on
-# Linux add `--add-host=host.docker.internal:host-gateway` or pass reachable DATABASE_URL / LIVE_DATABASE_URL build args.
-ARG DATABASE_URL=postgres://cnote:cnote@host.docker.internal:5432/cnote
-# Published listings (CQRS read DB) are read by generateStaticParams as well.
-ARG LIVE_DATABASE_URL=postgres://cnote:cnote@host.docker.internal:5432/cnote_live
-ARG REDIS_URL=redis://host.docker.internal:6379
+# Some pages call generateStaticParams against the DB, so `next build` needs a reachable database.
+# NO CREDENTIALS AS BUILD ARGS: --build-arg values are stored in the image history and visible to anyone who can pull it. The values
+# below are non-secret LOCAL-DEV PLACEHOLDERS (Docker Desktop maps host.docker.internal; on Linux add
+# `--add-host=host.docker.internal:host-gateway`). To build against another database, provide the real URLs as a BUILD SECRET, which is
+# mounted for the build step only and never written to a layer:
+#   printf 'DATABASE_URL=...\nLIVE_DATABASE_URL=...\nREDIS_URL=...\n' > build.env   # keep it out of git
+#   docker build --secret id=build_env,src=build.env -f <this file> .
+# (docker compose: see build.secrets in docker-compose.apps.yml; CI: `secrets:` on docker/build-push-action.)
+ENV DATABASE_URL=postgres://cnote:cnote@host.docker.internal:5432/cnote \
+    LIVE_DATABASE_URL=postgres://cnote:cnote@host.docker.internal:5432/cnote_live \
+    REDIS_URL=redis://host.docker.internal:6379
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
     NEXT_PUBLIC_SENTRY_ENVIRONMENT=$NEXT_PUBLIC_SENTRY_ENVIRONMENT \
     NEXT_PUBLIC_SENTRY_RELEASE=$NEXT_PUBLIC_SENTRY_RELEASE
-RUN pnpm --filter @cnote/admin-app build
+RUN --mount=type=secret,id=build_env \
+    set -a; if [ -f /run/secrets/build_env ]; then . /run/secrets/build_env; fi; set +a; \
+    pnpm --filter @cnote/admin-app build
 
 # 3) Runtime: same base, non-root, no build caches from the dependency stage.
 FROM base AS runtime

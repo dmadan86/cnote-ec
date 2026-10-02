@@ -21,3 +21,6 @@ export * from "./quotes";
 export * from "./fulfilment";
 export * from "./attachments";
 export * from "./comparison";
+
+// DPDP access right: registered with @cnote/compliance's export registry (security audit M10).
+export { exportPersonalData } from "./privacy";

@@ -17,3 +17,6 @@ export { PHASE23_KINDS } from "./kinds-phase23";
 export { listQueueTopics, registerQueueTopic, listDeadLetters, replayDeadLetter, listEmailLog, EMAIL_STATUSES, type QueueTopicInfo, type EmailLogEntry } from "./ops";
 export { worker, pruneReadNotifications } from "./worker";
 export * from "./retention";
+
+// DPDP access right: registered with @cnote/compliance's export registry (security audit M10).
+export { exportPersonalData } from "./privacy";

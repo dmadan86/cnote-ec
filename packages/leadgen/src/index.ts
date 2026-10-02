@@ -9,3 +9,6 @@ export { sweepAbandoned, ABANDON_AFTER_MS } from "./abandon";
 export { worker } from "./worker";
 export * from "./retention";
 export { getUnlockedSupplierContact, recordSupplierContacted, CONTACT_CHANNELS, type ContactChannel, type SupplierContact } from "./contact";
+
+// DPDP access right: registered with @cnote/compliance's export registry (security audit M10).
+export { exportPersonalData } from "./privacy";

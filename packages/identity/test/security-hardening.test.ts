@@ -45,31 +45,58 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("OTP_DEV_ECHO is never honoured in production", () => {
-  it("devEchoEnabled: only outside production AND when set to true", () => {
-    expect(devEchoEnabled({ OTP_DEV_ECHO: "true" })).toBe(true);
-    expect(devEchoEnabled({ OTP_DEV_ECHO: "true", NODE_ENV: "development" })).toBe(true);
-    expect(devEchoEnabled({ OTP_DEV_ECHO: "true", NODE_ENV: "production" })).toBe(false);
-    expect(devEchoEnabled({ OTP_DEV_ECHO: "1", NODE_ENV: "test" })).toBe(false);
-    expect(devEchoEnabled({ NODE_ENV: "test" })).toBe(false);
+describe("OTP_DEV_ECHO: one rule, every combination", () => {
+  const cases: [string, Record<string, string | undefined>, { real?: boolean } | undefined, boolean][] = [
+    ["flag unset", { NODE_ENV: "development" }, undefined, false],
+    ["flag not exactly 'true'", { OTP_DEV_ECHO: "1", NODE_ENV: "development" }, undefined, false],
+    ["dev + console sender", { OTP_DEV_ECHO: "true", NODE_ENV: "development" }, undefined, true],
+    ["test env + console sender", { OTP_DEV_ECHO: "true", NODE_ENV: "test", OTP_SENDER: "console" }, undefined, true],
+    ["blank OTP_SENDER counts as console", { OTP_DEV_ECHO: "true", OTP_SENDER: "  " }, undefined, true],
+    ["production, no opt-out", { OTP_DEV_ECHO: "true", NODE_ENV: "production" }, undefined, false],
+    ["production, opt-out is exactly '1' only", { OTP_DEV_ECHO: "true", NODE_ENV: "production", ALLOW_OTP_ECHO_IN_PRODUCTION: "true" }, undefined, false],
+    ["production + opt-out + console sender (e2e / dev cluster)", { OTP_DEV_ECHO: "true", NODE_ENV: "production", ALLOW_OTP_ECHO_IN_PRODUCTION: "1" }, undefined, true],
+    ["production + opt-out + real provider env", { OTP_DEV_ECHO: "true", NODE_ENV: "production", ALLOW_OTP_ECHO_IN_PRODUCTION: "1", OTP_SENDER: "msg91" }, undefined, false],
+    ["production + opt-out + real sender object", { OTP_DEV_ECHO: "true", NODE_ENV: "production", ALLOW_OTP_ECHO_IN_PRODUCTION: "1" }, { real: true }, false],
+    ["dev + real provider env (a real sender never echoes anywhere)", { OTP_DEV_ECHO: "true", NODE_ENV: "development", OTP_SENDER: "whatsapp_then_sms" }, undefined, false],
+    ["dev + real sender object", { OTP_DEV_ECHO: "true", NODE_ENV: "development" }, { real: true }, false],
+    ["dev + injected non-provider sender (tests)", { OTP_DEV_ECHO: "true", NODE_ENV: "development" }, { real: false }, true],
+  ];
+  it.each(cases)("%s", (_name, env, sender, expected) => {
+    expect(devEchoEnabled(sender, env)).toBe(expected);
   });
-  it("requestPhoneOtp and requestLoginOtp return no code under NODE_ENV=production, whatever OTP_DEV_ECHO says", async () => {
+  it("the provider adapters are marked real, the console adapter is not", async () => {
+    const { msg91OtpSender, whatsappCloudOtpSender, fallbackOtpSender } = await import("../src/otp-senders");
+    const { consoleOtpSender } = await import("../src/phone-login");
+    const env = { MSG91_AUTH_KEY: "k", MSG91_OTP_TEMPLATE_ID: "t", WHATSAPP_PHONE_NUMBER_ID: "p", WHATSAPP_ACCESS_TOKEN: "a" };
+    const sms = msg91OtpSender(env);
+    const wa = whatsappCloudOtpSender(env);
+    expect([sms.real, wa.real, fallbackOtpSender(wa, sms).real]).toEqual([true, true, true]);
+    expect(consoleOtpSender.real).toBeUndefined();
+  });
+  it("requestPhoneOtp / requestLoginOtp: dev echoes; production does not unless opted out; a real sender never does", async () => {
     const sent: { code: string }[] = [];
     const sender: OtpSender = { async send(m) { sent.push(m); } };
+    const realSender: OtpSender = { real: true, async send(m) { sent.push(m); } };
     setOtpSender(sender);
     vi.stubEnv("OTP_DEV_ECHO", "true");
+    vi.stubEnv("OTP_SENDER", "console");
     const person = await prisma.person.create({ data: { email: newEmail() }, select: { id: true } });
     made.push(person.id);
-    const phone = `+9170${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}`;
-    const dev = await requestPhoneOtp(person.id, phone); // not production: echoes (existing dev behaviour)
-    expect(dev.devCode).toMatch(/^\d{6}$/);
+    const phone = () => `+9170${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}`;
+    const lctx = () => ({ ip: uid(), userAgent: null, visitorId: uid() });
+    expect((await requestPhoneOtp(person.id, phone())).devCode).toMatch(/^\d{6}$/); // dev: echoes (existing behaviour)
+    expect(await requestLoginOtp(phone(), lctx())).toHaveProperty("devCode", expect.stringMatching(/^\d{6}$/));
     vi.stubEnv("NODE_ENV", "production");
-    const phone2 = `+9170${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}`;
-    const prod = await requestPhoneOtp(person.id, phone2);
-    expect(prod).toEqual({ sent: true });
+    expect(await requestPhoneOtp(person.id, phone())).toEqual({ sent: true }); // production, no opt-out
+    expect(await requestLoginOtp(phone(), lctx())).not.toHaveProperty("devCode");
     expect(sent.at(-1)!.code).toMatch(/^\d{6}$/); // the code still went out through the sender
-    const login = await requestLoginOtp(`+9171${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}`, { ip: uid(), userAgent: null, visitorId: uid() });
-    expect(login).not.toHaveProperty("devCode");
+    vi.stubEnv("ALLOW_OTP_ECHO_IN_PRODUCTION", "1");
+    expect((await requestPhoneOtp(person.id, phone())).devCode).toMatch(/^\d{6}$/); // e2e / dev cluster opt-out with the console-style sender
+    setOtpSender(realSender);
+    expect(await requestPhoneOtp(person.id, phone())).toEqual({ sent: true }); // real sender: never
+    expect(await requestLoginOtp(phone(), lctx())).not.toHaveProperty("devCode");
+    vi.stubEnv("NODE_ENV", "development");
+    expect(await requestPhoneOtp(person.id, phone())).toEqual({ sent: true }); // ... not even in development
     setOtpSender(undefined);
   });
 });

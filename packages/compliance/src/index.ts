@@ -20,6 +20,10 @@ export {
   searchCookieConsentReceipts, iterateCookieConsentReceipts, cookieConsentStats, foldConsentStats, anonymizeCookieConsentReceipts,
   type CookieConsentAction, type CookieConsentApp, type CookieConsentInput, type CookieConsentReceiptView, type CookieConsentSearch, type CookieConsentStats,
 } from "./consent";
+export {
+  EXPORT_SOURCES, DEFAULT_EXPORT_MAX_BYTES, exportMaxBytes, streamPersonalExport, personalExportStream, exportCookieConsentReceipts, jsonReplacer,
+  type ExportSource, type ExportOptions,
+} from "./export";
 export { assertIndiaResidency, getResidencyReport, ResidencyError, type ResidencyReport, type ResidencyCheck, type CheckStatus } from "./residency";
 export { maskEmail } from "./util";
 export { worker } from "./worker";

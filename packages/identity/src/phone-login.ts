@@ -14,6 +14,8 @@ export type OtpChannel = "sms" | "whatsapp";
 
 /** Port for delivering a login OTP. Providers implement this; the console adapter is the dev default. */
 export interface OtpSender {
+  /** true for adapters that deliver real SMS/WhatsApp (never echo a code from these, see dev-echo.ts) */
+  readonly real?: boolean;
   send(msg: { to: string; code: string; channel: OtpChannel; ttlMinutes: number }): Promise<void>;
 }
 
@@ -86,9 +88,10 @@ export async function requestLoginOtp(
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const k = key(phone);
   await redis.multi().hset(k, { hash: digest(phone, code), attempts: 0 }).expire(k, OTP_TTL).exec();
-  await (await resolveOtpSender()).send({ to: phone, code, channel, ttlMinutes: OTP_TTL / 60 });
+  const otpSender = await resolveOtpSender();
+  await otpSender.send({ to: phone, code, channel, ttlMinutes: OTP_TTL / 60 });
   const base = { sent: true as const, phone, phoneHash: sha256(phone), channel, resendAfterSeconds: RESEND_COOLDOWN };
-  return devEchoEnabled() ? { ...base, devCode: code } : base;
+  return devEchoEnabled(otpSender) ? { ...base, devCode: code } : base;
 }
 
 /**

@@ -71,5 +71,7 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
 // expressed statically (the domains are dynamic). Public marketplace pages exit on the fast path above with no
 // cookies and no I/O, so they stay CDN-cacheable; their per-user state comes from /api/me (which does refresh tokens).
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|placeholders/|media/v/).*)"],
+  // api/rfq and api/disputes are multipart upload routes with their own size caps (@cnote/next-kit readBoundedFormData): keeping them out
+  // of the proxy stops Next from cloning/buffering (and silently truncating at proxyClientMaxBodySize) their large bodies.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|placeholders/|media/v/|api/rfq$|api/disputes$).*)"],
 };

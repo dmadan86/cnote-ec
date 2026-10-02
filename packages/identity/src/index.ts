@@ -15,7 +15,7 @@ export { requestPhoneOtp, verifyPhoneOtp } from "./otp";
 export * from "./evidence";
 export { createBusiness, ensureSystemBuyerBusiness, updateProfile, getTrustProfiles, listSellers, listSellerIndex, bustSellerCaches, listVerificationRecords, getBuyerBusinessProfile, type BuyerBusinessProfile } from "./business";
 export { hasConsent, setConsent, getConsents, getConsentStates, type ConsentLedgerState } from "./consent";
-export { exportPersonalData, erasePerson } from "./privacy";
+export { exportPersonalData, erasePerson, erasePersonWithStepUp, verifyErasureStepUp, listPersonBusinessIds, STEP_UP_WINDOW_MS, type ErasureStepUp } from "./privacy";
 
 export { computeTrustScore, BADGE_THRESHOLD, type TrustSignals } from "./trust";
 export { isValidGstin, isValidUdyam, setGstnProvider, type GstnProvider, type GstnRecord } from "./gstin";

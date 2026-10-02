@@ -9,6 +9,7 @@ import { numOrNull, str } from "@/lib/form-data";
 import { logEvent } from "@/lib/metrics";
 import { run } from "@/lib/run";
 import { enquiry } from "@/lib/services";
+import { sendQuote } from "./send-quote";
 
 export type ConvResult = ActionResult<null>;
 
@@ -24,74 +25,10 @@ export async function sendMessageAction(_prev: ConvResult | null, fd: FormData):
   });
 }
 
-const quoteSchema = (t: Awaited<ReturnType<typeof getTranslations>>) =>
-  z.object({
-    price: z.number(t("enterPrice")).positive(t("pricePositive")),
-    quantity: z.number(t("enterQuantity")).positive(t("quantityPositive")),
-    unit: z.string().min(1, t("chooseUnit")),
-    leadTimeDays: z.number().int(t("wholeDays")).min(0).nullable().refine((v) => v === null || Number.isFinite(v), t("enterWholeDays")),
-    validUntil: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, t("chooseDate")),
-    notes: z.string().max(1000, t("notesMax")),
-    moq: z.number(t("moqPositive")).int(t("moqPositive")).positive(t("moqPositive")).nullable(),
-    deliveryTerms: z.enum(enquiry.DELIVERY_TERMS).nullable(),
-    deliveryNote: z.string().max(300),
-    deliveryCharge: z.number(t("chargeInvalid")).min(0, t("chargeInvalid")).nullable(),
-    paymentTerms: z.enum(enquiry.PAYMENT_TERMS).nullable(),
-    paymentNote: z.string().max(300),
-    gstIncluded: z.boolean().nullable(),
-  });
-
-/** Quote attachments (drawings, spec sheets): an empty file input submits one zero-byte entry, which is skipped. */
-async function files(fd: FormData, field: string) {
-  const out: { fileName: string; bytes: Uint8Array }[] = [];
-  for (const v of fd.getAll(field)) {
-    if (typeof v === "string" || v.size === 0) continue;
-    out.push({ fileName: v.name, bytes: new Uint8Array(await v.arrayBuffer()) });
-  }
-  return out;
-}
-
 export async function sendQuoteAction(_prev: ConvResult | null, fd: FormData): Promise<ConvResult> {
   const conversationId = str(fd, "conversationId");
   const session = await requireSeller(`/conversations/${conversationId}`);
-  const t = await getTranslations("leads.conversation.errors");
-  return run(async () => {
-    const q = quoteSchema(t).parse({
-      price: numOrNull(fd, "price") ?? undefined,
-      quantity: numOrNull(fd, "quantity") ?? undefined,
-      unit: str(fd, "unit"),
-      leadTimeDays: numOrNull(fd, "leadTimeDays"),
-      validUntil: str(fd, "validUntil"),
-      notes: str(fd, "notes"),
-      moq: numOrNull(fd, "moq"),
-      deliveryTerms: str(fd, "deliveryTerms") || null,
-      deliveryNote: str(fd, "deliveryNote"),
-      deliveryCharge: numOrNull(fd, "deliveryCharge"),
-      paymentTerms: str(fd, "paymentTerms") || null,
-      paymentNote: str(fd, "paymentNote"),
-      gstIncluded: str(fd, "gstIncluded") === "included" ? true : str(fd, "gstIncluded") === "extra" ? false : null,
-    });
-    await enquiry.sendQuote(actorOf(session), z.string().min(1).parse(conversationId), {
-      pricePaise: rupeesToPaise(q.price),
-      quantity: q.quantity,
-      unit: q.unit,
-      leadTimeDays: q.leadTimeDays,
-      notes: q.notes || null,
-      validUntil: q.validUntil ? new Date(`${q.validUntil}T23:59:59+05:30`).toISOString() : null,
-      moq: q.moq,
-      moqUnit: q.moq != null ? q.unit : null,
-      deliveryTerms: q.deliveryTerms,
-      deliveryNote: q.deliveryNote || null,
-      deliveryChargePaise: q.deliveryCharge != null ? rupeesToPaise(q.deliveryCharge) : null,
-      paymentTerms: q.paymentTerms,
-      paymentNote: q.paymentNote || null,
-      gstIncluded: q.gstIncluded,
-      attachments: await files(fd, "attachments"),
-    });
-    logEvent("seller.quote_sent", { businessId: session.business.id, conversationId });
-    revalidatePath(`/conversations/${conversationId}`);
-    return null;
-  });
+  return run(() => sendQuote(fd, session)); // text-only: quotes WITH attachments post to /api/quotes (2 MB action body cap)
 }
 
 /** ADR-007: one-tap "did this close?" for off-platform deals. */

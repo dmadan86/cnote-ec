@@ -32,3 +32,6 @@ export { worker } from "./worker";
 
 export * from "./getters";
 export * from "./retention";
+
+// DPDP access right: registered with @cnote/compliance's export registry (security audit M10).
+export { exportPersonalData } from "./privacy";

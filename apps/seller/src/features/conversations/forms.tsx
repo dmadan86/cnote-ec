@@ -5,6 +5,7 @@ import { DELIVERY_TERMS, PAYMENT_TERMS } from "./terms";
 import { Alert, Field, Input, Select, Textarea } from "@cnote/ui";
 import { UNITS } from "@/lib/constants";
 import { FormAlert, SubmitButton, fieldError } from "@/features/shell/form-bits";
+import { hasFileEntries, submitFormAsAction } from "@cnote/next-kit/upload-client";
 import { reportDealAction, sendMessageAction, sendQuoteAction, type ConvResult } from "./actions";
 
 export function MessageForm({ conversationId }: { conversationId: string }) {
@@ -29,7 +30,11 @@ export function MessageForm({ conversationId }: { conversationId: string }) {
 export function QuoteForm({ conversationId }: { conversationId: string }) {
   const t = useTranslations("leads.conversation");
   const tr = useTranslations("rfqLead");
-  const [state, action] = useActionState<ConvResult | null, FormData>(sendQuoteAction, null);
+  // Quotes WITH attachments post to /api/quotes (server actions are capped at 2 MB app-wide); text-only quotes use the server action.
+  const [state, action] = useActionState<ConvResult | null, FormData>(
+    async (prev, fd) => (hasFileEntries(fd) ? submitFormAsAction<null>("/api/quotes", fd) : sendQuoteAction(prev, fd)),
+    null,
+  );
   return (
     <form action={action} key={state?.ok ? "sent" : "draft"} className="space-y-4">
       <input type="hidden" name="conversationId" value={conversationId} />

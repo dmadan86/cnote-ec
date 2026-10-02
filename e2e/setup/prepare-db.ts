@@ -48,6 +48,8 @@ async function ensureDatabase(url: string) {
   await c.connect();
   try {
     await c.query("create extension if not exists vector");
+    // e2e helpers (e.g. seed-billing) delete from the DB-level append-only tables (M5); the e2e DBs opt in by default.
+    await c.query(`alter database "${name}" set cnote.allow_purge = 'on'`);
   } catch (e) {
     console.warn(`[e2e] could not create the vector extension in ${name} (fine if the migration does): ${(e as Error).message}`);
   } finally {

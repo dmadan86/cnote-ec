@@ -31,10 +31,13 @@ export const e2eEnv: Record<string, string> = {
   HUMAN_VERIFIER: "off",
   AI_PROVIDER: "heuristic",
   QUEUE_DRIVER: "memory",
-  // Ignored by production builds (NODE_ENV=production); only the dev server (E2E_DEV=1) echoes codes. Specs plant codes via e2e/support/otp.ts.
   OTP_DEV_ECHO: "true",
   // The specs send a per-context cf-connecting-ip (see fixtures.ts) so rate limits do not collide; clientIp honours it only with this flag.
   TRUST_CLOUDFLARE: "1",
+  // The servers run NODE_ENV=production, where startup validation (packages/security/src/secrets.ts) rejects the OTP echo and requires the
+  // webhook secret of every enabled provider (escrow is on below). The OTP echo opt-out is for e2e/dev only: never set it on a real deployment.
+  ALLOW_OTP_ECHO_IN_PRODUCTION: "1",
+  ESCROW_WEBHOOK_SECRET: "e2e-escrow-webhook-secret-not-for-production-0123456789",
   // Lets a spec purge the web ISR cache the way the cache worker would (POST /api/revalidate), e.g. e2e/a11y/product-qa.spec.ts.
   REVALIDATE_SECRET: "e2e-revalidate-secret-not-for-production",
   JWT_SECRET: "q7Xk2mP9vLr4Tn8Bw3Zc6Hd1Fy5Js0Ag-e2e-signing-key",
