@@ -65,7 +65,7 @@ test.describe("buyer business profile", () => {
     await settle(page);
     await expect(page.getByText("GSTIN verified")).toBeVisible();
     const details = page.getByRole("definition");
-    await expect(details.filter({ hasText: "Pvt Ltd" })).toBeVisible();
+    await expect(details.filter({ hasText: "E2E Traders" })).toBeVisible();
     await expect(details.filter({ hasText: "Maharashtra" })).toBeVisible();
     await expect(details.filter({ hasText: "Active" })).toBeVisible();
     await expect(details.filter({ hasText: "Tier 1" })).toBeVisible();
