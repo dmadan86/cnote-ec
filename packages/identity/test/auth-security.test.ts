@@ -1,6 +1,6 @@
 // Sign-up / sign-in / sessions / password reset: security-critical behaviour against the isolated test DB + Redis.
 import { randomUUID } from "node:crypto";
-import { redis } from "@cnote/core";
+import { MemoryJobQueue, redis, setJobQueue } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ZodError } from "zod";
@@ -15,6 +15,7 @@ import {
   signUpWithPassword, erasePerson,
 } from "../src";
 import { dummyVerify } from "../src/password";
+import { mailQueueConsumers } from "../src/mail-queue";
 import { revokeAllSessions } from "../src/sessions";
 import { sha256, signAccessToken } from "../src/tokens";
 import { REALM_POLICY, type Realm } from "../src/constants";
@@ -31,6 +32,8 @@ async function signUp(realm?: Realm) {
   return { email, t };
 }
 const delKeys = async (pattern: string) => { const k = await redis.keys(pattern); if (k.length) await redis.del(...k); };
+/** Pretend the last rotation happened `ms` ago (default: well past the 10s refresh grace window). */
+const ageRotation = (sid: string, ms = 60_000) => prisma.authSession.update({ where: { id: sid }, data: { lastUsedAt: new Date(Date.now() - ms) } });
 const sidOf = (token: string) => JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString()).sid as string;
 
 afterAll(async () => {
@@ -66,9 +69,14 @@ describe("sign-up", () => {
     expect(consents.map((c) => [c.purpose, c.granted]).sort()).toEqual([["marketing", false], ["matching", true]]);
     expect(await prisma.domainEvent.count({ where: { aggregateId: t.personId, type: "ConsentChanged" } })).toBe(2);
   });
-  it("duplicate email (any case) is a conflict, not a leak of a 500", async () => {
+  it("duplicate email (any case) does not error or reveal the account: same response shape, no new person or session", async () => {
+    setJobQueue(new MemoryJobQueue());
     const { email } = await signUp();
-    await expect(signUpWithPassword({ email: email.toUpperCase(), password: PW }, ctxFor())).rejects.toMatchObject({ code: "conflict" });
+    const people = await prisma.person.count({ where: { email } });
+    const r = await signUpWithPassword({ email: email.toUpperCase(), password: PW }, ctxFor());
+    expect(r).toMatchObject({ isNew: true, accessToken: expect.any(String), refreshToken: expect.any(String) });
+    expect(await getSession(r.accessToken)).toBeNull();
+    expect(await prisma.person.count({ where: { email } })).toBe(people);
   });
   it("rate limit: 5 attempts per IP per hour allowed, 6th rejected (even before validation), window resets", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
@@ -281,6 +289,7 @@ describe("refresh rotation", () => {
     const { t } = await signUp();
     const sid = sidOf(t.accessToken);
     const r1 = await refreshSession(t.refreshToken, ctxFor());
+    await ageRotation(sid); // past the grace window, a replay of the old token is theft
     await expect(refreshSession(t.refreshToken, ctxFor())).rejects.toMatchObject({ code: "unauthenticated" });
     expect((await prisma.authSession.findUniqueOrThrow({ where: { id: sid } })).revokedAt).not.toBeNull();
     expect(await redis.get(`sess:${sid}`)).toBe("revoked");
@@ -366,9 +375,18 @@ describe("getSession", () => {
 
 describe("password reset", () => {
   let sent: { to: string; subject: string; text: string }[] = [];
+  // Reset mail is enqueued (not awaited on the request path); drain the in-memory queue the way the worker would.
+  let drain = async () => 0;
+  const reset = async (email: string, ctx: Parameters<typeof requestPasswordReset>[1]) => {
+    await requestPasswordReset(email, ctx);
+    await drain();
+  };
   beforeEach(() => {
     sent = [];
     setMailer({ async send(m) { sent.push(m); } });
+    const q = new MemoryJobQueue();
+    setJobQueue(q);
+    drain = () => q.consume("identity.mail", "test", "t", mailQueueConsumers[0]!.handler as never);
   });
   afterEach(async () => {
     const { consoleMailer } = await import("../src/mailer");
@@ -380,7 +398,7 @@ describe("password reset", () => {
     const { email, t } = await signUp();
     const seller = await signInWithPassword({ email, password: PW }, ctxFor("seller"));
     const admin = await signInWithPassword({ email, password: PW }, ctxFor("admin"));
-    await requestPasswordReset(`  ${email.toUpperCase()} `, ctxFor());
+    await reset(`  ${email.toUpperCase()} `, ctxFor());
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({ to: email, subject: "Reset your password" });
     const token = tokenOf(sent[0]!.text);
@@ -397,7 +415,7 @@ describe("password reset", () => {
   });
   it("token is single-use even under concurrent redemption", async () => {
     const { email } = await signUp();
-    await requestPasswordReset(email, ctxFor());
+    await reset(email, ctxFor());
     const token = tokenOf(sent[0]!.text);
     const res = await Promise.allSettled([resetPassword(token, "concurrent passphrase 1"), resetPassword(token, "concurrent passphrase 2")]);
     expect(res.filter((r) => r.status === "fulfilled")).toHaveLength(1);
@@ -405,7 +423,7 @@ describe("password reset", () => {
   });
   it("rejects empty/unknown/expired tokens and weak passwords WITHOUT consuming the token", async () => {
     const { email } = await signUp();
-    await requestPasswordReset(email, ctxFor());
+    await reset(email, ctxFor());
     const token = tokenOf(sent[0]!.text);
     await expect(resetPassword("", "brand new passphrase")).rejects.toMatchObject({ code: "validation" });
     await expect(resetPassword("unknown", "brand new passphrase")).rejects.toMatchObject({ code: "validation" });
@@ -417,15 +435,15 @@ describe("password reset", () => {
   it("does not reveal (or email) unknown, malformed or erased accounts", async () => {
     const erased = await signUp();
     await erasePerson(erased.t.personId);
-    await expect(requestPasswordReset(newEmail(), ctxFor())).resolves.toBeUndefined();
-    await expect(requestPasswordReset("not-an-email", ctxFor())).resolves.toBeUndefined();
-    await expect(requestPasswordReset(erased.email, ctxFor())).resolves.toBeUndefined();
+    await expect(reset(newEmail(), ctxFor())).resolves.toBeUndefined();
+    await expect(reset("not-an-email", ctxFor())).resolves.toBeUndefined();
+    await expect(reset(erased.email, ctxFor())).resolves.toBeUndefined();
     expect(sent).toHaveLength(0);
   });
   it("link points at the realm's app URL", async () => {
     const { email } = await signUp();
     vi.stubEnv("ADMIN_APP_URL", "https://admin.example.test");
-    await requestPasswordReset(email, ctxFor("admin"));
+    await reset(email, ctxFor("admin"));
     expect(sent[0]!.text).toContain("https://admin.example.test/reset-password?token=");
     vi.unstubAllEnvs();
   });
@@ -433,15 +451,15 @@ describe("password reset", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2034-05-05T00:00:00Z"));
     const { email } = await signUp();
-    for (let i = 0; i < 3; i++) await requestPasswordReset(email, ctxFor());
+    for (let i = 0; i < 3; i++) await reset(email, ctxFor());
     expect(sent).toHaveLength(3);
-    await expect(requestPasswordReset(email, ctxFor())).rejects.toMatchObject({ code: "rate_limited" });
+    await expect(reset(email, ctxFor())).rejects.toMatchObject({ code: "rate_limited" });
     // limiter applies equally to unknown emails so it cannot be used to enumerate
     const ghost = newEmail();
-    for (let i = 0; i < 3; i++) await requestPasswordReset(ghost, ctxFor());
-    await expect(requestPasswordReset(ghost, ctxFor())).rejects.toMatchObject({ code: "rate_limited" });
+    for (let i = 0; i < 3; i++) await reset(ghost, ctxFor());
+    await expect(reset(ghost, ctxFor())).rejects.toMatchObject({ code: "rate_limited" });
     vi.setSystemTime(new Date("2034-05-05T01:00:01Z"));
-    await requestPasswordReset(email, ctxFor());
+    await reset(email, ctxFor());
     expect(sent).toHaveLength(4);
   });
 });

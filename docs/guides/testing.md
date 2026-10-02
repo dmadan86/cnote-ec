@@ -70,7 +70,7 @@ Useful flags: `--project=desktop`, `-g "pricing"`, `--headed`, `--ui`, `--debug`
   against the seeded DB (needed: static pages read the catalogue at build time). Set `E2E_DEV=1` to use `next dev` instead.
   Rebuild after changing app code; running servers are reused locally, never in CI.
 - Bot check: `HUMAN_VERIFIER=off` (Turnstile is bypassed explicitly, `packages/security/src/human.ts`). `AI_PROVIDER=heuristic`,
-  `QUEUE_DRIVER=memory`, `OTP_DEV_ECHO=true` (the OTP is shown on screen). Feature flags stay off; a spec that needs one
+  `QUEUE_DRIVER=memory`, `OTP_DEV_ECHO=true` (honoured only by the dev server: production builds never echo a code, so specs plant one with `e2e/support/otp.ts`), `TRUST_CLOUDFLARE=1` (so the per-context `cf-connecting-ip` fixture is honoured by `clientIp`). Feature flags stay off; a spec that needs one
   sets it in `e2e/support/env.ts` with a comment.
 - Seed logins: `buyer-demo@example.com` / `DemoBuyer#2026`, `seller-demo@example.com` / `DemoSeller#2026`. Do not build
   specs that depend on specific seed rows; discover data through the UI (`support/pages.ts`).

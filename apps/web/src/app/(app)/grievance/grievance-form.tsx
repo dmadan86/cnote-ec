@@ -31,6 +31,7 @@ export function GrievanceForm({ signedIn, email, ackHours }: { signedIn: boolean
           {t.rich("receivedBody", { id: state.data.id, hours: ackHours, date: formatDate(state.data.dueAt, locale, { dateStyle: "long" }), code: (c) => <code className="break-all">{c}</code> })}{" "}
           {signedIn ? t("followSignedIn") : t("followAnon")}
         </p>
+        {state.data.verificationRequired ? <p className="mt-2 font-medium">{t("verifyEmailSent")}</p> : null}
       </Alert>
     );
   }

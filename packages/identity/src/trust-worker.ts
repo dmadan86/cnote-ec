@@ -2,6 +2,7 @@ import { auditWorkerJobs } from "./audits";
 import { emit, redis, type EventHandlers, type ModuleWorker } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { bustSellerCaches } from "./business";
+import { mailQueueConsumers } from "./mail-queue";
 import { gstWorkerJobs } from "./gst/continuous";
 import { computeTrustScore, emptySignals, RESPONSE_SLA_MS, type TrustSignals } from "./trust";
 
@@ -92,6 +93,10 @@ export const trustHandlers: EventHandlers = {
     if (!fault) return;
     await once(e.id, fault, (p) => p.hincrby(counterKey(fault), "disputesLost", 1));
   },
+  // The released business lost its GST-backed tier: recompute (and drop the badge) now rather than at the next decay run.
+  async GstinClaimReleased(e) {
+    await recomputeTrust(e.payload.businessId);
+  },
   async BusinessVerified(e) {
     const dedupe = `trust:ev:${e.id}`;
     if ((await redis.set(dedupe, "1", "EX", 7 * 86400, "NX")) === null) return;
@@ -122,5 +127,6 @@ export async function runTrustDecay(opts: { pageSize?: number } = {}): Promise<n
 export const worker: ModuleWorker = {
   name: "identity",
   handlers: trustHandlers,
+  queues: mailQueueConsumers,
   jobs: [{ name: "identity.trust-decay", everyMs: DAY, run: async () => void (await runTrustDecay()) }, ...gstWorkerJobs, ...auditWorkerJobs],
 };

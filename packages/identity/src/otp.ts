@@ -1,6 +1,7 @@
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import { DomainError, redis } from "@cnote/core";
 import { prisma } from "@cnote/db";
+import { devEchoEnabled } from "./dev-echo";
 import { enforceLimit } from "./limits";
 import { resolveOtpSender } from "./phone-login";
 import { jwtKey } from "./tokens";
@@ -34,7 +35,7 @@ export async function requestPhoneOtp(personId: string, phoneInput: string): Pro
 
   // Same delivery path as phone sign-in (OTP_SENDER: console | msg91 | whatsapp_cloud | whatsapp_then_sms).
   await (await resolveOtpSender()).send({ to: phone, code, channel: "sms", ttlMinutes: OTP_TTL / 60 });
-  return process.env.OTP_DEV_ECHO === "true" ? { sent: true, devCode: code } : { sent: true };
+  return devEchoEnabled() ? { sent: true, devCode: code } : { sent: true };
 }
 
 export async function verifyPhoneOtp(personId: string, phoneInput: string, code: string): Promise<{ verified: boolean }> {

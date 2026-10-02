@@ -1,6 +1,7 @@
 import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { z } from "zod";
+import { isBreachedPassword } from "./breached-passwords";
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, keylen: number, opts: { N: number; r: number; p: number; maxmem: number }) => Promise<Buffer>;
 
@@ -14,7 +15,7 @@ export function normaliseEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-// Small inline blocklist (>= 10 chars entries matter; policy min length is 10).
+// Small inline blocklist of locale-specific / long entries; the bundled top-10k list (breached-passwords.ts) covers the rest.
 const COMMON_PASSWORDS = new Set(
   [
     "password12", "password123", "password1234", "passw0rd123", "1234567890", "12345678910", "123456789012", "0123456789",
@@ -29,7 +30,7 @@ const COMMON_PASSWORDS = new Set(
 export function passwordProblem(password: string): string | null {
   if (password.length < 10) return "Use at least 10 characters.";
   if (password.length > 128) return "Use at most 128 characters.";
-  if (COMMON_PASSWORDS.has(password.toLowerCase())) return "This password is too common. Choose a less guessable one.";
+  if (COMMON_PASSWORDS.has(password.toLowerCase()) || isBreachedPassword(password)) return "This password is too common. Choose a less guessable one.";
   if (/^(.)\1+$/.test(password)) return "This password is too simple.";
   return null;
 }

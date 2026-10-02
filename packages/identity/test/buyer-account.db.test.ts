@@ -21,10 +21,10 @@ afterEach(() => {
   mockProvider.clearFixtures();
 });
 
-async function buyer(isSeller = false) {
+async function buyer(isSeller = false, state = "Maharashtra") {
   const p = await prisma.person.create({ data: { email: `ba-${randomUUID()}@example.test` } });
   people.push(p.id);
-  const { businessId } = await createBusiness(p.id, { name: "Buyer Co", city: "Pune", state: "Maharashtra", pincode: "411001", isSeller });
+  const { businessId } = await createBusiness(p.id, { name: "Buyer Co", city: "Pune", state, pincode: "411001", isSeller });
   biz.push(businessId);
   return { personId: p.id, businessId };
 }
@@ -90,7 +90,7 @@ describe("delivery addresses", () => {
 
 describe("buyer GSTIN verification", () => {
   it("passes with the mock provider, returns legal name + state, applies tier 1", async () => {
-    const { businessId } = await buyer();
+    const { businessId } = await buyer(false, "Karnataka");
     const g = taxId("29");
     const r = await verifyGstin(businessId, g.toLowerCase());
     expect(r).toMatchObject({ passed: true, tier: 1, state: "Karnataka" });

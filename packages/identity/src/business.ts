@@ -2,7 +2,7 @@ import { cachedManyTagged, cachedTagged, cacheTags, DomainError, emit, invalidat
 import { createHash } from "node:crypto";
 import { prisma } from "@cnote/db";
 import { z } from "zod";
-import { GST_STATES, getGstnProvider, GstnProviderError, isValidGstin, isValidUdyam, normaliseGstin } from "./gstin";
+import { GST_STATES } from "./gstin";
 import type { CreateBusinessInput, TrustProfile } from "./types";
 
 const createSchema = z.object({
@@ -141,54 +141,6 @@ export async function listSellerIndex(opts: { offset: number; limit: number }): 
     },
     { staleSeconds: 3600 },
   );
-}
-
-/** T1: GSTIN checksum + GSTN provider lookup (mock in dev), Udyam optional. Emits BusinessVerified. */
-export async function verifyGstin(businessId: string, gstinInput: string, udyamInput?: string): Promise<{ passed: boolean; tier: number; reason?: string; legalName?: string; state?: string | null }> {
-  const business = await prisma.business.findUnique({ where: { id: businessId }, select: { id: true, verificationTier: true, legalName: true } });
-  if (!business) throw new DomainError("not_found", "Business not found.", undefined, "account.businessNotFound");
-  const gstin = normaliseGstin(gstinInput);
-  const udyam = udyamInput?.trim() ? udyamInput.trim().toUpperCase() : undefined;
-  const provider = getGstnProvider();
-
-  const fail = async (reason: string, details: object = {}) => {
-    await prisma.verificationRecord.create({
-      data: { businessId, tier: 1, kind: "gstin", status: "failed", provider: provider.name, details: { gstin, reason, ...details } },
-    });
-    return { passed: false, tier: business.verificationTier, reason };
-  };
-
-  if (!isValidGstin(gstin)) return fail("Invalid GSTIN. Check the 15 characters and try again.");
-  if (udyam && !isValidUdyam(udyam)) return fail("Invalid Udyam number. Expected format UDYAM-XX-00-0000000.");
-  let record;
-  try {
-    record = await provider.lookup(gstin);
-  } catch (err) {
-    // A provider outage is not the user's fault and must not leave a "failed" verification on record.
-    if (err instanceof GstnProviderError) return { passed: false, tier: business.verificationTier, reason: "The GST registry is unavailable right now. Please try again shortly." };
-    throw err;
-  }
-  if (!record) return fail("GSTIN not found in the GST registry.");
-  if (record.status !== "Active") return fail(`GSTIN is ${record.status.toLowerCase()}.`, { status: record.status });
-
-  const tier = Math.max(business.verificationTier, 1);
-  try {
-    await prisma.$transaction(async (tx) => {
-      await tx.business.update({ where: { id: businessId }, data: { gstin, ...(udyam ? { udyam } : {}), verificationTier: tier, gstStatus: record.status, gstVerifiedAt: new Date(), gstLastCheckedAt: new Date(), ...(business.legalName ? {} : { legalName: record.legalName }) } });
-      await tx.verificationRecord.create({
-        data: { businessId, tier: 1, kind: "gstin", status: "passed", provider: provider.name, details: { gstin, legalName: record.legalName, state: record.state, status: record.status } },
-      });
-      if (udyam) {
-        await tx.verificationRecord.create({ data: { businessId, tier: 1, kind: "udyam", status: "passed", provider: "format-check", details: { udyam } } });
-      }
-      await emit(tx, "BusinessVerified", { type: "Business", id: businessId }, { businessId, tier, kind: "gstin" });
-    });
-  } catch (err) {
-    if ((err as { code?: string }).code === "P2002") return fail("This GSTIN is already registered to another business.");
-    throw err;
-  }
-  await bustSellerCaches(businessId);
-  return { passed: true, tier, legalName: record.legalName, state: record.state };
 }
 
 export interface BuyerBusinessProfile {

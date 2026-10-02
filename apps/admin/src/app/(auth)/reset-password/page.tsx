@@ -2,7 +2,7 @@ import { Alert } from "@cnote/ui";
 import { ResetPasswordForm } from "@cnote/next-kit/client";
 import { one } from "@/lib/util";
 
-export const metadata = { title: "Reset password" };
+export const metadata = { title: "Reset password", referrer: "no-referrer" as const };
 
 export default async function ResetPasswordPage({ searchParams }: PageProps<"/reset-password">) {
   const token = one((await searchParams).token);

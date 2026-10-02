@@ -5,6 +5,16 @@ import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { enforceLimit } from "../src/limits";
 import { getSession, refreshSession, signInWithPassword, signOut, signUpWithPassword, getConsents, setConsent, erasePerson, resetPassword, requestPasswordReset, setMailer } from "../src";
 import { sha256 } from "../src/tokens";
+import { MemoryJobQueue, setJobQueue } from "@cnote/core";
+import { mailQueueConsumers } from "../src/mail-queue";
+
+/** Account mail is enqueued (never awaited on the request path); tests run the worker's consumer against an in-memory queue. */
+async function withMailQueue() {
+  const q = new MemoryJobQueue();
+  setJobQueue(q);
+  const drain = () => q.consume("identity.mail", "test", "t", mailQueueConsumers[0]!.handler as never);
+  return { q, drain };
+}
 
 const ctx = { ip: `test-${randomUUID()}`, userAgent: "vitest" };
 const emails: string[] = [];
@@ -40,7 +50,9 @@ describe("sessions", () => {
     expect(t2.refreshToken).not.toBe(t.refreshToken);
     expect((await getSession(t2.accessToken))?.personId).toBe(t.personId);
 
-    // Reusing the previous token revokes the whole session, including the newest token.
+    // Reusing the previous token (after the grace window) revokes the whole session, including the newest token.
+    const sid = JSON.parse(Buffer.from(t.accessToken.split(".")[1]!, "base64url").toString()).sid as string;
+    await prisma.authSession.update({ where: { id: sid }, data: { lastUsedAt: new Date(Date.now() - 60_000) } });
     await expect(refreshSession(t.refreshToken, ctx)).rejects.toMatchObject({ code: "unauthenticated" });
     await expect(refreshSession(t2.refreshToken, ctx)).rejects.toMatchObject({ code: "unauthenticated" });
     expect(await getSession(t2.accessToken)).toBeNull();
@@ -114,9 +126,21 @@ describe("password sign-in", () => {
     for (let i = 0; i < 5; i++) await expect(signInWithPassword({ email, password: "x" }, c)).rejects.toThrow("Invalid email or password");
     await expect(signInWithPassword({ email, password: "x" }, c)).rejects.toMatchObject({ code: "rate_limited" });
   });
-  it("rejects duplicate sign-up", async () => {
-    const { email } = await signUp();
-    await expect(signUpWithPassword({ email, password: PW }, { ...ctx, ip: randomUUID() })).rejects.toMatchObject({ code: "conflict" });
+  it("sign-up for an existing email looks like a success, creates no session and emails the owner (no enumeration)", async () => {
+    const { drain } = await withMailQueue();
+    const { email, t } = await signUp();
+    const sent: { to: string; subject: string; text: string }[] = [];
+    setMailer({ async send(m) { sent.push(m); } });
+    const before = await prisma.authSession.count({ where: { personId: t.personId } });
+    const r = await signUpWithPassword({ email, password: "a different long passphrase", name: "Imposter" }, { ...ctx, ip: randomUUID() });
+    expect(Object.keys(r).sort()).toEqual(["accessExpiresAt", "accessToken", "isNew", "personId", "refreshExpiresAt", "refreshToken"]);
+    expect(await prisma.authSession.count({ where: { personId: t.personId } })).toBe(before); // nothing was created
+    expect(await getSession(r.accessToken)).toBeNull(); // the decoy token opens nothing
+    await expect(refreshSession(r.refreshToken, ctx)).rejects.toMatchObject({ code: "unauthenticated" });
+    expect((await prisma.person.findUnique({ where: { email } }))?.name).toBe("Test"); // account untouched
+    await drain();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ to: email, subject: expect.stringMatching(/tried to register/i) });
   });
 });
 
@@ -131,10 +155,13 @@ describe("rate limit helper", () => {
 
 describe("password reset", () => {
   it("is single-use and revokes sessions", async () => {
+    const { drain } = await withMailQueue();
     const { email, t } = await signUp();
     let link = "";
     setMailer({ async send(m) { link = m.text; } });
     await requestPasswordReset(email, ctx);
+    expect(link).toBe(""); // enqueued, not sent inline
+    await drain();
     const token = /token=([\w-]+)/.exec(link)![1]!;
     expect(await redis.get(`pwreset:${sha256(token)}`)).toBeTruthy();
     await resetPassword(token, "another long passphrase");

@@ -8,7 +8,7 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Mono, Table, Td, Th } from "@/components/table";
 import { requireStaff } from "@/lib/auth";
 import { fmtDate, safe } from "@/lib/util";
-import { resolveGstReviewAction } from "../actions";
+import { releaseGstinClaimAction, resolveGstReviewAction } from "../actions";
 
 export const metadata = { title: "Business" };
 
@@ -58,6 +58,19 @@ export default async function BusinessDetailPage({ params }: PageProps<"/busines
           )}
         </CardBody>
       </Card>
+      {canVerify && company?.gstin ? (
+        <Card>
+          <CardHeader><CardTitle>Dispute this GSTIN</CardTitle></CardHeader>
+          <CardBody>
+            <p className="mb-3 text-sm text-muted">If another business reports that this GSTIN is theirs (squatting), release this business&apos;s claim. Its GST-derived tier is dropped and the real owner can verify. Recorded in the audit log and as an event.</p>
+            <ActionForm action={releaseGstinClaimAction} confirm="Release this GSTIN claim? The business loses its GST-derived verification." successMessage="GSTIN claim released.">
+              <input type="hidden" name="businessId" value={id} />
+              <Field label="Reason" htmlFor="gstin-release-reason" className="mb-2 max-w-xl"><Textarea id="gstin-release-reason" name="reason" required minLength={5} maxLength={500} /></Field>
+              <SubmitButton variant="danger">Release GSTIN claim</SubmitButton>
+            </ActionForm>
+          </CardBody>
+        </Card>
+      ) : null}
       <Card>
         <CardHeader><CardTitle>GST verification evidence</CardTitle></CardHeader>
         <CardBody className="space-y-4">

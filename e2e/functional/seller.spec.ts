@@ -2,6 +2,7 @@
 import { expect, test, type Page } from "../support/fixtures";
 import { DEMO, SELLER_URL } from "../support/env";
 import { PASSWORD, uniqueEmail } from "../support/auth";
+import { plantPhoneOtp } from "../support/otp";
 
 test.use({ baseURL: SELLER_URL });
 
@@ -19,7 +20,7 @@ async function signUpSeller(page: Page, tag = "seller") {
 
 test.describe("seller onboarding", () => {
   test("sign up -> business -> phone -> skip GST -> first listing from the form -> submitted for review", async ({ page }) => {
-    await signUpSeller(page, "onboard");
+    const acct = await signUpSeller(page, "onboard");
 
     // Step 1: business
     await expect(page.getByRole("heading", { level: 1, name: "Tell us about your business" })).toBeVisible();
@@ -32,13 +33,15 @@ test.describe("seller onboarding", () => {
     await page.getByRole("checkbox", { name: "हिन्दी" }).uncheck();
     await page.getByRole("button", { name: "Save and continue" }).click();
 
-    // Step 2: phone OTP (dev mode echoes the code on screen; OTP_DEV_ECHO=true)
+    // Step 2: phone OTP. A production build never echoes the code (OTP_DEV_ECHO is ignored under NODE_ENV=production),
+    // so the spec plants a known code for this person in the e2e Redis after the app has "sent" one.
     await expect(page.getByRole("heading", { level: 1, name: "Verify your phone" })).toBeVisible();
     const phone = `9${Math.floor(100000000 + Math.random() * 899999999)}`;
     await page.getByRole("textbox", { name: "Mobile number" }).fill(phone);
     await page.getByRole("button", { name: "Send code" }).click();
-    const code = await page.locator("code, strong.font-mono").first().innerText();
-    expect(code).toMatch(/^\d{4,8}$/);
+    await expect(page.getByRole("textbox", { name: /Enter the code/ })).toBeVisible();
+    expect(await page.locator("code, strong.font-mono").count()).toBe(0); // no dev echo in a production build
+    const code = await plantPhoneOtp(acct.email, phone);
     await page.getByRole("textbox", { name: /Enter the code/ }).fill(code);
     await page.getByRole("button", { name: "Verify and continue" }).click();
 

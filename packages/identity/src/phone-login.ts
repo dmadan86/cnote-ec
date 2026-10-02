@@ -3,6 +3,7 @@
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import { DomainError, emit, redis } from "@cnote/core";
 import { prisma } from "@cnote/db";
+import { devEchoEnabled } from "./dev-echo";
 import { enforceLimit } from "./limits";
 import { normalisePhone } from "./otp";
 import { issueTokens } from "./sessions";
@@ -81,7 +82,7 @@ export async function requestLoginOtp(
   await redis.multi().hset(k, { hash: digest(phone, code), attempts: 0 }).expire(k, OTP_TTL).exec();
   await (await resolveOtpSender()).send({ to: phone, code, channel, ttlMinutes: OTP_TTL / 60 });
   const base = { sent: true as const, phone, phoneHash: sha256(phone), channel, resendAfterSeconds: RESEND_COOLDOWN };
-  return process.env.OTP_DEV_ECHO === "true" ? { ...base, devCode: code } : base;
+  return devEchoEnabled() ? { ...base, devCode: code } : base;
 }
 
 /**

@@ -27,10 +27,15 @@ const CSP_NAMES = ["Content-Security-Policy", "Content-Security-Policy-Report-On
  * Sets every security header (CSP, HSTS, COOP/CORP, Permissions-Policy, …) on a response, redirects
  * included. Existing values are overwritten: the proxy is the single source of truth.
  */
-export function withSecurityHeaders<R extends Response>(res: R, opts: SecurityOptions): R {
+export function withSecurityHeaders<R extends Response>(res: R, opts: SecurityOptions, pathname?: string): R {
   for (const [k, v] of Object.entries(securityHeaders(opts))) res.headers.set(k, v);
+  // The URL itself is a credential on these pages (reset token): never let it leak through a Referer header.
+  if (pathname && pathMatches(pathname, NO_REFERRER_PATHS)) res.headers.set("Referrer-Policy", "no-referrer");
   return res;
 }
+
+/** Paths whose URL carries a secret; they always get `Referrer-Policy: no-referrer`, whatever the app-wide policy is. */
+export const NO_REFERRER_PATHS: readonly string[] = ["/reset-password", "/grievance/verify"];
 
 /**
  * Clone the request with the nonce and CSP on its headers. Next reads the CSP request header during

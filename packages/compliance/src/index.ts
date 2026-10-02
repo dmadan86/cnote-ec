@@ -4,7 +4,7 @@
 // PUBLIC CONTRACT. Extend, don't break.
 export * from "./config";
 export {
-  GRIEVANCE_CATEGORIES, REQUEST_TYPES, TAKEDOWN_CATEGORY, isTakedown, isRightsRequest, evaluateSla, fileGrievance, listGrievances, getGrievance, listMyGrievances, getMyGrievance, respondToGrievance, sweepGrievanceSla,
+  GRIEVANCE_CATEGORIES, REQUEST_TYPES, TAKEDOWN_CATEGORY, isTakedown, isRightsRequest, evaluateSla, fileGrievance, listGrievances, getGrievance, listMyGrievances, getMyGrievance, respondToGrievance, sweepGrievanceSla, verifyGrievanceContact, grievanceVerifyToken,
   type GrievanceCategory, type RequestType, type GrievanceStatus, type GrievanceSla, type GrievanceView, type GrievanceFilters, type FileGrievanceInput, type SlaSweepResult,
 } from "./grievance";
 export {

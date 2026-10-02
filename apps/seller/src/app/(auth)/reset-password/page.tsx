@@ -6,7 +6,7 @@ import { Alert } from "@cnote/ui";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("auth.reset");
-  return { title: t("meta") };
+  return { title: t("meta"), referrer: "no-referrer" };
 }
 
 export default async function ResetPasswordPage({ searchParams }: PageProps<"/reset-password">) {

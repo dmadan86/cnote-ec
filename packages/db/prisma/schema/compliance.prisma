@@ -31,6 +31,9 @@ model GrievanceTicket {
   handledBy   String?              @map("handled_by") @db.Uuid // StaffMember id
   resolvedAt  DateTime?            @map("resolved_at") @db.Timestamptz
   createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  /// the raiser proved control of contactEmail (signed link) or was signed in. An anonymous rights request (access/erasure/
+  /// correction/...) is not actionable until this is set; the SLA clock starts then. Existing rows were backfilled as verified.
+  contactVerifiedAt DateTime?      @map("contact_verified_at") @db.Timestamptz
 
   @@index([status, dueAt])
   @@index([requestType, status])

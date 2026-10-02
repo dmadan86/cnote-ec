@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   currentSession: vi.fn(),
   requestContext: vi.fn(),
   verifyHumanTokenOrThrow: vi.fn(),
+  beginMfaChallenge: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ cookies: async () => h.jar.store }));
@@ -23,6 +24,7 @@ vi.mock("@cnote/admin", () => ({ getStaff: async () => null }));
 vi.mock("@cnote/leadgen", () => ({ completeUnlock: h.completeUnlock, markOtpSent: h.markOtpSent, markVerified: h.markVerified, startCapture: h.startCapture }));
 vi.mock("../src/session", () => ({ currentSession: h.currentSession, requestContext: h.requestContext }));
 vi.mock("../src/human", () => ({ verifyHumanTokenOrThrow: h.verifyHumanTokenOrThrow }));
+vi.mock("../src/mfa-flow", () => ({ beginMfaChallenge: h.beginMfaChallenge }));
 
 import { sendOtp, startUnlock, verifyOtp } from "../src/otp";
 
@@ -33,6 +35,7 @@ beforeEach(() => {
   for (const f of Object.values(h)) if (typeof f === "function") (f as ReturnType<typeof vi.fn>).mockReset();
   h.requestContext.mockResolvedValue({ ip: "1.1.1.1", realm: "web" });
   h.currentSession.mockResolvedValue(null);
+  h.beginMfaChallenge.mockResolvedValue(null);
 });
 
 describe("startUnlock", () => {
@@ -98,6 +101,25 @@ describe("sendOtp", () => {
 
 describe("verifyOtp", () => {
   const consent = { matching: true };
+  const tokens = { accessToken: "AT", refreshToken: "RT", accessExpiresAt: new Date(), refreshExpiresAt: new Date(Date.now() + 1e6), personId: "p", isNew: false };
+  it("MFA enabled: parks the session behind the MFA step; no auth cookies, no unlock", async () => {
+    h.verifyLoginOtp.mockResolvedValue(tokens);
+    h.beginMfaChallenge.mockResolvedValue({ cookie: { name: "cnote_web_mfa", value: "pend", httpOnly: true, sameSite: "lax", secure: false, path: "/", maxAge: 300 }, path: "/mfa" });
+    expect(await verifyOtp("c", "98", "123456", consent)).toEqual({ ok: true, data: { mfaRequired: true, path: "/mfa" } });
+    expect(h.beginMfaChallenge).toHaveBeenCalledWith(tokens, null);
+    expect(h.jar.map.get("cnote_web_at")).toBeUndefined();
+    expect(h.jar.map.get("cnote_web_mfa")).toBe("pend");
+    expect(h.completeUnlock).not.toHaveBeenCalled();
+    expect(h.markVerified).not.toHaveBeenCalled();
+  });
+  it("admin realm: phone OTP sign-in is refused outright (send and verify)", async () => {
+    vi.stubEnv("CNOTE_AUTH_REALM", "admin");
+    expect(await sendOtp("c", "98", "sms")).toMatchObject({ ok: false });
+    expect(await verifyOtp("c", "98", "123456", consent)).toMatchObject({ ok: false });
+    expect(h.requestLoginOtp).not.toHaveBeenCalled();
+    expect(h.verifyLoginOtp).not.toHaveBeenCalled();
+    expect(h.jar.map.size).toBe(0);
+  });
   it("anonymous: sets realm cookies, marks capture, completes unlock", async () => {
     const t = { accessToken: "AT", refreshToken: "RT", accessExpiresAt: new Date(), refreshExpiresAt: new Date(Date.now() + 1e6), personId: "p", isNew: true };
     h.verifyLoginOtp.mockResolvedValue(t);

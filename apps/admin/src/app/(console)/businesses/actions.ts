@@ -1,6 +1,6 @@
 "use server";
 import { audited, requirePrivilege } from "@cnote/admin";
-import { resolveGstReview } from "@cnote/identity";
+import { releaseGstinClaim, resolveGstReview } from "@cnote/identity";
 import { type ActionResult, runAction } from "@cnote/next-kit";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -31,6 +31,30 @@ export async function resolveGstReviewAction(_prev: ActionResult | null, fd: For
   if (result.ok) {
     revalidatePath("/businesses");
     revalidatePath("/businesses/gst-reviews");
+  }
+  return result;
+}
+
+const releaseSchema = z.object({ businessId: z.uuid(), reason: z.string().trim().min(5, "Give a reason (at least 5 characters).").max(500) });
+
+/** "Dispute this GSTIN": staff release a business's claim on its GSTIN (e.g. a squatter reported by the real owner). Audited. */
+export async function releaseGstinClaimAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const result = await runAction(async () => {
+    const input = releaseSchema.parse({ businessId: fd.get("businessId"), reason: fd.get("reason") });
+    const ctx = await actionContext();
+    requirePrivilege(ctx.staff, "businesses.verify");
+    await audited(
+      ctx,
+      "businesses.verify",
+      "business.gstin_release",
+      { type: "business", id: input.businessId },
+      () => releaseGstinClaim(input.businessId, ctx.staff.id, input.reason),
+      { reason: input.reason },
+    );
+  });
+  if (result.ok) {
+    revalidatePath("/businesses");
+    revalidatePath(`/businesses/${fd.get("businessId")}`);
   }
   return result;
 }

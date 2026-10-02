@@ -1,7 +1,8 @@
+import { randomUUID, createCipheriv, createDecipheriv, hkdfSync, randomBytes as nodeRandomBytes } from "node:crypto";
 import { DomainError, redis } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { REALM_POLICY, type Realm } from "./constants";
-import { randomToken, sha256, signAccessToken, verifyAccessToken } from "./tokens";
+import { jwtKey, randomToken, sha256, signAccessToken, verifyAccessToken } from "./tokens";
 import type { AuthContext, AuthTokens, Session } from "./types";
 
 const sessKey = (sid: string) => `sess:${sid}`;
@@ -15,6 +16,50 @@ async function cacheState(sid: string, state: "1" | "revoked") {
     await redis.set(sessKey(sid), state, "EX", CACHE_TTL);
   } catch (err) {
     console.error("session cache write failed", err);
+    if (state !== "revoked") return;
+    // A failed "revoked" write must never leave a stale "valid" marker behind: that would keep a revoked session alive
+    // for up to CACHE_TTL. Delete it (readers then fall back to the DB, which is already updated).
+    try {
+      await redis.del(sessKey(sid));
+    } catch (delErr) {
+      // Redis is unreachable for writes. The marker (if any) expires on its own; getSession falls back to the DB when
+      // Redis reads fail too. Surface it loudly so on-call can see revocations that rely on that expiry.
+      console.error(`SECURITY: could not mark session ${sid} revoked or clear its valid marker in Redis; relying on cache expiry`, delErr);
+    }
+  }
+}
+
+/** Marks sessions revoked in the Redis cache; use after a transaction that revoked them commits. */
+export async function markSessionsRevoked(ids: string[]): Promise<void> {
+  await Promise.all(ids.map((id) => cacheState(id, "revoked")));
+}
+
+/** Refresh-token rotation grace: a client that lost the race (two tabs, a retry after a dropped response) can re-present the previous token. */
+export const REFRESH_GRACE_MS = 10_000;
+const graceKey = (prevHash: string) => `rtgrace:${prevHash}`;
+const graceKeyBytes = () => new Uint8Array(hkdfSync("sha256", jwtKey(), "cnote-refresh-grace", "aes-256-gcm", 32));
+
+/** The freshly rotated pair is kept for the grace window, AES-GCM encrypted (it contains a refresh token), keyed from the JWT secret. */
+async function graceStore(prevHash: string, pair: AuthTokens): Promise<void> {
+  try {
+    const iv = nodeRandomBytes(12);
+    const c = createCipheriv("aes-256-gcm", graceKeyBytes(), iv);
+    const enc = Buffer.concat([c.update(JSON.stringify(pair), "utf8"), c.final()]);
+    await redis.set(graceKey(prevHash), Buffer.concat([iv, c.getAuthTag(), enc]).toString("base64"), "EX", Math.ceil(REFRESH_GRACE_MS / 1000) + 2);
+  } catch (err) {
+    console.error("refresh grace cache write failed", err);
+  }
+}
+async function graceLoad(prevHash: string): Promise<AuthTokens | null> {
+  try {
+    const raw = await redis.get(graceKey(prevHash));
+    if (!raw) return null;
+    const b = Buffer.from(raw, "base64");
+    const d = createDecipheriv("aes-256-gcm", graceKeyBytes(), b.subarray(0, 12));
+    d.setAuthTag(b.subarray(12, 28));
+    return JSON.parse(Buffer.concat([d.update(b.subarray(28)), d.final()]).toString("utf8")) as AuthTokens;
+  } catch {
+    return null;
   }
 }
 
@@ -58,6 +103,17 @@ export async function issueTokens(personId: string, ctx: AuthContext, isNew = fa
   return mint(personId, row.id, refreshToken, isNew, expiresAt, realm);
 }
 
+/**
+ * Session-shaped tokens that are NOT backed by any session row (and a refresh token that matches nothing). Used where the
+ * response must look like a success without disclosing a fact (sign-up for an already-registered email). The access
+ * token verifies as a JWT but getSession() rejects it because no such session exists.
+ */
+export async function decoyTokens(ctx: Pick<AuthContext, "realm">): Promise<AuthTokens> {
+  const realm = realmOf(ctx);
+  const expiresAt = new Date(Date.now() + REALM_POLICY[realm].refreshTtlSeconds * 1000);
+  return mint(randomUUID(), randomUUID(), randomToken(32), true, expiresAt, realm);
+}
+
 async function revokeById(sessionId: string) {
   await prisma.authSession.updateMany({ where: { id: sessionId, revokedAt: null }, data: { revokedAt: new Date() } });
   await cacheState(sessionId, "revoked");
@@ -70,8 +126,18 @@ export async function refreshSession(refreshToken: string, ctx: AuthContext): Pr
   const hash = sha256(refreshToken);
   const session = await prisma.authSession.findUnique({ where: { refreshTokenHash: hash } });
   if (!session) {
-    const reused = await prisma.authSession.findFirst({ where: { prevTokenHash: hash }, select: { id: true } });
-    if (reused) await revokeById(reused.id);
+    const reused = await prisma.authSession.findFirst({ where: { prevTokenHash: hash }, select: { id: true, revokedAt: true, expiresAt: true, realm: true, lastUsedAt: true } });
+    if (reused) {
+      // Rotation just happened (lastUsedAt = rotation time): this is almost certainly the same client losing a race, not
+      // theft. Hand back the pair already minted for it, or fail WITHOUT revoking. Outside the window it is token reuse.
+      const inGrace = !reused.revokedAt && reused.expiresAt > new Date() && reused.realm === realmOf(ctx) && Date.now() - reused.lastUsedAt.getTime() <= REFRESH_GRACE_MS;
+      if (inGrace) {
+        const pair = await graceLoad(hash);
+        if (pair) return pair;
+        throw fail();
+      }
+      await revokeById(reused.id);
+    }
     throw fail();
   }
   if (session.revokedAt || session.expiresAt <= new Date()) throw fail();
@@ -102,7 +168,9 @@ export async function refreshSession(refreshToken: string, ctx: AuthContext): Pr
   });
   if (swapped.count !== 1) throw fail();
   await cacheState(session.id, "1");
-  return mint(session.personId, session.id, next, false, session.expiresAt, realm);
+  const pair = await mint(session.personId, session.id, next, false, session.expiresAt, realm);
+  await graceStore(hash, pair);
+  return pair;
 }
 
 async function sessionActive(sid: string): Promise<boolean> {
@@ -167,10 +235,19 @@ export async function signOut(refreshToken: string, realm?: Realm): Promise<void
 
 /** Revokes every live session of a person — all realms, or only `realm`. Returns revoked ids. */
 export async function revokeAllSessions(personId: string, realm?: Realm): Promise<string[]> {
+  const ids = await revokeAllSessionsTx(prisma, personId, realm);
+  await markSessionsRevoked(ids);
+  return ids;
+}
+
+/**
+ * DB half of revokeAllSessions, runnable inside the caller's transaction (e.g. account linking). Callers must call
+ * markSessionsRevoked(ids) AFTER the transaction commits so the Redis markers flip too.
+ */
+export async function revokeAllSessionsTx(db: Pick<typeof prisma, "authSession">, personId: string, realm?: Realm): Promise<string[]> {
   const where = { personId, revokedAt: null, ...(realm ? { realm } : {}) };
-  const live = await prisma.authSession.findMany({ where, select: { id: true } });
-  await prisma.authSession.updateMany({ where, data: { revokedAt: new Date() } });
-  await Promise.all(live.map((s) => cacheState(s.id, "revoked")));
+  const live = await db.authSession.findMany({ where, select: { id: true } });
+  await db.authSession.updateMany({ where, data: { revokedAt: new Date() } });
   return live.map((s) => s.id);
 }
 
