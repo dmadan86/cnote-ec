@@ -4,7 +4,7 @@ import { CashfreePartner, MockPartner, RazorpayRoutePartner, configuredPartnerNa
 import { hmac } from "../src/partner/util";
 
 const ESC = "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa";
-afterEach(() => { setEscrowPartner(null); delete process.env.ESCROW_PARTNER; delete process.env.RAZORPAY_KEY_ID; delete process.env.RAZORPAY_KEY_SECRET; delete process.env.CASHFREE_CLIENT_ID; delete process.env.ESCROW_WEBHOOK_SECRET; });
+afterEach(() => { setEscrowPartner(null); delete process.env.ESCROW_PARTNER; delete process.env.RAZORPAY_KEY_ID; delete process.env.RAZORPAY_KEY_SECRET; delete process.env.CASHFREE_CLIENT_ID; process.env.ESCROW_WEBHOOK_SECRET = "test-escrow-webhook-secret"; });
 
 describe("factory", () => {
   it("defaults to mock, honours env, rejects unknown", () => {
@@ -64,7 +64,7 @@ describe("mock partner", () => {
     const arr = { rawBody: "[1]", headers: { "x-escrow-signature": m.event({}).headers["x-escrow-signature"]! } };
     expect(m.verifyWebhook(arr.rawBody, arr.headers)).toBeNull();
     const notJson = "not json";
-    const sig = hmac(process.env.ESCROW_WEBHOOK_SECRET || "mock-escrow-webhook-secret", notJson, "hex");
+    const sig = hmac(process.env.ESCROW_WEBHOOK_SECRET || "test-escrow-webhook-secret", notJson, "hex");
     expect(() => m.verifyWebhook(notJson, { "x-escrow-signature": sig })).toThrow(DomainError);
   });
   it("pending payouts are configurable", async () => {
@@ -91,6 +91,7 @@ describe("real adapters (stubs)", () => {
   });
   it("razorpay webhook verification and mapping", () => {
     const rz = new RazorpayRoutePartner();
+    delete process.env.ESCROW_WEBHOOK_SECRET;
     expect(() => rz.verifyWebhook("{}", {})).toThrow(/not configured/);
     process.env.ESCROW_WEBHOOK_SECRET = "sec";
     const sign = (b: string) => ({ "x-razorpay-signature": hmac("sec", b, "hex") });

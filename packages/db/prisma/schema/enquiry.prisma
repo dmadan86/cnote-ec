@@ -218,3 +218,28 @@ model ReachabilityCheck {
   @@index([status, expiresAt])
   @@map("reachability_checks")
 }
+
+/// Security audit M2: a seller's "buyer_fake" refund request that tripped the per-seller refund guard (rate / burst). The
+/// credit is NOT returned until staff decide; approving refunds the match, rejecting leaves it accepted.
+model LeadRefundReview {
+  id               String    @id @default(uuid()) @db.Uuid
+  /// one hold per match
+  matchId          String    @unique @map("match_id") @db.Uuid
+  enquiryId        String    @map("enquiry_id") @db.Uuid
+  sellerBusinessId String    @map("seller_business_id") @db.Uuid
+  /// buyer_fake
+  kind             String
+  /// refund_rate | refund_burst
+  reason           String
+  /// the seller's refund rate (bps of accepted leads, 30d) when it was held
+  refundRateBps    Int       @map("refund_rate_bps")
+  /// pending | approved | rejected
+  status           String    @default("pending")
+  decidedBy        String?   @map("decided_by") @db.Uuid
+  decidedAt        DateTime? @map("decided_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([status, createdAt])
+  @@index([sellerBusinessId, status])
+  @@map("lead_refund_reviews")
+}

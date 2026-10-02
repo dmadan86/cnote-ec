@@ -29,7 +29,7 @@ export async function creditAction(_prev: CreditResult | null, fd: FormData): Pr
       // cooling-off exit (RBI): explicit confirmation of the exact amount that was shown
       await cancelLoanInCoolingOff(actor, { loanId: String(fd.get("loanId") ?? ""), confirmExit: fd.get("confirmExit") === "on", expectedPayablePaise: Number(fd.get("expectedPayablePaise") ?? -1) });
     } else if (intent === "decline") await declineOffer(actor, String(fd.get("offerId") ?? ""));
-    else await simulateMockDisbursal(String(fd.get("applicationId") ?? ""));
+    else await simulateMockDisbursal(actor, String(fd.get("applicationId") ?? ""));
     revalidatePath("/credit");
     return null;
   });

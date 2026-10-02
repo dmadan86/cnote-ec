@@ -5,7 +5,7 @@ import { NbfcPartnerStub } from "./stub";
 import { isPartnerName, type CreditPartner, type PartnerName } from "./types";
 
 export * from "./types";
-export { MockPartner, MOCK_LENDER, mockPricing, mockSecret, assertMockAllowed } from "./mock";
+export { MockPartner, MOCK_LENDER, mockPricing, mockSecret, assertMockAllowed, mockPartnerAllowed } from "./mock";
 export { NbfcPartnerStub } from "./stub";
 export { SIGNATURE_HEADER, parsePartnerEvent, verifySigned, hmacHex } from "./events";
 
@@ -20,6 +20,9 @@ export function configuredPartnerName(env: NodeJS.ProcessEnv = process.env): Par
   if (!isPartnerName(v)) throw new DomainError("validation", `Unknown CREDIT_PARTNER "${v}".`);
   return v;
 }
+
+/** The partner in force: a test/composition override, else CREDIT_PARTNER. Webhooks are accepted from this one only. */
+export const activePartnerName = (): PartnerName => override?.name ?? configuredPartnerName();
 
 export function getCreditPartner(name: string = override?.name ?? configuredPartnerName()): CreditPartner {
   if (!isPartnerName(name)) throw new DomainError("not_found", "Unknown credit partner.", undefined, "credit.unknownCreditPartner");

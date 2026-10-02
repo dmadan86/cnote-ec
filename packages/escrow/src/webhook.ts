@@ -6,7 +6,7 @@ import { prisma } from "@cnote/db";
 import type { Actor } from "@cnote/enquiry";
 import { assertEscrowEnabled } from "./config";
 import { applyFundingTx, openIssue } from "./escrow";
-import { getEscrowPartner, isPartnerName, MockPartner, type ParsedEscrowWebhook } from "./partner";
+import { activePartnerName, getEscrowPartner, isPartnerName, MockPartner, mockPartnerAllowed, type ParsedEscrowWebhook } from "./partner";
 import { markTransferFailedTx, settleTransferTx } from "./payouts";
 
 export interface WebhookResult { status: "processed" | "duplicate"; eventId: string; type: string; outcome: string }
@@ -15,6 +15,13 @@ const UUID = /^[0-9a-f-]{36}$/i;
 
 export async function handleEscrowWebhook(provider: string, rawBody: Uint8Array | string, headers: Headers | Record<string, string | undefined>): Promise<WebhookResult> {
   if (!isPartnerName(provider)) throw new DomainError("not_found", "Unknown escrow provider");
+  // Security audit H1: ONLY the configured partner may post (a forged `mock` event, signed
+  // with a guessable secret, must never move money while a real partner is configured). Same 404 so nothing is revealed.
+  // No flag gate here: every event type this ingress understands settles an EXISTING obligation (funding of an escrow that
+  // was already created, payout / refund settled or failed); nothing new can be started from a webhook (an unknown escrow only
+  // opens a reconciliation issue). Turning ESCROW_ENABLED off therefore never strands money in flight.
+  if (provider !== activePartnerName()) throw new DomainError("not_found", "Unknown escrow provider");
+  if (provider === "mock" && !mockPartnerAllowed()) throw new DomainError("not_found", "Unknown escrow provider");
   const parsed = getEscrowPartner(provider).verifyWebhook(rawBody, headers);
   if (!parsed) throw new DomainError("unauthenticated", "Invalid webhook signature");
   return prisma.$transaction(async (tx) => {
@@ -23,30 +30,43 @@ export async function handleEscrowWebhook(provider: string, rawBody: Uint8Array 
       const prev = await tx.escrowWebhookEvent.findUnique({ where: { provider_eventId: { provider, eventId: parsed.eventId } } });
       return { status: "duplicate", eventId: parsed.eventId, type: parsed.type, outcome: prev?.outcome ?? "unknown" } as WebhookResult;
     }
-    const outcome = await apply(tx, parsed);
+    const outcome = await apply(tx, provider, parsed);
     await tx.escrowWebhookEvent.update({ where: { provider_eventId: { provider, eventId: parsed.eventId } }, data: { outcome, processedAt: new Date() } });
     return { status: "processed", eventId: parsed.eventId, type: parsed.type, outcome } as WebhookResult;
   });
 }
 
-async function apply(tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0], p: ParsedEscrowWebhook): Promise<string> {
+async function apply(tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0], provider: string, p: ParsedEscrowWebhook): Promise<string> {
   switch (p.type) {
     case "collect.captured": {
       if (!p.escrowId || !UUID.test(p.escrowId) || p.amountPaise === undefined) return "invalid";
-      const e = await tx.escrowAgreement.findUnique({ where: { id: p.escrowId }, select: { id: true } });
+      const e = await tx.escrowAgreement.findUnique({ where: { id: p.escrowId }, select: { id: true, partner: true } });
       if (!e) {
         await openIssue(tx, { dedupeKey: `unknown_escrow:${p.eventId}`, kind: "missing_in_ledger", partnerRef: p.partnerRef ?? null, actualPaise: p.amountPaise, detail: `Partner collected a payment for unknown escrow ${p.escrowId}.` });
         return "unknown_escrow";
       }
+      // an event from provider X may only touch escrows opened with provider X
+      if (e.partner !== provider) return "partner_mismatch";
       return applyFundingTx(tx, p.escrowId, p.amountPaise, p.partnerRef ?? null);
     }
     case "payout.settled":
-      return p.payoutId ? settleTransferTx(tx, p.payoutId, p.partnerRef ?? null) : "invalid";
+      if (!p.payoutId) return "invalid";
+      if (!(await payoutOwnedBy(tx, provider, p.payoutId))) return "partner_mismatch";
+      return settleTransferTx(tx, p.payoutId, p.partnerRef ?? null);
     case "payout.failed":
-      return p.payoutId && (await markTransferFailedTx(tx, p.payoutId, "partner reported failure")) ? "retry_queued" : "invalid";
+      if (!p.payoutId) return "invalid";
+      if (!(await payoutOwnedBy(tx, provider, p.payoutId))) return "partner_mismatch";
+      return (await markTransferFailedTx(tx, p.payoutId, "partner reported failure")) ? "retry_queued" : "invalid";
     default:
       return "ignored";
   }
+}
+
+/** True when the payout exists and belongs to an escrow opened with this provider (unknown ids fall through to the apply path's own handling). */
+async function payoutOwnedBy(tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0], provider: string, payoutId: string): Promise<boolean> {
+  if (!UUID.test(payoutId)) return true;
+  const row = await tx.escrowPayout.findUnique({ where: { id: payoutId }, select: { escrow: { select: { partner: true } } } });
+  return !row || row.escrow.partner === provider;
 }
 
 /**

@@ -148,8 +148,8 @@ export async function balance(p: P) {
 }
 
 // --- enquiries & conversations ---
-export async function newEnquiry(p: P, input: EnquiryInput) {
-  return enquiryOut(await createEnquiry(actor(p), input));
+export async function newEnquiry(p: P, input: EnquiryInput, ip?: string | null) {
+  return enquiryOut(await createEnquiry(actor(p), input, { ip: ip ?? null }));
 }
 export async function myEnquiries(p: P, cursor: string | undefined, limit: number) {
   const page = paginate(await listBuyerEnquiries(actor(p).businessId), cursor, limit);

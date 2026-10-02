@@ -1,7 +1,7 @@
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@cnote/db";
 import { getBalance } from "@cnote/billing";
-import { activateCoupon, computeDiscount, couponPort, createCoupon, expireCoupons, listCoupons, listRedemptions, normaliseCode, pauseCoupon, quoteCoupon, randomCode, redeemCoupon, requiresSecondApprover, setGstinLookup, voidRedemption, type CouponInput } from "../src/index";
+import { activateCoupon, computeDiscount, couponPort, createCoupon, expireCoupons, reserveCoupon, releaseReservation, releaseExpiredReservations, redeemCouponTx, listCoupons, listRedemptions, normaliseCode, pauseCoupon, quoteCoupon, randomCode, redeemCoupon, requiresSecondApprover, setGstinLookup, voidRedemption, type CouponInput } from "../src/index";
 import { cleanup, DAY, mkBusiness, tag, uid } from "./helpers";
 
 const couponIds: string[] = [];
@@ -206,5 +206,90 @@ describe("redeem", () => {
   it("exposes the port billing registers", () => {
     expect(couponPort.quoteCoupon).toBe(quoteCoupon);
     expect(couponPort.redeemCoupon).toBe(redeemCoupon);
+  });
+});
+
+describe("checkout reservation (security audit M3)", () => {
+  const reserve = (couponId: string, businessId: string, ref: string, amountPaise = 99_900) => reserveCoupon(couponId, { businessId, paymentOrderId: ref, planCode: "starter", amountPaise });
+
+  it("N parallel checkouts on a single-use code: exactly one reservation, the rest refused BEFORE any discounted payment", async () => {
+    const biz = await Promise.all(Array.from({ length: 8 }, () => mkBusiness(1)));
+    const c = await mk({ maxRedemptions: 1 });
+    const out = await Promise.allSettled(biz.map((b, i) => reserve(c.id, b.id, `par-${tag}-${i}`)));
+    expect(out.filter((o) => o.status === "fulfilled")).toHaveLength(1);
+    expect(out.filter((o) => o.status === "rejected")).toHaveLength(7);
+    // the held slot also blocks new quotes until it is released
+    const loser = biz.find((_, i) => out[i]!.status === "rejected")!;
+    await expect(q(c.code, loser.id)).rejects.toMatchObject({ message: "This code is not valid." });
+    const winnerIdx = out.findIndex((o) => o.status === "fulfilled");
+    await releaseReservation(`par-${tag}-${winnerIdx}`);
+    await expect(q(c.code, loser.id)).resolves.toMatchObject({ discountPaise: 19_980 });
+  });
+
+  it("same business retry: a new checkout replaces its own abandoned reservation; parallel checkouts still allow exactly one redemption", async () => {
+    const b = await mkBusiness(1);
+    const c = await mk({ perBusinessLimit: 1 });
+    // abandoned checkout, then a retry with the same code is NOT refused: the old reservation is released
+    await reserve(c.id, b.id, `rt-${tag}-1`);
+    await expect(q(c.code, b.id)).resolves.toMatchObject({ discountPaise: 19_980 });
+    await reserve(c.id, b.id, `rt-${tag}-2`);
+    const rows = await prisma.couponRedemption.findMany({ where: { couponId: c.id, businessId: b.id }, orderBy: { createdAt: "asc" } });
+    expect(rows.map((r) => r.status).sort()).toEqual(["reserved", "voided"]);
+    expect(await prisma.domainEvent.count({ where: { aggregateId: c.id, type: "CouponVoided", payload: { path: ["reason"], equals: "superseded_by_new_checkout" } } })).toBe(1);
+    // the abandoned order paying late cannot redeem (its reservation was released and the new one holds the only slot)
+    await expect(prisma.$transaction((tx) => redeemCouponTx(tx, c.id, { businessId: b.id, paymentOrderId: `rt-${tag}-1`, amountPaise: 99_900 }))).rejects.toMatchObject({ code: "conflict" });
+    await expect(prisma.$transaction((tx) => redeemCouponTx(tx, c.id, { businessId: b.id, paymentOrderId: `rt-${tag}-2`, amountPaise: 99_900 }))).resolves.toMatchObject({ replay: false });
+  });
+
+  it("same business: N parallel checkouts leave one live reservation and only one can be redeemed", async () => {
+    const b = await mkBusiness(1);
+    const c = await mk({ perBusinessLimit: 1 });
+    await Promise.all([0, 1, 2, 3].map((i) => reserve(c.id, b.id, `pp-${tag}-${i}`)));
+    expect(await prisma.couponRedemption.count({ where: { couponId: c.id, businessId: b.id, status: "reserved" } })).toBe(1);
+    const out = await Promise.allSettled([0, 1, 2, 3].map((i) => prisma.$transaction((tx) => redeemCouponTx(tx, c.id, { businessId: b.id, paymentOrderId: `pp-${tag}-${i}`, amountPaise: 99_900 }))));
+    expect(out.filter((o) => o.status === "fulfilled")).toHaveLength(1);
+    expect(await prisma.couponRedemption.count({ where: { couponId: c.id, businessId: b.id, status: "applied" } })).toBe(1);
+  });
+
+  it("same GSTIN across businesses: one reservation", async () => {
+    const a = await mkBusiness(1);
+    const b = await mkBusiness(1);
+    const c = await mk();
+    setGstinLookup(async (id) => (id === a.id || id === b.id ? `GST-RES-${tag}` : null));
+    try {
+      const out = await Promise.allSettled([reserve(c.id, a.id, `g-${tag}-a`), reserve(c.id, b.id, `g-${tag}-b`)]);
+      expect(out.filter((o) => o.status === "fulfilled")).toHaveLength(1);
+    } finally {
+      setGstinLookup(null);
+    }
+  });
+
+  it("redeemCouponTx consumes the reservation in the caller's transaction and grants nothing itself; rollback leaves it reserved", async () => {
+    const b = await mkBusiness(1);
+    const c = await mk({ kind: "extra_credits", percentBps: undefined, extraCredits: 12, maxRedemptions: 1 });
+    await reserveCoupon(c.id, { businessId: b.id, paymentOrderId: `tx-${tag}`, amountPaise: 99_900 });
+    const before = await getBalance(b.id);
+    await expect(prisma.$transaction(async (tx) => {
+      await redeemCouponTx(tx, c.id, { businessId: b.id, paymentOrderId: `tx-${tag}` });
+      throw new Error("rollback");
+    })).rejects.toThrow("rollback");
+    expect((await prisma.couponRedemption.findFirstOrThrow({ where: { couponId: c.id } })).status).toBe("reserved");
+    const r = await prisma.$transaction((tx) => redeemCouponTx(tx, c.id, { businessId: b.id, paymentOrderId: `tx-${tag}` }));
+    expect(r).toMatchObject({ creditsGranted: 12, replay: false });
+    expect(await getBalance(b.id)).toBe(before); // billing grants, in the same tx, from the returned amount
+    expect(await prisma.coupon.findUnique({ where: { id: c.id } })).toMatchObject({ redeemedCount: 1, status: "exhausted" });
+  });
+
+  it("an expired reservation is released by the job and the slot reopens; a late redeem is re-checked against the cap", async () => {
+    const a = await mkBusiness(1);
+    const b = await mkBusiness(1);
+    const c = await mk({ maxRedemptions: 1 });
+    const past = new Date(Date.now() - 3 * 3_600_000);
+    await reserveCoupon(c.id, { businessId: a.id, paymentOrderId: `ex-${tag}-a`, amountPaise: 99_900 }, past);
+    expect(await releaseExpiredReservations()).toBeGreaterThanOrEqual(1);
+    await reserve(c.id, b.id, `ex-${tag}-b`); // b takes the freed slot
+    // a's late payment can no longer take it
+    await expect(prisma.$transaction((tx) => redeemCouponTx(tx, c.id, { businessId: a.id, paymentOrderId: `ex-${tag}-a`, amountPaise: 99_900 }))).rejects.toMatchObject({ code: "conflict" });
+    await expect(prisma.$transaction((tx) => redeemCouponTx(tx, c.id, { businessId: b.id, paymentOrderId: `ex-${tag}-b`, amountPaise: 99_900 }))).resolves.toMatchObject({ replay: false });
   });
 });

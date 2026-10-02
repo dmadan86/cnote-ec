@@ -37,6 +37,8 @@ export interface Actor {
 /** Optional request context the caller knows but the actor does not. */
 export interface CreateEnquiryContext {
   buyerPhoneVerified?: boolean;
+  /** Client IP from clientIp() (never parsed from X-Forwarded-For here); adds an IP-keyed posting limit (security audit). */
+  ip?: string | null;
 }
 
 export interface SellerSummary {
@@ -103,6 +105,8 @@ export interface LeadView {
   respondBy: string;
   buyer: { businessName: string; city: string | null; verificationTier: number; phone: string | null };
   conversationId: string | null;
+  /** the seller's buyer_fake refund request is held for staff review (security audit M2) */
+  refundUnderReview?: boolean;
   /** Why `buyer.phone` is null after accept (consent not granted / no phone). */
   contactNote?: string | null;
   /** Set while an "unreachable" report is being verified with the buyer (refund decided within 24h). */
@@ -130,6 +134,8 @@ export interface ConversationView {
   messages: { id: string; senderPersonId: string; body: string; createdAt: string }[];
   quotes: QuoteView[];
   dealReported: "won" | "lost" | "pending" | null;
+  /** The seller says the deal closed; only the buyer's own "won" report makes it an order (security audit M7). */
+  sellerClaimedWon?: boolean;
   /** Which side the requesting actor is on. */
   role?: "buyer" | "seller";
   enquiryId?: string;

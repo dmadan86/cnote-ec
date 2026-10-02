@@ -52,6 +52,7 @@ import {
 } from "../src";
 
 const {
+  listRefundReviews, resolveRefundReview,
   acceptLead, createEnquiry, declineLead, expireOverdueOffers, getConversation, getSellerLead, listSellerLeads, reportBuyerProblem, reportDeal,
   resolveEnquiryReview, sendMessage, sendQuote, listBuyerEnquiries, getBuyerEnquiry, listCandidatesForBuyer,
 } = api;
@@ -112,6 +113,7 @@ afterAll(async () => {
   await prisma.dealReport.deleteMany({ where: { match: { enquiryId: { in: enquiryIds } } } });
   await prisma.conversation.deleteMany({ where: { id: { in: convos } } });
   await prisma.reachabilityCheck.deleteMany({ where: { enquiryId: { in: enquiryIds } } });
+  await prisma.leadRefundReview.deleteMany({ where: { enquiryId: { in: enquiryIds } } });
   await prisma.order.deleteMany({ where: { enquiryId: { in: enquiryIds } } });
   await prisma.match.deleteMany({ where: { enquiryId: { in: enquiryIds } } });
   await prisma.enquiry.deleteMany({ where: { id: { in: enquiryIds } } });
@@ -139,6 +141,23 @@ describe("createEnquiry", () => {
     await pool(1);
     for (let i = 0; i < 10; i++) await post(buyer);
     await expect(createEnquiry(buyer, { title: "One more", requirement: "One more requirement" })).rejects.toMatchObject({ code: "rate_limited" });
+  });
+
+  it("security: also limited per person (15/h across businesses) and per client IP (30/h across people)", async () => {
+    await pool(1);
+    // one person fronting two businesses cannot dodge the per-business key
+    const a = await party("rl-a");
+    const b = await party("rl-b");
+    const second = { personId: a.personId, businessId: b.businessId };
+    for (let i = 0; i < 8; i++) await post(a);
+    for (let i = 0; i < 7; i++) await post(second);
+    await expect(createEnquiry(second, { title: "One more", requirement: "One more requirement" })).rejects.toMatchObject({ code: "rate_limited" });
+    // many people behind one IP
+    const ip = `203.0.113.${Math.floor(Math.random() * 200) + 1}`;
+    for (let i = 0; i < 30; i++) await post(await party(`rl-ip${i}`), {}, { ip });
+    await expect(createEnquiry(await party("rl-ip-last"), { title: "One more", requirement: "One more requirement" }, { ip })).rejects.toMatchObject({ code: "rate_limited" });
+    // another IP is unaffected
+    await expect(post(await party("rl-ip-ok"), {}, { ip: "198.51.100.7" })).resolves.toBeTruthy();
   });
 
   it("caps offers per category leadCap and records sellerCap; top-N by score, own business excluded", async () => {
@@ -292,6 +311,20 @@ describe("buyer picks mode", () => {
     // freed slot can be re-picked into rank 1
     const again = await pickSellers(buyer, e.id, [sellers[2]!.businessId]);
     expect(again.matches.find((m) => m.sellerBusinessId === sellers[2]!.businessId)!.rank).toBe(1);
+  });
+
+  it("security: parallel picks cannot exceed the seller cap (the cap is re-checked under the row lock)", async () => {
+    const buyer = await party("buyer");
+    const sellers = await pool(6);
+    const e = await post(buyer, { buyerPicks: true });
+    // each call alone fits the cap (3); together 4 sellers x 2 = 8 would be offered without the in-lock recount
+    const out = await Promise.allSettled([
+      pickSellers(buyer, e.id, [sellers[0]!.businessId, sellers[1]!.businessId]),
+      pickSellers(buyer, e.id, [sellers[2]!.businessId, sellers[3]!.businessId]),
+      pickSellers(buyer, e.id, [sellers[4]!.businessId, sellers[5]!.businessId]),
+    ]);
+    expect(out.filter((o) => o.status === "fulfilled")).toHaveLength(1);
+    expect((await rows(e.id)).filter((m) => isActive(m.status)).length).toBeLessThanOrEqual(3);
   });
 
   it("rejects non-owners, non-picks enquiries, non-open statuses; candidates empty for auto enquiries", async () => {
@@ -646,9 +679,20 @@ describe("messaging, quotes and deal reports", () => {
     await expect(reportDeal(buyer, m.id, "won", 1.5)).rejects.toMatchObject({ code: "validation" });
     expect((await getConversation(buyer, cid))!.dealReported).toBeNull();
     await reportDeal(buyer, m.id, "pending");
-    await reportDeal(seller, m.id, "won", 500_000);
-    expect((await getConversation(buyer, cid))!.dealReported).toBe("won");
+    // security audit M7: a seller's "won" is advisory: stored + buyer prompted, but it is not the buyer's answer and makes no order
+    expect(await reportDeal(seller, m.id, "won", 500_000)).toEqual({ advisory: true });
+    const asBuyer = (await getConversation(buyer, cid))!;
+    expect(asBuyer.dealReported).toBe("pending");
+    expect(asBuyer.sellerClaimedWon).toBe(true);
+    expect((await getConversation(seller, cid))!.dealReported).toBe("won");
+    expect(await prisma.order.count({ where: { matchId: m.id } })).toBe(0);
+    expect(await prisma.domainEvent.count({ where: { type: "DealClaimedBySeller", aggregateId: m.id } })).toBe(1);
+    expect(await prisma.domainEvent.count({ where: { type: "DealReportedOffPlatform", aggregateId: m.id, payload: { path: ["reportedByBusinessId"], equals: seller.businessId } } })).toBe(0);
     expect(await prisma.dealReport.count({ where: { matchId: m.id } })).toBe(2);
+    // the buyer's own confirmation is what creates the order
+    expect(await reportDeal(buyer, m.id, "won", 500_000)).toEqual({ advisory: false });
+    expect(await prisma.order.count({ where: { matchId: m.id } })).toBe(1);
+    expect((await getConversation(buyer, cid))!.dealReported).toBe("won");
     await reportBuyerProblem(seller, m.id, "buyer_unreachable");
     await expect(reportDeal(seller, m.id, "lost")).rejects.toMatchObject({ code: "conflict" });
     await expect(reportDeal(buyer, randomUUID(), "won")).rejects.toMatchObject({ code: "not_found" });
@@ -825,5 +869,91 @@ describe("reachability check (ADR-002)", () => {
     expect(await events(e.id, "ReachabilityChecked")).toBe(2);
     expect(reachabilityEnabled()).toBe(true);
     expect(REACHABILITY_COPY.sms.hi).toContain("{{2}}");
+  });
+});
+
+describe("refund farming guard (security audit M2)", () => {
+  /** One seller accepting `n` leads, each from its own buyer. */
+  async function farm(n: number) {
+    const [seller] = await pool(1, n + 2);
+    const out: { matchId: string; buyer: Actor; enquiryId: string }[] = [];
+    for (let i = 0; i < n; i++) {
+      const buyer = await party(`fb${i}`);
+      const e = await post(buyer);
+      const m = e.matches.find((x) => x.sellerBusinessId === seller!.businessId)!;
+      await acceptLead(seller!, m.id);
+      out.push({ matchId: m.id, buyer, enquiryId: e.id });
+    }
+    return { seller: seller!, leads: out };
+  }
+  const withEnv = async (env: Record<string, string>, fn: () => Promise<void>) => {
+    const saved = Object.fromEntries(Object.keys(env).map((k) => [k, process.env[k]]));
+    Object.assign(process.env, env);
+    try { await fn(); } finally { for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } }
+  };
+
+  it("genuine report refunds instantly; once the 30-day refund rate passes the threshold further buyer_fake reports are held for staff, not refunded", async () => {
+    const { seller, leads } = await farm(6);
+    const bal0 = await getBalance(seller.businessId);
+    // 1 of 6 accepted = 16.7% <= 20%: instant (ADR-002 promise intact)
+    expect(await reportBuyerProblem(seller, leads[0]!.matchId, "buyer_fake")).toEqual({ outcome: "refunded" });
+    expect(await getBalance(seller.businessId)).toBe(bal0 + 1);
+    // the 2nd would make 2 of 6 = 33%: held
+    expect(await reportBuyerProblem(seller, leads[1]!.matchId, "buyer_fake")).toEqual({ outcome: "held_for_review" });
+    expect(await reportBuyerProblem(seller, leads[1]!.matchId, "buyer_fake")).toEqual({ outcome: "held_for_review" }); // not answerable twice
+    expect(await getBalance(seller.businessId)).toBe(bal0 + 1);
+    expect((await prisma.match.findUniqueOrThrow({ where: { id: leads[1]!.matchId } })).status).toBe("accepted");
+    expect(await prisma.leadRefundReview.count({ where: { matchId: leads[1]!.matchId, status: "pending" } })).toBe(1);
+    expect(await prisma.domainEvent.count({ where: { aggregateId: leads[1]!.enquiryId, type: "LeadRefundHeld" } })).toBe(1);
+    expect((await getSellerLead(seller.businessId, leads[1]!.matchId))!.refundUnderReview).toBe(true);
+    expect((await listRefundReviews()).some((r) => r.matchId === leads[1]!.matchId)).toBe(true);
+  });
+
+  it("buyer_unreachable refunds count toward the refund rate (the reachability flow itself is unchanged)", async () => {
+    const { seller, leads } = await farm(6);
+    expect((await reportBuyerProblem(seller, leads[0]!.matchId, "buyer_unreachable")).outcome).toBe("refunded"); // never held
+    // 1 unreachable refund + this fake report = 2 of 6 = 33% > 20%: held
+    expect((await reportBuyerProblem(seller, leads[1]!.matchId, "buyer_fake")).outcome).toBe("held_for_review");
+    expect((await reportBuyerProblem(seller, leads[2]!.matchId, "buyer_unreachable")).outcome).toBe("refunded");
+  });
+
+  it("burst: more than N seller refunds in 7 days are held even when the rate is fine", async () => {
+    await withEnv({ LEAD_REFUND_GUARD_MAX_PER_WEEK: "1", LEAD_REFUND_GUARD_RATE_BPS: "10000" }, async () => {
+      const { seller, leads } = await farm(3);
+      expect((await reportBuyerProblem(seller, leads[0]!.matchId, "buyer_fake")).outcome).toBe("refunded");
+      expect((await reportBuyerProblem(seller, leads[1]!.matchId, "buyer_fake")).outcome).toBe("held_for_review");
+    });
+  });
+
+  it("staff approve refunds the held lead; reject keeps it accepted; refund closes the seller's conversation and contact access", async () => {
+    await withEnv({ LEAD_REFUND_GUARD_MAX_PER_WEEK: "0", LEAD_REFUND_GUARD_RATE_BPS: "10000" }, async () => {
+      const { seller, leads } = await farm(2);
+      const [a, b] = leads as [typeof leads[0], typeof leads[0]];
+      await reportBuyerProblem(seller, a.matchId, "buyer_fake");
+      await reportBuyerProblem(seller, b.matchId, "buyer_fake");
+      const reviews = await listRefundReviews();
+      const ra = reviews.find((r) => r.matchId === a.matchId)!;
+      const rb = reviews.find((r) => r.matchId === b.matchId)!;
+      const bal = await getBalance(seller.businessId);
+      const staff = randomUUID();
+      expect((await resolveRefundReview(ra.id, "approved", staff)).status).toBe("approved");
+      expect(await getBalance(seller.businessId)).toBe(bal + 1);
+      expect((await prisma.match.findUniqueOrThrow({ where: { id: a.matchId } })).status).toBe("refunded");
+      // revoked: no conversation, no buyer details, no phone for the seller; the buyer keeps their history
+      const lead = (await getSellerLead(seller.businessId, a.matchId))!;
+      expect(lead.conversationId).toBeNull();
+      expect(lead.buyer.phone).toBeNull();
+      expect(lead.buyer.businessName).toBe("Hidden until you accept");
+      const cid = (await prisma.conversation.findUniqueOrThrow({ where: { matchId: a.matchId } })).id;
+      expect(await getConversation(seller, cid)).toBeNull();
+      expect(await getConversation(a.buyer, cid)).not.toBeNull();
+      await expect(sendMessage(seller, cid, "hello")).rejects.toBeTruthy();
+      // idempotent decision; reject leaves the lead accepted and the credit spent
+      expect((await resolveRefundReview(ra.id, "rejected", staff)).status).toBe("approved");
+      expect((await resolveRefundReview(rb.id, "rejected", staff)).status).toBe("rejected");
+      expect((await prisma.match.findUniqueOrThrow({ where: { id: b.matchId } })).status).toBe("accepted");
+      expect(await getBalance(seller.businessId)).toBe(bal + 1);
+      await expect(resolveRefundReview("nope", "approved", staff)).rejects.toMatchObject({ code: "not_found" });
+    });
   });
 });

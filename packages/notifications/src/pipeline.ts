@@ -1,6 +1,6 @@
 // Observer pipeline: domain event → kinds → recipients → preference/consent gate → Notification row
 // (idempotent) → "notification.deliver" jobs for extra channels (email, whatsapp, sms).
-import { getJobQueue, type DomainEvent } from "@cnote/core";
+import { getJobQueue, redis, type DomainEvent } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { sendEmail } from "@cnote/email";
 import { isChannelEnabled, renderText } from "@cnote/templates";
@@ -20,6 +20,8 @@ export interface NotificationDeliverJob {
   app: NotificationApp;
   vars: Record<string, unknown>;
   href: string;
+  /** a digest of folded notifications: the counter to read-and-clear at send time (see emailThrottle) */
+  fold?: { key: string; windowKey: string; windowSeconds: number; capKey: string; dailyCap: number };
 }
 
 declare module "@cnote/core" {
@@ -43,6 +45,51 @@ export function absoluteUrl(app: NotificationApp, href: string): string {
 }
 
 const isUniqueViolation = (err: unknown) => typeof err === "object" && err !== null && (err as { code?: string }).code === "P2002";
+
+// ---- e-mail flood control (security audit: a sender must not be able to fill an inbox) ---------------------------------
+const dayKey = () => new Date().toISOString().slice(0, 10);
+
+/** Counts one email against the recipient's UTC-day cap; false once the cap is exceeded. Fails open if Redis is down (never lose mail to a cache). */
+async function underDailyCap(capKey: string, cap: number): Promise<boolean> {
+  try {
+    const k = `notif:email:day:${capKey}:${dayKey()}`;
+    const n = await redis.incr(k);
+    if (n === 1) await redis.expire(k, 2 * 86_400);
+    return n <= cap;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * "send" = deliver now; "folded" = inside the window, counted into a digest (scheduled once per cycle); "capped" = daily cap hit.
+ * At most one email per recipient per group (conversation) per window; the digest goes out at the window's end.
+ */
+async function throttleEmail(kind: NotificationKind, event: DomainEvent, r: Recipient, app: NotificationApp): Promise<"send" | "folded" | "capped"> {
+  const cfg = kind.emailThrottle!();
+  const group = r.group ?? "-";
+  const base = `notif:email:${kind.key}:${r.personId}`;
+  const windowKey = `${base}:win:${group}`;
+  try {
+    const claimed = await redis.set(windowKey, "1", "EX", cfg.windowSeconds, "NX");
+    if (claimed !== null) return (await underDailyCap(`${kind.key}:${r.personId}`, cfg.dailyCap)) ? "send" : "capped";
+    const foldKey = `${base}:fold:${group}`;
+    const n = await redis.incr(foldKey);
+    if (n === 1) {
+      await redis.expire(foldKey, cfg.windowSeconds * 4 + 3600);
+      const ttl = Math.max(1000, await redis.pttl(windowKey));
+      const job: NotificationDeliverJob = {
+        channel: "email", kind: cfg.digestKind, eventId: event.id, personId: r.personId, businessId: r.businessId ?? null, app, vars: r.vars, href: r.href,
+        fold: { key: foldKey, windowKey, windowSeconds: cfg.windowSeconds, capKey: `${kind.key}:${r.personId}`, dailyCap: cfg.dailyCap },
+      };
+      await getJobQueue().enqueue("notification.deliver", job, { delayMs: ttl + 1000, dedupeKey: `${foldKey}:${Date.now() + ttl}` });
+    }
+    return "folded";
+  } catch (err) {
+    console.error("[notifications] email throttle unavailable; sending without coalescing", err);
+    return "send";
+  }
+}
 
 /** Handle one (kind, recipient) pair. Idempotent per (person, kind, event). */
 export async function notifyRecipient(kind: NotificationKind, event: DomainEvent, r: Recipient, dir: Directory = prismaDirectory): Promise<{ created: boolean; queued: ExtraChannel[] }> {
@@ -73,6 +120,7 @@ export async function notifyRecipient(kind: NotificationKind, event: DomainEvent
   const queued: ExtraChannel[] = [];
   for (const channel of EXTRA) {
     if (!enabled[channel] || !(await isChannelEnabled(kind.key, channel))) continue;
+    if (channel === "email" && kind.emailThrottle && (await throttleEmail(kind, event, r, app)) !== "send") continue;
     const job: NotificationDeliverJob = { channel, kind: kind.key, eventId: event.id, personId: r.personId, businessId: r.businessId ?? null, app, vars: r.vars, href: r.href };
     await getJobQueue().enqueue("notification.deliver", job, { dedupeKey: `${kind.key}:${event.id}:${r.personId}:${channel}` });
     queued.push(channel);
@@ -114,7 +162,15 @@ export async function deliverJob(job: NotificationDeliverJob, dir: Directory = p
   if (!enabled[job.channel] || !(await isChannelEnabled(kind.key, job.channel))) return;
   const contact = await dir.contact(job.personId);
   if (!contact) return; // unknown or erased
-  const vars = { ...job.vars, href: absoluteUrl(job.app, job.href), recipientName: contact.name ?? "" };
+  const vars: Record<string, unknown> = { ...job.vars, href: absoluteUrl(job.app, job.href), recipientName: contact.name ?? "" };
+  if (job.fold) {
+    // digest: read-and-clear the folded count; nothing folded (or already sent) = nothing to send
+    const count = Number((await redis.getdel(job.fold.key)) ?? 0);
+    if (!count) return;
+    if (!(await underDailyCap(job.fold.capKey, job.fold.dailyCap))) return;
+    vars.count = count;
+    await redis.set(job.fold.windowKey, "1", "EX", job.fold.windowSeconds).catch(() => undefined); // a digest opens the next window
+  }
 
   if (job.channel === "email") {
     if (!contact.email) return;
@@ -123,7 +179,7 @@ export async function deliverJob(job: NotificationDeliverJob, dir: Directory = p
       to: { email: contact.email, personId: job.personId, name: contact.name },
       vars,
       locale: contact.locale,
-      dedupeKey: `${kind.key}:${job.eventId}:${job.personId}`,
+      dedupeKey: `${kind.key}:${job.eventId}:${job.personId}${job.fold ? `:digest:${vars.count}:${Date.now()}` : ""}`,
     });
     return;
   }

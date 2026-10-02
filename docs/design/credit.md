@@ -183,8 +183,14 @@ lender holds on its own books) is a compliance decision.
 ## Flag behaviour
 
 `CREDIT_ENABLED` off: consent grant, apply, accept, BNPL option, score recompute handlers and the nightly job refuse or do nothing;
-the seller page says credit is not available and the buyer BNPL option is hidden. Webhooks, the loan-book mirror, DPD, offer expiry,
+the seller page says credit is not available and the buyer BNPL option is hidden. The loan-book mirror, DPD, offer expiry,
 the assignment contract and `withdrawCreditConsent` are not gated: loans that exist keep moving and a person can always withdraw.
+**Webhook ingress with the flag off** (security audit H1): turning credit off must not strand money in flight, so from the
+CONFIGURED partner only (never `mock` in production without `CREDIT_MOCK_CHECKOUT=1`; signature required, no default secret) the events
+that settle existing obligations are still applied: `loan.repayment`, `loan.closed`, `loan.cancelled`, `loan.overdue` (DPD),
+`loan.written_off`, `application.rejected`, and `loan.disbursed` for an application the borrower had already accepted (approved and in
+flight). Events that would START something new are refused with `forbidden` (HTTP 503, no event row is stored, so the partner
+redelivers once credit is enabled): `application.offered`, and a disbursal for an application that was never accepted.
 
 ## UI
 

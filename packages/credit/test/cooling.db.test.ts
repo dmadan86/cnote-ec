@@ -20,7 +20,7 @@ async function financedLoan() {
   const s = await sellerWithEscrow(fk);
   const app = await applyForFinancing(s.actor, { product: "invoice_financing", escrowId: s.escrow.escrowId });
   await accept(s.actor, app.id);
-  await simulateMockDisbursal(app.id);
+  await simulateMockDisbursal(s.actor, app.id);
   const loan = await prisma.creditLoan.findUniqueOrThrow({ where: { applicationId: app.id } });
   return { ...s, app, loan };
 }
@@ -122,7 +122,7 @@ describe("cooling-off exit", () => {
     const b = await buyerWithEscrow(fk);
     const app = await applyForFinancing(b.actor, { product: "bnpl", escrowId: b.escrow.escrowId });
     await accept(b.actor, app.id);
-    await simulateMockDisbursal(app.id);
+    await simulateMockDisbursal(b.actor, app.id);
     const opt = await getBnplOption(b.actor, b.escrow.escrowId);
     expect(opt.exitQuote).toMatchObject({ eligible: true, product: "bnpl" });
     const loan = await prisma.creditLoan.findUniqueOrThrow({ where: { applicationId: app.id } });

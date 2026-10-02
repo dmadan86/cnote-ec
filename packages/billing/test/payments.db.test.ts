@@ -1,3 +1,4 @@
+import { DomainError } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -34,8 +35,10 @@ afterAll(async () => {
   await prisma.invoiceSequence.deleteMany({ where: { series: { in: ["CN/2098-99", "CR/2098-99"] } } });
 });
 const events = (id: string, type: string) => prisma.domainEvent.count({ where: { aggregateId: id, type } });
-const send = (order: string, extra: Record<string, unknown> = {}, id = `t_${order}_paid`) => {
-  const body = JSON.stringify({ id, type: "payment.paid", orderId: order, paymentId: `pay_${order}`, ...extra });
+const send = async (order: string, extra: Record<string, unknown> = {}, id = `t_${order}_paid`) => {
+  // a "paid" event must carry the paid amount (a missing amount is never fulfilled); default to the order's own total
+  const row = await prisma.paymentOrder.findUnique({ where: { id: order }, select: { totalPaise: true } });
+  const body = JSON.stringify({ id, type: "payment.paid", orderId: order, paymentId: `pay_${order}`, ...(row ? { amountPaise: Number(row.totalPaise) } : {}), ...extra });
   return handlePaymentWebhook("mock", body, { "x-mock-signature": mockSign(body) });
 };
 
@@ -77,7 +80,7 @@ describe("checkout + fulfilment", () => {
     // a different event id for the same payment (e.g. razorpay + cashfree style redelivery) still fulfils nothing new
     expect(await send(c.orderId, {}, "t_other_id")).toEqual({ status: 200 });
     expect(await getBalance(b)).toBe(50);
-    expect((await fulfilOrder(c.orderId)).fulfilled).toBe(false);
+    expect((await fulfilOrder(c.orderId, { amountPaise: Number((await prisma.paymentOrder.findUniqueOrThrow({ where: { id: c.orderId } })).totalPaise) })).fulfilled).toBe(false);
   });
 
   it("invalid signature -> 401 and nothing stored; bad provider / malformed body -> 400", async () => {
@@ -91,6 +94,34 @@ describe("checkout + fulfilment", () => {
     expect(await getBalance(b)).toBe(0);
   });
 
+  it("security: a paid event without a verifiable amount fulfils nothing; fulfilOrder refuses an unknown amount", async () => {
+    const b = await biz();
+    const c = await startCheckout({ businessId: b }, { purpose: "credit_pack", packId: "credits_20" });
+    const body = JSON.stringify({ id: "t_noamt", type: "payment.paid", orderId: c.orderId, paymentId: "p1" });
+    expect(await handlePaymentWebhook("mock", body, { "x-mock-signature": mockSign(body) })).toEqual({ status: 200 });
+    expect(await getBalance(b)).toBe(0);
+    expect((await prisma.paymentWebhookEvent.findFirst({ where: { eventId: "t_noamt" } }))!.error).toBe("amount_unknown");
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect((await fulfilOrder(c.orderId, { amountPaise: undefined })).fulfilled).toBe(false);
+    err.mockRestore();
+    expect((await prisma.paymentOrder.findUniqueOrThrow({ where: { id: c.orderId } })).fulfilledAt).toBeNull();
+  });
+  it("security: a webhook from another provider cannot settle an order created with this provider", async () => {
+    const b = await biz();
+    const c = await startCheckout({ businessId: b }, { purpose: "credit_pack", packId: "credits_20" });
+    await prisma.paymentOrder.update({ where: { id: c.orderId }, data: { provider: "razorpay" } });
+    await send(c.orderId, {}, "t_xprov");
+    expect(await getBalance(b)).toBe(0);
+    expect((await prisma.paymentWebhookEvent.findFirst({ where: { eventId: "t_xprov" } }))!.error).toBe("unknown_order");
+  });
+  it("security: the mock webhook is refused outside development/test unless the guarded production flag is set", async () => {
+    const b = await biz();
+    const c = await startCheckout({ businessId: b }, { purpose: "credit_pack", packId: "credits_20" });
+    vi.stubEnv("NODE_ENV", "staging");
+    const body = JSON.stringify({ id: "t_mockoff", type: "payment.paid", orderId: c.orderId, amountPaise: 1 });
+    expect(await handlePaymentWebhook("mock", body, { "x-mock-signature": mockSign(body) })).toEqual({ status: 400 });
+    vi.unstubAllEnvs();
+  });
   it("amount mismatch never fulfils", async () => {
     const b = await biz();
     const c = await startCheckout({ businessId: b }, { purpose: "credit_pack", packId: "credits_20" });
@@ -148,14 +179,14 @@ describe("checkout + fulfilment", () => {
     const b = await biz();
     const mk = (purpose: string) => prisma.paymentOrder.create({ data: { businessId: b, purpose, purposeRef: "x", provider: "mock", amountPaise: 10_000n, gstPaise: 1800n, totalPaise: 11_800n } });
     const o = await mk("ad_topup_test");
-    await expect(fulfilOrder(o.id)).rejects.toThrow(/No fulfilment handler/);
+    await expect(fulfilOrder(o.id, { amountPaise: 11_800 })).rejects.toThrow(/No fulfilment handler/);
     const seen = vi.fn(async () => ({ description: "Ad wallet top-up", sac: "998365" }));
     registerPaymentPurpose("ad_topup_test", seen);
-    expect((await fulfilOrder(o.id)).invoice!.number).toBeTruthy();
+    expect((await fulfilOrder(o.id, { amountPaise: 11_800 })).invoice!.number).toBeTruthy();
     expect(seen).toHaveBeenCalledOnce();
     const inv = await prisma.invoice.findUnique({ where: { paymentOrderId: o.id } });
     expect((inv!.lines as { sac: string }[])[0]!.sac).toBe("998365");
-    await expect(fulfilOrder("00000000-0000-4000-8000-000000000000")).rejects.toThrow();
+    await expect(fulfilOrder("00000000-0000-4000-8000-000000000000", { amountPaise: 1 })).rejects.toThrow();
   });
 });
 
@@ -163,8 +194,9 @@ describe("coupon port", () => {
   it("quotes via the port, applies discount before GST, grants bonus credits, redeems once", async () => {
     const b = await biz();
     const quote = vi.fn(async () => ({ discountPaise: 9_900, creditsBonus: 5, couponId: "cpn-1" }));
-    const redeem = vi.fn(async () => ({}));
-    setCouponPort({ quote, redeem });
+    const reserve = vi.fn(async () => ({}));
+    const redeem = vi.fn(async () => ({ creditsGranted: 5 }));
+    setCouponPort({ quote, reserve, release: async () => 0, redeem });
     const c = await startCheckout({ businessId: b }, { purpose: "credit_pack", packId: "credits_20", couponCode: "SAVE" });
     expect(quote).toHaveBeenCalledWith("SAVE", { businessId: b, planCode: undefined, amountPaise: 39_900 });
     const o = await prisma.paymentOrder.findUnique({ where: { id: c.orderId } });
@@ -173,29 +205,96 @@ describe("coupon port", () => {
     await Promise.all([send(c.orderId), send(c.orderId, {}, "t_again")]);
     expect(await getBalance(b)).toBe(25);
     expect(redeem).toHaveBeenCalledTimes(1);
-    expect(redeem).toHaveBeenCalledWith("cpn-1", { businessId: b, paymentOrderId: c.orderId });
+    expect(reserve).toHaveBeenCalledWith("cpn-1", expect.objectContaining({ businessId: b, paymentOrderId: c.orderId, amountPaise: 39_900, expectedDiscountPaise: 9_900, expectedCreditsBonus: 5 }));
+    expect(redeem).toHaveBeenCalledWith(expect.anything(), "cpn-1", expect.objectContaining({ businessId: b, paymentOrderId: c.orderId, amountPaise: 39_900 }));
   });
   it("coupon without a registered port is refused; a throwing quote propagates; 100% discount refused; redeem failure is non-fatal", async () => {
     const b = await biz();
     await expect(quoteCheckout({ businessId: b }, { purpose: "credit_pack", packId: "credits_20", couponCode: "X" })).rejects.toMatchObject({ code: "validation" });
-    setCouponPort({ quote: async () => { throw new Error("expired"); }, redeem: async () => ({}) });
+    const noop = { reserve: async () => ({}), release: async () => 0 };
+    setCouponPort({ quote: async () => { throw new Error("expired"); }, redeem: async () => ({ creditsGranted: 0 }), ...noop });
     await expect(startCheckout({ businessId: b }, { purpose: "credit_pack", packId: "credits_20", couponCode: "X" })).rejects.toThrow("expired");
-    setCouponPort({ quote: async () => ({ discountPaise: 10_000_000, creditsBonus: 0, couponId: "c" }), redeem: async () => ({}) });
+    setCouponPort({ quote: async () => ({ discountPaise: 10_000_000, creditsBonus: 0, couponId: "c" }), redeem: async () => ({ creditsGranted: 0 }), ...noop });
     await expect(quoteCheckout({ businessId: b }, { purpose: "credit_pack", packId: "credits_20", couponCode: "X" })).rejects.toMatchObject({ code: "validation" });
-    setCouponPort({ quote: async () => ({ discountPaise: 100, creditsBonus: 0, couponId: "c" }), redeem: async () => { throw new Error("db"); } });
+    // M3: a failing redeem strips the bonus (never granted without a redemption) and records the discrepancy; the purchase still fulfils
+    setCouponPort({ quote: async () => ({ discountPaise: 100, creditsBonus: 7, couponId: "c" }), redeem: async () => { throw new Error("db"); }, ...noop });
     const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const c = await startCheckout({ businessId: b }, { purpose: "credit_pack", packId: "credits_20", couponCode: "X" });
     await send(c.orderId);
     expect(await getBalance(b)).toBe(20);
+    const paid = await prisma.paymentOrder.findUniqueOrThrow({ where: { id: c.orderId } });
+    expect(paid.status).toBe("paid");
+    expect(paid.failureReason).toContain("coupon_discrepancy");
+    expect(await events(c.orderId, "CouponRedemptionDiscrepancy")).toBe(1);
     err.mockRestore();
+  });
+  it("M3: reserve failure at checkout refuses the checkout (no payable order); a failed payment releases the hold", async () => {
+    const b = await biz();
+    const release = vi.fn(async () => 1);
+    setCouponPort({ quote: async () => ({ discountPaise: 100, creditsBonus: 0, couponId: "c" }), reserve: async () => { throw new DomainError("validation", "This code is not valid."); }, release, redeem: async () => ({ creditsGranted: 0 }) });
+    await expect(startCheckout({ businessId: b }, { purpose: "credit_pack", packId: "credits_20", couponCode: "X" })).rejects.toMatchObject({ code: "validation" });
+    const orders = await prisma.paymentOrder.findMany({ where: { businessId: b } });
+    expect(orders).toHaveLength(1);
+    expect(orders[0]).toMatchObject({ status: "failed", failureReason: "coupon_unavailable" });
+    setCouponPort({ quote: async () => ({ discountPaise: 100, creditsBonus: 0, couponId: "c" }), reserve: async () => ({}), release, redeem: async () => ({ creditsGranted: 0 }) });
+    const c = await startCheckout({ businessId: b }, { purpose: "credit_pack", packId: "credits_20", couponCode: "X" });
+    await failOrder(c.orderId, "declined");
+    expect(release).toHaveBeenCalledWith(c.orderId, "declined");
+  });
+  it("M3 edges: amount mismatch releases the hold; a missing port or a failing release never blocks fulfilment", async () => {
+    const b = await biz();
+    const release = vi.fn(async () => { throw new Error("release down"); });
+    const port = { quote: async () => ({ discountPaise: 100, creditsBonus: 3, couponId: "c" }), reserve: async () => ({}), release, redeem: async () => ({ creditsGranted: 3 }) };
+    setCouponPort(port);
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const c1 = await startCheckout({ businessId: b }, { purpose: "credit_pack", packId: "credits_20", couponCode: "X" });
+    await send(c1.orderId, { amountPaise: 1 }); // wrong amount: order fails, hold released (release itself failing is logged, not thrown)
+    expect(release).toHaveBeenCalledWith(c1.orderId, "amount_mismatch");
+    expect((await prisma.paymentOrder.findUniqueOrThrow({ where: { id: c1.orderId } })).status).toBe("failed");
+    // port unregistered by the time the (late) payment arrives: purchase fulfils, bonus stripped, discrepancy recorded
+    const c2 = await startCheckout({ businessId: b }, { purpose: "credit_pack", packId: "credits_20", couponCode: "X" });
+    setCouponPort(null);
+    await send(c2.orderId);
+    expect(await getBalance(b)).toBe(20);
+    expect((await prisma.paymentOrder.findUniqueOrThrow({ where: { id: c2.orderId } })).failureReason).toContain("coupon port not registered");
+    // lower-level order with a coupon but no port is refused before any payment can be made
+    const { createProviderOrder } = await import("../src/payments");
+    await expect(createProviderOrder({ businessId: b }, { purpose: "credit_pack", purposeRef: "credits_20", description: "x", amountPaise: 100, gstPaise: 18, totalPaise: 118, coupon: { couponId: "c", listPaise: 100, discountPaise: 0, creditsBonus: 0 } })).rejects.toMatchObject({ code: "validation" });
+    // a provider that cannot create the order releases the hold
+    setCouponPort(port);
+    release.mockClear();
+    release.mockResolvedValue(1 as never);
+    process.env.PAYMENTS_PROVIDER = "razorpay";
+    delete process.env.RAZORPAY_KEY_ID;
+    await expect(createProviderOrder({ businessId: b }, { purpose: "credit_pack", purposeRef: "credits_20", description: "x", amountPaise: 100, gstPaise: 18, totalPaise: 118, coupon: { couponId: "c", listPaise: 100, discountPaise: 0, creditsBonus: 0 } })).rejects.toBeTruthy();
+    expect(release).toHaveBeenCalledWith(expect.any(String), "provider_create_failed");
+    err.mockRestore();
+  });
+  it("M3: a subscription checkout reserves and redeems with its plan code; a non-integer amount is never fulfilled", async () => {
+    const b = await biz();
+    const reserve = vi.fn(async () => ({}));
+    const redeem = vi.fn(async () => ({ creditsGranted: 0 }));
+    setCouponPort({ quote: async () => ({ discountPaise: 100, creditsBonus: 0, couponId: "cp" }), reserve, release: async () => 0, redeem });
+    const c = await startCheckout({ businessId: b }, { purpose: "subscription", planCode: "starter", couponCode: "X" });
+    expect(reserve).toHaveBeenCalledWith("cp", expect.objectContaining({ planCode: "starter" }));
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect((await fulfilOrder(c.orderId, { amountPaise: 1.5 })).fulfilled).toBe(false);
+    expect(redeem).not.toHaveBeenCalled();
+    err.mockRestore();
+    await send(c.orderId);
+    expect(redeem).toHaveBeenCalledWith(expect.anything(), "cp", expect.objectContaining({ planCode: "starter" }));
+    expect((await getActiveSubscription(b))!.planCode).toBe("starter");
   });
   it("couponPortFromModule uses typeof guards", async () => {
     expect(couponPortFromModule({})).toBeNull();
-    expect(couponPortFromModule({ quoteCoupon: 1, redeemCoupon: () => 1 })).toBeNull();
+    expect(couponPortFromModule({ quoteCoupon: 1, redeemCouponTx: () => 1 })).toBeNull();
+    expect(couponPortFromModule({ quoteCoupon: () => 1, reserveCoupon: () => 1, releaseReservation: () => 1 })).toBeNull();
     expect(couponPortFromModule(undefined)).toBeNull();
-    const p = couponPortFromModule({ quoteCoupon: async () => ({ discountPaise: 1, creditsBonus: 0, couponId: "z" }), redeemCoupon: async () => "ok" })!;
+    const p = couponPortFromModule({ quoteCoupon: async () => ({ discountPaise: 1, creditsBonus: 0, couponId: "z" }), reserveCoupon: async () => "r", releaseReservation: async () => 2, redeemCouponTx: async () => ({ creditsGranted: 3 }) })!;
     expect((await p.quote("a", { businessId: "b", amountPaise: 1 })).couponId).toBe("z");
-    expect(await p.redeem("z", { businessId: "b", paymentOrderId: "o" })).toBe("ok");
+    expect(await p.reserve("z", { businessId: "b", paymentOrderId: "o", amountPaise: 1, expectedDiscountPaise: 1, expectedCreditsBonus: 0 })).toBe("r");
+    expect(await p.release("o")).toBe(2);
+    expect(await p.redeem({} as never, "z", { businessId: "b", paymentOrderId: "o", amountPaise: 1 })).toEqual({ creditsGranted: 3 });
   });
 });
 

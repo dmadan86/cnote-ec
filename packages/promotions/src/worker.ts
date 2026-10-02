@@ -1,6 +1,6 @@
 import { type ModuleWorker } from "@cnote/core";
 import { promotionsEnabled } from "./config";
-import { expireCoupons } from "./coupons";
+import { expireCoupons, releaseExpiredReservations } from "./coupons";
 import { processOffers, revalidateListingOffers } from "./offers";
 import { qualifyOnVerification, qualifyReferral, releaseDueReferrals } from "./referrals";
 import { purgeWeb, promoTags } from "./tags";
@@ -31,6 +31,7 @@ export const worker: ModuleWorker = {
   jobs: [
     { name: "promotions.process-offers", everyMs: MIN_MS, run: async () => void (await processOffers()) },
     { name: "promotions.release-referrals", everyMs: HOUR_MS, run: async () => void (promotionsEnabled() && (await releaseDueReferrals())) },
+    { name: "promotions.release-coupon-reservations", everyMs: 5 * MIN_MS, run: async () => void (await releaseExpiredReservations()) },
     { name: "promotions.expire-coupons", everyMs: HOUR_MS, run: async () => void (await expireCoupons()) },
   ],
 };

@@ -6,7 +6,9 @@ import { DomainError } from "@cnote/core";
 import { createEnquiry } from "@cnote/enquiry";
 import { actorOf, requireBusiness, requireSession, type ActionResult } from "@cnote/next-kit";
 import { createShare, getList, revokeShare } from "@cnote/wishlist";
+import { clientIp } from "@cnote/security/client-ip";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { runLocalized } from "@/i18n/errors";
 import { getRequestLocale } from "@/lib/request-locale";
@@ -59,7 +61,7 @@ export async function requestQuotesForSelectedAction(_prev: ActionResult<BulkRfq
             preferredSellerId: g.sellerBusinessId,
             language: s.preferredLanguage,
           },
-          { buyerPhoneVerified: s.phoneVerified },
+          { buyerPhoneVerified: s.phoneVerified, ip: clientIp(await headers()) },
         );
         created++;
       } catch (err) {

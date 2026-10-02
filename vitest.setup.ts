@@ -14,6 +14,9 @@ if (!process.env.FIELD_ENCRYPTION_KEYS) {
   process.env.FIELD_ENCRYPTION_KEYS = `test1:${Buffer.alloc(32, 7).toString("base64")}`;
   process.env.FIELD_ENCRYPTION_ACTIVE_KID = "test1";
 }
+// Partner webhook secrets have NO built-in default (security audit H1: unset = verification fails closed), so tests set them.
+process.env.ESCROW_WEBHOOK_SECRET ||= "test-escrow-webhook-secret";
+process.env.CREDIT_WEBHOOK_SECRET ||= "test-credit-webhook-secret";
 // dedicated, test-only domain-check secret (the app refuses to start the probe without one; never reuses JWT_SECRET)
 process.env.DOMAIN_CHECK_SECRET ||= "test-only-domain-check-secret-not-for-prod";
 process.env.BLIND_INDEX_KEY ||= Buffer.alloc(32, 9).toString("base64");

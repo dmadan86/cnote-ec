@@ -89,7 +89,7 @@ describe("retention (DPDP)", () => {
     const s = await sellerWithEscrow(fk);
     const app = await applyForFinancing(s.actor, { product: "invoice_financing", escrowId: s.escrow.escrowId });
     await acceptOffer(s.actor, { offerId: app.offers[0]!.id, acknowledgedKfs: true, kfsVersion: "kfs-v1" });
-    await simulateMockDisbursal(app.id);
+    await simulateMockDisbursal(s.actor, app.id);
     const loan = await prisma.creditLoan.findUniqueOrThrow({ where: { applicationId: app.id } });
     const row = await prisma.creditApplication.findUniqueOrThrow({ where: { id: app.id } });
     const { raw, headers } = mock().signedEvent({ eventId: uid(), type: "loan.closed", partnerRef: row.partnerRef!, loanRef: loan.partnerLoanRef, at: old });
@@ -150,7 +150,7 @@ describe("worker", () => {
     const s = await sellerWithEscrow(fk);
     const app = await applyForFinancing(s.actor, { product: "invoice_financing", escrowId: s.escrow.escrowId });
     await acceptOffer(s.actor, { offerId: app.offers[0]!.id, acknowledgedKfs: true, kfsVersion: "kfs-v1" });
-    await simulateMockDisbursal(app.id);
+    await simulateMockDisbursal(s.actor, app.id);
     await onEscrowRefundedForTest(s.escrow.escrowId);
     expect((await prisma.creditAssignment.findUniqueOrThrow({ where: { escrowId: s.escrow.escrowId } })).status).toBe("active");
     fk.escrows.set(s.escrow.escrowId, { ...s.escrow, status: "refunded" });
@@ -161,7 +161,7 @@ describe("worker", () => {
     const s2 = await sellerWithEscrow(fk);
     const app2 = await applyForFinancing(s2.actor, { product: "invoice_financing", escrowId: s2.escrow.escrowId });
     await acceptOffer(s2.actor, { offerId: app2.offers[0]!.id, acknowledgedKfs: true, kfsVersion: "kfs-v1" });
-    await simulateMockDisbursal(app2.id);
+    await simulateMockDisbursal(s2.actor, app2.id);
     await worker.handlers.EscrowReleased!(ev({ escrowId: s2.escrow.escrowId, orderId: s2.escrow.orderId, sellerBusinessId: s2.actor.businessId, amountPaise: 1, feePaise: 0, cause: "buyer_accepted" }));
     expect((await prisma.creditAssignment.findUniqueOrThrow({ where: { escrowId: s2.escrow.escrowId } })).status).toBe("released");
   });

@@ -635,7 +635,7 @@ describe("MCP tools happy paths", () => {
       expect(res.isError, `${t.name}: ${res.content?.[0]?.text}`).toBeFalsy();
       expect(res.structuredContent, t.name).toBeTruthy();
     }
-    expect(m.createEnquiry).toHaveBeenCalledWith(A, expect.objectContaining({ language: "en" }));
+    expect(m.createEnquiry).toHaveBeenCalledWith(A, expect.objectContaining({ language: "en" }), { ip: null });
     expect(m.declineLead).toHaveBeenCalledWith(A, UUID, "no");
     expect(m.sendQuote).toHaveBeenCalledWith(A, UUID, { pricePaise: 5, quantity: 2, unit: "kg" });
     expect(m.submitReview).toHaveBeenCalledWith(A, UUID, expect.objectContaining({ rating: 4, language: "en" }));

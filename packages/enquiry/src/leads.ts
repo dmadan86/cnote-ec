@@ -7,6 +7,7 @@ import { requirementAttachments } from "./attachments";
 import { cascade } from "./matching";
 import { cascadeSafe } from "./safe";
 import { runMatching } from "./matching";
+import { evaluateRefundGuard, holdRefundForReview } from "./refund-guard";
 import { createCheck, enqueueDispatch, pendingChecksByMatch, reachabilityEnabled, resolveReachabilityCheck } from "./reachability";
 import { categories, enquiryBase, lockRow, personContact, profiles, REFUND_WINDOW_MS } from "./support";
 import type { Actor, LeadView } from "./types";
@@ -19,6 +20,7 @@ async function toLeadViews(rows: { match: Match; enquiry: Enquiry; conversationI
   const out: LeadView[] = [];
   const pending = await pendingChecksByMatch(rows.map((r) => r.match.id));
   const files = await requirementAttachments([...new Set(rows.map((r) => r.enquiry.id))]);
+  const held = new Set((await prisma.leadRefundReview.findMany({ where: { matchId: { in: rows.map((r) => r.match.id) }, status: "pending" }, select: { matchId: true } })).map((h) => h.matchId));
   for (const { match, enquiry, conversationId } of rows) {
     const buyer = profs.get(enquiry.buyerBusinessId);
     const revealed = match.status === "accepted";
@@ -44,7 +46,9 @@ async function toLeadViews(rows: { match: Match; enquiry: Enquiry; conversationI
         verificationTier: buyer?.verificationTier ?? 0,
         phone,
       },
-      conversationId,
+      // a refunded lead is closed for the seller: no conversation link, buyer details stay hidden (security audit M2)
+      conversationId: match.status === "refunded" ? null : conversationId,
+      refundUnderReview: held.has(match.id),
       contactNote,
       reachabilityCheck: pending.has(match.id) ? { status: "checking", expiresAt: pending.get(match.id)!.expiresAt } : null,
     });
@@ -150,12 +154,25 @@ export async function refundMatch(tx: Tx, m: Match, reason: "buyer_unreachable" 
 
 const FAKE_FLAGS_TO_REJECT = 2;
 
+/** 2+ distinct sellers flagging "fake" rejects the enquiry and refunds every other accepted match. Runs in the caller's tx. */
+export async function rejectEnquiryIfFakeFlagsReached(tx: Tx, m: Match): Promise<void> {
+  const flags = await tx.match.count({ where: { enquiryId: m.enquiryId, refundReason: "buyer_fake" } });
+  if (flags < FAKE_FLAGS_TO_REJECT) return;
+  await lockRow(tx, "enquiries", m.enquiryId);
+  await tx.enquiry.update({ where: { id: m.enquiryId }, data: { status: "rejected", moderationStatus: "rejected" } });
+  for (const other of await tx.match.findMany({ where: { enquiryId: m.enquiryId, id: { not: m.id } } })) {
+    if (other.status === "accepted") await refundMatch(tx, other, "enquiry_rejected");
+    else if (other.status === "offered") await closeOffer(tx, other, "expired");
+  }
+}
+
 /**
  * Seller flags buyer unreachable/fake within 72h of accepting → auto-refund, no ticket (ADR-002).
  * 2+ distinct sellers flagging "fake" (one match per seller per enquiry) rejects the enquiry and refunds
  * every accepted match.
  */
-export async function reportBuyerProblem(actor: Actor, matchId: string, kind: "buyer_unreachable" | "buyer_fake"): Promise<void> {
+export async function reportBuyerProblem(actor: Actor, matchId: string, kind: "buyer_unreachable" | "buyer_fake"): Promise<{ outcome: "refunded" | "held_for_review" | "checking" }> {
+  let outcome: "refunded" | "held_for_review" | "checking" = "refunded";
   // "unreachable" with the check enabled: the refund is held while we verify with the buyer (ADR-002 outreach).
   let checkId: string | null = null;
   let settleId: string | null = null;
@@ -164,6 +181,8 @@ export async function reportBuyerProblem(actor: Actor, matchId: string, kind: "b
     const m = await tx.match.findUnique({ where: { id: matchId } });
     if (!m || m.sellerBusinessId !== actor.businessId) throw new DomainError("not_found", "Lead not found");
     if (m.status === "refunded") return; // already handled
+    // security audit M2: an unconfirmed report must not be answerable twice, and a held request stays held
+    if (kind === "buyer_fake" && (await tx.leadRefundReview.findUnique({ where: { matchId } }))?.status === "pending") { outcome = "held_for_review"; return; }
     if (m.status !== "accepted" || !m.respondedAt) throw new DomainError("conflict", "Only accepted leads can be reported.");
     if (Date.now() - m.respondedAt.getTime() > REFUND_WINDOW_MS) throw new DomainError("conflict", "The 72-hour refund window for this lead has passed.");
     if (kind === "buyer_unreachable" && reachabilityEnabled()) {
@@ -174,24 +193,26 @@ export async function reportBuyerProblem(actor: Actor, matchId: string, kind: "b
         return;
       }
       checkId = await createCheck(tx, m.enquiryId, matchId);
+      outcome = "checking";
       return;
     }
-    await refundMatch(tx, m, kind);
-    if (kind !== "buyer_fake") return;
-
-    const flags = await tx.match.count({ where: { enquiryId: m.enquiryId, refundReason: "buyer_fake" } });
-    if (flags < FAKE_FLAGS_TO_REJECT) return;
-    await lockRow(tx, "enquiries", m.enquiryId);
-    await tx.enquiry.update({ where: { id: m.enquiryId }, data: { status: "rejected", moderationStatus: "rejected" } });
-    for (const other of await tx.match.findMany({ where: { enquiryId: m.enquiryId, id: { not: m.id } } })) {
-      if (other.status === "accepted") await refundMatch(tx, other, "enquiry_rejected");
-      else if (other.status === "offered") await closeOffer(tx, other, "expired");
+    if (kind === "buyer_fake") {
+      // ADR-002 stays instant for genuine cases; a seller whose refund rate / burst is abnormal goes to staff review instead.
+      const g = await evaluateRefundGuard(tx, m.sellerBusinessId);
+      if (g.hold) {
+        await holdRefundForReview(tx, m, "buyer_fake", g);
+        outcome = "held_for_review";
+        return;
+      }
     }
+    await refundMatch(tx, m, kind);
+    if (kind === "buyer_fake") await rejectEnquiryIfFakeFlagsReached(tx, m);
   });
   if (settleId) await resolveReachabilityCheck(settleId);
-  if (!checkId) return;
+  if (!checkId) return { outcome };
   // Delivered by the worker (see reachability.ts); a delivery failure there settles the check immediately.
   await enqueueDispatch(checkId);
+  return { outcome };
 }
 
 /** Ops release/reject of an enquiry held in review (low confidence). */
