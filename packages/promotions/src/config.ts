@@ -46,6 +46,8 @@ export const COUPON = {
   largeFlatPaise: 500_000,
   largeExtraCredits: 200,
   quoteSnapshotSeconds: 3600,
+  /** a checkout holds its coupon (reserved redemption) this long; then the slot is released to others (security audit M3) */
+  reservationMinutes: int("PROMOTIONS_COUPON_RESERVATION_MINUTES", 30),
 } as const;
 
 export const REFERRAL = {

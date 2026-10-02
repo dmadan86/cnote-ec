@@ -2,6 +2,8 @@
 // Buyer-side server actions. Each re-checks the session: server actions are reachable by direct POST.
 import { pickSellers, createEnquiry, decideQuote, reportDeal, sendMessage, setQuoteShortlisted, type AttachmentUpload, type EnquiryView } from "@cnote/enquiry";
 import { actorOf, requireBusiness, type ActionResult } from "@cnote/next-kit";
+import { clientIp } from "@cnote/security/client-ip";
+import { headers } from "next/headers";
 import { runLocalized } from "@/i18n/errors";
 import { revalidatePath } from "next/cache";
 import { attributeEnquiryFromCookie } from "@/features/ads/slots";
@@ -53,7 +55,7 @@ export async function postRfqAction(_prev: ActionResult<EnquiryView> | null, f: 
         preferredSellerId: str(f, "preferredSellerId"),
         language: s.preferredLanguage,
       },
-      { buyerPhoneVerified: s.phoneVerified },
+      { buyerPhoneVerified: s.phoneVerified, ip: clientIp(await headers()) },
     );
     await attributeEnquiryFromCookie({ enquiryId: enquiry.id, buyerBusinessId: s.business.id, listingId: str(f, "preferredListingId") });
     revalidatePath("/buyer/enquiries");

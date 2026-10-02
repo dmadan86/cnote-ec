@@ -5,6 +5,7 @@ import { rateLimit } from "@cnote/core";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { AppEnv } from "../../types";
+import { readBodyCapped } from "../../lib/body";
 import { clientIp } from "@cnote/security/client-ip";
 
 const MAX_BODY_BYTES = 256_000;
@@ -16,10 +17,8 @@ paymentsWebhook.post("/:provider", async (c) => {
   const provider = c.req.param("provider");
   if (!["razorpay", "cashfree", "mock"].includes(provider)) return c.text("Not found", 404);
   if (!(await rateLimit(`pay-hook:${ip(c)}`, 600, 60))) return c.text("Too many requests", 429, { "Retry-After": "60" });
-  const declared = Number(c.req.header("content-length") ?? 0);
-  if (declared > MAX_BODY_BYTES) return c.text("Payload too large", 413);
-  const raw = new Uint8Array(await c.req.arrayBuffer());
-  if (raw.byteLength > MAX_BODY_BYTES) return c.text("Payload too large", 413);
+  const raw = await readBodyCapped(c.req.raw, MAX_BODY_BYTES);
+  if (!raw) return c.text("Payload too large", 413);
   const { handlePaymentWebhook } = await import("@cnote/billing");
   try {
     const r = await handlePaymentWebhook(provider, raw, c.req.raw.headers);

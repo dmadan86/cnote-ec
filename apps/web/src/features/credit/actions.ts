@@ -26,7 +26,7 @@ export async function bnplAction(_prev: ActionResult | null, f: FormData): Promi
     } else if (intent === "exit") {
       await cancelLoanInCoolingOff(actor, { loanId: String(f.get("loanId") ?? ""), confirmExit: f.get("confirmExit") === "on", expectedPayablePaise: Number(f.get("expectedPayablePaise") ?? -1) });
     } else if (intent === "decline") await declineOffer(actor, String(f.get("offerId") ?? ""));
-    else await simulateMockDisbursal(String(f.get("applicationId") ?? ""));
+    else await simulateMockDisbursal(actor, String(f.get("applicationId") ?? ""));
     revalidatePath(`/buyer/orders/${orderId}`);
   });
 }

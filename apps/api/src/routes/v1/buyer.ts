@@ -1,3 +1,4 @@
+import { clientIp } from "@cnote/security/client-ip";
 import { z } from "@hono/zod-openapi";
 import * as ops from "../../ops";
 import {
@@ -20,7 +21,7 @@ buyerRoutes.openapi(
       responses: { 201: json(Enquiry, "Created enquiry with its matches") },
     },
   }),
-  async (c) => c.json(await ops.newEnquiry(c.get("principal"), c.req.valid("json")), 201),
+  async (c) => c.json(await ops.newEnquiry(c.get("principal"), c.req.valid("json"), clientIp(c.req.raw.headers)), 201),
 );
 
 buyerRoutes.openapi(
@@ -96,7 +97,7 @@ buyerRoutes.openapi(
     scope: "messages:write", errors: [404, 409, 422],
     cfg: {
       method: "post", path: "/matches/{matchId}/deal-report", operationId: "reportDeal", tags: ["Conversations"], summary: "Report the deal outcome",
-      description: `Deals close off-platform in Phase 1; either party reports whether it closed (ADR-007). Only accepted leads can be reported. ${buyerNote}`,
+      description: `Deals close off-platform in Phase 1; either party reports whether it closed (ADR-007). Only a buyer-reported win records the deal and creates the order; a seller-reported win is advisory (the buyer is asked to confirm). Only accepted leads can be reported. ${buyerNote}`,
       request: { params: z.object({ matchId: z.string().openapi({ format: "uuid" }) }), body: body(DealReportCreate) },
       responses: { 201: json(Ok, "Recorded") },
     },

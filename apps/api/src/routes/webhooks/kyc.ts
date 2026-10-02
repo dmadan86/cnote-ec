@@ -5,6 +5,7 @@ import { DomainError, rateLimit } from "@cnote/core";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { AppEnv } from "../../types";
+import { readBodyCapped } from "../../lib/body";
 import { clientIp } from "@cnote/security/client-ip";
 
 const MAX_BODY_BYTES = 100_000;
@@ -14,10 +15,9 @@ export const kycWebhook = new Hono<AppEnv>();
 
 kycWebhook.post("/", async (c) => {
   if (!(await rateLimit(`kyc-hook:${ip(c)}`, 120, 60))) return c.text("Too many requests", 429, { "Retry-After": "60" });
-  const declared = Number(c.req.header("content-length") ?? 0);
-  if (declared > MAX_BODY_BYTES) return c.text("Payload too large", 413);
-  const raw = await c.req.text();
-  if (raw.length > MAX_BODY_BYTES) return c.text("Payload too large", 413);
+  const bytes = await readBodyCapped(c.req.raw, MAX_BODY_BYTES);
+  if (!bytes) return c.text("Payload too large", 413);
+  const raw = new TextDecoder().decode(bytes);
   const { handleKycWebhook } = await import("@cnote/identity");
   try {
     const r = await handleKycWebhook(raw, Object.fromEntries(c.req.raw.headers.entries()));

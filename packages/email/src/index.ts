@@ -177,7 +177,9 @@ async function deliver(msg: QueueMessage<EmailJob>): Promise<void> {
   }
   const provider = getEmailProvider();
   try {
-    const res = await provider.send({ id: row.id, to: job.to, toName: job.toName, from: fromAddress(), subject: rendered.subject, html: rendered.html, text: rendered.text, headers });
+    // defence in depth (security audit): a subject can never carry CR/LF into a mail header, whatever the variables contained
+    const subject = rendered.subject.replace(/[\r\n\u2028\u2029]+/g, " ").trim();
+    const res = await provider.send({ id: row.id, to: job.to, toName: job.toName, from: fromAddress(), subject, html: rendered.html, text: rendered.text, headers });
     await prisma.emailMessage.update({
       where: { id: row.id },
       data: { status: "sent", sentAt: new Date(), provider: provider.name, providerMessageId: res.messageId, subject: rendered.subject.slice(0, 300), lastError: null },

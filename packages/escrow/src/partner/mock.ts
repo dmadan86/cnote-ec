@@ -5,8 +5,15 @@ import { header, hmac, obj, num, parseJson, redact, safeEqual, str } from "./uti
 import type { CollectRequest, CollectResponse, EscrowPartner, ParsedEscrowWebhook, StatementEntry, TransferRequest, TransferResult } from "./types";
 
 export const MOCK_SIGNATURE_HEADER = "x-escrow-signature";
-export const mockSecret = (): string => process.env.ESCROW_WEBHOOK_SECRET || "mock-escrow-webhook-secret";
-export const mockSign = (body: string): string => hmac(mockSecret(), body, "hex");
+/** No built-in default: an unset secret means nobody can sign, so webhook verification fails closed (security audit H1). */
+export const mockSecret = (): string | null => process.env.ESCROW_WEBHOOK_SECRET || null;
+/** The mock partner is refused in production unless ESCROW_MOCK_CHECKOUT=1 is set explicitly. */
+export const mockPartnerAllowed = (env: NodeJS.ProcessEnv = process.env): boolean => env.NODE_ENV !== "production" || env.ESCROW_MOCK_CHECKOUT === "1";
+export function mockSign(body: string): string {
+  const secret = mockSecret();
+  if (!secret) throw new DomainError("conflict", "ESCROW_WEBHOOK_SECRET is not set; the mock escrow partner cannot sign webhooks.");
+  return hmac(secret, body, "hex");
+}
 
 interface MockOptions { payoutStatus?: "settled" | "pending" }
 
@@ -53,6 +60,7 @@ export class MockPartner implements EscrowPartner {
   }
 
   verifyWebhook(raw: Uint8Array | string, headers: Headers | Record<string, string | undefined>): ParsedEscrowWebhook | null {
+    if (!mockPartnerAllowed() || !mockSecret()) return null;
     const sig = header(headers, MOCK_SIGNATURE_HEADER);
     const body = typeof raw === "string" ? raw : Buffer.from(raw).toString("utf8");
     if (!sig || !safeEqual(sig, mockSign(body))) return null;

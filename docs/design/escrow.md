@@ -121,7 +121,9 @@ admin console (`escrow.manage`, audited); nothing there moves money by itself.
 
 `ESCROW_ENABLED` off: `createEscrowForOrder`, `acceptDelivery`, `simulateMockFunding` refuse (`forbidden`), panels and the
 offer are hidden (the buyer panel is not rendered unless an escrow already exists), views report `actions` false. Worker
-handlers and jobs are **not** gated, webhooks are not gated, and staff manual release/refund is not gated: escrows that
+handlers and jobs are **not** gated, webhooks are not gated (from the CONFIGURED partner only, security audit H1: every event the ingress
+understands settles an existing obligation, i.e. funding of an escrow that was already created and payout/refund settled or failed;
+nothing new can be started from a webhook, an unknown escrow only opens a reconciliation issue), and staff manual release/refund is not gated: escrows that
 already hold money keep moving.
 
 ## Environment

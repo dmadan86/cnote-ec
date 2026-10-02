@@ -225,6 +225,7 @@ export const Conversation = z
     messages: z.array(z.object({ id: z.string(), senderPersonId: z.string(), body: z.string(), createdAt: iso("2026-09-03T10:00:00.000Z") })),
     quotes: z.array(Quote),
     dealReported: z.enum(["won", "lost", "pending"]).nullable(),
+    sellerClaimedWon: z.boolean().optional().openapi({ description: "The seller reported the deal as won; only the buyer's own report records it." }),
   })
   .openapi("Conversation");
 export const MessageCreate = z.object({ body: z.string().min(1).max(4000) }).openapi("MessageCreate");

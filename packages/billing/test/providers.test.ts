@@ -145,6 +145,11 @@ describe("mock + selection", () => {
     expect(mockAllowed({ NODE_ENV: "production" } as never)).toBe(false);
     expect(mockAllowed({ NODE_ENV: "production", PAYMENTS_ALLOW_MOCK_IN_PRODUCTION: "0" } as never)).toBe(false);
     expect(mockAllowed({ NODE_ENV: "development" } as never)).toBe(true);
+    expect(mockAllowed({ NODE_ENV: "test" } as never)).toBe(true);
+    // security audit: an unset / unexpected NODE_ENV fails closed (treated like production)
+    expect(mockAllowed({} as never)).toBe(false);
+    expect(mockAllowed({ NODE_ENV: "staging" } as never)).toBe(false);
+    expect(() => getProvider("mock", {} as never)).toThrow(/production/);
     expect(mockAllowed({ NODE_ENV: "production", PAYMENTS_ALLOW_MOCK_IN_PRODUCTION: "1" } as never)).toBe(true);
     err.mockRestore();
     warn.mockRestore();

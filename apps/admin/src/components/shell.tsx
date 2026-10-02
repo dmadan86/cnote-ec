@@ -6,6 +6,7 @@ import { NavLink } from "./nav";
 const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Privilege }[] = [
   { href: "/", label: "Dashboard", icon: <LayoutDashboard className="size-4" aria-hidden /> },
   { href: "/reviews", label: "Review queue", icon: <ShieldCheck className="size-4" aria-hidden />, privilege: "reviews.read" },
+  { href: "/lead-refunds", label: "Lead refunds", icon: <Banknote className="size-4" aria-hidden />, privilege: "enquiries.review" },
   { href: "/moderation", label: "Moderation", icon: <MessageSquareWarning className="size-4" aria-hidden />, privilege: "ugc.read" },
   { href: "/listings", label: "Listing versions", icon: <FileClock className="size-4" aria-hidden />, privilege: "listings.moderate" },
   { href: "/kyc", label: "KYC review", icon: <ShieldCheck className="size-4" aria-hidden />, privilege: "kyc.review" },

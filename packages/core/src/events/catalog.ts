@@ -35,10 +35,15 @@ export interface DomainEventPayloads {
   LeadDeclined: { enquiryId: string; matchId: string; sellerBusinessId: string; reason?: string };
   LeadExpired: { enquiryId: string; matchId: string; sellerBusinessId: string };
   LeadRefunded: { enquiryId: string; matchId: string; sellerBusinessId: string; reason: "buyer_unreachable" | "buyer_fake" | "enquiry_rejected" };
+  /** a seller's buyer_fake refund request tripped the per-seller refund guard: held for staff (security audit M2) */
+  LeadRefundHeld: { enquiryId: string; matchId: string; sellerBusinessId: string; kind: "buyer_fake"; reason: string; refundRateBps: number };
+  LeadRefundReviewed: { enquiryId: string; matchId: string; sellerBusinessId: string; decision: "approved" | "rejected"; decidedBy: string };
   ConversationStarted: { conversationId: string; matchId: string };
   MessageSent: { conversationId: string; messageId: string; senderPersonId: string };
   QuoteSent: { quoteId: string; conversationId: string; sellerBusinessId: string; pricePaise: number; quantity: number };
   DealReportedOffPlatform: { matchId: string; reportedByBusinessId: string; outcome: "won" | "lost" | "pending"; valuePaise?: number };
+  /** the seller reports the deal as won: advisory only, the buyer is asked to confirm (security audit M7) */
+  DealClaimedBySeller: { matchId: string; sellerBusinessId: string; buyerBusinessId: string; conversationId: string | null; valuePaise?: number };
   // reviews (user-generated content; public only after staff approval)
   ReviewSubmitted: { reviewId: string; listingId: string; sellerBusinessId: string; authorPersonId: string; rating: number; aiVerdict: string | null };
   ReviewModerated: { reviewId: string; listingId: string; sellerBusinessId: string; status: "approved" | "rejected"; rating: number; moderatedBy: string };
@@ -111,6 +116,8 @@ export interface DomainEventPayloads {
   // payments + invoicing (ADR-001/005)
   PaymentSucceeded: { paymentOrderId: string; businessId: string; purpose: string; totalPaise: number; invoiceNumber: string | null };
   PaymentFailed: { paymentOrderId: string; businessId: string; purpose: string; reason: string };
+  /** a paid order whose coupon could no longer be redeemed at fulfilment: bonus credits stripped, staff to review (security audit M3) */
+  CouponRedemptionDiscrepancy: { paymentOrderId: string; businessId: string; couponId: string; discountPaise: number; bonusStripped: number; reason: string };
   PaymentRefunded: { paymentOrderId: string; businessId: string; amountPaise: number; creditNoteNumber: string | null };
   /** The provider confirmed the money is back with the payer (immediately, via webhook or a retry). */
   RefundCompleted: { refundId: string; paymentOrderId: string; businessId: string; amountPaise: number };
@@ -212,10 +219,13 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   LeadDeclined: 1,
   LeadExpired: 1,
   LeadRefunded: 1,
+  LeadRefundHeld: 1,
+  LeadRefundReviewed: 1,
   ConversationStarted: 1,
   MessageSent: 1,
   QuoteSent: 1,
   DealReportedOffPlatform: 1,
+  DealClaimedBySeller: 1,
   ReviewSubmitted: 1,
   ReviewModerated: 1,
   CommentSubmitted: 1,
@@ -271,6 +281,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   ReferralRejected: 1,
   PaymentSucceeded: 1,
   PaymentFailed: 1,
+  CouponRedemptionDiscrepancy: 1,
   PaymentRefunded: 1,
   RefundCompleted: 1,
   RefundDeadLettered: 1,

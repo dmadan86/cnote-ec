@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DomainError } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import {
@@ -10,6 +10,7 @@ import { DAY, actorOf, cleanup, eventsOf, fundedEscrow, ledgerFor, mkOrder, mock
 
 afterAll(cleanup);
 beforeEach(() => { process.env.ESCROW_ENABLED = "1"; });
+afterEach(() => { vi.unstubAllEnvs(); });
 
 const status = async (id: string) => (await prisma.escrowAgreement.findUniqueOrThrow({ where: { id } })).status;
 const drive = async (orderId: string, to: "confirmed" | "dispatched" | "delivered" | "completed" | "cancelled") => { await setOrder(orderId, to); await onOrderStatusChanged({ orderId, to }); };
@@ -66,6 +67,51 @@ describe("creation and funding", () => {
     expect(dup.status).toBe("duplicate");
     expect((await ledgerFor(f.escrowId)).escrowHeld).toBe(1_000_000);
     await expect(simulateMockFunding(f.buyerActor, f.orderId)).rejects.toMatchObject({ code: "conflict" });
+  });
+  it("H1: webhooks refuse a non-configured partner, the flag-off state, an unset secret, and mock in production", async () => {
+    const o = await mkOrder();
+    const v = await createEscrowForOrder(o.buyerActor, o.orderId);
+    const { rawBody, headers } = mock().simulateCollect(v.id, 1_000_000);
+    // a different partner is configured: a validly signed `mock` event is refused as unknown
+    process.env.ESCROW_PARTNER = "razorpay_route";
+    await expect(handleEscrowWebhook("mock", rawBody, headers)).rejects.toMatchObject({ code: "not_found" });
+    delete process.env.ESCROW_PARTNER;
+    // no default secret: unset secret verifies nothing (a forger using the old public default is refused)
+    const forged = JSON.stringify({ id: "forged1", type: "collect.captured", escrowId: v.id, amountPaise: 1_000_000 });
+    const { hmac } = await import("../src/partner/util");
+    const saved = process.env.ESCROW_WEBHOOK_SECRET;
+    delete process.env.ESCROW_WEBHOOK_SECRET;
+    await expect(handleEscrowWebhook("mock", forged, { "x-escrow-signature": hmac("mock-escrow-webhook-secret", forged, "hex") })).rejects.toMatchObject({ code: "unauthenticated" });
+    process.env.ESCROW_WEBHOOK_SECRET = saved;
+    // mock refused in production unless the explicit flag is set
+    vi.stubEnv("NODE_ENV", "production");
+    await expect(handleEscrowWebhook("mock", rawBody, headers)).rejects.toMatchObject({ code: "not_found" });
+    vi.stubEnv("ESCROW_MOCK_CHECKOUT", "1");
+    expect((await handleEscrowWebhook("mock", rawBody, headers)).outcome).toBe("funded");
+    vi.unstubAllEnvs();
+  });
+  it("flag off: settling events for existing obligations are still applied (funding), from the configured partner only", async () => {
+    const o = await mkOrder();
+    const v = await createEscrowForOrder(o.buyerActor, o.orderId);
+    process.env.ESCROW_ENABLED = "0";
+    // nothing new can be started, but the buyer's payment for the escrow that exists lands
+    await expect(createEscrowForOrder((await mkOrder()).buyerActor, o.orderId)).rejects.toMatchObject({ code: "forbidden" });
+    const { rawBody, headers } = mock().simulateCollect(v.id, 1_000_000);
+    expect((await handleEscrowWebhook("mock", rawBody, headers)).outcome).toBe("funded");
+    expect(await status(v.id)).toBe("funded");
+    // still only the configured partner
+    process.env.ESCROW_PARTNER = "razorpay_route";
+    const other = mock().simulateCollect(v.id, 1_000_000);
+    await expect(handleEscrowWebhook("mock", other.rawBody, other.headers)).rejects.toMatchObject({ code: "not_found" });
+    delete process.env.ESCROW_PARTNER;
+  });
+  it("H1: an event from provider X cannot fund or settle an escrow opened with provider Y", async () => {
+    const o = await mkOrder();
+    const v = await createEscrowForOrder(o.buyerActor, o.orderId);
+    await prisma.escrowAgreement.update({ where: { id: v.id }, data: { partner: "cashfree" } });
+    const { rawBody, headers } = mock().simulateCollect(v.id, 1_000_000);
+    expect((await handleEscrowWebhook("mock", rawBody, headers)).outcome).toBe("partner_mismatch");
+    expect(await status(v.id)).toBe("awaiting_funding");
   });
   it("webhook: bad signature, unknown provider, wrong amount, unknown escrow, late funding", async () => {
     const o = await mkOrder();

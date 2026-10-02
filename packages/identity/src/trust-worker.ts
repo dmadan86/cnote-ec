@@ -22,6 +22,7 @@ function signalsFrom(tier: number, h: Record<string, string>, createdAt: Date, n
     dealsWon: n("dealsWon"),
     disputesLost: n("disputesLost"),
     offersBroken: n("offersBroken"),
+    refundsClaimed: n("refundsClaimed"),
     inactiveDays: Math.max(0, Math.floor((now - last) / DAY)),
   };
 }
@@ -78,6 +79,11 @@ export const trustHandlers: EventHandlers = {
   },
   async LeadExpired(e) {
     await once(e.id, e.payload.sellerBusinessId, (p) => p.hincrby(counterKey(e.payload.sellerBusinessId), "expired", 1));
+  },
+  // Security audit M2: the seller's own refund claims feed the trust score (platform-decided refunds do not).
+  async LeadRefunded(e) {
+    if (e.payload.reason !== "buyer_fake" && e.payload.reason !== "buyer_unreachable") return;
+    await once(e.id, e.payload.sellerBusinessId, (p) => p.hincrby(counterKey(e.payload.sellerBusinessId), "refundsClaimed", 1));
   },
   async ListingModerated(e) {
     if (e.payload.status !== "rejected") return;

@@ -196,6 +196,14 @@ describe("queued mailer + test sends + console provider", () => {
     await prisma.emailMessage.deleteMany({ where: { template: "auth.password_reset", toMasked: "r***@example.com" } });
   });
 
+  it("security: CR/LF in a subject variable never reaches the provider (header injection)", async () => {
+    await createQueuedMailer().send({ to: "inj@example.com", subject: "Hello\r\nBcc: attacker@example.com\u2028X: 1", text: "body" });
+    await drain(queue);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.subject).not.toMatch(/[\r\n\u2028\u2029]/);
+    expect(sent[0]!.subject).toContain("Hello");
+    await prisma.emailMessage.deleteMany({ where: { toMasked: "i***@example.com" } });
+  });
   it("sendTestEmail renders with example variables and prefixes the subject", async () => {
     const res = await sendTestEmail("auth.new_sign_in", "staff@example.com", {});
     expect(res).toMatchObject({ provider: "test" });

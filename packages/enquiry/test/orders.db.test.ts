@@ -101,8 +101,9 @@ describe("reportDeal hook", () => {
     await reportDeal(d.buyer, d.matchId, "pending");
     await reportDeal(d.buyer, d.matchId, "lost");
     expect(await prisma.order.count({ where: { matchId: d.matchId } })).toBe(0);
+    await reportDeal(d.seller, d.matchId, "won", 999_00); // M7: advisory only, creates no order
+    expect(await prisma.order.count({ where: { matchId: d.matchId } })).toBe(0);
     await reportDeal(d.buyer, d.matchId, "won", 777_00);
-    await reportDeal(d.seller, d.matchId, "won", 999_00);
     const o = await prisma.order.findMany({ where: { matchId: d.matchId } });
     expect(o).toHaveLength(1);
     expect(o[0]!.totalPaise).toBe(77_700n);

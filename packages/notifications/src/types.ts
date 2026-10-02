@@ -22,6 +22,18 @@ export interface Recipient {
   vars: Record<string, unknown>;
   /** app-relative path, e.g. "/leads" */
   href: string;
+  /** e-mail coalescing group (e.g. the conversation id): see NotificationKind.emailThrottle */
+  group?: string;
+}
+
+/** Security audit: sender-triggered kinds must not flood an inbox. */
+export interface EmailThrottle {
+  /** at most one email per recipient per group per window; later ones are folded into one digest email at the window's end */
+  windowSeconds: number;
+  /** hard cap on emails (incl. digests) per recipient per UTC day for this kind */
+  dailyCap: number;
+  /** kind whose template renders the digest ({{count}} = folded messages) */
+  digestKind: string;
 }
 
 export interface KindContent {
@@ -40,6 +52,8 @@ export interface NotificationKind<E extends DomainEventType = DomainEventType> {
   event: E;
   variables: TemplateVariable[];
   defaults: { in_app: KindContent; email?: KindContent };
+  /** optional per-recipient email flood control (in-app notifications are unaffected) */
+  emailThrottle?: () => EmailThrottle;
   /** optional per-locale seed content (see TemplateDefinition.localized) */
   localized?: Record<string, { in_app?: KindContent; email?: KindContent }>;
   resolve(event: DomainEvent<E>, dir: import("./recipients").Directory): Promise<Recipient[]>;

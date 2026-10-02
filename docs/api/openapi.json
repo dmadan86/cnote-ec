@@ -1809,6 +1809,10 @@
               "pending",
               null
             ]
+          },
+          "sellerClaimedWon": {
+            "type": "boolean",
+            "description": "The seller reported the deal as won; only the buyer's own report records it."
           }
         },
         "required": [
@@ -4708,7 +4712,7 @@
           "Conversations"
         ],
         "summary": "Report the deal outcome",
-        "description": "Deals close off-platform in Phase 1; either party reports whether it closed (ADR-007). Only accepted leads can be reported. Requires a key bound to a business.\n\n**Required scope:** `messages:write`",
+        "description": "Deals close off-platform in Phase 1; either party reports whether it closed (ADR-007). Only a buyer-reported win records the deal and creates the order; a seller-reported win is advisory (the buyer is asked to confirm). Only accepted leads can be reported. Requires a key bound to a business.\n\n**Required scope:** `messages:write`",
         "security": [
           {
             "bearerAuth": []

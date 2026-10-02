@@ -93,7 +93,7 @@ describe("invoice financing", () => {
     expect(accepted.status).toBe("accepted");
     expect(accepted.offers[0]!.status).toBe("accepted");
 
-    const res = await simulateMockDisbursal(app.id);
+    const res = await simulateMockDisbursal(actor, app.id);
     expect(res.status).toBe("processed");
     const [loan] = await listLoans(actor);
     expect(loan).toMatchObject({ product: "invoice_financing", status: "active", principalPaise: o.amountPaise, outstandingPaise: o.totalRepayablePaise, dpd: 0 });
@@ -251,7 +251,7 @@ describe("BNPL", () => {
     expect(app.amountPaise).toBe(escrow.amountPaise);
     expect((await getBnplOption(actor, escrow.escrowId)).application!.id).toBe(app.id);
     await acceptAll(actor, app.id);
-    await simulateMockDisbursal(app.id);
+    await simulateMockDisbursal(actor, app.id);
     expect(fk.fund).toHaveBeenCalledWith(escrow.escrowId, app.amountPaise, expect.any(String));
     expect(await prisma.creditAssignment.count({ where: { escrowId: escrow.escrowId } })).toBe(0);
 
@@ -286,7 +286,7 @@ describe("BNPL", () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const app = await applyForFinancing(b.actor, { product: "bnpl", escrowId: b.escrow.escrowId });
     await acceptAll(b.actor, app.id);
-    await expect(simulateMockDisbursal(app.id)).resolves.toMatchObject({ status: "processed" });
+    await expect(simulateMockDisbursal(b.actor, app.id)).resolves.toMatchObject({ status: "processed" });
     expect(err).toHaveBeenCalled();
     const { retryBnplFunding } = await import("../src/index");
     await expect(retryBnplFunding()).resolves.toBeTruthy();
@@ -299,13 +299,67 @@ describe("partner webhook", () => {
     const s = await sellerWithEscrow(fk);
     const app = await applyForFinancing(s.actor, { product: "invoice_financing", escrowId: s.escrow.escrowId });
     await acceptAll(s.actor, app.id);
-    await simulateMockDisbursal(app.id);
+    await simulateMockDisbursal(s.actor, app.id);
     const row = await prisma.creditApplication.findUniqueOrThrow({ where: { id: app.id } });
     const loan = await prisma.creditLoan.findUniqueOrThrow({ where: { applicationId: app.id } });
     return { ...s, app, row, loan };
   }
   const send = (e: Parameters<MockPartner["signedEvent"]>[0]) => { const { raw, headers } = mock().signedEvent(e); return handleCreditWebhook("mock", raw, headers); };
 
+  it("flag off: settles in-flight obligations but refuses events that start something new", async () => {
+    const s = await sellerWithEscrow(fk);
+    const app = await applyForFinancing(s.actor, { product: "invoice_financing", escrowId: s.escrow.escrowId });
+    const row0 = await prisma.creditApplication.findUniqueOrThrow({ where: { id: app.id } });
+    process.env.CREDIT_ENABLED = "0";
+    // new offers and a disbursal for an application that was never accepted are refused (the partner redelivers later)
+    const offered = mock().signedEvent({ eventId: `off:${app.id}`, type: "application.offered", partnerRef: row0.partnerRef!, offers: [{ offerRef: "o", amountPaise: 100, aprBps: 1000, tenorDays: 30, processingFeePaise: 0, otherFeesPaise: 0 }] });
+    await expect(handleCreditWebhook("mock", offered.raw, offered.headers)).rejects.toMatchObject({ code: "forbidden" });
+    const early = mock().signedEvent({ eventId: `early:${app.id}`, type: "loan.disbursed", partnerRef: row0.partnerRef!, loanRef: "x" });
+    await expect(handleCreditWebhook("mock", early.raw, early.headers)).rejects.toMatchObject({ code: "forbidden" });
+    expect(await prisma.creditLoan.count({ where: { applicationId: app.id } })).toBe(0);
+    // accepted (approved and in flight) while enabled; then the flag is switched off
+    process.env.CREDIT_ENABLED = "1";
+    await acceptAll(s.actor, app.id);
+    process.env.CREDIT_ENABLED = "0";
+    await expect(simulateMockDisbursal(s.actor, app.id)).resolves.toMatchObject({ status: "processed" });
+    const loan = await prisma.creditLoan.findUniqueOrThrow({ where: { applicationId: app.id } });
+    // repayment, overdue and close still settle
+    const rep = mock().signedEvent({ eventId: `rep:${app.id}`, type: "loan.repayment", partnerRef: loan.partnerLoanRef, loanRef: loan.partnerLoanRef, amountPaise: 1000 });
+    await expect(handleCreditWebhook("mock", rep.raw, rep.headers)).resolves.toMatchObject({ status: "processed" });
+    const od = mock().signedEvent({ eventId: `od:${app.id}`, type: "loan.overdue", partnerRef: loan.partnerLoanRef, loanRef: loan.partnerLoanRef, dpd: 3 });
+    await expect(handleCreditWebhook("mock", od.raw, od.headers)).resolves.toMatchObject({ status: "processed" });
+    const cl = mock().signedEvent({ eventId: `cl:${app.id}`, type: "loan.closed", partnerRef: loan.partnerLoanRef, loanRef: loan.partnerLoanRef });
+    await expect(handleCreditWebhook("mock", cl.raw, cl.headers)).resolves.toMatchObject({ status: "processed" });
+    expect(Number((await prisma.creditLoan.findUniqueOrThrow({ where: { id: loan.id } })).repaidPaise)).toBeGreaterThan(0);
+    // and the configured-partner rule still holds
+    vi.stubEnv("CREDIT_PARTNER", "nbfc_partner");
+    await expect(handleCreditWebhook("mock", rep.raw, rep.headers)).rejects.toMatchObject({ code: "not_found" });
+    vi.unstubAllEnvs();
+  });
+  it("H1: refuses non-configured partners, flag-off, unset secret and production mock; simulate is owner-only", async () => {
+    const s = await sellerWithEscrow(fk);
+    const app = await applyForFinancing(s.actor, { product: "invoice_financing", escrowId: s.escrow.escrowId });
+    await acceptAll(s.actor, app.id);
+    // another business cannot disburse this application
+    const other = await mkActor();
+    await expect(simulateMockDisbursal(other, app.id)).rejects.toMatchObject({ code: "not_found" });
+    const row = await prisma.creditApplication.findUniqueOrThrow({ where: { id: app.id } });
+    const { raw, headers } = mock().signedEvent({ eventId: `h1:${app.id}`, type: "loan.disbursed", partnerRef: row.partnerRef!, loanRef: "forged" });
+    vi.stubEnv("CREDIT_PARTNER", "nbfc_partner");
+    await expect(handleCreditWebhook("mock", raw, headers)).rejects.toMatchObject({ code: "not_found" });
+    vi.unstubAllEnvs();
+    vi.stubEnv("NODE_ENV", "production");
+    await expect(handleCreditWebhook("mock", raw, headers)).rejects.toMatchObject({ code: "not_found" });
+    vi.unstubAllEnvs();
+    // the old public default secret verifies nothing once the secret is unset
+    const body = new TextEncoder().encode(JSON.stringify({ eventId: "f", type: "loan.disbursed", partnerRef: row.partnerRef, loanRef: "x", at: new Date().toISOString() }));
+    const saved = process.env.CREDIT_WEBHOOK_SECRET;
+    delete process.env.CREDIT_WEBHOOK_SECRET;
+    const { hmacHex } = await import("../src/partner");
+    await expect(handleCreditWebhook("mock", body, new Headers({ "x-credit-signature": hmacHex("mock-credit-webhook-secret", body) }))).rejects.toMatchObject({ code: "unauthenticated" });
+    process.env.CREDIT_WEBHOOK_SECRET = saved;
+    expect(await prisma.creditLoan.count({ where: { applicationId: app.id } })).toBe(0);
+  });
   it("rejects bad signatures and unknown partners; is idempotent per event id", async () => {
     const { raw } = mock().signedEvent({ eventId: "x", type: "loan.closed", partnerRef: "p" });
     await expect(handleCreditWebhook("mock", raw, new Headers())).rejects.toMatchObject({ code: "unauthenticated" });
@@ -379,7 +433,7 @@ describe("partner webhook", () => {
     expect((await hook({ type: "application.rejected" })).status).toBe("ignored");
     expect((await hook({ type: "loan.repayment", loanRef: "missing", amountPaise: 1 })).status).toBe("ignored");
     expect((await hook({ type: "application.offered", partnerRef: "nope", offers: [offer] })).status).toBe("ignored");
-    await expect(simulateMockDisbursal(app.id)).rejects.toMatchObject({ code: "conflict" });
+    await expect(simulateMockDisbursal(s.actor, app.id)).rejects.toMatchObject({ code: "conflict" });
   });
 });
 
@@ -388,7 +442,7 @@ describe("scheduled loan-book jobs", () => {
     const s = await sellerWithEscrow(fk);
     const app = await applyForFinancing(s.actor, { product: "invoice_financing", escrowId: s.escrow.escrowId });
     await acceptAll(s.actor, app.id);
-    await simulateMockDisbursal(app.id);
+    await simulateMockDisbursal(s.actor, app.id);
     const loan = await prisma.creditLoan.findUniqueOrThrow({ where: { applicationId: app.id } });
     const { updateDpd, expireOffers, dpdOf } = await import("../src/index");
     const now = new Date(loan.dueAt.getTime() + 45 * DAY);
@@ -419,7 +473,7 @@ describe("escrow assignment sync (payout-first contract)", () => {
     const { actor, escrow } = await sellerWithEscrow(fk);
     const app = await applyForFinancing(actor, { product: "invoice_financing", escrowId: escrow.escrowId });
     await acceptAll(actor, app.id);
-    await simulateMockDisbursal(app.id);
+    await simulateMockDisbursal(actor, app.id);
     const [loan] = await listLoans(actor);
     const { syncEscrowAssignment, worker, getCreditApplicationBusiness } = await import("../src/index");
     expect(await getCreditApplicationBusiness(app.id)).toBe(actor.businessId);

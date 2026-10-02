@@ -5,7 +5,7 @@
 import type { DomainEvent, DomainEventType } from "@cnote/core";
 import { BADGE_THRESHOLD } from "@cnote/identity";
 import { defineTemplates, type TemplateDefinition } from "@cnote/templates";
-import { fan, HREF, inr, kind, membersOf, RECIPIENT_NAME, v } from "./kind-helpers";
+import { cleanName, envInt, fan, HREF, inr, kind, membersOf, RECIPIENT_NAME, v } from "./kind-helpers";
 import { ALERT_KINDS } from "./kinds-alerts";
 import { PHASE23_KINDS } from "./kinds-phase23";
 import type { NotificationCategory, NotificationKind } from "./types";
@@ -72,22 +72,41 @@ export const KINDS: NotificationKind[] = [
       in_app: { subject: "New message from {{senderName}}", body: "About \"{{enquiryTitle}}\"." },
       email: { subject: "New message from {{senderName}}", body: "Hi {{recipientName}},\n\n{{senderName}} sent you a message about \"{{enquiryTitle}}\".\n\nRead and reply: {{href}}" },
     },
+    // Security audit: one email per conversation per window, later messages fold into a digest; a daily cap per recipient.
+    emailThrottle: () => ({ windowSeconds: envInt("NOTIFY_MESSAGE_EMAIL_WINDOW_SECONDS", 900), dailyCap: envInt("NOTIFY_MESSAGE_EMAIL_DAILY_CAP", 20), digestKind: "message.digest" }),
     async resolve(e: DomainEvent<"MessageSent">, dir) {
       const c = await dir.conversation(e.payload.conversationId);
       if (!c) return [];
       const sender = e.payload.senderPersonId;
       const sellerSide = await membersOf(dir, c.sellerBusinessId);
+      // senderName is sender-controlled and lands in the email subject: sanitised (CR/LF stripped, length capped)
       if (sellerSide.includes(sender)) {
         const buyerSide = await membersOf(dir, c.buyerBusinessId);
         return fan(buyerSide.filter((p) => p !== sender), {
-          businessId: c.buyerBusinessId, app: "web",
-          vars: { senderName: c.sellerName, enquiryTitle: c.enquiryTitle }, href: `/conversations/${e.payload.conversationId}`,
+          businessId: c.buyerBusinessId, app: "web", group: e.payload.conversationId,
+          vars: { senderName: cleanName(c.sellerName), enquiryTitle: cleanName(c.enquiryTitle, 120) }, href: `/conversations/${e.payload.conversationId}`,
         });
       }
       return fan(sellerSide.filter((p) => p !== sender), {
-        businessId: c.sellerBusinessId, app: "seller",
-        vars: { senderName: c.buyerName, enquiryTitle: c.enquiryTitle }, href: `/conversations/${e.payload.conversationId}`,
+        businessId: c.sellerBusinessId, app: "seller", group: e.payload.conversationId,
+        vars: { senderName: cleanName(c.buyerName), enquiryTitle: cleanName(c.enquiryTitle, 120) }, href: `/conversations/${e.payload.conversationId}`,
       });
+    },
+  }),
+  kind({
+    key: "message.digest",
+    name: "New messages (digest)",
+    description: "Several messages in one conversation folded into a single email (flood control). Sent by the pipeline, never by an event directly.",
+    category: "messages",
+    app: "web",
+    event: "MessageSent",
+    variables: [v("senderName", "Business that sent the messages", "Sharma Textiles"), v("enquiryTitle", "Requirement the conversation is about", "500 kg cotton yarn"), v("count", "Number of new messages folded in", "4"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "{{count}} new messages from {{senderName}}", body: "About \"{{enquiryTitle}}\"." },
+      email: { subject: "{{count}} new messages from {{senderName}}", body: "Hi {{recipientName}},\n\n{{senderName}} sent you {{count}} more messages about \"{{enquiryTitle}}\".\n\nRead and reply: {{href}}" },
+    },
+    async resolve() {
+      return [];
     },
   }),
   kind({
@@ -108,6 +127,29 @@ export const KINDS: NotificationKind[] = [
       return fan(await membersOf(dir, c.buyerBusinessId), {
         businessId: c.buyerBusinessId,
         vars: { sellerName: c.sellerName, price: inr(e.payload.pricePaise), quantity: e.payload.quantity, enquiryTitle: c.enquiryTitle },
+        href: `/conversations/${e.payload.conversationId}`,
+      });
+    },
+  }),
+  kind({
+    key: "deal.confirm_requested",
+    name: "Seller says the deal closed",
+    description: "A seller reported the deal as won. Only the buyer's own answer records it, so the buyer is asked to confirm (security audit M7).",
+    category: "leads",
+    app: "web",
+    event: "DealClaimedBySeller",
+    variables: [v("sellerName", "Seller who reported the deal", "Sharma Textiles"), v("enquiryTitle", "Requirement", "500 kg cotton yarn"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "{{sellerName}} says your deal closed", body: "Did \"{{enquiryTitle}}\" close with {{sellerName}}? Please confirm or correct it." },
+      email: { subject: "Did your deal with {{sellerName}} close?", body: "Hi {{recipientName}},\n\n{{sellerName}} says your deal for \"{{enquiryTitle}}\" closed. Nothing is recorded until you answer.\n\nConfirm or correct it: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"DealClaimedBySeller">, dir) {
+      if (!e.payload.conversationId) return [];
+      const c = await dir.conversation(e.payload.conversationId);
+      if (!c) return [];
+      return fan(await membersOf(dir, e.payload.buyerBusinessId), {
+        businessId: e.payload.buyerBusinessId,
+        vars: { sellerName: c.sellerName, enquiryTitle: c.enquiryTitle },
         href: `/conversations/${e.payload.conversationId}`,
       });
     },

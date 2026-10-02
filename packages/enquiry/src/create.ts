@@ -15,7 +15,14 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
   const data = enquiryInputSchema.parse(input);
   // Validate files up front (type by magic bytes, size, count) so a bad upload fails before any model call or write.
   const files = checkAttachments(input.attachments, MAX_RFQ_ATTACHMENTS, MAX_RFQ_ATTACHMENT_BYTES);
-  if (!(await rateLimit(`enquiry:create:${actor.businessId}`, 10, 3600))) {
+  // Security audit: a business-only key is bypassed by opening more businesses. Also limit per person and per client IP
+  // (spam fan-out burns seller attention and credits). All three must pass; each is checked so none can be skipped.
+  const allowed = await Promise.all([
+    rateLimit(`enquiry:create:${actor.businessId}`, 10, 3600),
+    rateLimit(`enquiry:create:person:${actor.personId}`, 15, 3600),
+    ctx.ip ? rateLimit(`enquiry:create:ip:${ctx.ip}`, 30, 3600) : Promise.resolve(true),
+  ]);
+  if (allowed.includes(false)) {
     throw new DomainError("rate_limited", "You have posted many requirements this hour. Please try again a little later.");
   }
 

@@ -253,3 +253,62 @@ describe("dead letters", () => {
   });
 ;
 });
+
+describe("message e-mail flood control (security audit)", () => {
+  const msgKind = () => getKind("message.received")!;
+  const recip = (personId: string, group: string) => ({ personId, businessId: SB, app: "web" as const, group, vars: { senderName: "Sharma", enquiryTitle: "Yarn" }, href: `/conversations/${group}` });
+  const clear = async (person: string) => { const keys = await redis.keys(`notif:email:*${person}*`); if (keys.length) await redis.del(...keys); };
+
+  it("first message emails; later ones in the 15-minute window fold into ONE digest per conversation; another conversation is independent", async () => {
+    const person = randomUUID(); await clear(person);
+    let clock = Date.now();
+    const q = new MemoryJobQueue(() => clock); setJobQueue(q);
+    const first = await notifyRecipient(msgKind(), ev("MessageSent", {}), recip(person, "c1"), dir());
+    expect(first.queued).toEqual(["email"]);
+    for (let i = 0; i < 4; i++) expect((await notifyRecipient(msgKind(), ev("MessageSent", {}), recip(person, "c1"), dir())).queued).toEqual([]); // folded, not 5 emails
+    expect((await notifyRecipient(msgKind(), ev("MessageSent", {}), recip(person, "c2"), dir())).queued).toEqual(["email"]);
+    // in-app notifications are unaffected
+    expect((await listNotifications(person, "web")).items.length).toBeGreaterThanOrEqual(6);
+    // the immediate emails go out; the digest is delayed until the window ends
+    const now: NotificationDeliverJob[] = [];
+    await q.consume("notification.deliver", "g", "c", async (m) => { now.push(m.payload); });
+    expect(now.map((j) => j.kind)).toEqual(["message.received", "message.received"]);
+    clock += 16 * 60_000;
+    await q.promoteDelayed("notification.deliver");
+    const digests: NotificationDeliverJob[] = [];
+    await q.consume("notification.deliver", "g", "c", async (m) => { digests.push(m.payload); });
+    expect(digests).toHaveLength(1);
+    expect(digests[0]).toMatchObject({ kind: "message.digest", channel: "email", personId: person });
+    await deliverJob(digests[0]!, dir());
+    expect(h.sent.at(-1)).toMatchObject({ template: "message.digest", vars: { count: 4 } });
+    const sentBefore = h.sent.length;
+    await deliverJob(digests[0]!, dir()); // already flushed: nothing more
+    expect(h.sent.length).toBe(sentBefore);
+    await clear(person);
+  });
+
+  it("per-recipient daily cap on message emails", async () => {
+    const person = randomUUID(); await clear(person);
+    vi.stubEnv("NOTIFY_MESSAGE_EMAIL_DAILY_CAP", "2");
+    setJobQueue(new MemoryJobQueue());
+    const out: string[][] = [];
+    for (const g of ["g1", "g2", "g3", "g4"]) out.push((await notifyRecipient(msgKind(), ev("MessageSent", {}), recip(person, g), dir())).queued);
+    expect(out).toEqual([["email"], ["email"], [], []]);
+    vi.unstubAllEnvs();
+    await clear(person);
+  });
+
+  it("senderName is sanitised in the subject variables: CR/LF stripped, length capped", async () => {
+    const evil = `Acme\r\nBcc: attacker@example.com\nX-Injected: 1${"x".repeat(200)}`;
+    const d = dir({
+      businessMembers: async () => [P],
+      conversation: async () => ({ enquiryId: "e", enquiryTitle: "Yarn\r\nSubject: pwn", buyerBusinessId: SB, buyerName: evil, sellerBusinessId: randomUUID(), sellerName: "S" }),
+    });
+    const r = await msgKind().resolve(ev("MessageSent", { conversationId: "c", senderPersonId: randomUUID() }) as never, d);
+    const name = String(r[0]!.vars.senderName);
+    expect(name).not.toMatch(/[\r\n]/);
+    expect(name.length).toBeLessThanOrEqual(60);
+    expect(String(r[0]!.vars.enquiryTitle)).not.toMatch(/[\r\n]/);
+    expect(r[0]!.group).toBe("c");
+  });
+});
