@@ -17,7 +17,7 @@ const load = <T>(id: string) => import(pathToFileURL(req.resolve(id)).href) as P
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, keylen: number, opts: { N: number; r: number; p: number; maxmem: number }) => Promise<Buffer>;
 
 const stableId = (name: string) => {
-  const h = createHash("sha1").update(`cnote-e2e-billing:${name}`).digest();
+  const h = createHash("sha256").update(`cnote-e2e-billing:${name}`).digest();
   h[6] = (h[6]! & 0x0f) | 0x50;
   h[8] = (h[8]! & 0x3f) | 0x80;
   const x = h.subarray(0, 16).toString("hex");
