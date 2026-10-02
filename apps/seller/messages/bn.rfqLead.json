@@ -1,0 +1,18 @@
+{
+  "rfqLead": {
+    "_meta": {
+      "review": "machine-drafted; needs native review"
+    },
+    "targetPrice": "প্রতি ইউনিটের টার্গেট দাম",
+    "budget": "প্রতি ইউনিটের বাজেট",
+    "pincode": "ডেলিভারির পিনকোড",
+    "quoteDeadline": "কোট দেওয়ার শেষ তারিখ",
+    "deadlinePassed": "সময়সীমা শেষ",
+    "preferredTier": "ক্রেতার পছন্দ",
+    "tierPlus": "টিয়ার {tier} বা তার বেশি",
+    "attachments": "ড্রয়িং ও স্পেসিফিকেশন",
+    "download": "{name} ডাউনলোড করুন",
+    "quoteAttachments": "ফাইল যুক্ত করুন (ঐচ্ছিক)",
+    "quoteAttachmentsHint": "সর্বোচ্চ 3টি ফাইল, PDF, JPG বা PNG, প্রতিটি 5 MB পর্যন্ত। ক্রেতা এগুলো আপনার কোটের সঙ্গে দেখেন।"
+  }
+}

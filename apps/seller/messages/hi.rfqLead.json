@@ -1,0 +1,15 @@
+{
+  "rfqLead": {
+    "targetPrice": "प्रति यूनिट टारगेट कीमत",
+    "budget": "प्रति यूनिट बजट",
+    "pincode": "डिलीवरी पिनकोड",
+    "quoteDeadline": "कोटेशन की आख़िरी तारीख़",
+    "deadlinePassed": "समय सीमा खत्म",
+    "preferredTier": "बायर की पसंद",
+    "tierPlus": "टियर {tier} या उससे ऊपर",
+    "attachments": "ड्रॉइंग और स्पेसिफ़िकेशन",
+    "download": "{name} डाउनलोड करें",
+    "quoteAttachments": "फ़ाइलें जोड़ें (वैकल्पिक)",
+    "quoteAttachmentsHint": "ज़्यादा से ज़्यादा 3 फ़ाइलें, PDF, JPG या PNG, हर एक 5 MB तक। बायर इन्हें आपके कोटेशन के साथ देखता है।"
+  }
+}
