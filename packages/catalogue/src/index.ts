@@ -80,7 +80,7 @@ export {
   getListing, getListingsByIds, getPublicListing, getPublicListingsByIds, listPublicSellerListings, listPublicListingIndex, countPublicListings, type ListingIndexEntry, listSellerListings, listFeaturedListings, draftListingFromText,
   createListing, updateListing, publishListing, unpublishListing, archiveListing, resolveListingModeration,
 } from "./listings";
-export { findSellerCandidates, retrieveListings, suggestListingTitles } from "./retrieval";
+export { findSellerCandidates, retrieveListings, retrieveFacetRows, suggestListingTitles, type ListingFilters, type FacetRow } from "./retrieval";
 export {
   uploadListingImage, listSellerListingImages, getListingForSeller, deleteListingImage, reorderListingImages, setImageAltText,
   listImageModerationQueue, getImageForModeration, moderateListingImage, readListingImage, purgeDeletedListingImages,

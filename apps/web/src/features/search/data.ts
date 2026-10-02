@@ -8,7 +8,7 @@ import {
 import { cacheTags } from "@cnote/core";
 import { getTrustProfiles, listSellerIndex, listSellers, type TrustProfile } from "@cnote/identity";
 import { getRatingSummaries, listApprovedComments, listApprovedReviews, type Page, type PublicComment, type PublicReview, type ReviewSort } from "@cnote/reviews";
-import { searchListings, suggest, type SearchHit } from "@cnote/search";
+import { hasActiveFilters, searchListings, suggest, type SearchFacets, type SearchFilters, type SearchHit, type SearchSort } from "@cnote/search";
 
 /**
  * Buyer-site read layer. Two cache tiers sit under every public page:
@@ -70,22 +70,29 @@ export async function loadFeatured(sort: "popular" | "new", limit: number): Prom
   return safe("catalogue.listFeaturedListings", () => nextCached(["featured", sort, String(limit)], [cacheTags.featured], REVALIDATE.short, () => listFeaturedListings({ sort, limit })), [] as ListingView[]);
 }
 
-type HitsOpts = { q: string; categorySlug?: string; limit: number };
+type HitsOpts = { q: string; categorySlug?: string; limit: number; filters?: SearchFilters; sort?: SearchSort };
+export type HitsResult = { hits: SearchHit[]; failed: boolean; facets?: SearchFacets };
 
-/** Search hits with a fallback to featured listings when the search module cannot serve the query. */
-export async function loadHits(opts: HitsOpts): Promise<{ hits: SearchHit[]; failed: boolean }> {
+/**
+ * Search hits (+ facet counts when the backend gives them) with a fallback to featured listings when the search module cannot
+ * serve a plain browse. The fallback never runs when filters are active: it would ignore them and show listings the buyer excluded.
+ */
+export async function loadHits(opts: HitsOpts): Promise<HitsResult> {
+  const { categories: selected = [], ...others } = opts.filters ?? {};
+  const filtered = hasActiveFilters(others); // category alone still gets the featured fallback below
+  const categorySlugs = [...new Set([...selected, ...(opts.categorySlug ? [opts.categorySlug] : [])])];
   try {
-    const { hits } = await searchListings(opts);
-    if (hits.length || opts.q) return { hits, failed: false };
+    const { hits, facets } = await searchListings(opts);
+    if (hits.length || opts.q || filtered) return { hits, failed: false, ...(facets ? { facets } : {}) };
   } catch (err) {
     console.error("[web] search.searchListings failed:", err instanceof Error ? err.message : err);
-    if (opts.q) return { hits: [], failed: true };
+    if (opts.q || filtered) return { hits: [], failed: true };
   }
   // Empty query (category / browse pages): fall back to published listings filtered by category.
   const featured = await loadFeatured("new", 50);
-  const filtered = featured.filter((l) => !opts.categorySlug || l.category.slug === opts.categorySlug).slice(0, opts.limit);
-  const sellers = await safe("identity.getTrustProfiles", () => getTrustProfiles([...new Set(filtered.map((l) => l.sellerBusinessId))]), new Map<string, TrustProfile>());
-  const hits: SearchHit[] = filtered.flatMap((listing) => {
+  const pool = featured.filter((l) => !categorySlugs.length || categorySlugs.includes(l.category.slug)).slice(0, opts.limit);
+  const sellers = await safe("identity.getTrustProfiles", () => getTrustProfiles([...new Set(pool.map((l) => l.sellerBusinessId))]), new Map<string, TrustProfile>());
+  const hits: SearchHit[] = pool.flatMap((listing) => {
     const seller = sellers.get(listing.sellerBusinessId);
     return seller ? [{ listing, seller, score: 0, sponsored: false as const }] : [];
   });
@@ -93,7 +100,7 @@ export async function loadHits(opts: HitsOpts): Promise<{ hits: SearchHit[]; fai
 }
 
 /** `loadHits` for ISR pages (category, landing, similar products): Next-cached, purged on `search` / `category:<slug>` / listing tags. */
-export async function loadHitsStatic(opts: HitsOpts, extraTags: string[] = []): Promise<{ hits: SearchHit[]; failed: boolean }> {
+export async function loadHitsStatic(opts: HitsOpts, extraTags: string[] = []): Promise<HitsResult> {
   try {
     return await nextCached(["hits", digest(opts)], [cacheTags.search, cacheTags.featured, ...(opts.categorySlug ? [cacheTags.category(opts.categorySlug)] : []), ...extraTags], REVALIDATE.normal, async () => {
       const r = await loadHits(opts);

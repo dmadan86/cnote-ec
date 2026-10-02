@@ -11,6 +11,8 @@ import { categoryPath } from "@/lib/paths";
 import { localizedAlternates } from "@/lib/seo-i18n";
 import { ListingCard } from "@/features/search/cards";
 import { loadCategories, loadCategory, loadHitsStatic, loadRatings } from "@/features/search/data";
+import { EMPTY_FILTERS } from "@/features/search/filter-state";
+import { FilterShell } from "@/features/search/filter-shell";
 import { getUiLabels } from "@/features/search/labels";
 import { loadOffers } from "@/features/promotions/data";
 
@@ -48,7 +50,7 @@ export default async function CategoryPage(props: PageProps<"/[locale]/c/[slug]"
   const ui = await getUiLabels(locale);
   const category = await loadCategory(slug);
   if (!category || category.prohibited) notFound();
-  const { hits } = await loadHitsStatic({ q: "", categorySlug: slug, limit: 48 });
+  const { hits, facets } = await loadHitsStatic({ q: "", categorySlug: slug, limit: 48 });
   const [ratings, offers] = await Promise.all([loadRatings(hits.map((h) => h.listing.id)), loadOffers(hits.map((h) => h.listing.id))]);
   const catsPath = localizePath("/categories", locale);
   const catsName = (await getTranslations({ locale, namespace: "categories" }))("title");
@@ -66,11 +68,13 @@ export default async function CategoryPage(props: PageProps<"/[locale]/c/[slug]"
         {hits.length ? t("productCount", { count: hits.length }) : ""}
         {(await getTranslations({ locale, namespace: "meta" }))("rankingPromise")}
       </p>
-      <div className="mt-6">
+      {/* Static (ISR) page: it takes no query string. The filter form and sort submit to /search?category=<slug>&..., which renders the
+          same sidebar with the chosen state. Facet counts are the unfiltered ones, cached with the hits. */}
+      <FilterShell locale={locale} kind="products" path="/search" base={{}} state={{ ...EMPTY_FILTERS, categories: [slug] }} facets={facets} showCategories={false} categoryNames={{ [slug]: category.name }}>
         {hits.length ? (
           <>
             <h2 className="sr-only">{t("productsIn", { name: category.name })}</h2>
-            <Grid>
+            <Grid className="lg:grid-cols-3 xl:grid-cols-4">
               {hits.map((h, i) => (
                 <ListingCard key={h.listing.id} listing={h.listing} seller={h.seller} rating={ratings[h.listing.id]} offer={offers[h.listing.id]} priority={i < 4} locale={locale} />
               ))}
@@ -87,7 +91,7 @@ export default async function CategoryPage(props: PageProps<"/[locale]/c/[slug]"
             }
           />
         )}
-      </div>
+      </FilterShell>
     </Container>
   );
 }

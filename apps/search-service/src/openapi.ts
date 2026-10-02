@@ -42,7 +42,21 @@ export function buildOpenApi(version = "1.0.0") {
       schemas: {
         SearchRequest: {
           type: "object", required: ["q"],
-          properties: { q: { type: "string", maxLength: 500 }, categorySlug: { type: "string", maxLength: 100 }, limit: { type: "integer", minimum: 1, maximum: 50, default: 20 }, cursor: { type: "string", maxLength: 200 } },
+          properties: { q: { type: "string", maxLength: 500 }, categorySlug: { type: "string", maxLength: 100 }, limit: { type: "integer", minimum: 1, maximum: 50, default: 20 }, cursor: { type: "string", maxLength: 200 },
+            filters: {
+              type: "object", description: "Buyer filters; every field optional. Places are case-insensitive. A parent category also matches its subcategories.",
+              properties: {
+                categories: { type: "array", items: { type: "string", maxLength: 100 }, maxItems: 10 },
+                minTier: { type: "integer", minimum: 0, maximum: 3, description: "Minimum seller verification tier" },
+                states: { type: "array", items: { type: "string", maxLength: 80 }, maxItems: 10 },
+                cities: { type: "array", items: { type: "string", maxLength: 80 }, maxItems: 10 },
+                priceMinPaise: { type: "integer", minimum: 0 }, priceMaxPaise: { type: "integer", minimum: 0 },
+                maxMoq: { type: "integer", minimum: 1, description: "Listings with no stated MOQ always qualify" },
+                hasPrice: { type: "boolean", description: "Exclude price-on-request listings" },
+              },
+            },
+            sort: { type: "string", enum: ["relevance", "price_asc", "price_desc", "newest", "trust"], default: "relevance", description: "Organic sort. Never influenced by plan or ad spend." },
+          },
         },
         SearchResponse: {
           type: "object", required: ["hits", "tookMs"],

@@ -17,6 +17,7 @@ vi.mock("@cnote/ai", () => ({
 const cat = await import("../src/index");
 const tag = randomUUID().slice(0, 8);
 let catId = "";
+let badId = ""; // from the upsert result: the Redis-cached category list is shared with other test processes and can be stale
 const biz: string[] = [];
 const listings: Record<string, string> = {};
 
@@ -32,11 +33,12 @@ async function seedListing(key: string, sellerIdx: number, title: string, axis: 
 }
 
 beforeAll(async () => {
-  const [c] = await cat.upsertCategories([
+  const [c, badCat] = await cat.upsertCategories([
     { slug: `t-pack-${tag}`, name: "Test Packaging", attributeSchema: { fields: [{ key: "ply", label: "Ply", type: "number", required: true }] } },
     { slug: `t-bad-${tag}`, name: "Test Prohibited", prohibited: true },
   ]);
   catId = c!.id;
+  badId = badCat!.id;
   for (const n of ["A", "B", "C"]) biz.push((await prisma.business.create({ data: { name: `Test ${n} ${tag}`, isSeller: true } })).id);
   await seedListing("a1", 0, "Cosmetic packaging box", 0, 0.1);
   await seedListing("a2", 0, "Pizza packaging box", 0, 0.9); // same seller, worse match
@@ -183,7 +185,7 @@ describe("listing lifecycle (versioned)", () => {
     expect(await liveDb.liveListing.count({ where: { id: l.id } })).toBe(0);
   });
   it("prohibited categories are always rejected", async () => {
-    const bad = (await cat.listCategories()).find((c) => c.slug === `t-bad-${tag}`)!;
+    const bad = { id: badId };
     const l = await cat.createListing(biz[2]!, { categoryId: bad.id, title: "Anything", description: "Anything goes here ok", ...blank, attributes: {} });
     listings.bad = l.id;
     expect((await cat.publishListing(biz[2]!, l.id)).moderationStatus).toBe("rejected");

@@ -86,7 +86,7 @@ describe("query builder", () => {
     const r: any = buildLexicalRequest(q, { facets: true });
     expect(r.query.bool.must[0].multi_match.fuzziness).toBe("AUTO");
     expect(r.query.bool.filter).toEqual([{ term: { categoryId: "c1" } }]);
-    expect(Object.keys(r.aggs)).toEqual(["category", "city", "verificationTier", "price"]);
+    expect(Object.keys(r.aggs)).toEqual(["category", "city", "state", "verificationTier", "price"]);
     expect(buildLexicalRequest({ ...q, categoryId: null })).not.toHaveProperty("aggs");
   });
   it("knn only with an embedding, filtered by category", () => {

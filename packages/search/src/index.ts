@@ -12,6 +12,10 @@ export interface SearchHit {
 }
 
 export { searchListings } from "./search";
+export {
+  SORTS, MAX_TIER, PRICE_RANGES, filtersSchema, normaliseFilters, matchesFilters, computeFacets, priceBucketKey, sortOrganic, isSearchSort, hasActiveFilters,
+  type SearchSort, type SearchFilters, type IndexFilters, type OrganicItem, type FilterRow, type FacetCounts,
+} from "./filters";
 export { suggest, EXAMPLE_QUERIES } from "./suggest";
 export { normaliseQuery, type NormalisedQuery } from "./normalise";
 export { expandQuery, romanVariants, toRoman, fromRoman, colloquial, detectScript, hasIndic, type IndicScript } from "./translit";

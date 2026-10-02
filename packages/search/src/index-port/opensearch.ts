@@ -180,15 +180,18 @@ async function bulkIndex(client: OsClient, index: string, docs: IndexDoc[]): Pro
   return { indexed: docs.length - failed - stale, failed };
 }
 
+/** A facet is either a plain aggregation or a filter-aggregation wrapping it under `v` (see buildAggs). */
+const inner = (a: any) => (a?.v ?? a) as any;
 function buckets(a: any): FacetBucket[] {
-  return (a?.buckets ?? []).map((b: any) => ({ key: String(b.key), count: Number(b.doc_count) }));
+  return (inner(a)?.buckets ?? []).map((b: any) => ({ key: String(b.key), count: Number(b.doc_count) }));
 }
 export function parseFacets(a: any): SearchFacets {
   const ranges = new Map<string, { from: number | null; to: number | null }>(PRICE_RANGES.map((r) => [r.key, { from: "from" in r ? r.from : null, to: "to" in r ? r.to : null }]));
   return {
     category: buckets(a.category),
     city: buckets(a.city),
+    state: buckets(a.state),
     verificationTier: buckets(a.verificationTier),
-    price: (a.price?.buckets ?? []).map((b: any) => ({ key: String(b.key), fromPaise: ranges.get(b.key)?.from ?? null, toPaise: ranges.get(b.key)?.to ?? null, count: Number(b.doc_count) })),
+    price: (inner(a.price)?.buckets ?? []).map((b: any) => ({ key: String(b.key), fromPaise: ranges.get(b.key)?.from ?? null, toPaise: ranges.get(b.key)?.to ?? null, count: Number(b.doc_count) })),
   };
 }
