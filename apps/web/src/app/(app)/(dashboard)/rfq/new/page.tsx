@@ -23,8 +23,14 @@ export default async function NewRfqPage(props: PageProps<"/rfq/new">) {
   const listing = first(sp.listing);
   const category = first(sp.category);
   const seller = first(sp.seller);
+  // From the product page's quantity box: whole units, unit label, and the slab price (integer paise) for that quantity.
+  const qtyRaw = first(sp.qty);
+  const qty = qtyRaw && /^\d{1,10}$/.test(qtyRaw) && Number(qtyRaw) >= 1 && Number(qtyRaw) <= 2_000_000_000 ? Number(qtyRaw) : undefined;
+  const unit = first(sp.unit)?.slice(0, 20);
+  const priceRaw = first(sp.price);
+  const pricePaise = priceRaw && /^\d{1,15}$/.test(priceRaw) ? Number(priceRaw) : undefined;
   const qs = new URLSearchParams();
-  for (const [k, v] of [["q", q], ["listing", listing], ["category", category], ["seller", seller]] as const) if (v) qs.set(k, v);
+  for (const [k, v] of [["q", q], ["listing", listing], ["category", category], ["seller", seller], ["qty", qty?.toString()], ["unit", unit], ["price", pricePaise?.toString()]] as const) if (v) qs.set(k, v);
   await requireBusiness(`/rfq/new${qs.size ? `?${qs}` : ""}`);
 
   const categories = (await listCategories()).filter((c) => !c.prohibited).map((c) => ({ slug: c.slug, name: c.name }));
@@ -42,6 +48,9 @@ export default async function NewRfqPage(props: PageProps<"/rfq/new">) {
             preferredListingId: listing && UUID.test(listing) ? listing : undefined,
             // From a seller's storefront "Request quote": prefer that seller if it is an eligible match.
             preferredSellerId: seller && UUID.test(seller) ? seller : undefined,
+            quantity: qty,
+            unit,
+            targetPriceRupees: pricePaise !== undefined ? String(pricePaise / 100) : undefined,
           }}
         />
       </div>

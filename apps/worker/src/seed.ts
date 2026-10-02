@@ -462,6 +462,24 @@ function priceFor(base: number, instance: number, r: () => number): number {
   return Math.round((v < 20 ? Math.round(v * 20) / 20 : Math.round(v)) * 100);
 }
 
+/** Dev-only demo data: every other template gets quantity slabs and trade info so the product page shows them. */
+function tradeDemo(ti: number, t: Tpl, pricePaise: number, k: number) {
+  const none = { priceTiers: [] as { minQty: number; pricePaise: number }[], leadTimeDays: null as number | null, packaging: null as string | null, sampleAvailable: false, samplePricePaise: null as bigint | null, supplyCapacityPerMonth: null as number | null, paymentTerms: null as string | null, certifications: [] as string[] };
+  if (ti % 2 !== 0) return none;
+  const at = (mult: number, pct: number) => ({ minQty: t.moq * mult, pricePaise: Math.max(1, Math.round((pricePaise * pct) / 100)) });
+  return {
+    ...none,
+    priceTiers: [at(1, 100), at(5, 94), at(20, 88)],
+    leadTimeDays: 5 + (ti % 4) * 3,
+    packaging: `Packed in export-grade cartons, ${t.moqUnit} bundled in 10s`,
+    sampleAvailable: k === 0,
+    samplePricePaise: k === 0 ? BigInt(Math.max(100, Math.round(pricePaise * 2))) : null,
+    supplyCapacityPerMonth: t.moq * 100,
+    paymentTerms: "50% advance, balance before dispatch. Net 30 for repeat buyers.",
+    certifications: ti % 4 === 0 ? ["ISO 9001:2015", "BIS"] : ["MSME registered"],
+  };
+}
+
 async function seedListings(catIds: Map<string, string>, sellers: SeededSeller[]): Promise<string[]> {
   const ids: string[] = [];
   const perCatIndex = new Map<string, number>();
@@ -477,13 +495,15 @@ async function seedListings(catIds: Map<string, string>, sellers: SeededSeller[]
       const r = rng(ti * 97 + k * 13 + 7);
       const title = titles[k % titles.length]!;
       const id = stableId(`listing:${ti}:${k}`);
+      const pricePaise = priceFor(t.price, k, r);
       const data = {
+        ...tradeDemo(ti, t, pricePaise, k),
         sellerBusinessId: seller.id,
         categoryId: catIds.get(t.cat)!,
         title,
         description: `${t.desc}. Supplied by ${seller.name}, ${seller.city.name}. GST invoice, bulk pricing and dispatch across India.`,
         attributes: t.attrs,
-        pricePaise: BigInt(priceFor(t.price, k, r)),
+        pricePaise: BigInt(pricePaise),
         priceUnit: t.unit,
         moq: t.moq,
         moqUnit: t.moqUnit,

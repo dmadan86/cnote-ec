@@ -1,6 +1,12 @@
 {
   "listings": {
-    "meta": { "list": "Listings", "new": "New listing", "export": "Export listings", "import": "Import listings", "edit": "Edit listing" },
+    "meta": {
+      "list": "Listings",
+      "new": "New listing",
+      "export": "Export listings",
+      "import": "Import listings",
+      "edit": "Edit listing"
+    },
     "list": {
       "title": "Your listings",
       "description": "Buyers and lead matching use your live listings. Every new version is checked, and often reviewed, before it goes live.",
@@ -21,15 +27,30 @@
       "useAi": "Use AI instead",
       "fillManual": "Fill in manually"
     },
-    "exportPage": { "title": "Export listings", "description": "Download your catalogue as Excel or CSV, optionally with photos.", "back": "Listings" },
-    "importPage": { "title": "Import listings", "description": "Add or update many products at once from an Excel or CSV file, or a ZIP that also holds your product photos." },
-    "edit": { "title": "Edit listing", "description": "Edits are saved to your working copy. Buyers see a new version only after you submit it and it is approved." },
+    "exportPage": {
+      "title": "Export listings",
+      "description": "Download your catalogue as Excel or CSV, optionally with photos.",
+      "back": "Listings"
+    },
+    "importPage": {
+      "title": "Import listings",
+      "description": "Add or update many products at once from an Excel or CSV file, or a ZIP that also holds your product photos."
+    },
+    "edit": {
+      "title": "Edit listing",
+      "description": "Edits are saved to your working copy. Buyers see a new version only after you submit it and it is approved."
+    },
     "status": {
       "draft": "Draft",
       "published": "Published",
       "archived": "Archived",
       "aiDraft": "AI draft",
-      "moderation": { "pending": "Not checked yet", "approved": "Cleared", "review": "In manual review", "rejected": "Rejected" }
+      "moderation": {
+        "pending": "Not checked yet",
+        "approved": "Cleared",
+        "review": "In manual review",
+        "rejected": "Rejected"
+      }
     },
     "versionStatus": {
       "submitted": "Submitted",
@@ -49,7 +70,12 @@
       "notLiveYet": "Not live yet · {pending}",
       "notLive": "Not live"
     },
-    "rowActions": { "submit": "Submit for review", "submitting": "Submitting…", "archive": "Archive", "archiving": "Archiving…" },
+    "rowActions": {
+      "submit": "Submit for review",
+      "submitting": "Submitting…",
+      "archive": "Archive",
+      "archiving": "Archiving…"
+    },
     "editor": {
       "approvedTitle": "Approved: going live shortly",
       "rejectedTitle": "We could not accept this version",
@@ -84,7 +110,22 @@
       "submitting": "Submitting…",
       "saveBtn": "Save as draft",
       "saving": "Saving…",
-      "footnote": "Every version, including AI drafts, is checked against our prohibited-category policy and is reviewed before it goes live."
+      "footnote": "Every version, including AI drafts, is checked against our prohibited-category policy and is reviewed before it goes live.",
+      "tiersLegend": "Quantity price tiers (optional)",
+      "tiersHint": "Offer a lower price per unit for bigger orders. The first tier starts at or above your minimum order; quantities go up and prices never go up.",
+      "tierMinQty": "From quantity",
+      "tierPrice": "Price per unit (₹)",
+      "tierAdd": "Add tier",
+      "tierRemove": "Remove tier {n}",
+      "tradeLegend": "Trade information (optional)",
+      "leadTime": "Lead time (days)",
+      "packaging": "Packaging details",
+      "sampleAvailable": "Sample available",
+      "samplePrice": "Sample price (₹, blank = free)",
+      "capacity": "Supply capacity per month (units)",
+      "paymentTerms": "Payment terms",
+      "certifications": "Certifications",
+      "certificationsHint": "Comma separated, for example ISO 9001, BIS"
     },
     "versions": {
       "withdraw": "Withdraw",
@@ -141,7 +182,9 @@
       "policyFailed": "policy check failed",
       "submitted": "Version {version} submitted. Our team will review it; your live listing stays unchanged meanwhile.",
       "withdrawn": "Version {version} withdrawn.",
-      "offline": "Listing taken offline. Buyers no longer see it."
+      "offline": "Listing taken offline. Buyers no longer see it.",
+      "tierInvalid": "Price tier {n}: enter a whole quantity and a price.",
+      "tradeNumber": "Enter whole numbers only for lead time, capacity and sample price."
     },
     "aiDraft": {
       "label": "Describe what you sell, like you would tell a buyer on WhatsApp",
@@ -152,7 +195,10 @@
       "submit": "Draft my listing with AI",
       "footnote": "AI writes a draft only. You review and edit everything before it goes live. Photos: you can paste image links in the next step; direct photo upload is coming."
     },
-    "alternatives": { "or": "Or start without typing", "language": "Language" },
+    "alternatives": {
+      "or": "Or start without typing",
+      "language": "Language"
+    },
     "upload": {
       "network": "Network problem. Please check your connection and try again.",
       "tooLarge": "That upload is too large.",
@@ -305,7 +351,12 @@
       }
     },
     "images": {
-      "status": { "pending": "Pending approval", "flagged": "Flagged for review", "approved": "Approved", "rejected": "Rejected" },
+      "status": {
+        "pending": "Pending approval",
+        "flagged": "Flagged for review",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
       "network": "Network problem. Please try again.",
       "uploadFailed": "Upload failed. Please try again.",
       "badType": "Use a JPEG, PNG or WebP image.",

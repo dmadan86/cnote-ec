@@ -8,6 +8,7 @@ import type { Trigger, Unlock, UnlockResult } from "@cnote/leadgen";
 import { useRouter } from "next/navigation";
 import { useCallback, useState, type ReactNode } from "react";
 import { useUnlockHeadings, useUnlockLabels } from "./labels";
+import { withRfqPrefill, type RfqPrefill } from "@/features/pdp/prefill";
 import { captureAttribution, getVisitorId } from "./visitor";
 
 export interface UnlockButtonProps {
@@ -20,14 +21,19 @@ export interface UnlockButtonProps {
   size?: ButtonSize;
   className?: string;
   icon?: ReactNode;
+  /** Carried to the RFQ form (`/rfq/new?qty=&unit=&price=`) when the unlock lands there; ignored for enquiry/contact unlocks (their record already exists). */
+  prefill?: RfqPrefill;
 }
 
-export function UnlockButton({ trigger, unlock, listingId, listingTitle, label, variant = "accent", size = "lg", className, icon }: UnlockButtonProps) {
+export function UnlockButton({ trigger, unlock, listingId, listingTitle, label, variant = "accent", size = "lg", className, icon, prefill }: UnlockButtonProps) {
   const router = useRouter();
   const labels = useUnlockLabels();
   const headings = useUnlockHeadings();
   const [vid, setVid] = useState("");
-  const onUnlocked = useCallback((r: UnlockResult) => router.push(r.next), [router]);
+  const qty = prefill?.quantity;
+  const unit = prefill?.unit;
+  const price = prefill?.pricePaise;
+  const onUnlocked = useCallback((r: UnlockResult) => router.push(withRfqPrefill(r.next, { quantity: qty, unit, pricePaise: price })), [router, qty, unit, price]);
   const { start, dialog, pending, error } = useUnlock({ visitorId: vid, onUnlocked, humanSlot, getHumanToken, labels });
   return (
     <>

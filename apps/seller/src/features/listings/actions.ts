@@ -9,6 +9,7 @@ import type { ListingInput, ListingView, VersionView } from "@cnote/catalogue";
 import { requireSeller } from "@/lib/auth";
 import { ONB, readOnb, writeOnb } from "@/lib/cookies";
 import { numOrNull, str } from "@/lib/form-data";
+import { parseTierRows, parseTradeFields } from "./trade-form";
 import { logEvent } from "@/lib/metrics";
 import { run } from "@/lib/run";
 import { catalogue } from "@/lib/services";
@@ -104,6 +105,18 @@ export async function saveListingAction(_prev: SaveResult | null, fd: FormData):
         else attributes[f.key] = n;
       } else attributes[f.key] = raw;
     }
+    const tierRows = parseTierRows(fd.getAll("tierMinQty").map(String), fd.getAll("tierPrice").map(String));
+    for (const n of tierRows.badRows) issues.push(issue("tiers", t("actions.tierInvalid", { n })));
+    const { trade, invalid: tradeInvalid } = parseTradeFields({
+      leadTimeDays: str(fd, "leadTimeDays"),
+      packaging: str(fd, "packaging"),
+      sampleAvailable: str(fd, "sampleAvailable") === "on",
+      samplePriceRupees: str(fd, "samplePriceRupees"),
+      supplyCapacityPerMonth: str(fd, "supplyCapacityPerMonth"),
+      paymentTerms: str(fd, "paymentTerms"),
+      certifications: str(fd, "certifications"),
+    });
+    if (tradeInvalid) issues.push(issue("trade", t("actions.tradeNumber")));
     if (issues.length) throw new z.ZodError(issues);
 
     const input: ListingInput = {
@@ -116,6 +129,8 @@ export async function saveListingAction(_prev: SaveResult | null, fd: FormData):
       moq: parsed.moq,
       moqUnit: parsed.moq === null ? null : parsed.moqUnit,
       hsn: parsed.hsn || null,
+      priceTiers: tierRows.tiers,
+      trade,
       language: parsed.language,
       imageUrls: parsed.imageUrls,
     };
