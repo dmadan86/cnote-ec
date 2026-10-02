@@ -65,6 +65,7 @@ no hydration mismatch.
 | `cnote_attr` | sessionStorage | marketing | first party | session |
 | `cnote_lg_v1` | localStorage | marketing | first party | until cleared |
 | `cnote_lg_views`, `cnote_lg_session` | sessionStorage | marketing | first party | session |
+| `cnote_recent_v1` | localStorage | marketing (recently viewed product ids, device only; see `docs/design/buyer-convenience.md`) | first party | until cleared (entries expire after 30 days) |
 
 ## Single source of truth
 

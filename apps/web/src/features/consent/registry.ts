@@ -6,7 +6,9 @@
 //   necessary  strictly necessary: sign-in/security, or something the user explicitly asked for (language, pincode,
 //              rail toggle, compare tray, dismissing a banner). Exempt from consent (DPDP s.7; ePrivacy Art 5(3)).
 //   analytics  Microsoft Clarity session analytics.
-//   marketing  visitor id, ad-click + campaign attribution, lead-gen nudge history.
+//   marketing  visitor id, ad-click + campaign attribution, lead-gen nudge history, "recently viewed" browsing history
+//              (personalisation is not strictly necessary; a separate preferences category would change the consent
+//              cookie, the receipt schema and the account ledger, so it rides on marketing for now: see docs/design/buyer-convenience.md).
 import type { OptionalCategory } from "./state";
 
 export type StorageCategory = "necessary" | OptionalCategory;
@@ -68,6 +70,9 @@ export const STORAGE_REGISTRY: readonly StorageEntry[] = [
   firstParty("cnote_lg_v1", "marketing", "localStorage", "nudgeHistory", { unit: "persistent" }),
   firstParty("cnote_lg_views", "marketing", "sessionStorage", "nudgeViews", { unit: "session" }),
   firstParty("cnote_lg_session", "marketing", "sessionStorage", "nudgeSession", { unit: "session" }),
+  // Recently viewed rail (features/recently-viewed/store.ts): the ids of the last products opened on this device. Written only
+  // with marketing granted; otherwise kept in memory for the page load. Nothing is sent to the server.
+  firstParty("cnote_recent_v1", "marketing", "localStorage", "recentlyViewed", { unit: "persistent" }),
 ];
 
 export const CATEGORIES: readonly StorageCategory[] = ["necessary", "analytics", "marketing"];

@@ -11,6 +11,7 @@ model Wishlist {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   items WishlistItem[]
+  share WishlistShare?
 
   @@unique([personId, name])
   @@index([personId])
@@ -32,4 +33,18 @@ model WishlistItem {
   @@unique([wishlistId, listingId])
   @@index([listingId])
   @@map("wishlist_items")
+}
+
+/// A read-only public share link for one list. The token is an unguessable capability (256 random bits, base64url);
+/// revoking deletes the row, so the link stops working at once. No PII is exposed through it. At most one live link
+/// per list; deleting the list (or erasing the person) cascades.
+model WishlistShare {
+  id         String   @id @default(uuid()) @db.Uuid
+  wishlistId String   @unique @map("wishlist_id") @db.Uuid
+  token      String   @unique
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  wishlist Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+
+  @@map("wishlist_shares")
 }

@@ -52,6 +52,8 @@ export interface DomainEventPayloads {
   // lead generation (buyer unlock funnel)
   LeadCaptureVerified: { captureId: string; personId: string; trigger: string; unlock: string; listingId: string | null; isNewPerson: boolean };
   LeadCaptureConverted: { captureId: string; personId: string; trigger: string; enquiryId: string | null };
+  // buyer used a supplier contact channel after a legitimate unlock (accepted match); never carries the number or address itself
+  SupplierContacted: { buyerPersonId: string; sellerBusinessId: string; listingId: string; enquiryId: string; channel: "call" | "whatsapp" | "email" | "enquiry" };
   // orders (ADR-007 stub; off-platform in Phase 1)
   OrderRecorded: { orderId: string; matchId: string; enquiryId: string; buyerBusinessId: string; sellerBusinessId: string; totalPaise: number | null };
   OrderStatusChanged: { orderId: string; buyerBusinessId: string; sellerBusinessId: string; from: string; to: string };
@@ -202,6 +204,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   BulkJobFinished: 1,
   LeadCaptureVerified: 1,
   LeadCaptureConverted: 1,
+  SupplierContacted: 1,
   OrderRecorded: 1,
   OrderStatusChanged: 1,
   GrievanceFiled: 1,

@@ -17,9 +17,9 @@ export const CONSENT_OPEN_EVENT = "cnote:consent-open";
  * Bump when a NEW non-essential purpose or provider is added, or an existing one changes materially: every stored
  * choice with an older version is treated as "no choice" and everybody is asked again (fresh, specific consent).
  */
-export const CONSENT_POLICY_VERSION = 1;
+export const CONSENT_POLICY_VERSION = 2;
 /** Shown on the cookie policy page. Update together with CONSENT_POLICY_VERSION. */
-export const CONSENT_POLICY_UPDATED = "2026-09-30";
+export const CONSENT_POLICY_UPDATED = "2026-10-02";
 
 /** 12 months. Re-prompt after this; stays under CNIL's 13-month maximum for the lifetime of a consent choice. */
 export const CONSENT_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;

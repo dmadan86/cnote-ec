@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reconcileAccountConsent, requestedActionFor, type AccountConsent } from "@/features/consent/account-sync";
 import { consentFromRequest, requireConsent } from "@/features/consent/server";
-import { buildConsent, CONSENT_COOKIE, CONSENT_MAX_AGE_SECONDS, consentIdFromCookieValue, serializeConsent, type ConsentState } from "@/features/consent/state";
+import { buildConsent, CONSENT_COOKIE, CONSENT_MAX_AGE_SECONDS, CONSENT_POLICY_VERSION, consentIdFromCookieValue, serializeConsent, type ConsentState } from "@/features/consent/state";
 
 const h = vi.hoisted(() => ({ states: vi.fn(), set: vi.fn(), session: vi.fn(), list: vi.fn(), rate: vi.fn() }));
 vi.mock("@cnote/identity", () => ({ getConsentStates: h.states, setConsent: h.set }));
@@ -17,7 +17,7 @@ const accountRoute = await import("@/app/api/consent/account/route");
 const NOW = Date.parse("2026-10-02T00:00:00Z");
 const nowS = Math.floor(NOW / 1000);
 const ID = "c".repeat(32);
-const state = (o: Partial<ConsentState> = {}): ConsentState => ({ version: 1, id: ID, analytics: true, marketing: true, gpc: false, at: nowS - 1000, ...o });
+const state = (o: Partial<ConsentState> = {}): ConsentState => ({ version: CONSENT_POLICY_VERSION, id: ID, analytics: true, marketing: true, gpc: false, at: nowS - 1000, ...o });
 const acct = (o: Partial<AccountConsent> = {}): AccountConsent => ({ signedIn: true, analytics: null, marketing: null, ...o });
 
 describe("reconcileAccountConsent (newest wins per purpose)", () => {

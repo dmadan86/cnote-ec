@@ -6,6 +6,7 @@
 // the live registry or notice strings drift from the snapshot of the current version: bump the version, add a snapshot.
 import { createHash } from "node:crypto";
 import v1 from "./policy-snapshots/v1.json";
+import v2 from "./policy-snapshots/v2.json";
 import type { StorageEntry } from "./registry";
 import { CONSENT_POLICY_UPDATED, CONSENT_POLICY_VERSION } from "./state";
 
@@ -56,7 +57,7 @@ export function stableStringify(value: unknown): string {
 export const hashSnapshot = (snapshot: unknown): string => createHash("sha256").update(stableStringify(snapshot)).digest("hex");
 
 /** Committed snapshots by policy version. Add the new file here when bumping CONSENT_POLICY_VERSION; never edit an old one. */
-export const POLICY_SNAPSHOTS: Readonly<Record<number, unknown>> = { 1: v1 };
+export const POLICY_SNAPSHOTS: Readonly<Record<number, unknown>> = { 1: v1, 2: v2 };
 
 /** sha256 of the committed snapshot of `version`, or null when that version has none (a client claiming an unknown version). */
 export function registryHashFor(version: number): string | null {

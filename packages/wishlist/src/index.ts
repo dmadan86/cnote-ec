@@ -12,3 +12,4 @@ export {
 } from "./compare";
 export { worker } from "./worker";
 export * from "./retention";
+export { getShare, createShare, revokeShare, getSharedWishlist, type WishlistShareView, type SharedWishlistView } from "./share";
