@@ -8,6 +8,12 @@ import { auditNecessaryOnlyApp, findIframes, findUngatedIframes, findQuotedKeys,
 describe("source scanners (used by the per-app registry tests)", () => {
   it("strips comments but keeps string literals (URLs contain //)", () => {
     expect(stripComments('const a = "https://x.test"; // localStorage here\n/* document.cookie */ b()')).toBe('const a = "https://x.test"; \n b()');
+    // line numbers survive multi-line block comments; an escaped quote does not end a string; an unterminated one ends at the newline
+    expect(stripComments("a\n/* x\ny */ b")).toBe("a\n\n b");
+    expect(stripComments('const s = "say \\"hi\\" // not a comment"; // comment')).toBe('const s = "say \\"hi\\" // not a comment"; ');
+    expect(stripComments("const s = 'oops\n// comment\nx")).toBe("const s = 'oops\n\nx");
+    expect(stripComments("const t = `a // b\nc`; // d")).toBe("const t = `a // b\nc`; ");
+    expect(stripComments("x /* never closed")).toBe("x ");
   });
 
   it("finds cookie and storage writes, not mentions in comments", () => {

@@ -11,6 +11,16 @@ import { ConsentGate, GateView, gateOpen } from "@/features/consent/consent-gate
 import { CONSENT_POLICY_VERSION, serializeConsent, type ConsentState } from "@/features/consent/state";
 import { StoreEmbed } from "@/features/storefront/embed";
 
+/** Text content of rendered markup (strips tags until none are left, so nested fragments can't reassemble a tag). */
+const textOf = (markup: string) => {
+  let prev: string;
+  let out = markup;
+  do {
+    prev = out;
+    out = out.replace(/<[^>]*>?/g, "");
+  } while (out !== prev);
+  return out.trim();
+};
 const render = (node: React.ReactNode, locale: "en" | "hi" = "en") =>
   renderToStaticMarkup(
     <NextIntlClientProvider locale={locale} messages={locale === "en" ? en : hi} timeZone="Asia/Kolkata">
@@ -28,7 +38,7 @@ describe("ConsentGate placeholder (nothing from the provider before consent)", (
   );
   it("names the provider, warns about cookies, and offers Load it and Change cookie settings as real buttons", () => {
     expect(html).toContain("This content is from YouTube, which may set cookies.");
-    const buttons = [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1]!, text: m[2]!.replace(/<[^>]*>/g, "") }));
+    const buttons = [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1]!, text: textOf(m[2]!) }));
     expect(buttons.map((b) => b.text)).toEqual(["Load it", "Change cookie settings"]);
     for (const b of buttons) expect(b.attrs).toContain('type="button"');
     expect(html).toMatch(/min-h-11/); // 44px touch targets

@@ -50,7 +50,8 @@ describe("buildCsp", () => {
     // static (ISR) mode carries the same directive
     expect(dir(buildCsp({ app: "web", env: prod }), "frame-src")).toBe("frame-src https://www.youtube-nocookie.com https://www.openstreetmap.org");
     // the regular YouTube host (cookies, tracking) is never framed
-    expect(buildCsp({ app: "web", nonce: "n", env: prod })).not.toMatch(/https:\/\/www\.youtube\.com|https:\/\/youtube\.com/);
+    const framed = dir(buildCsp({ app: "web", nonce: "n", env: prod }), "frame-src")!.split(" ").slice(1);
+    expect(framed.filter((o) => new URL(o).hostname.replace(/^www\./, "") === "youtube.com")).toEqual([]);
     expect(dir(buildCsp({ app: "web", nonce: "n", embeds: false, env: prod }), "frame-src")).toBe("frame-src 'none'");
     for (const app of ["seller", "admin", "studio", "api"] as const) expect(dir(buildCsp({ app, nonce: "n", env: prod }), "frame-src"), app).toBe("frame-src 'none'");
     // an app that is not the web cannot opt in

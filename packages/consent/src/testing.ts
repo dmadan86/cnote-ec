@@ -24,9 +24,38 @@ export function sourceFiles(dir: string): string[] {
 
 export const read = (file: string): string => readFileSync(file, "utf8");
 
-/** Strips `//` and block comments so a mention in prose is not a use. (String contents are kept: keys are string literals.) */
+/**
+ * Strips `//` and block comments so a mention in prose is not a use. String contents are kept (keys are string literals, and URLs
+ * contain `//`). A single linear pass, no backtracking: `'` and `"` strings end at a newline, template literals may span lines.
+ */
 export function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/[^\n]*/g, "$1");
+  let out = "";
+  let quote: string | null = null;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i]!;
+    const next = src[i + 1];
+    if (quote) {
+      out += c;
+      if (c === "\\" && next !== undefined) out += src[++i]!;
+      else if (c === quote || (c === "\n" && quote !== "`")) quote = null;
+      continue;
+    }
+    if (c === "/" && next === "/") {
+      while (i < src.length && src[i] !== "\n") i++;
+      i--; // keep the newline so line numbers stay right
+      continue;
+    }
+    if (c === "/" && next === "*") {
+      const end = src.indexOf("*/", i + 2);
+      const stop = end === -1 ? src.length : end + 2;
+      for (let j = i; j < stop; j++) if (src[j] === "\n") out += "\n"; // keep line numbers
+      i = stop - 1;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") quote = c;
+    out += c;
+  }
+  return out;
 }
 
 export interface Finding {
