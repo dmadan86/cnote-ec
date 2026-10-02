@@ -5,10 +5,11 @@
 //   * burst detection: counters per 5-minute window, globally and per account; crossing a threshold logs one
 //     "auth.failure_burst" security event (ship it to the SIEM / alerting through setSecurityEventSink).
 // Keys hold a hash of the subject, never the raw email.
+import { createHmac } from "node:crypto";
 import { DomainError, redis } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { logSecurityEvent } from "@cnote/security";
-import { sha256 } from "./tokens";
+import { jwtKey } from "./tokens";
 
 export const FREE_FAILURES = 5;
 export const BASE_SECONDS = 15;
@@ -25,7 +26,8 @@ export const MFA_FREE_FAILURES = 8;
 /** Wait imposed after the n-th failure within the hour (0 for the first `free`). */
 export const backoffSeconds = (failures: number, free = FREE_FAILURES): number => (failures < free ? 0 : Math.min(BASE_SECONDS * 2 ** Math.min(failures - free, 20), CAP_SECONDS));
 
-const subj = (scope: string, id: string) => sha256(`${scope}:${id}`).slice(0, 32);
+// Keyed (HMAC), not a bare hash: the subject is an email address, and a keyed digest cannot be reversed by guessing addresses offline.
+const subj = (scope: string, id: string) => createHmac("sha256", jwtKey()).update(`authfail:${scope}:${id}`).digest("hex").slice(0, 32);
 const failKey = (scope: string, id: string) => `authfail:n:${subj(scope, id)}`;
 const lockKey = (scope: string, id: string) => `authfail:lock:${subj(scope, id)}`;
 
