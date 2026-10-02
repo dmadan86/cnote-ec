@@ -6,9 +6,11 @@ import { liveDb } from "@cnote/live-db";
 const vec = Array.from({ length: EMBEDDING_DIM }, (_, i) => (i === 0 ? 1 : 0));
 vi.mock("@cnote/ai", () => ({
   embed: async (texts: string[]) => ({ vectors: texts.map(() => vec), version: "test-v1" }),
-  moderate: async () => ({ verdict: "allow", flags: [], reason: null, decisionId: "d", confidence: 0.9, needsReview: false }),
+  moderate: async () => ({ verdict: "allow", flags: [], reason: null, decisionId: "d", confidence: 0.9, needsReview: false, deterministic: "clean" }),
 }));
 process.env.PREVIEW_TOKEN_SECRET ??= "test-preview-secret";
+process.env.LISTING_AUTO_APPROVE_MIN_HUMAN_APPROVED = "0";
+process.env.LISTING_AUTO_APPROVE_SAMPLE_RATE = "0";
 const cat = await import("../src/index");
 const tag = randomUUID().slice(0, 8);
 const DAY = 86_400_000;
@@ -19,7 +21,7 @@ const listingIds: string[] = [];
 beforeAll(async () => {
   const [c] = await cat.upsertCategories([{ slug: `t-ph-${tag}`, name: "Test PH", attributeSchema: { fields: [] } }]);
   catId = c!.id;
-  seller = (await prisma.business.create({ data: { name: `PH ${tag}`, isSeller: true, verificationTier: 2, trustScore: 80 } })).id;
+  seller = (await prisma.business.create({ data: { name: `PH ${tag}`, isSeller: true, verificationTier: 2, trustScore: 80, createdAt: new Date(Date.now() - 90 * 86_400_000) } })).id;
 });
 afterAll(async () => {
   await prisma.listingPriceHistory.deleteMany({ where: { listingId: { in: listingIds } } });

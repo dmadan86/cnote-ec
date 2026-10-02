@@ -4,9 +4,11 @@
 // PUBLIC CONTRACT — other modules depend on these signatures. Extend, don't break.
 import { createHash } from "node:crypto";
 import { DomainError, type ModuleWorker } from "@cnote/core";
-import { INPUT_RETENTION_DAYS, listOpenReviewsImpl, purgeOldDecisionInputs, resolveReviewImpl, runLogged } from "./decisions";
+import { INPUT_RETENTION_DAYS, enqueueReviewImpl, listOpenReviewsImpl, purgeOldDecisionInputs, resolveReviewImpl, runLogged } from "./decisions";
 import { redactDeep, redactPii } from "./redact";
 import { getProviders, heuristicProviders } from "./registry";
+import { moderateHeuristic } from "./heuristic/moderate";
+import type { ProviderResult } from "./types";
 import { MAX_AUDIO_MS, assertAudio, getSpeechToText } from "./speech";
 import { assertVisionImages, imageAudit } from "./vision";
 
@@ -105,6 +107,8 @@ export interface ModerateOutput {
   /** matched prohibited classes, e.g. ["pharma", "weapons"] */
   flags: string[];
   reason: string | null;
+  /** Verdict of the deterministic keyword/regex pre-check (no model). A deterministic block or review is never overridden by a model "allow". Set by moderate(). */
+  deterministic?: "clean" | "review" | "block";
 }
 
 export async function scoreIntent(input: IntentInput, subject: Subject): Promise<AiResult<IntentOutput>> {
@@ -141,8 +145,24 @@ export async function transcribe(input: TranscribeInput, subject: Subject): Prom
   }, (o) => (o.text.trim() ? null : "Empty transcript"), (o) => ({ ...o, text: redactPii(o.text), segments: undefined }));
 }
 
+/**
+ * Deterministic prohibited-content pre-check (ADR-003/008) runs BEFORE the model, for every listing, enquiry and Q&A
+ * text. The model verdict is merged with it by strictness: the model can escalate (allow→review→block) but a
+ * deterministic block or review is never relaxed to "allow". So prompt injection that talks the model into "allow" cannot publish prohibited goods.
+ */
+export function mergeModeration(det: ProviderResult<ModerateOutput>, llm: ProviderResult<ModerateOutput>): ProviderResult<ModerateOutput> {
+  const d = det.output.verdict;
+  const deterministic: ModerateOutput["deterministic"] = d === "allow" ? "clean" : d;
+  const rank = { allow: 0, review: 1, block: 2 } as const;
+  const strictest = rank[llm.output.verdict] >= rank[d] ? llm.output : det.output;
+  const flags = [...new Set([...det.output.flags, ...llm.output.flags])];
+  const confidence = d === "block" ? det.confidence : d === "review" && llm.output.verdict === "allow" ? Math.min(det.confidence, llm.confidence) : llm.confidence;
+  return { ...llm, confidence, output: { verdict: strictest.verdict, flags: strictest.verdict === "allow" ? [] : flags, reason: strictest.reason, deterministic } };
+}
+
 export async function moderate(input: ModerateInput, subject: Subject): Promise<AiResult<ModerateOutput>> {
-  return runLogged("moderate", subject, redactDeep(input), () => getProviders().moderator.moderate(input),
+  const det = moderateHeuristic(input);
+  return runLogged("moderate", subject, redactDeep(input), async () => mergeModeration(det, await getProviders().moderator.moderate(input)),
     // ADR-003: a "review" verdict always goes to a human, whatever the confidence
     (o) => (o.verdict === "review" ? `Moderation needs review: ${o.reason ?? o.flags.join(", ")}` : null), undefined,
     (p) => p.moderator.moderate(input));
@@ -169,6 +189,10 @@ export interface ReviewItemView {
   confidence: number | null;
   output: unknown;
   createdAt: string;
+}
+/** Queue a subject for human review (ADR-008), e.g. a random post-publication audit of an auto-approval. */
+export async function enqueueReview(a: { subject: Subject; reason: string; decisionId?: string | null }): Promise<void> {
+  return enqueueReviewImpl({ capability: "moderate", ...a });
 }
 export async function listOpenReviews(limit = 50): Promise<ReviewItemView[]> {
   return listOpenReviewsImpl(limit);

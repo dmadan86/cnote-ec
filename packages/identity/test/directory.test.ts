@@ -131,11 +131,11 @@ describe("erasure and verification flags", () => {
 
   it("getPersonVerification reports verified phone/email and never exposes an erased person's phone", async () => {
     const v = await person({ phone: phone(), phoneVerifiedAt: new Date(), emailVerifiedAt: new Date() });
-    expect(await getPersonVerification(v.id)).toEqual({ phone: v.phone, phoneVerified: true, emailVerified: true, erased: false });
+    expect(await getPersonVerification(v.id)).toEqual({ phone: v.phone, phoneVerified: true, emailVerified: true, erased: false, createdAt: v.createdAt.toISOString() });
     const u = await person({ phone: phone() });
     expect(await getPersonVerification(u.id)).toMatchObject({ phoneVerified: false, emailVerified: false });
     const erased = await person({ phone: phone(), phoneVerifiedAt: new Date(), erasedAt: new Date() });
-    expect(await getPersonVerification(erased.id)).toEqual({ phone: null, phoneVerified: false, emailVerified: false, erased: true });
+    expect(await getPersonVerification(erased.id)).toEqual({ phone: null, phoneVerified: false, emailVerified: false, erased: true, createdAt: erased.createdAt.toISOString() });
   });
 
   it("getPersonVerification rejects malformed ids without querying and returns null for unknown ones", async () => {

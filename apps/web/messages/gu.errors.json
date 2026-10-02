@@ -315,7 +315,7 @@
       "domainNotFound": "ડોમેન મળ્યું નથી.",
       "tooManyAttemptsTryAgain": "ઘણા બધા પ્રયાસ થઈ ગયા. કૃપા કરીને એક કલાક પછી ફરી પ્રયાસ કરો.",
       "connectUpDomainsRemoveOne": "તમે વધુમાં વધુ {maxDomainsPerStorefront} ડોમેન જોડી શકો છો. પહેલા એક દૂર કરો.",
-      "domainAlreadyConnectedStorefrontIf": "તે ડોમેન પહેલેથી એક સ્ટોરફ્રન્ટ સાથે જોડાયેલું છે. જો તે તમારું હોય, તો સપોર્ટનો સંપર્ક કરો.",
+      "domainAlreadyConnectedStorefrontIf": "અમે તે ડોમેન જોડી શક્યા નથી. જો તે તમારું હોય, તો સપોર્ટનો સંપર્ક કરો; માલિકી સાબિત કરવામાં અમે મદદ કરીશું.",
       "onlyDomainActiveMadePrimary": "ફક્ત સક્રિય ડોમેનને જ પ્રાથમિક બનાવી શકાય છે.",
       "reCheckedLotWaitFew": "તમે ઘણી વાર ફરી તપાસ કરી છે. કૃપા કરીને થોડી મિનિટ રાહ જુઓ."
     },

@@ -2,6 +2,8 @@ import { DomainError } from "@cnote/core";
 import { parse as parseCsv } from "csv-parse/sync";
 import ExcelJS from "exceljs";
 import { unzipSync } from "fflate";
+import { parseDimension, scanZip } from "./zipguard";
+import { restoreNeutralised } from "@cnote/security";
 import { isExampleSku, normalizeHeader } from "./columns";
 import { LIMITS, type FileFormat, type RawRow } from "./types";
 
@@ -81,6 +83,7 @@ export function detectDelimiter(text: string): "," | ";" | "\t" {
 function fromMatrix(matrix: string[][], format: FileFormat): Omit<ParsedImport, "images" | "sheetFile"> {
   const headerIdx = matrix.findIndex((r) => r.some((c) => c.trim() !== ""));
   if (headerIdx < 0) return fail("The file is empty. Use the template and add your products below the header row");
+  if (matrix[headerIdx]!.length > LIMITS.maxColumns) fail(`The file has too many columns (limit ${LIMITS.maxColumns})`);
   const headers = matrix[headerIdx]!.map((c) => c.trim());
   const keys = headers.map((h) => normalizeHeader(h));
   const warnings: string[] = [];
@@ -101,7 +104,7 @@ function fromMatrix(matrix: string[][], format: FileFormat): Omit<ParsedImport, 
     let any = false;
     keys.forEach((k, c) => {
       if (!k) return;
-      const v = (line[c] ?? "").trim();
+      const v = restoreNeutralised((line[c] ?? "").trim());
       if (v) any = true;
       cells[k] = v;
     });
@@ -141,8 +144,33 @@ function cellText(v: ExcelJS.CellValue): string {
   return "";
 }
 
+/**
+ * Pre-scan an xlsx (itself a zip) before ExcelJS inflates it into memory: cap entries and the ACTUAL total inflated
+ * bytes (not header-declared sizes), and reject an absurd declared sheet dimension (security audit M9).
+ */
+export function guardXlsx(bytes: Uint8Array, limits: { maxTotalBytes?: number; maxEntries?: number } = {}): void {
+  const max = limits.maxTotalBytes ?? LIMITS.maxXlsxUncompressedBytes;
+  scanZip(bytes, {
+    maxTotalBytes: max,
+    maxEntries: limits.maxEntries ?? LIMITS.maxXlsxEntries,
+    maxEntryBytes: max,
+    peek: (name, chunk) => {
+      if (!/^xl\/worksheets\/[^/]+\.xml$/i.test(name)) return;
+      const dim = parseDimension(new TextDecoder().decode(chunk.subarray(0, 4096)));
+      if (dim && dim.cols > LIMITS.maxColumns) fail(`The sheet has too many columns (limit ${LIMITS.maxColumns})`);
+      if (dim && dim.rows > LIMITS.maxRows * 4 + 100) fail(`The sheet has too many rows (limit ${LIMITS.maxRows.toLocaleString("en-IN")} products)`);
+    },
+    messages: {
+      tooMany: "The workbook contains too many parts",
+      tooBig: `The workbook expands to more than ${Math.round(max / 1048576)} MB`,
+      unreadable: "Could not read this Excel file. Save it as .xlsx and try again",
+    },
+  });
+}
+
 export async function parseXlsxBytes(bytes: Uint8Array): Promise<Omit<ParsedImport, "images" | "sheetFile">> {
   if (bytes.length > LIMITS.maxSheetBytes) fail("Workbook is larger than 50 MB");
+  guardXlsx(bytes);
   const wb = new ExcelJS.Workbook();
   try {
     await wb.xlsx.load(Buffer.from(bytes) as unknown as ArrayBuffer);
@@ -153,6 +181,7 @@ export async function parseXlsxBytes(bytes: Uint8Array): Promise<Omit<ParsedImpo
   if (!ws) return fail("The workbook has no sheets");
   if (ws.rowCount > LIMITS.maxRows * 4 + 100) fail(`The sheet has too many rows (limit ${LIMITS.maxRows.toLocaleString("en-IN")} products)`);
   const width = ws.columnCount;
+  if (width > LIMITS.maxColumns) fail(`The sheet has too many columns (limit ${LIMITS.maxColumns})`);
   const matrix: string[][] = [];
   ws.eachRow({ includeEmpty: true }, (row, n) => {
     const line: string[] = [];
@@ -180,35 +209,51 @@ export function safeZipPath(name: string): string | null {
 
 interface ZipInfo {
   entries: { name: string; path: string; size: number }[];
+  /** inflated data of the entries `collect` asked for (single streaming pass) */
+  files: Map<string, Uint8Array>;
 }
 
-function listZip(bytes: Uint8Array): ZipInfo {
+const zipMessages = {
+  tooMany: `The ZIP contains too many files (limit ${LIMITS.maxZipFiles.toLocaleString("en-IN")})`,
+  tooBig: "The ZIP expands to more than 500 MB",
+  unreadable: "Could not read this ZIP file. Re-create it and try again",
+};
+
+/**
+ * Lists a ZIP with ACTUAL inflated sizes (streaming inflate under a byte budget), never the header-declared ones, so a
+ * crafted archive whose headers lie cannot slip a bomb past the caps. Junk entries are skipped without inflating.
+ * `collect` (optional) keeps the data of matching entries from the same pass.
+ */
+export function listZip(bytes: Uint8Array, opts: { maxTotalBytes?: number; collect?: (path: string) => number | false } = {}): ZipInfo {
   if (bytes.length > LIMITS.maxZipCompressedBytes) fail("ZIP is larger than 200 MB");
-  const entries: ZipInfo["entries"] = [];
-  let total = 0;
-  let count = 0;
-  try {
-    unzipSync(bytes, {
-      filter: (f) => {
-        if (++count > LIMITS.maxZipFiles + 500) fail(`The ZIP contains too many files (limit ${LIMITS.maxZipFiles.toLocaleString("en-IN")})`);
-        const path = safeZipPath(f.name);
-        if (path === null) return false;
-        total += f.originalSize;
-        if (total > LIMITS.maxZipUncompressedBytes) fail("The ZIP expands to more than 500 MB");
-        entries.push({ name: f.name, path, size: f.originalSize });
-        return false;
-      },
-    });
-  } catch (e) {
-    if (e instanceof DomainError) throw e;
-    return fail("Could not read this ZIP file. Re-create it and try again");
-  }
+  const paths = new Map<string, string>();
+  const scan = scanZip(bytes, {
+    maxTotalBytes: opts.maxTotalBytes ?? LIMITS.maxZipUncompressedBytes,
+    maxEntries: LIMITS.maxZipFiles + 500,
+    maxEntryBytes: LIMITS.maxSheetBytes,
+    inflate: (name) => {
+      const path = safeZipPath(name);
+      if (path === null) return false;
+      paths.set(name, path);
+      return true;
+    },
+    collect: (name) => opts.collect?.(paths.get(name) ?? name),
+    messages: { ...zipMessages, tooBig: opts.maxTotalBytes ? `The ZIP expands to more than ${Math.round(opts.maxTotalBytes / 1048576)} MB` : zipMessages.tooBig },
+  });
+  const entries = scan.entries.map((e) => ({ name: e.name, path: paths.get(e.name) ?? e.name, size: e.size }));
   if (entries.length > LIMITS.maxZipFiles) fail(`The ZIP contains too many files (limit ${LIMITS.maxZipFiles.toLocaleString("en-IN")})`);
-  return { entries };
+  return { entries, files: scan.files };
 }
 
 export async function parseZipBytes(bytes: Uint8Array, opts: { withImages?: boolean } = {}): Promise<ParsedImport> {
-  const { entries } = listZip(bytes);
+  // one streaming pass: actual sizes for every entry, data kept only for sheet candidates (and images when asked for)
+  const { entries, files } = listZip(bytes, {
+    collect: (path) => {
+      const parts = path.split("/");
+      if (parts.length <= 2 && SHEET_RE.test(parts[parts.length - 1]!)) return LIMITS.maxSheetBytes;
+      return opts.withImages && IMAGE_EXT.test(path) ? LIMITS.maxImageBytes : false;
+    },
+  });
   const sheets = entries.filter((e) => {
     const parts = e.path.split("/");
     return parts.length <= 2 && SHEET_RE.test(parts[parts.length - 1]!);
@@ -223,19 +268,10 @@ export async function parseZipBytes(bytes: Uint8Array, opts: { withImages?: bool
   const oversize = imageEntries.find((e) => e.size > LIMITS.maxImageBytes);
   if (oversize) fail(`Image "${oversize.path.slice(imagesPrefix.length)}" is larger than 5 MB`);
 
-  const wanted = new Set([sheet.name, ...(opts.withImages ? imageEntries.map((e) => e.name) : [])]);
-  let files: Record<string, Uint8Array>;
-  try {
-    files = unzipSync(bytes, { filter: (f) => wanted.has(f.name) });
-  } catch {
-    return fail("Could not read this ZIP file. Re-create it and try again");
-  }
-  const declared = new Map(entries.map((e) => [e.name, e.size]));
-  for (const [n, data] of Object.entries(files)) if (data.length > (declared.get(n) ?? 0) + 1024) fail("The ZIP is corrupt or malicious (size mismatch)");
-
-  const sheetBytes = files[sheet.name]!;
+  const sheetBytes = files.get(sheet.name);
+  if (!sheetBytes) return fail("Could not read the products file in this ZIP");
   const parsed = sheet.path.toLowerCase().endsWith(".xlsx") ? await parseXlsxBytes(sheetBytes) : parseCsvBytes(sheetBytes);
-  const images: ParsedImage[] = imageEntries.map((e) => ({ path: e.path.slice(imagesPrefix.length), size: e.size, entry: e.name, bytes: files[e.name] }));
+  const images: ParsedImage[] = imageEntries.map((e) => ({ path: e.path.slice(imagesPrefix.length), size: e.size, entry: e.name, bytes: opts.withImages ? files.get(e.name) : undefined }));
   return { ...parsed, format: "zip", images, sheetFile: sheet.path };
 }
 
@@ -247,10 +283,20 @@ export async function parseImportFile(input: { bytes: Uint8Array; filename: stri
   return { ...parsed, images: [] };
 }
 
-/** Extracts just these zip entries (used per import batch so memory stays bounded). Missing names are absent from the map. */
+/**
+ * Extracts just these zip entries (used per import batch so memory stays bounded). Missing names are absent from the map.
+ * Streaming under the same byte budget as the upload scan: unwanted entries are never inflated, wanted ones are capped.
+ */
 export function readZipEntries(bytes: Uint8Array, entries: string[]): Map<string, Uint8Array> {
   if (!entries.length) return new Map();
   const wanted = new Set(entries);
-  const files = unzipSync(bytes, { filter: (f) => wanted.has(f.name) });
-  return new Map(Object.entries(files));
+  const { files } = scanZip(bytes, {
+    maxTotalBytes: LIMITS.maxZipUncompressedBytes,
+    maxEntries: LIMITS.maxZipFiles + 500,
+    maxEntryBytes: LIMITS.maxImageBytes,
+    inflate: (name) => wanted.has(name),
+    collect: () => LIMITS.maxImageBytes,
+    messages: { ...zipMessages, entryTooBig: (name) => `Image "${name.split("/").pop()}" is larger than 5 MB` },
+  });
+  return files;
 }

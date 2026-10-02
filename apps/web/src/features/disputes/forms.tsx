@@ -36,7 +36,7 @@ const Consent = ({ label }: { label: string }) => (
   <label className="flex min-h-11 items-start gap-2 text-sm text-ink"><input type="checkbox" name="voiceConsent" className="mt-1 size-5" />{label}</label>
 );
 const Errors = ({ state, generic }: { state: ActionResult | null; generic: string }) =>
-  state && !state.ok ? <Alert tone="danger"><span role="alert">{state.error || generic}</span></Alert> : null;
+  state && !state.ok ? <Alert tone="danger">{state.error || generic}</Alert> : null;
 
 /** "Report a problem" form on the order page. Radio group (Etsy help-request pattern), details, amount, evidence. */
 export function ReportForm({ orderId, labels: l }: { orderId: string; labels: L }) {
@@ -71,7 +71,7 @@ const Simple = ({ intent, disputeId, children, state }: { intent: string; disput
   <>
     <input type="hidden" name="intent" value={intent} />
     <input type="hidden" name="disputeId" value={disputeId} />
-    {state && !state.ok ? <Alert tone="danger"><span role="alert">{state.error}</span></Alert> : null}
+    {state && !state.ok ? <Alert tone="danger">{state.error}</Alert> : null}
     {children}
   </>
 );
@@ -105,7 +105,7 @@ export function TextForm({ disputeId, intent, label, submit, sent, labels: l }: 
   return (
     <form action={action} className="flex flex-col gap-3" aria-busy={pending}>
       <Simple intent={intent} disputeId={disputeId} state={state}>
-        {state?.ok && sent ? <Alert tone="success"><span role="status">{sent}</span></Alert> : null}
+        {state?.ok && sent ? <Alert tone="success">{sent}</Alert> : null}
         <Ta label={label} name="text" rows={3} required minLength={intent === "appeal" ? 10 : 1} maxLength={2000} />
         <div><Button type="submit" disabled={pending}>{pending ? l.send : submit}</Button></div>
       </Simple>

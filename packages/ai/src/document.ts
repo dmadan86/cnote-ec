@@ -2,6 +2,7 @@
 // (GST certificate, PAN card, bank proof, address proof, Udyam certificate) into structured fields and lists
 // visual tampering signals. Same rules as every capability: typed, provider-agnostic, AiDecision logged with NO
 // image bytes (hash + size only) and PAN/GSTIN/Aadhaar redacted in the stored output, low confidence -> review queue.
+import { userInputEnvelope } from "./envelope";
 import { createHash } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
@@ -108,7 +109,7 @@ export class AnthropicDocumentExtractor implements DocumentExtractor {
           role: "user",
           content: [
             { type: "image", source: { type: "base64", media_type: input.image.mimeType, data: Buffer.from(input.image.bytes).toString("base64") } },
-            { type: "text", text: `<user_input>\n${JSON.stringify({ docType: input.docType })}\n</user_input>` },
+            { type: "text", text: userInputEnvelope({ docType: input.docType }) },
           ],
         }],
         output_config: { effort: "low", format: { type: "json_schema", schema: z.toJSONSchema(Schema) as Record<string, unknown> } },

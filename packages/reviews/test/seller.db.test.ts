@@ -3,7 +3,7 @@ import { prisma } from "@cnote/db";
 import { afterAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@cnote/catalogue", () => ({ getListing: async () => null, listSellerListings: async () => [] }));
-vi.mock("@cnote/identity", () => ({ getTrustProfiles: async () => new Map() }));
+vi.mock("@cnote/identity", () => ({ getTrustProfiles: async () => new Map(), getPersonVerification: async () => ({ phone: null, phoneVerified: false, emailVerified: true, erased: false, createdAt: new Date(Date.now() - 30 * 86_400_000).toISOString() }) }));
 vi.mock("@cnote/enquiry", () => ({}));
 
 import { bustAllReviewCaches, bustReviewCaches } from "../src/cache";

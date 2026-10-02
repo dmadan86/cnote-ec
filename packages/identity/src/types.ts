@@ -36,6 +36,8 @@ export interface TrustProfile {
   trustScore: number;
   badgeActive: boolean;
   languages: string[];
+  /** ISO timestamp the business was created (auto-approval account-age gate) */
+  createdAt?: string;
 }
 
 /** Request context for rate limiting + session metadata. */

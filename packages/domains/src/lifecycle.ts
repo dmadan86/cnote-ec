@@ -17,6 +17,7 @@ declare module "@cnote/core" {
 
 export const VERIFY_TOPIC = "domain.verify" as const;
 
+
 export interface DomainView {
   id: string;
   hostname: string;
@@ -91,6 +92,36 @@ async function scheduleNext(domainId: string, gen: number | undefined, delayMs: 
   await getJobQueue().enqueue(VERIFY_TOPIC, { domainId, gen }, { delayMs, dedupeKey: `${domainId}:${gen ?? 0}:${Date.now()}`, maxAttempts: 5 });
 }
 
+// ---- anti-squatting ---------------------------------------------------------------------------
+
+type Claim = { id: string; storefrontId: string; hostname: string; storefront: { sellerBusinessId: string } };
+
+/** Drops a claim and tells its owner (events feed the notification). Runs inside the caller's transaction. */
+async function dropClaim(tx: Prisma.TransactionClient, c: Claim, from: string, reason: "other_party_verified" | "expired"): Promise<void> {
+  await tx.storefrontDomain.delete({ where: { id: c.id } });
+  const why = reason === "expired" ? "The claim expired before DNS ownership was verified." : "Another party verified ownership of this domain first.";
+  await emit(tx, "StorefrontDomainStatusChanged", { type: "StorefrontDomain", id: c.id }, { domainId: c.id, storefrontId: c.storefrontId, sellerBusinessId: c.storefront.sellerBusinessId, hostname: c.hostname, from, to: "removed", error: why });
+  await emit(tx, "DomainClaimSuperseded", { type: "StorefrontDomain", id: c.id }, { domainId: c.id, storefrontId: c.storefrontId, sellerBusinessId: c.storefront.sellerBusinessId, hostname: c.hostname, reason });
+}
+
+/**
+ * Pending (never DNS-verified) claims expire after `pendingClaimDays` (DOMAINS_PENDING_CLAIM_DAYS, default 7), so a
+ * squatter cannot hold a hostname indefinitely. Optionally scoped to one hostname (used by addDomain).
+ */
+export async function expirePendingClaims(now = new Date(), hostname?: string): Promise<number> {
+  const cutoff = new Date(now.getTime() - domainsConfig().pendingClaimDays * 24 * 3600_000);
+  const stale = await prisma.storefrontDomain.findMany({
+    where: { verifiedAt: null, status: { in: ["pending_dns", "misconfigured"] }, createdAt: { lt: cutoff }, ...(hostname ? { hostname } : {}) },
+    select: { id: true, storefrontId: true, hostname: true, status: true, storefront: { select: { sellerBusinessId: true } } },
+    take: 500,
+  });
+  for (const c of stale) {
+    await prisma.$transaction((tx) => dropClaim(tx, c, c.status, "expired"));
+    await redis.del(genKey(c.id)).catch(() => undefined);
+  }
+  return stale.length;
+}
+
 // ---- seller operations ------------------------------------------------------------------------
 
 /** Connect a hostname to the seller's storefront and start DNS verification. */
@@ -101,8 +132,13 @@ export async function addDomain(sellerBusinessId: string, hostnameInput: string)
   const { hostname, kind } = validateHostname(hostnameInput, cfg);
   const count = await prisma.storefrontDomain.count({ where: { storefrontId: sf.id } });
   if (count >= cfg.maxDomainsPerStorefront) throw new DomainError("conflict", `You can connect up to ${cfg.maxDomainsPerStorefront} domains. Remove one first.`, undefined, "domains.connectUpDomainsRemoveOne", { maxDomainsPerStorefront: cfg.maxDomainsPerStorefront });
-  if (await prisma.storefrontDomain.findUnique({ where: { hostname }, select: { id: true } })) {
-    throw new DomainError("conflict", "That domain is already connected to a storefront. If it is yours, contact support.", undefined, "domains.domainAlreadyConnectedStorefrontIf");
+  // Anti-squatting: stale unverified claims on this name are dropped first, then several UNVERIFIED claims may coexist
+  // (whoever proves DNS control first wins and pre-empts the rest). Only a DNS-verified claim, or the seller's own, blocks.
+  await expirePendingClaims(new Date(), hostname);
+  const existing = await prisma.storefrontDomain.findMany({ where: { hostname }, select: { storefrontId: true, verifiedAt: true } });
+  if (existing.some((r) => r.storefrontId === sf.id || r.verifiedAt !== null)) {
+    // deliberately generic: never reveals whether another seller holds the name
+    throw new DomainError("conflict", "We could not connect that domain. If it is yours, contact support and we will help you prove ownership.", undefined, "domains.domainAlreadyConnectedStorefrontIf");
   }
   const verifyToken = newVerifyToken();
   const expected = buildExpectedRecords(hostname, kind, verifyToken, cfg);
@@ -225,6 +261,7 @@ export async function processDomainCheck(domainId: string, gen?: number, deps: P
     const from = row.status as DomainStatusName;
     const changed = outcome.status !== from;
     const now = deps.now?.() ?? new Date();
+    let lostRace = false;
     await prisma.$transaction(async (tx) => {
       const reached = new Set(outcome.walk);
       const data: Prisma.StorefrontDomainUpdateInput = {
@@ -235,7 +272,23 @@ export async function processDomainCheck(domainId: string, gen?: number, deps: P
         lastCheckedAt: now,
         providerRef: outcome.providerRef,
       };
-      if (reached.has("verified") && !row.verifiedAt) data.verifiedAt = now;
+      if (reached.has("verified") && !row.verifiedAt) {
+        // First claimant to PROVE DNS control wins the name and pre-empts every other unverified claim (anti-squatting).
+        // The advisory lock serialises two claims verifying at the same moment; the loser is dropped and notified.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${row.hostname}))`;
+        const winner = await tx.storefrontDomain.findFirst({ where: { hostname: row.hostname, id: { not: row.id }, verifiedAt: { not: null } }, select: { id: true } });
+        if (winner) {
+          lostRace = true;
+          await dropClaim(tx, { id: row.id, storefrontId: row.storefrontId, hostname: row.hostname, storefront: row.storefront }, from, "other_party_verified");
+          return;
+        }
+        data.verifiedAt = now;
+        const rivals = await tx.storefrontDomain.findMany({
+          where: { hostname: row.hostname, id: { not: row.id }, verifiedAt: null },
+          select: { id: true, storefrontId: true, hostname: true, status: true, storefront: { select: { sellerBusinessId: true } } },
+        });
+        for (const r of rivals) await dropClaim(tx, r, r.status, "other_party_verified");
+      }
       if (outcome.status === "active" && from !== "active") {
         data.activatedAt = now;
         const hasPrimary = await tx.storefrontDomain.count({ where: { storefrontId: row.storefrontId, isPrimary: true, status: "active", id: { not: row.id } } });
@@ -252,6 +305,7 @@ export async function processDomainCheck(domainId: string, gen?: number, deps: P
         if (next) await tx.storefrontDomain.update({ where: { id: next.id }, data: { isPrimary: true } });
       }
     });
+    if (lostRace) return null;
     if (from === "active" || outcome.status === "active") await invalidateStorefrontHosts(row.storefrontId);
     if (outcome.requeueMs !== null) await scheduleNext(row.id, gen, outcome.requeueMs);
     return { status: outcome.status, changed };
@@ -274,7 +328,7 @@ export async function recheckLiveDomains(): Promise<number> {
     select: { id: true },
   });
   for (const r of rows) await startVerification(r.id, Math.floor(Math.random() * 3 * 3600_000));
-  await prisma.storefrontDomain.deleteMany({ where: { verifiedAt: null, status: { in: ["pending_dns", "misconfigured"] }, createdAt: { lt: new Date(Date.now() - 7 * 24 * 3600_000) } } });
+  await expirePendingClaims();
   return rows.length;
 }
 
@@ -321,6 +375,6 @@ export async function adminDomainCounts(): Promise<Record<string, number>> {
 /** Body for GET /.well-known/cnote-domain-check on a host; null unless the host is a registered custom domain. */
 export async function domainCheckResponse(hostInput: string): Promise<{ host: string; token: string } | null> {
   const host = hostInput.trim().toLowerCase().replace(/:\d+$/, "");
-  const row = await prisma.storefrontDomain.findUnique({ where: { hostname: host }, select: { id: true } });
+  const row = await prisma.storefrontDomain.findFirst({ where: { hostname: host }, select: { id: true } });
   return row ? { host, token: domainCheckToken(host) } : null;
 }
