@@ -3,12 +3,13 @@ import { prisma } from "@cnote/db";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { consumeOnce, createEventTransport, emit, EVENT_VERSIONS, getEventTransport, MemoryEventTransport, RedisEventTransport, relayOutbox, setEventTransport } from "../src/events";
 import type { DomainEvent } from "../src/events";
-import { redis } from "../src/redis";
+import { closeBlockingConnections, redis } from "../src/redis";
 
 const ev = (id: number, type = "BusinessCreated"): DomainEvent =>
   ({ id, type, version: 1, aggregateType: "business", aggregateId: `b${id}`, payload: { businessId: `b${id}` }, occurredAt: "2026-01-01T00:00:00.000Z" }) as unknown as DomainEvent;
 
 afterAll(async () => {
+  await closeBlockingConnections();
   await prisma.$disconnect();
 });
 
@@ -56,6 +57,17 @@ describe("RedisEventTransport", () => {
     await redis.del(stream);
   });
   const run = (group: string, h: (e: DomainEvent) => Promise<void>, consumer = "c", count = 50) => t.consume(group, consumer, h, { blockMs: 5, count });
+
+  it("a pending blocking read never delays publish (dedicated reader connection)", async () => {
+    // Several groups parked in XREADGROUP BLOCK, as in the worker. On a shared connection publish queued behind all of
+    // them (~1s each) and the outbox relay's transaction timed out.
+    const readers = ["g1", "g2", "g3"].map((g) => t.consume(g, "c", async () => undefined, { blockMs: 1500 }));
+    await new Promise((r) => setTimeout(r, 100));
+    const started = Date.now();
+    await t.publish([ev(1)]);
+    expect(Date.now() - started).toBeLessThan(500);
+    await Promise.all(readers);
+  });
 
   it("publish of an empty batch is a no-op", async () => {
     await t.publish([]);

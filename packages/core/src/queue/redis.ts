@@ -1,4 +1,5 @@
 import type Redis from "ioredis";
+import { blockingConnection } from "../redis";
 import { retryDelayMs, type ConsumeOptions, type EnqueueOptions, type JobHandler, type JobQueue, type JobTopic, type JobTopics, type QueueMessage } from "./types";
 
 type StreamRead = [string, [string, string[]][]][] | null;
@@ -58,7 +59,9 @@ export class RedisJobQueue implements JobQueue {
     // Own pending (crashed mid-handle) first, then new messages.
     let res = (await this.redis.xreadgroup("GROUP", group, consumer, "COUNT", opts.count ?? 20, "STREAMS", stream, "0")) as StreamRead;
     if (!res?.[0]?.[1]?.length) {
-      res = (await this.redis.xreadgroup("GROUP", group, consumer, "COUNT", opts.count ?? 20, "BLOCK", opts.blockMs ?? 1000, "STREAMS", stream, ">")) as StreamRead;
+      // Dedicated connection for the blocking read (see blockingConnection): never block the shared client.
+      const reader = blockingConnection(this.redis, `queue:${stream}:${group}:${consumer}`);
+      res = (await reader.xreadgroup("GROUP", group, consumer, "COUNT", opts.count ?? 20, "BLOCK", opts.blockMs ?? 1000, "STREAMS", stream, ">")) as StreamRead;
     }
     const entries = res?.[0]?.[1] ?? [];
     for (const [entryId, fields] of entries) {
