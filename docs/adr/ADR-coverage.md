@@ -1,7 +1,53 @@
 # ADR coverage: what the code implements against ADR-000 to ADR-025
 
-**As of:** 30 Sep 2026, wave 8 (see the wave updates below, newest first); wave-4 notes refer to HEAD `425e151` (wave 4: metrics, orders, boundary guard, Hindi UI, photo/voice listings, WhatsApp channel, DPDP compliance). A "Wave 4 update" note under each affected ADR supersedes the older gap text above it.
+**As of:** 3 Oct 2026, after PRs #13 to #41 (see the updates below, newest first); the 30 Sep 2026 wave 8 state follows; wave-4 notes refer to HEAD `425e151` (wave 4: metrics, orders, boundary guard, Hindi UI, photo/voice listings, WhatsApp channel, DPDP compliance). A "Wave 4 update" note under each affected ADR supersedes the older gap text above it.
 **Method:** read `docs/adr/ADR-v0.1.md`, `ADR-024-025-proposed.md`, every `docs/design/*.md`, the package sources, the Prisma schemas and the event catalogue; then judged each ADR by what is actually in code. Evidence lists packages and files; gaps are stated against the ADR text.
+
+## October 2026 update (PRs #13 to #41, 1 to 3 Oct): buyer web depth, consent, billing, eval gate, security hardening
+
+Newest first; supersedes older gap text where it overlaps. Design docs are named per item. Statements below were checked against the code, not copied from PR text.
+
+**Built**
+
+- **Legal and information pages (ADR-010, ADR-004):** terms, privacy, refund policy, prohibited items, report abuse (`/report`, takedown notices acknowledged in 24h and acted on in 36h, `TAKEDOWN_ACK_HOURS` / `TAKEDOWN_ACT_HOURS`), about, contact, trust, accessibility, security, sitemap and a restructured footer, all static and en + hi (`docs/design/legal-pages.md`, `footer.md`). Legal entity details (`PLATFORM_*`, `SUPPORT_*`) are strict in production: the buyer web refuses to start without them. `/.well-known/security.txt` is generated from env.
+- **Help centre and PWA (ADR-004):** `/help` with search, topics and 16 articles grounded in ADR-002/003/004/005/007/010 (`docs/design/help-centre.md`); empty "coming soon" nav items hidden; web manifest, icons and a service worker with an offline page (network-first navigations, never caches `/api`, auth or private areas).
+- **Search filters, facets and sort (ADR-009):** tier, state/city, price range, MOQ, has-price and category filters with disjunctive facets, for both the Postgres and OpenSearch backends; sorts never let plan or ad spend change organic order (property test). Pincode filtering is state-level only (`docs/design/search-filters.md`).
+- **Product page tiers and trade info, supplier trust (ADR-003, ADR-009):** quantity price tiers end to end (catalogue, live projection, seller form, estimate and RFQ prefill), trade information block, lightbox, share menu, sticky mobile CTA (`docs/design/pdp.md`); public supplier trust read model (verification evidence with masked GSTIN, response time and accept rate suppressed below 5 resolved offers, reviews), a supplier profile page with tabs and Organization JSON-LD, and supplier rows in compare (`docs/design/supplier-profile.md`).
+- **Consent v2 and consent across apps (ADR-010, ADR-041):** categories including `functional`, policy snapshots with a `registry_hash` on every receipt, receipts without IP or user agent, GPC, idempotent resend, consent ID and record download, account sync, admin consent log with audited CSV export, DPDP rights requests with a 90-day SLA; the seller app has its own banner, registry and receipts (`app` column); admin and studio are necessary-only with a failing test if that changes; `ConsentGate` for third-party embeds and the storefront embed block behind `STOREFRONT_EMBEDS_ENABLED` (off) (`docs/design/cookie-consent.md`).
+- **RFQ depth and quote compare (ADR-002, ADR-014):** budget range, expiry, minimum supplier tier, up to five drawings (never sent to AI), buyer requirements board, side-by-side quote comparison with shortlist and accept/decline, seller-side attachments (`docs/design/rfq-quotes.md`).
+- **Product Q&A (ADR-003, ADR-010):** buyers ask on the product page, sellers answer in a portal inbox, public only when question and answer are both approved; reuses the `@cnote/reviews` moderation pipeline (`docs/design/product-qa.md`).
+- **Buyer convenience and buyer account (ADR-003, ADR-004):** contact options after unlock gated on an accepted match and counterparty-sharing consent, recently viewed rail (functional consent), wishlist "request quotes for selected" and revocable share links, AggregateOffer JSON-LD (`docs/design/buyer-convenience.md`); buyer GSTIN verification through the GST provider port (tier 1), saved delivery addresses with state derived from the PIN, deliver-to picker, export and erasure coverage (`docs/design/buyer-account.md`).
+- **Buyer retention (ADR-002, ADR-009):** `@cnote/alerts` with follows, saved searches, opt-in price-drop, back-in-stock and digest alerts, request again; ranking untouched (`docs/design/buyer-retention.md`, ADR-044).
+- **Billing per ADR-005:** annual plans, cancel at period end with undo, pro-rated refund through the provider port with retry, backoff and dead letter and honest refund status, renewal reminders with auto-renew off, pricing calculator (`docs/design/billing-adr005.md`).
+- **AI eval gate (ADR-008, ADR-043):** golden sets with hard floors, committed heuristic baseline, prompt/model manifest check, protected live-eval workflow, shadow mode, plan-invariance property tests (`docs/guides/ai-evals.md`).
+- **Accessibility gate (WCAG 2.2 AA):** axe, keyboard and form-error specs for every buyer screen, desktop and mobile, English and Hindi, including the new pages above (`e2e/a11y/`; section "Accessibility gate for the remaining buyer screens" below).
+- **Security hardening (ADR-042, `docs/security/security-architecture.md`):** fail-closed partner webhooks and no default secrets, database-enforced append-only tables with `withPurge()`, production startup validation, `TRUST_CLOUDFLARE` client-IP rule, OTP echo rule, GSTIN ownership checks and squatting handling, MFA on phone sign-in, account-enumeration and brute-force controls, prompt-envelope escaping with a deterministic moderation pre-check the model cannot relax, auto-approval gates with a 5% audit sample, SSRF pinning, zip-bomb and formula-injection guards, 2mb server-action cap with dedicated upload routes, DPDP export registry and erasure step-up, refund-farming guard, coupon reservation, CI and container pinning. Operations: `docs/ops/production-checklist.md`, `docs/ops/db-roles.md`.
+- **Admin consistency:** shared `FilterBar` / `SectionNav` primitives with a scan test, sticky-sidebar scrolling fix.
+
+**Gaps that remain (honest list)**
+
+Supply-chain and procurement features a B2B buyer expects but the code does not have (checked by searching the schema and sources):
+
+- **No purchase-order document.** An accepted quote becomes an off-platform "won" report and an `Order` row; there is no PO number, PO PDF or PO-to-invoice link.
+- **Single-line RFQ.** `Enquiry` has one title, quantity and unit; no multi-line or BOM requirement, no per-line quoting.
+- **No buyer roles or approvals.** `MemberRole` is only `owner` / `staff`; there is no requester/approver split, spend limit or approval chain for an RFQ, quote acceptance or order.
+- **No e-invoice or e-way bill references.** Platform invoices to sellers are GST tax invoices, but orders between buyer and seller carry no IRN, e-invoice QR or e-way bill number.
+- **No MSME 43B(h) due-date tracking.** Nothing computes or reminds the 45-day payment limit for MSME suppliers.
+- **No sample or approval workflow** (sample request, buyer approval before bulk order).
+- **No GRN, three-way match or returns.** Delivery stages and disputes exist; goods-receipt notes, PO/GRN/invoice matching and a returns flow do not.
+- **No rate contracts** (agreed prices for a period or volume).
+- **No freight estimate.** A quote carries a seller-entered delivery charge or unknown freight (`packages/negotiation/src/terms.ts`); there is no estimator or logistics rate integration.
+- **No product variants** (size, colour, grade as selectable variants of one listing) and **no stock flag** (in stock, made to order, lead time), so the "back in stock" alert only means "this saved listing is live again" (`onListingPublished`), not that inventory changed.
+
+Other open items from these PRs:
+
+- Native review of the six machine-drafted catalogues (only en and hi are live on the web); the seller app has no cookie-policy page; receipts of the seller app are not mirrored into the identity ledger.
+- RFQ and quote attachments: type sniffing only, no antivirus scan and no retention purge. Q&A is asynchronous-moderated.
+- Billing: monthly cancel gives no refund by design; refund confirmation relies on webhooks (no provider polling).
+- The Anthropic eval baseline (`packages/ai/evals/baseline/anthropic.json`) and the `ai-evals` GitHub environment still need to be created by a maintainer; until then prompt or model changes cannot pass the live check, and the live job has no review gate.
+- Storefront embeds: content moderation of the embedded video is not built, so the flag stays off.
+- Security residuals: CSP still allows `unsafe-inline` on static pages; admin TOTP is phishable (passkeys next); GSTIN proof of control needs a GSP/KYC vendor; MinIO images are not pinned by digest; least-privilege DB role is optional hardening, not enforced.
+- `error.tsx`, `global-error.tsx` and `not-found.tsx` are English-only (see the accessibility section below).
 
 ## Wave 8 update: gaps closed
 
@@ -47,7 +93,7 @@ All six Phase-2 ADRs now have working, tested modules. Each is OFF by default (`
 - **ADR-025 promotions:** editorial promotions, seller offers validated against the LIVE listing price (reference-price honesty, `ListingPriceHistory`), offer-honour reports, coupons (one per GSTIN) on checkout, referrals (`?ref=` captured at signup, risk flags for rings/shared phone/GSTIN, staff review of rewards); offers shown on product cards.
 - **Still open:** seller-app i18n, geo targeting for ads on search, ads notification templates, Phase 2 (ADR-012 to 017) and Phase 3 (ADR-019 to 023).
 **Status values:** Implemented (Phase-1 scope is met) / Partial / Not started / Deferred by phase (the ADR itself is a Phase 2 or 3 item and correctly unbuilt).
-**Answer to "did we add all the ADRs?":** all 24 accepted or proposed decisions in ADR-000 to ADR-023 are recorded, and the Phase 1 ones are largely built. The Phase 1 ADRs with real holes are ADR-004 (WhatsApp, voice, vernacular), ADR-002 (reachability verification), ADR-003 (T2/T3 tiers) and ADR-005 (real payments). Fourteen decisions taken during the build are now recorded as ADR-026 to ADR-039 (this folder).
+**Answer to "did we add all the ADRs?":** all 24 accepted or proposed decisions in ADR-000 to ADR-023 are recorded, and the Phase 1 ones are largely built. The Phase 1 ADRs with real holes are ADR-004 (WhatsApp, voice, vernacular), ADR-002 (reachability verification), ADR-003 (T2/T3 tiers) and ADR-005 (real payments). Nineteen decisions taken during the build are now recorded as ADR-026 to ADR-044 (this folder): ADR-041 cookie consent, ADR-042 security hardening, ADR-043 AI eval gate and shadow mode, ADR-044 buyer-side modules (alerts, Q&A, RFQ depth).
 
 ## Summary
 

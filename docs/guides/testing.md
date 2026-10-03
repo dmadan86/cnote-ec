@@ -37,19 +37,24 @@ e2e/
   a11y/                     pnpm test:a11y
     buyer-pages.spec.ts       axe WCAG 2.2 AA scans, English + Hindi
     keyboard.spec.ts          skip link, focus visible, popovers, no traps (desktop)
-    cookie-consent.spec.ts    consent banner + preferences dialog (opts out of the pre-seeded consent cookie with `consent: false`)
+    cookie-consent.spec.ts    consent banner + preferences dialog (opts out of the pre-seeded consent cookie with `consent: false`); cookie-consent.mobile.spec.ts at 412px
+    cookie-audit.spec.ts      runtime audit: every cookie/localStorage/sessionStorage key must be in the consent registry; nothing non-necessary before opt-in
+    storefront-embed.spec.ts  consent-gated video/map embeds (own `embeds` project, see below)
+    pdp / search-filters / supplier-profile / rfq-quotes / product-qa / buyer-account / buyer-convenience / buyer-retention / buyer-rail / help / legal-pages / pricing-calculator / responsive .spec.ts   axe + keyboard + form errors per feature (some also have a .mobile twin)
     mobile.mobile.spec.ts     axe at 412px, touch targets, menu dialog (mobile project)
     remaining-screens(.mobile).spec.ts  axe + keyboard + form errors for every other buyer screen (orders, disputes, agents, account, auth, storefront); Phase-2/3 flags on in support/env.ts, rows seeded by support/phase2-db.ts
   functional/               pnpm test:e2e
     buyer.spec.ts             sign up / in, search -> product -> save/compare, RFQ, language switch
     seller.spec.ts            sign up, onboarding, listing -> review, portal, language switch
+    seller-billing.spec.ts    plan cancel in at most 3 taps, refund status
+    seller-cookie-consent.spec.ts   seller banner, receipts with app = 'seller', referral handling, withdrawal, runtime audit
   support/                  env.ts (single source of e2e env), auth.ts, a11y.ts, pages.ts
   setup/                    prepare-db.ts, build.ts, backfill-live.ts
 ```
 
-Projects: `desktop` (Desktop Chrome, all specs except `*.mobile.spec.ts`) and `mobile` (Pixel 7, only `*.mobile.spec.ts`).
+Projects: `desktop` (Desktop Chrome, all specs except `*.mobile.spec.ts` and `storefront-embed.spec.ts`), `mobile` (Pixel 7, only `*.mobile.spec.ts`) and `embeds` (Desktop Chrome against a second web build, `.next-embeds`, port 3006, with `STOREFRONT_EMBEDS_ENABLED=1`; only `storefront-embed.spec.ts`). Every other spec runs with the flag off, like production.
 
-Every context starts with a valid reject-all `cnote_consent` cookie (`e2e/support/fixtures.ts`) so the consent banner does not overlap clicks or axe scans; specs that need the first-visit banner use `test.use({ consent: false })`.
+Every context starts with a valid reject-all `cnote_consent` cookie for the buyer web and a `seller_consent` cookie for the seller app (`e2e/support/fixtures.ts`) so the consent banners do not overlap clicks or axe scans; specs that need the first-visit banner use `test.use({ consent: false })`. If you change either app's `CONSENT_POLICY_VERSION`, the fixtures follow automatically because they import it.
 
 ### First run
 

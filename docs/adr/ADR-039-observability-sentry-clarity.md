@@ -1,6 +1,7 @@
 # ADR-039: Observability: scrubbed Sentry and consented Clarity
 
 **Status:** Accepted
+**Note:** Consent architecture for Clarity and all other optional storage is in ADR-041.
 
 **Context.** We need error and performance visibility across six runtimes, but telemetry is a common DPDP leak path (request bodies, emails, phone numbers in breadcrumbs) and behavioural analytics require consent.
 

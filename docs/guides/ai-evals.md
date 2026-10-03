@@ -12,7 +12,7 @@ ADR-008 says prompt and model changes are gated on golden-set evals, and that ev
 | `eval --provider anthropic` | nightly, manual dispatch, PRs that change a prompt or model | Anthropic | hard floors + committed baseline + latency + cost |
 | `eval:shadow` | on demand against production | n/a (reads the `AiDecision` log) | human judgement |
 
-All of it lives in `.github/workflows/ai-evals.yml` except the unit test.
+All of it lives in `.github/workflows/ai-evals.yml` except the unit test. The live job runs in the protected GitHub environment `ai-evals` (required reviewers, `ANTHROPIC_API_KEY` as an environment secret, never a repository secret; fork PRs get no secrets). The environment has to be created in repository settings, see `docs/ops/production-checklist.md` section 8. Design rationale: ADR-043.
 
 ## Running the golden sets
 
