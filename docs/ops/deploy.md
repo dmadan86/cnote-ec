@@ -1,5 +1,7 @@
 # Deployment: images, manifests, two-region topology
 
+**Before going live, work through the [production checklist](production-checklist.md)** (secrets, TLS, Cloudflare, worker, GitHub environment).
+
 Everything stays in India regions (ADR-010). Existing single-region manifests live in `deploy/` (docker compose, k8s base, Cloudflare
 notes); the scale/DR work adds `infra/` and composes with it rather than replacing it.
 

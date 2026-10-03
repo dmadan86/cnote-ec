@@ -1,7 +1,7 @@
 # ADR-037: Security layers: CSP, headers, Turnstile, field encryption and MFA
 
 **Status:** Accepted
-**Note:** Designed with parallel work (`@cnote/security`).
+**Note:** Designed with parallel work (`@cnote/security`). Hardening after the security audit (fail-closed webhooks, database append-only triggers, production startup validation, deterministic moderation) is in ADR-042.
 
 **Context.** The platform holds business identity documents, phone numbers and GSTINs (personal data under DPDP) and exposes public forms and an API. A single control is never enough; a leak is an existential and regulatory event (IndiaMART 2020).
 
