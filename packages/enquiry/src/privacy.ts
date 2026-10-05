@@ -63,11 +63,13 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
     // rate contracts (docs/design/rate-contracts.md): every revision with items and answers, and the call-offs placed against them
     biz.length
       ? prisma.rateContract.findMany({
-          where: { OR: [{ buyerBusinessId: { in: biz } }, { sellerBusinessId: { in: biz } }] },
+          // same visibility rule as the screens: the seller side never sees a buyer's unsent draft
+          where: { OR: [{ buyerBusinessId: { in: biz } }, { sellerBusinessId: { in: biz }, status: { not: "draft" } }] },
           orderBy: { createdAt: "asc" },
           take: EXPORT_TAKE,
           include: {
-            revisions: { orderBy: { revision: "asc" }, include: { items: { orderBy: { lineNo: "asc" } }, acceptances: true } },
+            // answers are exported only for the requester's own businesses (the counterparty's answer is theirs)
+            revisions: { orderBy: { revision: "asc" }, include: { items: { orderBy: { lineNo: "asc" } }, acceptances: { where: { businessId: { in: biz } } } } },
             callOffs: { orderBy: { callOffNo: "asc" }, include: { lines: { orderBy: { lineNo: "asc" } } } },
           },
         })

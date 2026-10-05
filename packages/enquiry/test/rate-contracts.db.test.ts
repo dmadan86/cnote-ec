@@ -517,6 +517,19 @@ describe("listing", () => {
 });
 
 describe("privacy (DPDP)", () => {
+  it("the seller's export leaves out a buyer's unsent draft and the buyer's answers, but includes the contract once it is sent", async () => {
+    const p = await pair();
+    const draft = await lib.createRateContract(p.buyer, { sellerBusinessId: p.seller.businessId, title: "Private draft", terms: terms() });
+    const ids = async (a: Actor) => ((await exportPersonalData(a.personId, { businessIds: [a.businessId] } as never)).rateContracts as unknown as { items: { id: string }[] }).items.map((c) => c.id);
+    expect(await ids(p.seller)).not.toContain(draft.id);
+    expect(await ids(p.buyer)).toContain(draft.id);
+    await lib.sendRateContract(p.buyer, draft.id);
+    expect(await ids(p.seller)).toContain(draft.id);
+    const sellerRows = (await exportPersonalData(p.seller.personId, { businessIds: [p.seller.businessId] } as never)).rateContracts as unknown as { items: { id: string; revisions: { acceptances: { businessId: string }[] }[] }[] };
+    const mine = sellerRows.items.find((c) => c.id === draft.id)!;
+    expect(mine.revisions.flatMap((r) => r.acceptances).every((a) => a.businessId === p.seller.businessId)).toBe(true);
+  });
+
   it("exports the person's contracts with revisions, answers and call-offs, and the retention purge clears personal references but keeps the record", async () => {
     const x = await activeContract();
     const key = x.view.current!.items[0]!.itemKey;
@@ -526,7 +539,7 @@ describe("privacy (DPDP)", () => {
     const exp = await exportPersonalData(x.buyer.personId, { businessIds: [x.buyer.businessId] } as never);
     const list = (exp.rateContracts as unknown as { items: { id: string; revisions: { acceptances: unknown[]; items: unknown[] }[]; callOffs: unknown[] }[] }).items;
     const mine = list.find((c) => c.id === x.id)!;
-    expect(mine.revisions[0]!.acceptances).toHaveLength(2);
+    expect(mine.revisions[0]!.acceptances).toHaveLength(1); // only the requester business answers
     expect(mine.revisions[0]!.items).toHaveLength(1);
     expect(mine.callOffs).toHaveLength(1);
 
