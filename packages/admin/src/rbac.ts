@@ -64,6 +64,8 @@ export const PRIVILEGES = [
   "agents.read", // standing agent mandates, negotiation transcripts (structured terms)
   "agents.suspend", // suspend a mandate or an external agent integration (abuse)
   "prices.manage", // benchmark publication, k-anonymity thresholds, premium analytics access
+  // AI ops (labels export)
+  "ai.labels.export", // export labelled ops decisions as training data (redacted inputs; every export is audited)
 ] as const;
 export type Privilege = (typeof PRIVILEGES)[number];
 
