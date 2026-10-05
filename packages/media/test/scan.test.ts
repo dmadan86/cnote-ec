@@ -1,5 +1,5 @@
 import net from "node:net";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ClamdAttachmentScanner, EICAR_TEST_STRING, MockAttachmentScanner, ScanUnavailableError, getAttachmentScanner, parseClamdReply, scannerKind, setAttachmentScannerForTests,
 } from "../src/index";
@@ -105,6 +105,17 @@ describe("ClamdAttachmentScanner (fake clamd over TCP)", () => {
     const hang = await fakeClamd(() => null);
     await expect(new ClamdAttachmentScanner({ host: "127.0.0.1", port: hang.port, timeoutMs: 150 }).scan(Buffer.from("x"))).rejects.toThrow(/timed out/);
     await hang.close();
+  });
+});
+
+describe("ClamdAttachmentScanner connect timeout", () => {
+  it("fails closed and destroys the socket when the connection never establishes", async () => {
+    const socket = new net.Socket();
+    const destroy = vi.spyOn(socket, "destroy");
+    vi.spyOn(net, "createConnection").mockReturnValue(socket);
+    await expect(new ClamdAttachmentScanner({ host: "192.0.2.1", connectTimeoutMs: 20, timeoutMs: 5000 }).scan(Buffer.from("x"))).rejects.toThrow(/connect timed out after 20ms/);
+    expect(destroy).toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 });
 

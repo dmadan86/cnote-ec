@@ -11,6 +11,8 @@ vi.mock("@cnote/core", async (orig) => ({
   invalidateTags: async (t: string[]) => void h.hard.push(t),
   softInvalidateTags: async (t: string[]) => void h.soft.push(t),
 }));
+const rc = vi.hoisted(() => ({ result: { retried: 0, rechecked: 0 } }));
+vi.mock("../src/embeds", () => ({ recheckEmbeds: async () => rc.result }));
 vi.mock("../src/service", () => ({
   storefrontSlugForBusiness: async (id: string) => h.slugByBiz.get(id) ?? null,
   storefrontSlugById: async (id: string) => h.slugById.get(id) ?? null,
@@ -143,5 +145,22 @@ describe("event handlers", () => {
     await call("ListingArchived", { sellerBusinessId: "biz1" });
     await call("ListingArchived", { sellerBusinessId: "biz1" });
     expect(h.hard[0]).toEqual(h.hard[1]);
+  });
+
+  it("StorefrontEmbedDecided purges the page hard", async () => {
+    await call("StorefrontEmbedDecided", { storefrontId: "sf1" });
+    expect(h.hard).toEqual([["storefront:acme"]]);
+  });
+  it("the embed re-check job runs hourly and logs only when it did something", async () => {
+    const job = worker.jobs!.find((j) => j.name === "storefront.embed-recheck")!;
+    expect(job.everyMs).toBe(3_600_000);
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    await job.run();
+    expect(log).not.toHaveBeenCalled();
+    rc.result = { retried: 2, rechecked: 3 };
+    await job.run();
+    expect(log).toHaveBeenCalledWith("[storefront] embeds: retried 2, re-checked 3");
+    log.mockRestore();
+    rc.result = { retried: 0, rechecked: 0 };
   });
 });
