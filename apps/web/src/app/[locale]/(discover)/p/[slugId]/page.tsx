@@ -19,6 +19,7 @@ import { Gallery } from "@/features/pdp/gallery";
 import { PurchasePanel } from "@/features/pdp/purchase-panel";
 import { ShareMenu } from "@/features/pdp/share-menu";
 import { TradeInfo } from "@/features/pdp/trade-info";
+import { FreightEstimate } from "@/features/pdp/freight-estimate";
 import { ProductQa } from "@/features/qa/section";
 import { ProductReviewsStatic } from "@/features/reviews";
 import { RatingStars } from "@/features/reviews/stars";
@@ -186,6 +187,8 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
               }
             />
           ) : null}
+
+          <FreightEstimate listingId={listing.id} unit={listing.moqUnit ?? listing.priceUnit} moq={listing.moq} />
 
           <TradeInfo listing={listing} locale={locale} />
 

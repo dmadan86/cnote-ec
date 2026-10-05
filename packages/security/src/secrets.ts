@@ -142,6 +142,12 @@ function validateProductionFlags(app: SecretsApp, env: Env, errors: string[], wa
       else errors.push(`${msg}; or acknowledge the risk with ATTACHMENT_SCAN_WAIVER=1`);
     }
   }
+  // Freight estimator (docs/design/freight-estimator.md): a live carrier provider without credentials must not boot in production.
+  const freight = (env.FREIGHT_PROVIDER ?? "heuristic").trim().toLowerCase();
+  if (freight === "shiprocket") {
+    for (const k of ["SHIPROCKET_EMAIL", "SHIPROCKET_PASSWORD"]) if (!env[k]) errors.push(`${k} is not set: FREIGHT_PROVIDER=shiprocket cannot fetch rates without it`);
+  }
+  if (freight === "delhivery" && !env.DELHIVERY_API_TOKEN) errors.push("DELHIVERY_API_TOKEN is not set: FREIGHT_PROVIDER=delhivery cannot fetch rates without it");
 
   if (env.CSP_REPORT_ONLY === "1") {
     if (truthy(env.CSP_REPORT_ONLY_ACK)) warnings.push("CSP_REPORT_ONLY=1 (acknowledged): the CSP is not being enforced");

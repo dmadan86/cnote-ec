@@ -7,7 +7,8 @@ import {
   archiveListing, createListing, getCategoryBySlug, getListing, listCategories, listSellerListings, publishListing, updateListing,
   type CategoryView, type ListingInput, type ListingView,
 } from "@cnote/catalogue";
-import { DomainError } from "@cnote/core";
+import { DomainError, rateLimit } from "@cnote/core";
+import { estimateForListing } from "@cnote/logistics";
 import type { ApiPrincipal } from "@cnote/developer";
 import {
   acceptLead, createEnquiry, declineLead, getBuyerEnquiry, getConversation, getSellerLead, listBuyerEnquiries, listSellerLeads,
@@ -75,6 +76,11 @@ export async function listing(id: string) {
   // Only published + approved listings are public (ADR-002 visibility).
   if (!l || l.status !== "published" || l.moderationStatus !== "approved") throw new DomainError("not_found", "Listing not found");
   return publicListing(l);
+}
+/** Freight ESTIMATE for a public listing (docs/design/freight-estimator.md); an extra per-key limit because live carrier lookups cost money. */
+export async function listingFreightEstimate(p: P, id: string, quantity: number, pincode: string) {
+  if (!(await rateLimit(`api:freight:${p.keyId}`, 60, 60))) throw new DomainError("rate_limited", "Too many freight estimates. Try again in a minute.");
+  return estimateForListing(id, quantity, pincode);
 }
 export async function seller(id: string) {
   const profile = (await getTrustProfiles([id])).get(id);

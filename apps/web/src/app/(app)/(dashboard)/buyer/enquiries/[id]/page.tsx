@@ -1,4 +1,5 @@
 import { getBuyerEnquiry, getQuoteComparison, listCandidatesForBuyer } from "@cnote/enquiry";
+import { landedForQuotes } from "@cnote/logistics";
 import { actorOf, requireBusiness } from "@cnote/next-kit";
 import { Alert, Card, CardBody, CardTitle, Container, Money, PageHeader } from "@cnote/ui";
 import type { Metadata } from "next";
@@ -30,6 +31,16 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
   const t2 = await getTranslations({ locale, namespace: "rfq2" });
   const tc = await getTranslations({ locale, namespace: "cards" });
   const comparison = await getQuoteComparison(actorOf(s), e.id);
+  // Landed cost per supplier (goods + GST + freight; an estimate where the seller states no delivery charge). Never blocks the page.
+  const landed = comparison?.rows.length
+    ? Object.fromEntries(
+        await landedForQuotes(
+          comparison.rows.map((r) => ({ key: r.matchId, sellerBusinessId: r.sellerBusinessId, quantity: r.quantity, goodsPaise: r.totalPaise, gstIncluded: r.quote.gstIncluded, deliveryChargePaise: r.quote.deliveryChargePaise, deliveryTerms: r.quote.deliveryTerms })),
+          e.deliveryPincode,
+          e.category?.slug ?? null,
+        ).catch(() => new Map()),
+      )
+    : undefined;
   const money = (p: number) => `₹${(p / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
   const cap = e.sellerCap ?? 3;
@@ -97,7 +108,7 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
           </Card>
         ) : null}
 
-        {comparison ? <QuoteCompare comparison={comparison} /> : null}
+        {comparison ? <QuoteCompare comparison={comparison} landed={landed} /> : null}
 
         {e.matches.length ? (
           <section className="flex flex-col gap-3">

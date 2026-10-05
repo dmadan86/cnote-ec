@@ -154,6 +154,10 @@ const TRADE_FIELDS: [keyof TradeInfo, string][] = [
   ["supplyCapacityPerMonth", "Supply capacity / month"],
   ["paymentTerms", "Payment terms"],
   ["certifications", "Certifications"],
+  ["unitWeightGrams", "Unit weight (g)"],
+  ["unitLengthMm", "Unit length (mm)"],
+  ["unitWidthMm", "Unit width (mm)"],
+  ["unitHeightMm", "Unit height (mm)"],
 ];
 const summarise = (v: unknown): string | number | null => (v == null ? null : Array.isArray(v) ? v.join(", ") : typeof v === "boolean" ? (v ? "yes" : "no") : (v as string | number));
 

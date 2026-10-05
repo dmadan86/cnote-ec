@@ -478,7 +478,7 @@ function priceFor(base: number, instance: number, r: () => number): number {
 
 /** Dev-only demo data: every other template gets quantity slabs and trade info so the product page shows them. */
 function tradeDemo(ti: number, t: Tpl, pricePaise: number, k: number) {
-  const none = { priceTiers: [] as { minQty: number; pricePaise: number }[], leadTimeDays: null as number | null, packaging: null as string | null, sampleAvailable: false, samplePricePaise: null as bigint | null, supplyCapacityPerMonth: null as number | null, paymentTerms: null as string | null, certifications: [] as string[] };
+  const none = { priceTiers: [] as { minQty: number; pricePaise: number }[], leadTimeDays: null as number | null, packaging: null as string | null, sampleAvailable: false, samplePricePaise: null as bigint | null, supplyCapacityPerMonth: null as number | null, paymentTerms: null as string | null, certifications: [] as string[], unitWeightGrams: null as number | null, unitLengthMm: null as number | null, unitWidthMm: null as number | null, unitHeightMm: null as number | null };
   if (ti % 2 !== 0) return none;
   const at = (mult: number, pct: number) => ({ minQty: t.moq * mult, pricePaise: Math.max(1, Math.round((pricePaise * pct) / 100)) });
   return {
@@ -491,6 +491,11 @@ function tradeDemo(ti: number, t: Tpl, pricePaise: number, k: number) {
     supplyCapacityPerMonth: t.moq * 100,
     paymentTerms: "50% advance, balance before dispatch. Net 30 for repeat buyers.",
     certifications: ti % 4 === 0 ? ["ISO 9001:2015", "BIS"] : ["MSME registered"],
+    // shipping facts for the freight estimator demo
+    unitWeightGrams: 250 + (ti % 5) * 250,
+    unitLengthMm: 150 + (ti % 3) * 50,
+    unitWidthMm: 100 + (ti % 3) * 50,
+    unitHeightMm: 80 + (ti % 4) * 20,
   };
 }
 

@@ -17,6 +17,11 @@ export interface TradeInfo {
   supplyCapacityPerMonth?: number | null;
   paymentTerms?: string | null;
   certifications?: string[];
+  /** Shipping facts per price unit (freight estimator): packed weight in grams, outer pack dimensions in mm. */
+  unitWeightGrams?: number | null;
+  unitLengthMm?: number | null;
+  unitWidthMm?: number | null;
+  unitHeightMm?: number | null;
 }
 
 export const MAX_TIERS = 8;
@@ -34,6 +39,10 @@ export const tradeInfoSchema = z.object({
   supplyCapacityPerMonth: z.number().int().min(1).max(2_000_000_000).nullable().optional(),
   paymentTerms: z.string().trim().max(500).nullable().optional(),
   certifications: z.array(z.string().trim().min(1).max(80)).max(12).optional(),
+  unitWeightGrams: z.number().int().min(1).max(50_000_000).nullable().optional(),
+  unitLengthMm: z.number().int().min(1).max(20_000).nullable().optional(),
+  unitWidthMm: z.number().int().min(1).max(20_000).nullable().optional(),
+  unitHeightMm: z.number().int().min(1).max(20_000).nullable().optional(),
 });
 
 /**
@@ -75,6 +84,10 @@ export function compactTrade(t: TradeInfo | null | undefined): TradeInfo {
   if (t.supplyCapacityPerMonth != null) out.supplyCapacityPerMonth = t.supplyCapacityPerMonth;
   if (t.paymentTerms) out.paymentTerms = t.paymentTerms;
   if (t.certifications?.length) out.certifications = t.certifications;
+  if (t.unitWeightGrams != null) out.unitWeightGrams = t.unitWeightGrams;
+  if (t.unitLengthMm != null) out.unitLengthMm = t.unitLengthMm;
+  if (t.unitWidthMm != null) out.unitWidthMm = t.unitWidthMm;
+  if (t.unitHeightMm != null) out.unitHeightMm = t.unitHeightMm;
   return out;
 }
 
@@ -92,6 +105,10 @@ export function tradeOfRow(l: {
   supplyCapacityPerMonth: number | null;
   paymentTerms: string | null;
   certifications: string[];
+  unitWeightGrams: number | null;
+  unitLengthMm: number | null;
+  unitWidthMm: number | null;
+  unitHeightMm: number | null;
 }): TradeInfo {
   return compactTrade({
     leadTimeDays: l.leadTimeDays,
@@ -101,5 +118,9 @@ export function tradeOfRow(l: {
     supplyCapacityPerMonth: l.supplyCapacityPerMonth,
     paymentTerms: l.paymentTerms,
     certifications: l.certifications,
+    unitWeightGrams: l.unitWeightGrams,
+    unitLengthMm: l.unitLengthMm,
+    unitWidthMm: l.unitWidthMm,
+    unitHeightMm: l.unitHeightMm,
   });
 }

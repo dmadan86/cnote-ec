@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../src/features/listings/actions", () => ({ saveListingAction: async () => null }));
 const { parseTierRows, parseTradeFields } = await import("../src/features/listings/trade-form");
-const { TierFields, TradeFields } = await import("../src/features/listings/tier-fields");
+const { ShippingFields, TierFields, TradeFields } = await import("../src/features/listings/tier-fields");
 
 const messages = JSON.parse(readFileSync(join(__dirname, "..", "messages", "en.listings.json"), "utf8"));
 const wrap = (node: React.ReactNode) => renderToStaticMarkup(<NextIntlClientProvider locale="en" messages={messages}>{node}</NextIntlClientProvider>);
@@ -26,7 +26,7 @@ describe("parseTierRows", () => {
 describe("parseTradeFields", () => {
   const base = { leadTimeDays: "", packaging: "", sampleAvailable: false, samplePriceRupees: "", supplyCapacityPerMonth: "", paymentTerms: "", certifications: "" };
   it("is empty by default", () => {
-    expect(parseTradeFields(base)).toEqual({ trade: { leadTimeDays: null, packaging: null, sampleAvailable: false, samplePricePaise: null, supplyCapacityPerMonth: null, paymentTerms: null, certifications: [] }, invalid: false });
+    expect(parseTradeFields(base)).toEqual({ trade: { leadTimeDays: null, packaging: null, sampleAvailable: false, samplePricePaise: null, supplyCapacityPerMonth: null, paymentTerms: null, certifications: [], unitWeightGrams: null, unitLengthMm: null, unitWidthMm: null, unitHeightMm: null }, invalid: false, shippingInvalid: false });
   });
   it("parses numbers, sample price (only when a sample is offered) and certifications", () => {
     const r = parseTradeFields({ ...base, leadTimeDays: "7", supplyCapacityPerMonth: "5000", sampleAvailable: true, samplePriceRupees: "150", certifications: "ISO 9001, BIS\nCE", packaging: " Carton of 50 " });
@@ -38,6 +38,33 @@ describe("parseTradeFields", () => {
     expect(parseTradeFields({ ...base, leadTimeDays: "2.5" }).invalid).toBe(true);
     expect(parseTradeFields({ ...base, supplyCapacityPerMonth: "-3" }).invalid).toBe(true);
     expect(parseTradeFields({ ...base, sampleAvailable: true, samplePriceRupees: "abc" }).invalid).toBe(true);
+  });
+});
+
+describe("parseTradeFields: shipping facts (freight estimator)", () => {
+  const base = { leadTimeDays: "", packaging: "", sampleAvailable: false, samplePriceRupees: "", supplyCapacityPerMonth: "", paymentTerms: "", certifications: "" };
+  it("converts centimetres to millimetres and keeps whole grams", () => {
+    const r = parseTradeFields({ ...base, unitWeightGrams: "750", lengthCm: "30.5", widthCm: "20", heightCm: "12" });
+    expect(r.shippingInvalid).toBe(false);
+    expect(r.trade).toMatchObject({ unitWeightGrams: 750, unitLengthMm: 305, unitWidthMm: 200, unitHeightMm: 120 });
+  });
+  it("flags zero, negative, fractional-gram or non-numeric values separately from the trade numbers", () => {
+    for (const bad of [{ unitWeightGrams: "0" }, { unitWeightGrams: "1.5" }, { lengthCm: "-2" }, { heightCm: "abc" }]) {
+      const r = parseTradeFields({ ...base, ...bad });
+      expect(r.shippingInvalid).toBe(true);
+      expect(r.invalid).toBe(false);
+    }
+  });
+  it("renders labelled shipping inputs prefilled in grams and cm", () => {
+    const html = renderToStaticMarkup(
+      <NextIntlClientProvider locale="en" messages={JSON.parse(readFileSync(join(__dirname, "..", "messages", "en.freight.json"), "utf8"))}>
+        <ShippingFields trade={{ unitWeightGrams: 750, unitLengthMm: 305 }} state={null} />
+      </NextIntlClientProvider>,
+    );
+    expect(html).toContain('name="unitWeightGrams"');
+    expect(html).toContain('value="750"');
+    expect(html).toContain('value="30.5"');
+    expect(html).toContain("Packed weight per unit (grams)");
   });
 });
 

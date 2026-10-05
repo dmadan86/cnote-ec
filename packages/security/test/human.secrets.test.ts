@@ -298,6 +298,14 @@ describe("validateSecrets matrix", () => {
     expect(errs("web", prod({ EDGE_PROVIDER: "cloudflare" }))).toMatch(/DOMAIN_CHECK_SECRET/);
     expect(errs("web", prod({ EDGE_PROVIDER: "cloudflare", DOMAIN_CHECK_SECRET: "d" }))).toBe("");
   });
+  it("production requires carrier credentials for a live FREIGHT_PROVIDER", () => {
+    expect(errs("web", prod({ FREIGHT_PROVIDER: "shiprocket" }))).toMatch(/SHIPROCKET_EMAIL/);
+    expect(errs("web", prod({ FREIGHT_PROVIDER: "shiprocket", SHIPROCKET_EMAIL: "a@b.c" }))).toMatch(/SHIPROCKET_PASSWORD/);
+    expect(errs("web", prod({ FREIGHT_PROVIDER: "shiprocket", SHIPROCKET_EMAIL: "a@b.c", SHIPROCKET_PASSWORD: "p" }))).toBe("");
+    expect(errs("web", prod({ FREIGHT_PROVIDER: "delhivery" }))).toMatch(/DELHIVERY_API_TOKEN/);
+    expect(errs("web", prod({ FREIGHT_PROVIDER: "delhivery", DELHIVERY_API_TOKEN: "t" }))).toBe("");
+    expect(errs("web", prod({ FREIGHT_PROVIDER: "heuristic" }))).toBe("");
+  });
   it("production requires TLS to Postgres and Redis unless loopback or explicitly waived", () => {
     expect(errs("api", prod({ DATABASE_URL: "postgres://u:p@db.internal/cnote" }))).toMatch(/DATABASE_URL has no TLS/);
     expect(errs("api", prod({ LIVE_DATABASE_URL: "postgres://u:p@db.internal/live?sslmode=prefer" }))).toMatch(/LIVE_DATABASE_URL has no TLS/);

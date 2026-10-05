@@ -254,6 +254,7 @@ async function processRow(job: JobRow, opts: ImportOptions, r: ImportRow, images
       if (r.moqUnit !== undefined) patch.moqUnit = r.moqUnit;
       if (r.hsn !== undefined) patch.hsn = r.hsn;
       if (r.language !== undefined) patch.language = r.language;
+      if (r.shipping) patch.trade = { ...ex.trade, ...r.shipping }; // updateListing replaces the whole trade block, so keep the rest
       if (r.imageUrls.length) patch.imageUrls = r.imageUrls;
       listingId = (await catalogue.updateListing(bid, ex.id, patch)).id;
       kind = "u";
@@ -261,6 +262,7 @@ async function processRow(job: JobRow, opts: ImportOptions, r: ImportRow, images
       const created = await catalogue.createListing(bid, {
         sku: r.sku, categoryId: r.categoryId, title: r.title, description: r.description ?? "", attributes: r.attributes, pricePaise: r.pricePaise ?? null, priceUnit: r.priceUnit ?? null,
         moq: r.moq ?? null, moqUnit: r.moqUnit ?? null, hsn: r.hsn ?? null, language: r.language ?? "en", imageUrls: r.imageUrls,
+        ...(r.shipping ? { trade: r.shipping } : {}),
       });
       listingId = created.id;
       kind = "c";
@@ -491,6 +493,8 @@ export async function buildExport(sellerBusinessId: string, opts: { format: "xls
     const values: Record<string, Cell> = {
       sku, title: l.title, category: l.category.slug, description: l.description, price_rupees: l.pricePaise === null ? "" : l.pricePaise / 100, price_unit: l.priceUnit, moq: l.moq,
       moq_unit: l.moqUnit, hsn: l.hsn, language: l.language, image_files: files.map((f) => f.name).join(", "), image_urls: l.imageUrls.filter((u) => u.startsWith("https://")).join(", "),
+      unit_weight_g: l.trade?.unitWeightGrams ?? "", unit_length_cm: l.trade?.unitLengthMm ? l.trade.unitLengthMm / 10 : "",
+      unit_width_cm: l.trade?.unitWidthMm ? l.trade.unitWidthMm / 10 : "", unit_height_cm: l.trade?.unitHeightMm ? l.trade.unitHeightMm / 10 : "",
     };
     for (const [k, v] of Object.entries(l.attributes)) values[`attr:${k}`] = v;
     lines.push([

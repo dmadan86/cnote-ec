@@ -78,6 +78,7 @@ const INSTRUCTIONS = [
   "IMAGES",
   "image_files: comma-separated names of photos inside the images/ folder of your ZIP, for example box-1.jpg, box-2.jpg. JPEG, PNG or WebP, 200 to 6000 px, up to 5 MB each, up to 8 per product.",
   "image_urls: optional https:// links kept as reference images.",
+  "unit_weight_g (whole grams), unit_length_cm, unit_width_cm, unit_height_cm: packed weight and outer size of ONE price unit; buyers see freight estimates from these. Optional.",
   "Uploaded photos go through the same staff approval as photos added one by one. They appear on your live listing only after they are approved.",
   "",
   "ZIP LAYOUT",

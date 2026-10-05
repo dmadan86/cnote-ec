@@ -18,6 +18,8 @@ export interface ImportRow {
   moqUnit?: string;
   hsn?: string;
   language?: string;
+  /** shipping facts per unit for the freight estimator (grams / millimetres); only the cells that were filled */
+  shipping?: { unitWeightGrams?: number; unitLengthMm?: number; unitWidthMm?: number; unitHeightMm?: number };
   attributes: Record<string, string | number>;
   /** zip paths relative to images/ (original case) */
   imageFiles: string[];
@@ -147,6 +149,21 @@ export function validateRows(rows: RawRow[], ctx: ValidationContext): Validation
       else language = l;
     }
 
+    // shipping facts (freight estimator)
+    const shipping: NonNullable<ImportRow["shipping"]> = {};
+    if (c.unit_weight_g) {
+      const n = Number(c.unit_weight_g.replace(/,/g, ""));
+      if (!Number.isInteger(n) || n < 1 || n > 50_000_000) bad("unit_weight_g", "Weight must be whole grams, 1 or more");
+      else shipping.unitWeightGrams = n;
+    }
+    for (const [col, key] of [["unit_length_cm", "unitLengthMm"], ["unit_width_cm", "unitWidthMm"], ["unit_height_cm", "unitHeightMm"]] as const) {
+      const raw = c[col];
+      if (!raw) continue;
+      const n = Number(raw.replace(/,/g, ""));
+      if (!Number.isFinite(n) || n <= 0 || n > 2000) bad(col, "Size must be a number of centimetres between 0.1 and 2000");
+      else shipping[key] = Math.max(1, Math.round(n * 10));
+    }
+
     // attributes
     const attributes: Record<string, string | number> = {};
     if (category) {
@@ -212,7 +229,7 @@ export function validateRows(rows: RawRow[], ctx: ValidationContext): Validation
     }
     valid.push({
       row: r.row, sku, categoryId: category!.id, categorySlug: category!.slug, title, description, pricePaise, priceUnit: c.price_unit || undefined,
-      moq, moqUnit: c.moq_unit || undefined, hsn, language, attributes, imageFiles, imageUrls,
+      moq, moqUnit: c.moq_unit || undefined, hsn, language, shipping: Object.keys(shipping).length ? shipping : undefined, attributes, imageFiles, imageUrls,
     });
   }
   return { valid, errors, warnings, invalidRows };

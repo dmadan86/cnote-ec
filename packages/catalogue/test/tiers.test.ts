@@ -35,7 +35,7 @@ describe("parsing + trade info", () => {
     expect(parseTrade("junk")).toEqual({});
   });
   it("tradeOfRow converts paise bigint to a number", () => {
-    expect(tradeOfRow({ leadTimeDays: 7, packaging: null, sampleAvailable: true, samplePricePaise: 25000n, supplyCapacityPerMonth: null, paymentTerms: null, certifications: [] })).toEqual({ leadTimeDays: 7, sampleAvailable: true, samplePricePaise: 25000 });
+    expect(tradeOfRow({ leadTimeDays: 7, packaging: null, sampleAvailable: true, samplePricePaise: 25000n, supplyCapacityPerMonth: null, paymentTerms: null, certifications: [], unitWeightGrams: 500, unitLengthMm: null, unitWidthMm: null, unitHeightMm: null })).toEqual({ leadTimeDays: 7, sampleAvailable: true, samplePricePaise: 25000, unitWeightGrams: 500 });
   });
   it("input schema validates tiers/trade shape", () => {
     const base = { categoryId: crypto.randomUUID(), title: "x", description: "", attributes: {}, pricePaise: 1, priceUnit: "pcs", moq: 1, moqUnit: "pcs", hsn: null, language: "en", imageUrls: [] };

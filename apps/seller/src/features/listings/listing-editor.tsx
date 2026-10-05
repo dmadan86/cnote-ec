@@ -8,7 +8,7 @@ import type { CategoryView, ListingView, VersionView } from "@cnote/catalogue";
 import { LANGUAGES, UNITS } from "@/lib/constants";
 import { FormAlert, SubmitButton, fieldError } from "@/features/shell/form-bits";
 import { saveListingAction, type SaveResult } from "./actions";
-import { TierFields, TradeFields } from "./tier-fields";
+import { ShippingFields, TierFields, TradeFields } from "./tier-fields";
 
 function Outcome({ version, continueHref, continueLabel }: { version: VersionView | undefined; continueHref: string; continueLabel: string }) {
   const t = useTranslations("listings.editor");
@@ -117,6 +117,7 @@ export function ListingEditor({
 
       <TierFields tiers={current?.priceTiers ?? []} state={state} />
       <TradeFields trade={current?.trade ?? {}} state={state} />
+      <ShippingFields trade={current?.trade ?? {}} state={state} />
 
       {category && category.attributeSchema.fields.length > 0 ? (
         <fieldset key={category.id} className="space-y-4 rounded-card border border-line bg-surface p-4">
