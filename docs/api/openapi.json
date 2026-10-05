@@ -3,7 +3,7 @@
   "info": {
     "title": "cnote API",
     "version": "1.0.0",
-    "description": "Public REST API for the cnote B2B marketplace for Indian MSMEs. An MCP server exposing the same capabilities is available at `http://localhost:3003/mcp`.\n\n## Authentication\nCreate a personal API key in the web app (Account > Developers) or the seller portal, then send it on every request:\n\n`Authorization: Bearer ck_live_...`\n\nKeys are shown once, can expire (1 day to never) and are revoked instantly. A missing/invalid key returns 401 with a `WWW-Authenticate` header.\n\n## Scopes\nEach operation lists its scope in `x-required-scope`. A `:write` scope implies the matching `:read`. Missing scope returns 403.\n\n- `profile:read`: Read the key owner's profile and business summary (GET /v1/me).\n- `catalogue:read`: Browse categories, published listings and seller trust profiles.\n- `search:read`: Search the catalogue (trust-ranked).\n- `listings:read`: Read your own listings, including drafts (seller keys).\n- `listings:write`: Create, edit, publish and archive your own listings (seller keys).\n- `enquiries:read`: Read your enquiries and their matches (buyer).\n- `enquiries:write`: Create enquiries (buyer).\n- `leads:read`: Read leads offered to your business (seller).\n- `leads:write`: Accept (consumes 1 credit) or decline leads (seller).\n- `messages:read`: Read conversations you take part in.\n- `messages:write`: Send messages and quotes, report deal outcomes.\n- `wishlist:read`: Read your wishlists.\n- `wishlist:write`: Add and remove wishlist items.\n- `reviews:read`: Read approved reviews.\n- `reviews:write`: Submit reviews (held for moderation).\n- `billing:read`: Read your lead-credit balance (seller).\n\n## Rate limits\n120 requests per minute per key (REST and MCP combined). Exceeding it returns 429 with a `Retry-After` header (seconds). Some actions have tighter limits (e.g. chat messages).\n\n## Conventions\n- Money is integer paise; every money-bearing object carries `currency: \"INR\"`.\n- Dates are ISO 8601. Lists use cursor pagination: `?cursor=&limit=` (limit up to 100); pass `nextCursor` back until it is null.\n- Errors: `{ \"error\": { \"code\", \"message\", \"requestId\", \"issues\"? } }`. Quote `requestId` (also the `X-Request-Id` header) when contacting support.\n\n## Business rules\n- Search ranks by relevance x seller trust, never by paid tier; `sponsored` is always false.\n- Enquiries are intent-scored and matched exclusively to at most N sellers; buyer contact is revealed to a seller only after accepting.\n- Accepting a lead consumes 1 credit.\n- Listings and reviews are moderated: only published + approved listings and approved reviews are public.\n- A key acts only within its own person/business; keys not bound to a business cannot use buyer/seller endpoints.",
+    "description": "Public REST API for the cnote B2B marketplace for Indian MSMEs. An MCP server exposing the same capabilities is available at `http://localhost:3003/mcp`.\n\n## Authentication\nCreate a personal API key in the web app (Account > Developers) or the seller portal, then send it on every request:\n\n`Authorization: Bearer ck_live_...`\n\nKeys are shown once, can expire (1 day to never) and are revoked instantly. A missing/invalid key returns 401 with a `WWW-Authenticate` header.\n\n## Scopes\nEach operation lists its scope in `x-required-scope`. A `:write` scope implies the matching `:read`. Missing scope returns 403.\n\n- `agents:read`: Read your agent mandates and negotiations (business keys).\n- `agents:write`: Start negotiations and send offers, counters, accepts, rejects and withdrawals as your business's agent. Deals still need human confirmation.\n- `profile:read`: Read the key owner's profile and business summary (GET /v1/me).\n- `catalogue:read`: Browse categories, published listings and seller trust profiles.\n- `search:read`: Search the catalogue (trust-ranked).\n- `listings:read`: Read your own listings, including drafts (seller keys).\n- `listings:write`: Create, edit, publish and archive your own listings (seller keys).\n- `enquiries:read`: Read your enquiries and their matches (buyer).\n- `enquiries:write`: Create enquiries (buyer).\n- `leads:read`: Read leads offered to your business (seller).\n- `leads:write`: Accept (consumes 1 credit) or decline leads (seller).\n- `messages:read`: Read conversations you take part in.\n- `messages:write`: Send messages and quotes, report deal outcomes.\n- `wishlist:read`: Read your wishlists.\n- `wishlist:write`: Add and remove wishlist items.\n- `reviews:read`: Read approved reviews.\n- `reviews:write`: Submit reviews (held for moderation).\n- `billing:read`: Read your lead-credit balance (seller).\n- `contracts:read`: Read your rate contracts and their consumption (buyer and seller keys bound to a business).\n- `contracts:write`: Place call-off orders against your active rate contracts at the contract prices (buyer keys). Creating, changing and accepting contracts needs the app.\n\n## Rate limits\n120 requests per minute per key (REST and MCP combined). Exceeding it returns 429 with a `Retry-After` header (seconds). Some actions have tighter limits (e.g. chat messages).\n\n## Conventions\n- Money is integer paise; every money-bearing object carries `currency: \"INR\"`.\n- Dates are ISO 8601. Lists use cursor pagination: `?cursor=&limit=` (limit up to 100); pass `nextCursor` back until it is null.\n- Errors: `{ \"error\": { \"code\", \"message\", \"requestId\", \"issues\"? } }`. Quote `requestId` (also the `X-Request-Id` header) when contacting support.\n\n## Business rules\n- Search ranks by relevance x seller trust, never by paid tier; `sponsored` is always false.\n- Enquiries are intent-scored and matched exclusively to at most N sellers; buyer contact is revealed to a seller only after accepting.\n- Accepting a lead consumes 1 credit.\n- Listings and reviews are moderated: only published + approved listings and approved reviews are public.\n- A key acts only within its own person/business; keys not bound to a business cannot use buyer/seller endpoints.",
     "contact": {
       "name": "cnote developers"
     }
@@ -2313,6 +2313,1520 @@
           "rating": 5,
           "title": "Reliable supplier",
           "body": "Delivered on time and the quality matched the sample."
+        }
+      },
+      "AgentMandatePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentMandate"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "AgentMandate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "businessId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "buyer",
+              "seller"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "categorySlug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quantity": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "targetPricePaise": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "limitPricePaise": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Your own limit (buyer: maximum price; seller: floor). Never visible to the counterparty."
+          },
+          "maxLeadTimeDays": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "maxRounds": {
+            "type": "number"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "autoAccept": {
+            "type": "boolean",
+            "description": "Set by the business's people in the app; cannot be changed through the API."
+          },
+          "autoAcceptLimitPaise": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "version": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "businessId",
+          "side",
+          "status",
+          "name",
+          "categorySlug",
+          "quantity",
+          "unit",
+          "targetPricePaise",
+          "limitPricePaise",
+          "maxLeadTimeDays",
+          "maxRounds",
+          "expiresAt",
+          "autoAccept",
+          "autoAcceptLimitPaise",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": {}
+      },
+      "AgentNegotiationPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentNegotiationSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "AgentNegotiationSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "agreed",
+              "accepted",
+              "rejected",
+              "withdrawn",
+              "expired"
+            ]
+          },
+          "youAre": {
+            "type": "string",
+            "enum": [
+              "buyer",
+              "seller"
+            ]
+          },
+          "counterparty": {
+            "type": "object",
+            "properties": {
+              "businessId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "businessId",
+              "name"
+            ]
+          },
+          "enquiryId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "matchId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "round": {
+            "type": "number"
+          },
+          "maxRounds": {
+            "type": "number"
+          },
+          "turn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "buyer",
+              "seller",
+              null
+            ]
+          },
+          "lastPricePaise": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "agreedPricePaise": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "canConfirm": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "youAre",
+          "counterparty",
+          "enquiryId",
+          "matchId",
+          "round",
+          "maxRounds",
+          "turn",
+          "lastPricePaise",
+          "agreedPricePaise",
+          "canConfirm",
+          "createdAt",
+          "expiresAt"
+        ],
+        "additionalProperties": {}
+      },
+      "AgentNegotiation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "agreed",
+              "accepted",
+              "rejected",
+              "withdrawn",
+              "expired"
+            ]
+          },
+          "youAre": {
+            "type": "string",
+            "enum": [
+              "buyer",
+              "seller"
+            ]
+          },
+          "buyer": {
+            "type": "object",
+            "properties": {
+              "businessId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "businessId",
+              "name"
+            ]
+          },
+          "seller": {
+            "type": "object",
+            "properties": {
+              "businessId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "businessId",
+              "name"
+            ]
+          },
+          "enquiryId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "matchId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "round": {
+            "type": "number"
+          },
+          "maxRounds": {
+            "type": "number"
+          },
+          "turn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "buyer",
+              "seller",
+              null
+            ]
+          },
+          "lastOffer": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AgentOffer"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "by": {
+                    "type": "string",
+                    "enum": [
+                      "buyer",
+                      "seller"
+                    ]
+                  }
+                },
+                "required": [
+                  "by"
+                ]
+              }
+            ]
+          },
+          "agreed": {
+            "$ref": "#/components/schemas/AgentOffer"
+          },
+          "yourConfirmation": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "human",
+              "auto",
+              "declined"
+            ]
+          },
+          "counterpartyConfirmed": {
+            "type": "boolean"
+          },
+          "canConfirm": {
+            "type": "boolean",
+            "description": "Informational: only the business's people can confirm, in the app."
+          },
+          "yourLimits": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {},
+            "description": "Your own limits only; the counterparty's are never included."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "closedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "seq": {
+                  "type": "number"
+                },
+                "side": {
+                  "type": "string",
+                  "enum": [
+                    "buyer",
+                    "seller"
+                  ]
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "offer",
+                    "counter",
+                    "accept",
+                    "reject",
+                    "withdraw"
+                  ]
+                },
+                "offer": {
+                  "$ref": "#/components/schemas/AgentOffer"
+                },
+                "actor": {
+                  "type": "string",
+                  "enum": [
+                    "agent",
+                    "external_agent",
+                    "person"
+                  ]
+                },
+                "mine": {
+                  "type": "boolean"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "seq",
+                "side",
+                "type",
+                "offer",
+                "actor",
+                "mine",
+                "createdAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "youAre",
+          "buyer",
+          "seller",
+          "enquiryId",
+          "matchId",
+          "round",
+          "maxRounds",
+          "turn",
+          "lastOffer",
+          "agreed",
+          "yourConfirmation",
+          "counterpartyConfirmed",
+          "canConfirm",
+          "yourLimits",
+          "expiresAt",
+          "createdAt",
+          "closedAt",
+          "messages"
+        ],
+        "additionalProperties": {}
+      },
+      "AgentOffer": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AgentOfferTerms"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "deliveryTerms": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "paymentTerms": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "deliveryTerms",
+              "paymentTerms"
+            ]
+          }
+        ]
+      },
+      "AgentOfferTerms": {
+        "type": "object",
+        "properties": {
+          "pricePaise": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Unit price in integer paise (INR x 100).",
+            "example": 125000
+          },
+          "quantity": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "example": 500
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20,
+            "example": "pc"
+          },
+          "leadTimeDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 365,
+            "example": 10
+          },
+          "deliveryTerms": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300
+          },
+          "validUntil": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Last day (inclusive, YYYY-MM-DD) the offer can be accepted. At most 90 days ahead.",
+            "example": "2026-10-15"
+          },
+          "paymentTerms": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "pricePaise",
+          "quantity",
+          "unit",
+          "leadTimeDays",
+          "validUntil"
+        ]
+      },
+      "AgentNegotiationStart": {
+        "type": "object",
+        "properties": {
+          "mandateId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "matchId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          }
+        },
+        "required": [
+          "mandateId",
+          "matchId"
+        ]
+      },
+      "AgentNegotiationMessage": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "offer"
+                ]
+              },
+              "offer": {
+                "$ref": "#/components/schemas/AgentOfferTerms"
+              }
+            },
+            "required": [
+              "type",
+              "offer"
+            ],
+            "description": "Opening offer (only when there is no standing offer)."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "counter"
+                ]
+              },
+              "offer": {
+                "$ref": "#/components/schemas/AgentOfferTerms"
+              }
+            },
+            "required": [
+              "type",
+              "offer"
+            ],
+            "description": "Counter the other side's standing offer."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "accept"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "description": "Accept the other side's standing offer."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "reject"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "description": "Reject the other side's standing offer and close the negotiation."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "withdraw"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "description": "Withdraw from the negotiation (either side, any time while open)."
+          }
+        ]
+      },
+      "RateContractPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RateContractRow"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "null when there are no more results."
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "RateContractRow": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "number": {
+            "type": "string",
+            "example": "RC/26-27/000003"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "proposed",
+              "active",
+              "expired",
+              "terminated"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "buyer",
+              "seller"
+            ]
+          },
+          "counterparty": {
+            "type": "object",
+            "properties": {
+              "businessId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "businessId",
+              "name"
+            ]
+          },
+          "validFrom": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Indian calendar date, YYYY-MM-DD.",
+            "example": "2026-10-06"
+          },
+          "validTo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Indian calendar date, YYYY-MM-DD.",
+            "example": "2027-10-05"
+          },
+          "valuePercent": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Percent of the contract value cap used; null without a value cap."
+          },
+          "needsAnswer": {
+            "type": "boolean",
+            "description": "True when your business has to accept or decline a pending revision."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title",
+          "status",
+          "role",
+          "counterparty",
+          "validFrom",
+          "validTo",
+          "valuePercent",
+          "needsAnswer",
+          "createdAt"
+        ]
+      },
+      "RateContract": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "number": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "proposed",
+              "active",
+              "expired",
+              "terminated"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "buyer",
+              "seller"
+            ]
+          },
+          "counterparty": {
+            "type": "object",
+            "properties": {
+              "businessId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "businessId",
+              "name"
+            ]
+          },
+          "latestRevision": {
+            "type": "integer"
+          },
+          "activeRevision": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "phase": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "not_started",
+              "in_force",
+              "ended",
+              null
+            ]
+          },
+          "daysLeft": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "current": {
+            "$ref": "#/components/schemas/RateContractRevision"
+          },
+          "pending": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateContractRevision"
+              },
+              {
+                "description": "A revision waiting for an answer, if any."
+              }
+            ]
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "revision": {
+                  "type": "integer"
+                },
+                "proposedByRole": {
+                  "type": "string",
+                  "enum": [
+                    "buyer",
+                    "seller"
+                  ]
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "changeNote": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "superseded",
+                    "pending",
+                    "declined"
+                  ]
+                }
+              },
+              "required": [
+                "revision",
+                "proposedByRole",
+                "createdAt",
+                "changeNote",
+                "state"
+              ]
+            }
+          },
+          "consumption": {
+            "type": "object",
+            "properties": {
+              "valueUsedPaise": {
+                "type": "integer"
+              },
+              "valueCapPaise": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "valuePercent": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "valueUsedPaise",
+              "valueCapPaise",
+              "valuePercent"
+            ]
+          },
+          "callOffs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RateContractCallOff"
+            }
+          },
+          "sourceQuoteId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "renewedFromId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "terminationReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "terminatedByRole": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "buyer",
+              "seller",
+              null
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actions": {
+            "type": "object",
+            "properties": {
+              "edit": {
+                "type": "boolean"
+              },
+              "send": {
+                "type": "boolean"
+              },
+              "propose": {
+                "type": "boolean"
+              },
+              "respond": {
+                "type": "boolean"
+              },
+              "terminate": {
+                "type": "boolean"
+              },
+              "callOff": {
+                "type": "boolean"
+              },
+              "renew": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "edit",
+              "send",
+              "propose",
+              "respond",
+              "terminate",
+              "callOff",
+              "renew"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title",
+          "status",
+          "role",
+          "counterparty",
+          "latestRevision",
+          "activeRevision",
+          "phase",
+          "daysLeft",
+          "current",
+          "pending",
+          "history",
+          "consumption",
+          "callOffs",
+          "sourceQuoteId",
+          "renewedFromId",
+          "terminationReason",
+          "terminatedByRole",
+          "createdAt",
+          "actions"
+        ]
+      },
+      "RateContractRevision": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer"
+          },
+          "proposedByRole": {
+            "type": "string",
+            "enum": [
+              "buyer",
+              "seller"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "validFrom": {
+            "type": "string",
+            "description": "Indian calendar date, YYYY-MM-DD.",
+            "example": "2026-10-06"
+          },
+          "validTo": {
+            "type": "string",
+            "description": "Indian calendar date, YYYY-MM-DD.",
+            "example": "2027-10-05"
+          },
+          "paymentTermsDays": {
+            "type": "integer"
+          },
+          "priceBasis": {
+            "type": "string",
+            "enum": [
+              "ex_works",
+              "for_destination",
+              "delivered",
+              "other"
+            ]
+          },
+          "valueCapPaise": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changeNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RateContractItem"
+            }
+          },
+          "answers": {
+            "type": "object",
+            "properties": {
+              "buyer": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "accepted",
+                  "rejected"
+                ]
+              },
+              "seller": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "accepted",
+                  "rejected"
+                ]
+              },
+              "buyerReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sellerReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "buyer",
+              "seller",
+              "buyerReason",
+              "sellerReason"
+            ]
+          }
+        },
+        "required": [
+          "revision",
+          "proposedByRole",
+          "createdAt",
+          "validFrom",
+          "validTo",
+          "paymentTermsDays",
+          "priceBasis",
+          "valueCapPaise",
+          "notes",
+          "changeNote",
+          "items",
+          "answers"
+        ],
+        "description": "The terms in force (the revision both parties accepted)."
+      },
+      "RateContractItem": {
+        "type": "object",
+        "properties": {
+          "itemKey": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "lineNo": {
+            "type": "integer"
+          },
+          "listingId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "hsn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "unit": {
+            "type": "string"
+          },
+          "unitPricePaise": {
+            "type": "integer",
+            "description": "Contract price per unit before GST, integer paise (INR x 100)."
+          },
+          "gstRateBps": {
+            "type": "integer",
+            "description": "GST rate in basis points (1800 = 18%)."
+          },
+          "moq": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Minimum quantity per call-off."
+          },
+          "quantityCap": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Cap on the total quantity over the life of the contract."
+          },
+          "variationKind": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "indexed"
+            ]
+          },
+          "variationCapBps": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "For indexed items: the most a call-off price may differ from the contract price, in basis points."
+          },
+          "variationNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "consumedQuantity": {
+            "type": "integer"
+          },
+          "remainingQuantity": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "usedPercent": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "itemKey",
+          "lineNo",
+          "listingId",
+          "description",
+          "hsn",
+          "unit",
+          "unitPricePaise",
+          "gstRateBps",
+          "moq",
+          "quantityCap",
+          "variationKind",
+          "variationCapBps",
+          "variationNote",
+          "consumedQuantity",
+          "remainingQuantity",
+          "usedPercent"
+        ]
+      },
+      "RateContractCallOff": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "callOffNo": {
+            "type": "integer"
+          },
+          "orderId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "placed",
+              "cancelled"
+            ]
+          },
+          "taxablePaise": {
+            "type": "integer",
+            "description": "Order value before GST, paise."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "itemKey": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer"
+                },
+                "contractPricePaise": {
+                  "type": "integer"
+                },
+                "appliedPricePaise": {
+                  "type": "integer"
+                },
+                "taxablePaise": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "itemKey",
+                "description",
+                "unit",
+                "quantity",
+                "contractPricePaise",
+                "appliedPricePaise",
+                "taxablePaise"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "callOffNo",
+          "orderId",
+          "revision",
+          "status",
+          "taxablePaise",
+          "createdAt",
+          "lines"
+        ]
+      },
+      "RateContractCallOffResult": {
+        "type": "object",
+        "properties": {
+          "callOff": {
+            "$ref": "#/components/schemas/RateContractCallOff"
+          },
+          "orderId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "purchaseOrder": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+              },
+              "number": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "totalPaise": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "number",
+              "status",
+              "totalPaise"
+            ]
+          },
+          "purchaseOrderError": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Set when the order exists but its purchase order could not be issued; issue it from the order page."
+          },
+          "contract": {
+            "$ref": "#/components/schemas/RateContract"
+          }
+        },
+        "required": [
+          "callOff",
+          "orderId",
+          "purchaseOrder",
+          "purchaseOrderError",
+          "contract"
+        ]
+      },
+      "RateContractCallOffCreate": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "itemKey": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10",
+                  "description": "`itemKey` of an item on the contract's current terms."
+                },
+                "quantity": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "example": 500
+                },
+                "unitPricePaise": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "exclusiveMinimum": 0,
+                  "description": "Only for an `indexed` item: the price for this call-off, within the item's cap. Fixed prices cannot be overridden."
+                }
+              },
+              "required": [
+                "itemKey",
+                "quantity"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 50
+          },
+          "addressId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10",
+            "description": "One of your saved delivery addresses; required while purchase orders are enabled."
+          },
+          "expectedDelivery": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "YYYY-MM-DD, not in the past."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "lines"
+        ],
+        "example": {
+          "lines": [
+            {
+              "itemKey": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10",
+              "quantity": 500
+            }
+          ],
+          "addressId": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d11",
+          "expectedDelivery": "2026-11-15"
         }
       }
     },
@@ -5336,6 +6850,910 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MyReview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/mandates": {
+      "get": {
+        "operationId": "listAgentMandates",
+        "tags": [
+          "Agents"
+        ],
+        "summary": "List your agent mandates",
+        "description": "Mandates are created by your business's people in the app; the API cannot create them or enable auto-accept. Requires a key bound to a business. Part of the agent-to-agent API (ADR-020); needs A2A to be enabled for negotiations.\n\n**Required scope:** `agents:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "agents:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "buyer",
+                "seller"
+              ]
+            },
+            "required": false,
+            "name": "side",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of mandates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentMandatePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/mandates/{id}": {
+      "get": {
+        "operationId": "getAgentMandate",
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Get a mandate",
+        "description": "Requires a key bound to a business. Part of the agent-to-agent API (ADR-020); needs A2A to be enabled for negotiations.\n\n**Required scope:** `agents:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "agents:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mandate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentMandate"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/negotiations": {
+      "get": {
+        "operationId": "listAgentNegotiations",
+        "tags": [
+          "Agents"
+        ],
+        "summary": "List your negotiations",
+        "description": "Requires a key bound to a business. Part of the agent-to-agent API (ADR-020); needs A2A to be enabled for negotiations.\n\n**Required scope:** `agents:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "agents:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "agreed",
+                "accepted",
+                "rejected",
+                "withdrawn",
+                "expired"
+              ]
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "buyer",
+                "seller"
+              ]
+            },
+            "required": false,
+            "name": "side",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Opaque cursor from a previous response's `nextCursor`."
+            },
+            "required": false,
+            "description": "Opaque cursor from a previous response's `nextCursor`.",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of negotiations, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentNegotiationPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "startAgentNegotiation",
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Start a negotiation on a match",
+        "description": "Opens a negotiation on a match using one of your active mandates. Idempotent per match. Rate limited per business (A2A_STARTS_PER_HOUR). Returns 409 when A2A is not enabled. Requires a key bound to a business. Part of the agent-to-agent API (ADR-020); needs A2A to be enabled for negotiations.\n\n**Required scope:** `agents:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "agents:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "description": "Optional. Makes a retried start return the same negotiation."
+            },
+            "required": false,
+            "description": "Optional. Makes a retried start return the same negotiation.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentNegotiationStart"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Negotiation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentNegotiation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/negotiations/{id}": {
+      "get": {
+        "operationId": "getAgentNegotiation",
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Get a negotiation",
+        "description": "The transcript as your business sees it. Your own limits are included; the counterparty's are never shown. Requires a key bound to a business. Part of the agent-to-agent API (ADR-020); needs A2A to be enabled for negotiations.\n\n**Required scope:** `agents:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "agents:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Negotiation with messages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentNegotiation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/negotiations/{id}/messages": {
+      "post": {
+        "operationId": "sendAgentNegotiationMessage",
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Send an offer, counter, accept, reject or withdraw",
+        "description": "Bounds are enforced server-side; a violation names only your own limits. An accept leaves the negotiation \"agreed\": it is never a deal until your business's people confirm it in the app (there is no confirm endpoint), unless they enabled auto-accept within bounds. A buyer never lowers its own price and a seller never raises. Per-business and per-key message rate limits apply (429). Retrying with the same Idempotency-Key returns the original result. Requires a key bound to a business. Part of the agent-to-agent API (ADR-020); needs A2A to be enabled for negotiations.\n\n**Required scope:** `agents:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "agents:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "description": "REQUIRED. Unique per message you intend to send; retrying with the same key returns the original result.",
+              "example": "neg-42-counter-1"
+            },
+            "required": true,
+            "description": "REQUIRED. Unique per message you intend to send; retrying with the same key returns the original result.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentNegotiationMessage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Updated negotiation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentNegotiation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contracts": {
+      "get": {
+        "operationId": "listRateContracts",
+        "tags": [
+          "Rate contracts"
+        ],
+        "summary": "List your rate contracts",
+        "description": "Contracts where your business is the buyer or the seller (choose with `role`). Sellers never see a buyer's unsent drafts. Requires a key bound to a business. Contracts are private between the two parties.\n\n**Required scope:** `contracts:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "contracts:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "buyer",
+                "seller"
+              ],
+              "default": "buyer",
+              "description": "Which side of the contracts to list: those where your business is the buyer or the seller."
+            },
+            "required": false,
+            "description": "Which side of the contracts to list: those where your business is the buyer or the seller.",
+            "name": "role",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "proposed",
+                "active",
+                "expired",
+                "terminated"
+              ]
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Opaque cursor from a previous response's `nextCursor`."
+            },
+            "required": false,
+            "description": "Opaque cursor from a previous response's `nextCursor`.",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 25,
+              "description": "Page size (1-50)."
+            },
+            "required": false,
+            "description": "Page size (1-50).",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of contracts, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateContractPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contracts/{id}": {
+      "get": {
+        "operationId": "getRateContract",
+        "tags": [
+          "Rate contracts"
+        ],
+        "summary": "Get a rate contract",
+        "description": "The terms in force, any revision waiting for an answer, the revision history, consumption against the caps and every call-off. Requires a key bound to a business. Contracts are private between the two parties.\n\n**Required scope:** `contracts:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "contracts:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rate contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateContract"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contracts/{id}/call-offs": {
+      "post": {
+        "operationId": "placeRateContractCallOff",
+        "tags": [
+          "Rate contracts"
+        ],
+        "summary": "Place a call-off order",
+        "description": "Buyer only. Creates an order (and, while purchase orders are enabled, a purchase order) at the contract's locked prices without an RFQ. Fixed prices cannot be overridden; an `indexed` item may move within its declared cap. The minimum per call-off, each item's quantity cap and the contract value cap are enforced, and the contract must be active and inside its dates. Crossing 80% or 100% of a cap notifies both parties. Requires a key bound to a business. Contracts are private between the two parties.\n\n**Required scope:** `contracts:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "contracts:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "description": "REQUIRED. Unique per call-off you intend to place; retrying with the same key returns the original result instead of ordering twice.",
+              "example": "po-run-2026-10-06-1"
+            },
+            "required": true,
+            "description": "REQUIRED. Unique per call-off you intend to place; retrying with the same key returns the original result instead of ordering twice.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateContractCallOffCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The call-off, its order and purchase order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateContractCallOffResult"
                 }
               }
             }

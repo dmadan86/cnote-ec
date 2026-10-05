@@ -3,6 +3,7 @@ import { agentRoutes } from "./agents";
 import { buyerRoutes } from "./buyer";
 import { bulkRoutes } from "./bulk";
 import { catalogueRoutes } from "./catalogue";
+import { contractRoutes } from "./contracts";
 import { engagementRoutes } from "./engagement";
 import { sellerRoutes } from "./seller";
 
@@ -13,3 +14,4 @@ v1.route("/", bulkRoutes);
 v1.route("/", buyerRoutes);
 v1.route("/", engagementRoutes);
 v1.route("/", agentRoutes);
+v1.route("/", contractRoutes);
