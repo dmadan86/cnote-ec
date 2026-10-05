@@ -11,6 +11,9 @@ enum ConsentPurpose {
   analytics_cookies
   marketing_cookies
   functional_cookies
+  /// the SELLER app's cookie-banner choices (onboarding timing, referral attribution), kept apart from the buyer web's purposes
+  seller_analytics_cookies
+  seller_marketing_cookies
 
   @@map("consent_purpose")
 }

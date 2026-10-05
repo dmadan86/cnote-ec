@@ -1,7 +1,7 @@
 {
   "consent": {
     "aria": "કૂકી સૂચના",
-    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie.",
+    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie. <link>કૂકી નીતિ</link>",
     "acceptAll": "બધું સ્વીકારો",
     "rejectAll": "બધું નકારો",
     "customise": "પસંદગી કરો",
@@ -53,7 +53,23 @@
       "onboardingSkip": "Remembers an onboarding step you chose to skip.",
       "onboardingStart": "Records when you created your business, to measure how long onboarding takes.",
       "onboardingFirstListing": "Remembers that you submitted your first listing, so onboarding can show you the result.",
-      "referral": "Remembers the referral code from the link you followed until you create your business."
-    }
+      "referral": "Remembers the referral code from the link you followed until you create your business.",
+      "consentSync": "ફક્ત આ મુલાકાત માટે, તમારી કૂકી પસંદગી તમારા ખાતા સાથે મેળવવામાં આવી છે તે યાદ રાખે છે."
+    },
+    "policyTitle": "કૂકી નીતિ",
+    "policyDescription": "{site} કઈ કૂકી અને તેવા સંગ્રહનો ઉપયોગ કેમ અને કેટલો સમય કરે છે, અને તમારી પસંદગી કેવી રીતે બદલવી.",
+    "versionLine": "નીતિ આવૃત્તિ {version}, છેલ્લે અપડેટ કર્યું {date}.",
+    "whatTitle": "કૂકી એટલે શું?",
+    "whatBody": "કૂકી એ નાની ટેક્સ્ટ ફાઇલો છે જે વેબસાઇટ તમારા બ્રાઉઝરમાં સાચવે છે. અમે તેવા બ્રાઉઝર સંગ્રહ (લોકલ અને સેશન સ્ટોરેજ) નો પણ ઉપયોગ કરીએ છીએ. કેટલીક જરૂરી છે; બાકીની ફક્ત તમે સંમતિ આપો તો જ વપરાય છે.",
+    "categoriesTitle": "શ્રેણીઓ",
+    "categoriesBody": "અમે તેમને ત્રણ શ્રેણીઓમાં વહેંચીએ છીએ. જરૂરી કૂકી હંમેશાં ચાલુ રહે છે. એનાલિટિક્સ અને માર્કેટિંગ તમે સ્વીકારો ત્યાં સુધી બંધ રહે છે, અને તેમને નકારવાથી {site} પર તમારા કામમાં કોઈ અડચણ આવતી નથી.",
+    "tableTitle": "અમે વાપરીએ છીએ તે કૂકી અને સંગ્રહ",
+    "changeTitle": "તમારી પસંદગી બદલો અથવા પાછી ખેંચો",
+    "changeBody": "તમે તમારી પસંદગી ગમે ત્યારે બદલી શકો છો; સંમતિ પાછી ખેંચવી તે આપવા જેટલી જ સરળ છે. તમે પાછી ખેંચો ત્યારે અમે તે ઉપયોગ બંધ કરીએ છીએ અને સંબંધિત કૂકી તથા સંગ્રહ કાઢી નાખીએ છીએ.",
+    "gpcTitle": "ગ્લોબલ પ્રાઇવસી કંટ્રોલ",
+    "gpcBody": "જો તમારું બ્રાઉઝર ગ્લોબલ પ્રાઇવસી કંટ્રોલ સિગ્નલ મોકલે, તો અમે માર્કેટિંગને ડિફોલ્ટ રૂપે બંધ ગણીએ છીએ. તમે ઇચ્છો તો પસંદગીઓમાં જાતે તેને ચાલુ કરી શકો છો.",
+    "grievanceTitle": "પ્રશ્નો અથવા ફરિયાદો",
+    "grievanceBody": "કૂકી અથવા તમારા વ્યક્તિગત ડેટાના ઉપયોગ વિશે પ્રશ્ન કે ફરિયાદ હોય તો અમારા ફરિયાદ અધિકારીનો સંપર્ક કરો.",
+    "grievanceLink": "ફરિયાદ નિવારણ"
   }
 }

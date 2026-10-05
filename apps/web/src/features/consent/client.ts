@@ -3,7 +3,7 @@
 // which is web-only. Every function still takes an injectable `ConsentEnv` (default: the real browser) so it is testable in node.
 import * as core from "@cnote/consent/client";
 import type { ConsentConfig, ConsentEnv, ConsentReceiptBody } from "@cnote/consent/client";
-import { reconcileAccountConsent, requestedActionFor, type AccountConsent } from "./account-sync";
+import type { AccountConsent } from "./account-sync";
 import { STORAGE_REGISTRY } from "./registry";
 import { CONSENT_COOKIE, CONSENT_POLICY_VERSION, type ConsentAction, type ConsentChoices, type ConsentState, type OptionalCategory } from "./state";
 
@@ -48,32 +48,13 @@ export const applyConsent = (choices: ConsentChoices, requested: Exclude<Consent
 export const acceptAll = (locale: string, env: ConsentEnv = browserEnv()) => core.acceptAll(WEB_CONSENT_CONFIG, locale, env);
 export const rejectAll = (locale: string, env: ConsentEnv = browserEnv()) => core.rejectAll(WEB_CONSENT_CONFIG, locale, env);
 
-/**
- * Account sync (signed-in people): when there is no valid cookie, or once per visit, ask GET /api/consent/account for the
- * ledger and let the NEWER of cookie and ledger win per purpose (a withdrawal elsewhere beats an older grant here).
- * Anonymous visitors cost one tiny request while the banner is showing. Returns true when the cookie was replaced.
- */
-export async function syncFromAccount(locale: string, env: ConsentEnv = browserEnv(), load: () => Promise<AccountConsent | null> = loadAccountConsent): Promise<boolean> {
-  const cookie = readClientConsent(env);
-  if (cookie && env.readSession(CONSENT_SYNC_KEY)) return false;
-  const account = await load();
-  if (!account) return false; // network trouble: try again on the next load
-  env.writeSession(CONSENT_SYNC_KEY, account.signedIn ? "1" : "0");
-  // The visitor may have chosen while the request was in flight: reconcile against the cookie as it is now.
-  const decision = reconcileAccountConsent(readClientConsent(env), account, Math.floor(env.now() / 1000));
-  if (decision.kind !== "adopt") return false;
-  applyConsent(decision.choices, requestedActionFor(decision.choices), locale, env, { at: decision.at });
-  return true;
-}
+const WEB_ACCOUNT_SYNC = { syncKey: CONSENT_SYNC_KEY, accountPath: "/api/consent/account" } as const;
 
-export async function loadAccountConsent(): Promise<AccountConsent | null> {
-  try {
-    const res = await fetch("/api/consent/account", { credentials: "same-origin", cache: "no-store" });
-    return res.ok ? ((await res.json()) as AccountConsent) : null;
-  } catch {
-    return null;
-  }
-}
+/** Account sync (signed-in people): the shared logic is `syncFromAccount` in @cnote/consent/client. */
+export const syncFromAccount = (locale: string, env: ConsentEnv = browserEnv(), load: () => Promise<AccountConsent | null> = loadAccountConsent): Promise<boolean> =>
+  core.syncFromAccount(WEB_CONSENT_CONFIG, WEB_ACCOUNT_SYNC, locale, env, load);
+
+export const loadAccountConsent = (): Promise<AccountConsent | null> => core.loadAccountConsent(WEB_ACCOUNT_SYNC.accountPath);
 
 /** Raw cookie value snapshot (a string, so it is referentially stable between renders). */
 export const consentSnapshot = (): string => core.consentSnapshot(WEB_CONSENT_CONFIG);
