@@ -8,6 +8,7 @@ import { identity } from "@/lib/services";
 import { GstForm } from "@/features/verification/gst-form";
 import { KycPanel } from "@/features/kyc/kyc-panel";
 import { T3Status } from "@/features/kyc/t3-status";
+import { RegistryCard } from "@/features/verification/registry-card";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("verification");
@@ -21,6 +22,8 @@ export default async function VerificationPage() {
   const f = await getFormatter();
   const records = await load(() => identity.listVerificationRecords(b.id));
   const kyc = await load(async () => (b.verificationTier === 1 ? identity.getKycSession({ personId: session.personId, businessId: b.id }) : null));
+  const registry = await load(() => identity.getRegistryStatus(b.id));
+  const company = await load(() => identity.getCompanyProfile(b.id));
   const audits = await load(() => identity.listAudits({ businessId: b.id, limit: 1 }));
   const audit = audits.ok ? audits.data[0] ?? null : null;
 
@@ -68,6 +71,18 @@ export default async function VerificationPage() {
         <Card>
           <CardHeader><CardTitle>{t("kycCard")}</CardTitle></CardHeader>
           <CardBody>{kyc.ok ? <KycPanel initial={kyc.data} /> : <Alert tone="danger">{kyc.error}</Alert>}</CardBody>
+        </Card>
+      ) : null}
+
+      {b.verificationTier >= 1 && registry.ok && registry.data ? (
+        <Card>
+          <CardHeader><CardTitle>{t("registry.title")}</CardTitle></CardHeader>
+          <CardBody>
+            <RegistryCard
+              udyam={registry.data.udyam} udyamVerifiedAt={registry.data.udyamVerifiedAt} cin={registry.data.cin} mcaVerifiedAt={registry.data.mcaVerifiedAt} mcaStatus={registry.data.mcaStatus}
+              showCin={company.ok && !!company.data && ["private_limited", "public_limited", "llp"].includes(company.data.companyType ?? "")}
+            />
+          </CardBody>
         </Card>
       ) : null}
 

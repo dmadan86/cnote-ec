@@ -25,7 +25,8 @@ import { getKycProvider, type KycProviderResult } from "./kyc-provider";
 export * from "./kyc-forensics";
 export * from "./kyc-provider";
 
-export const KYC_DOC_TYPES = ["gst_certificate", "pan_card", "bank_proof", "address_proof", "udyam_certificate"] as const;
+export const KYC_DOC_TYPES = ["gst_certificate", "pan_card", "bank_proof", "address_proof", "udyam_certificate", "shop_establishment"] as const;
+// bank_proof covers the cancelled cheque; address_proof utility bills; shop_establishment is the Shops & Establishments licence.
 export type KycDocType = (typeof KYC_DOC_TYPES)[number];
 /** Needed before video KYC can start. */
 export const REQUIRED_KYC_DOCS: readonly KycDocType[] = ["gst_certificate", "pan_card"];
@@ -207,6 +208,10 @@ export function evaluateKycDocument(i: DocEvaluationInput): { verdict: "pass" | 
     case "address_proof":
       need("address", f.address, "address");
       break;
+    case "shop_establishment":
+      need("address", f.address, "address");
+      need("issueDate", f.issueDate, "registration date");
+      break;
   }
 
   const names = i.declared.names.filter(Boolean);
@@ -245,9 +250,12 @@ export async function uploadKycDocument(actor: KycActor, sessionId: string, inpu
     prisma.person.findUnique({ where: { id: actor.personId }, select: { name: true } }),
     prisma.kycDocument.findFirst({ where: { sha256: img.sha256, session: { businessId: { not: actor.businessId } } }, select: { id: true } }),
   ]);
+  // Names the Udyam / MCA registries returned for this business (verified evidence) are also accepted as the declared name.
+  const registryNames = (await prisma.verificationRecord.findMany({ where: { businessId: actor.businessId, kind: { in: ["udyam", "mca"] }, status: "passed" }, select: { details: true }, orderBy: { createdAt: "desc" }, take: 4 }))
+    .map((r) => { const snap = (r.details as { snapshot?: { enterpriseName?: string; companyName?: string } | null } | null)?.snapshot; return snap?.enterpriseName ?? snap?.companyName; });
   const declared: DeclaredData = {
     gstin: b.gstin, udyam: b.udyam, pan: await openPan(b.pan, b.id),
-    names: [b.legalName, b.tradeName, b.name, input.docType === "pan_card" || input.docType === "bank_proof" ? person?.name : null].filter((x): x is string => !!x),
+    names: [b.legalName, b.tradeName, b.name, ...registryNames, input.docType === "pan_card" || input.docType === "bank_proof" ? person?.name : null].filter((x): x is string => !!x),
   };
 
   const docId = randomUUID();

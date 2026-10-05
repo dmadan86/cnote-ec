@@ -146,7 +146,7 @@ describe("KYC providers", () => {
     expect(() => getKycProvider({ KYC_PROVIDER: "mock", NODE_ENV: "production" })).toThrow(/production/);
     expect(getKycProvider({ KYC_PROVIDER: "signzy", KYC_API_KEY: "a", KYC_BASE_URL: "b", KYC_WEBHOOK_SECRET: "c" }).name).toBe("signzy");
     expect(() => getKycProvider({ KYC_PROVIDER: "hyperverge" })).toThrow(/required/);
-    expect(() => getKycProvider({ KYC_PROVIDER: "idfy" })).toThrow(/Unknown/);
+    expect(() => getKycProvider({ KYC_PROVIDER: "nope" })).toThrow(/Unknown/);
     const m = new MockKycProvider();
     setKycProvider(m);
     expect(getKycProvider({})).toBe(m);

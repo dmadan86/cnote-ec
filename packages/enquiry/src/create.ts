@@ -6,6 +6,8 @@ import { randomUUID } from "node:crypto";
 import { checkAttachments, discardStored, MAX_RFQ_ATTACHMENTS, MAX_RFQ_ATTACHMENT_BYTES, storeAttachmentBytes } from "./attachments";
 import { getBuyerEnquiry } from "./buyer";
 import { runMatching } from "./matching";
+import { startProactiveReachability } from "./reachability";
+import { collectSignals, recordSignals } from "./risk";
 import { enquiryInputSchema } from "./schemas";
 import { profiles } from "./support";
 import type { Actor, CreateEnquiryContext, EnquiryInput, EnquiryView } from "./types";
@@ -32,12 +34,14 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
 
   const id = randomUUID();
   const text = `${data.title}\n${data.requirement}`;
-  const [moderation, emb, buyerProfiles, priorEnquiries, priorResponded] = await Promise.all([
+  const [moderation, emb, buyerProfiles, priorEnquiries, priorResponded, signals] = await Promise.all([
     ai.moderate({ text, categorySlug: category?.slug ?? null }, { type: "enquiry", id }),
     ai.embed([`${text}\n${category?.name ?? ""}`.trim()]),
     profiles([actor.businessId]),
     prisma.enquiry.count({ where: { buyerBusinessId: actor.businessId } }),
     prisma.enquiry.count({ where: { buyerBusinessId: actor.businessId, matches: { some: { status: { in: ["accepted", "refunded"] } } } } }),
+    // ADR-002 device/behavioural signals: server-side only, hashed /24, UA family, velocity (risk.ts). Never blocks posting.
+    collectSignals(actor.personId, { ip: ctx.ip, userAgent: ctx.userAgent, phoneVerified: ctx.buyerPhoneVerified }),
   ]);
   const vector = emb.vectors[0]!;
   const vec = toVectorLiteral(vector);
@@ -67,6 +71,7 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
         buyerPriorEnquiries: priorEnquiries,
         buyerPriorResponded: priorResponded,
         nearDuplicateSimilarity: dup[0]?.sim ?? null,
+        fakeLeadRisk: signals ? { score: signals.risk.score, reasons: signals.risk.reasons } : null,
       },
       { type: "enquiry", id },
     );
@@ -118,6 +123,7 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
       enquiryId: id, buyerBusinessId: actor.businessId, categoryId: category?.id ?? null,
       attachmentCount: stored.length, minSellerTier: data.minSellerTier, expiresAt: expiresAt.toISOString(),
     });
+    if (signals) await recordSignals(tx, id, signals);
     if (intentScore !== null) await emit(tx, "EnquiryScored", { type: "enquiry", id }, { enquiryId: id, intentScore, needsReview: held });
   });
   } catch (err) {
@@ -125,6 +131,7 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
     throw err;
   }
 
+  if (status !== "rejected") await startProactiveReachability(id, { intentScore, riskScore: signals?.risk.score ?? 0 }).catch((err) => console.warn("[enquiry] proactive reachability not started", (err as Error).message));
   if (status === "scoring") {
     // A preference never bypasses matching rules: the seller is only ranked first if it is already an eligible
     // candidate (category, trust, cap). Only LIVE listings count, so a draft id in a URL can't steer a lead.

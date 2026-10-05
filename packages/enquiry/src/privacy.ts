@@ -5,7 +5,7 @@ import { prisma } from "@cnote/db";
 
 export async function exportPersonalData(personId: string, ctx: PersonalExportContext): Promise<PersonalExport> {
   const biz = ctx.businessIds;
-  const [enquiries, messages, quotes, orders, dealReports, attachments, quarantined] = await Promise.all([
+  const [enquiries, messages, quotes, orders, dealReports, attachments, quarantined, signals] = await Promise.all([
     prisma.enquiry.findMany({
       where: { buyerPersonId: personId },
       orderBy: { createdAt: "asc" },
@@ -48,6 +48,13 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
       take: EXPORT_TAKE,
       select: { id: true, enquiryId: true, kind: true, fileName: true, mimeType: true, sizeBytes: true, signature: true, scanner: true, detectedAt: true, purgedAt: true },
     }),
+    // ADR-002 profiling transparency: the fake-lead risk score and the coarse signals behind it (no raw IP is ever stored)
+    prisma.enquirySignals.findMany({
+      where: { enquiryId: { in: (await prisma.enquiry.findMany({ where: { buyerPersonId: personId }, select: { id: true }, take: EXPORT_TAKE })).map((e) => e.id) } },
+      orderBy: { createdAt: "asc" },
+      take: EXPORT_TAKE,
+      select: { enquiryId: true, uaFamily: true, velocityPerson1h: true, velocityPerson24h: true, velocityIp24h: true, riskScore: true, riskReasons: true, label: true, createdAt: true },
+    }),
   ]);
   return {
     enquiries: exportCollection(enquiries),
@@ -57,5 +64,6 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
     dealReports: exportCollection(dealReports),
     attachments: exportCollection(attachments),
     quarantinedAttachments: exportCollection(quarantined),
+    fakeLeadSignals: exportCollection(signals),
   };
 }

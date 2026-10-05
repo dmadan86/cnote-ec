@@ -79,6 +79,8 @@ const T = {
   leadToConv: { value: 0.6, direction: "at_least" } as MetricTarget,
   convToDeal: { value: 0.15, direction: "at_least" } as MetricTarget,
   refund: { value: 0.1, direction: "below" } as MetricTarget,
+  fakePrecision: { value: 0.9, direction: "at_least" } as MetricTarget,
+  fakeRecall: { value: 0.8, direction: "at_least" } as MetricTarget,
   t1: { value: 0.8, direction: "at_least" } as MetricTarget,
   falseBadge: { value: 0.005, direction: "below" } as MetricTarget,
   firstListing: { value: 15, direction: "below" } as MetricTarget,
@@ -150,6 +152,41 @@ export const METRICS: readonly MetricDefinition[] = [
       cohort: { types: ["LeadAccepted"], key: "payload->>'matchId'" },
       follow: { types: ["LeadRefunded"], key: "payload->>'matchId'" },
       categoryViaEnquiry: true,
+    },
+  }),
+  // ADR-002 fake-lead detection quality. Ground truth = ops labels (EnquiryLabelled, one event per label); predictedFake is
+  // frozen on the event (risk score >= 60 or intent score < 20 at labelling time, enquiry/risk.ts). Both are undefined (no
+  // sample) until ops have labelled enquiries; alerts need 30 labelled cases. Labelled-data CSV: enquiry exportFakeLeadLabelsCsv.
+  rate({
+    id: "fake_lead_precision",
+    title: "Fake-lead precision",
+    adr: "ADR-002",
+    description: "Of the enquiries labelled on the day that the system flagged as fake (high risk or very low intent), the share ops confirmed as fake, spam or unreachable.",
+    formula: "distinct enquiryId labelled fake/spam/unreachable among EnquiryLabelled(predictedFake) on day / distinct enquiryId with EnquiryLabelled(predictedFake) on day",
+    windowDays: 1,
+    target: T.fakePrecision,
+    alert: alertFromTarget(T.fakePrecision, 30),
+    gate: false,
+    spec: {
+      mode: "cohort",
+      cohort: { types: ["EnquiryLabelled"], where: "payload->>'predictedFake' = 'true'", key: "payload->>'enquiryId'", latest: true },
+      follow: { types: ["EnquiryLabelled"], where: "payload->>'predictedFake' = 'true' AND payload->>'isFake' = 'true'", key: "payload->>'enquiryId'" },
+    },
+  }),
+  rate({
+    id: "fake_lead_recall",
+    title: "Fake-lead recall",
+    adr: "ADR-002",
+    description: "Of the enquiries ops labelled fake, spam or unreachable on the day, the share the system had flagged as fake.",
+    formula: "distinct enquiryId with EnquiryLabelled(isFake, predictedFake) on day / distinct enquiryId with EnquiryLabelled(isFake) on day",
+    windowDays: 1,
+    target: T.fakeRecall,
+    alert: alertFromTarget(T.fakeRecall, 30),
+    gate: false,
+    spec: {
+      mode: "cohort",
+      cohort: { types: ["EnquiryLabelled"], where: "payload->>'isFake' = 'true'", key: "payload->>'enquiryId'", latest: true },
+      follow: { types: ["EnquiryLabelled"], where: "payload->>'isFake' = 'true' AND payload->>'predictedFake' = 'true'", key: "payload->>'enquiryId'" },
     },
   }),
   {

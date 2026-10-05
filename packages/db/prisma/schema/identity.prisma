@@ -25,6 +25,7 @@ enum VerificationKind {
   document
   video_kyc
   audit
+  mca
 
   @@map("verification_kind")
 }
@@ -95,6 +96,13 @@ model Business {
   gstStatus        String?  @map("gst_status") // Active | Cancelled | Suspended | Inactive
   gstVerifiedAt    DateTime? @map("gst_verified_at") @db.Timestamptz
   gstLastCheckedAt DateTime? @map("gst_last_checked_at") @db.Timestamptz
+  /// Udyam / MCA registry checks (ADR-003 T1). Evidence lives in VerificationRecord.details.
+  udyamVerifiedAt  DateTime? @map("udyam_verified_at") @db.Timestamptz
+  udyamLastCheckedAt DateTime? @map("udyam_last_checked_at") @db.Timestamptz
+  mcaVerifiedAt    DateTime? @map("mca_verified_at") @db.Timestamptz
+  mcaLastCheckedAt DateTime? @map("mca_last_checked_at") @db.Timestamptz
+  /// Active | Struck Off | Under Liquidation | ... as reported by the MCA provider
+  mcaStatus        String?   @map("mca_status")
   city             String?
   state            String?
   pincode          String?
@@ -355,10 +363,32 @@ model VerificationAudit {
   result        String? // pass | fail | conditional
   validUntil    DateTime? @map("valid_until") @db.Timestamptz
   requestedBy   String?   @map("requested_by") @db.Uuid // staff id
+  /// Partner-submission flow: external partner record, single-use signed upload link (only the sha256 is stored),
+  /// the partner's checklist + geotagged photo metadata, and the staff review (docs/design/verification-t2-t3.md).
+  partnerId     String?   @map("partner_id") @db.Uuid
+  uploadTokenHash String? @unique @map("upload_token_hash")
+  uploadTokenExpiresAt DateTime? @map("upload_token_expires_at") @db.Timestamptz
+  submission    Json?
+  submittedAt   DateTime? @map("submitted_at") @db.Timestamptz
+  reviewedBy    String?   @map("reviewed_by") @db.Uuid
+  reviewNote    String?   @map("review_note")
+  /// the T3 badge asks for a re-audit from this date (validUntil minus the lead time)
+  reAuditDueAt  DateTime? @map("re_audit_due_at") @db.Timestamptz
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([businessId, createdAt])
   @@index([status])
   @@map("verification_audits")
+}
+
+/// External T3 audit agency (SGS, TUV, a local agency). Not a login: it only ever receives single-use upload links.
+model AuditPartner {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  contactEmail String?  @map("contact_email")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("audit_partners")
 }
