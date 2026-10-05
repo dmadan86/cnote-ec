@@ -31,7 +31,8 @@ export function BomEditor({
   const [rows, setRows] = useState<BomRow[]>(() => (initialRows?.length ? initialRows : [{}]).map((r) => ({ ...emptyRow(), ...r })));
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [announce, setAnnounce] = useState("");
-  const [focus, setFocus] = useState<Focus>(null);
+  // pending focus target, consumed by the effect after the rows re-render (a ref: setting it must not cause a render)
+  const pendingFocus = useRef<Focus>(null);
   const [upload, setUpload] = useState<Uploaded | null>(null);
   const [mapping, setMapping] = useState<BomMapping | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -41,11 +42,12 @@ export function BomEditor({
 
   // Move focus after a structural change (add / move / remove) so keyboard users keep their place.
   useEffect(() => {
+    const focus = pendingFocus.current;
     if (!focus) return;
+    pendingFocus.current = null;
     if (focus.target === "add") document.getElementById(`${uid}-add`)?.focus();
     else listRef.current?.querySelector<HTMLElement>(`[data-row="${focus.key}"] [data-action="${focus.target}"]`)?.focus();
-    setFocus(null);
-  }, [focus, rows, uid]);
+  }, [rows, uid]);
 
   const patch = (key: string, p: Partial<BomRow>) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...p } : r)));
   const touch = (key: string, field: string) => setTouched((s) => ({ ...s, [`${key}:${field}`]: true }));
@@ -55,7 +57,7 @@ export function BomEditor({
     if (full) return;
     const r = emptyRow();
     setRows((rs) => [...rs, r]);
-    setFocus({ key: r.key, target: "item" });
+    pendingFocus.current = { key: r.key, target: "item" };
     setAnnounce(t("added", { n: rows.length + 1 }));
   };
   const remove = (i: number) => {
@@ -63,13 +65,13 @@ export function BomEditor({
     const next = rows.filter((_, j) => j !== i);
     setRows(next);
     const nb = next[Math.min(i, next.length - 1)]!;
-    setFocus({ key: nb.key, target: "item" });
+    pendingFocus.current = { key: nb.key, target: "item" };
     setAnnounce(t("removed", { n: i + 1 }));
   };
   const move = (i: number, to: number) => {
     const moved = rows[i]!;
     setRows(moveRow(rows, i, to));
-    setFocus({ key: moved.key, target: to < i ? "up" : "down" });
+    pendingFocus.current = { key: moved.key, target: to < i ? "up" : "down" };
     setAnnounce(t("moved", { from: i + 1, to: to + 1 }));
   };
 
