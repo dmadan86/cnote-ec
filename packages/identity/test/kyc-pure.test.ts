@@ -30,6 +30,16 @@ describe("image forensics", () => {
 });
 
 describe("evaluateKycDocument", () => {
+  it("bank proof, address proof and shop & establishment need their key fields", () => {
+    const decl = { gstin: null, names: ["Sharma Steel"], pan: null, udyam: null };
+    const doc = (docType: DocEvaluationInput["docType"], fields: DocEvaluationInput["fields"]) => evaluateKycDocument(base({ docType, fields, declared: decl }));
+    expect(ids(doc("bank_proof", { name: "Sharma Steel" }), "warn")).toContain("account");
+    expect(ids(doc("bank_proof", { name: "Sharma Steel", accountLast4: "1234" }), "warn")).not.toContain("account");
+    expect(ids(doc("address_proof", { name: "Sharma Steel" }), "warn")).toContain("address");
+    expect(ids(doc("address_proof", { name: "Sharma Steel", address: "12 MIDC Road, Pune" }), "warn")).not.toContain("address");
+    expect(ids(doc("shop_establishment", { name: "Sharma Steel" }), "warn").sort()).toEqual(["address", "issueDate"]);
+    expect(ids(doc("shop_establishment", { name: "Sharma Steel", address: "x", issueDate: "2020-01-01" }), "warn")).toEqual([]);
+  });
   it("passes a clean matching GST certificate", () => {
     const r = evaluateKycDocument(base());
     expect(r.verdict).toBe("pass");

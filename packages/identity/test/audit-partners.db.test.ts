@@ -92,8 +92,9 @@ describe("partner submission flow", () => {
     expect(done).toMatchObject({ status: "completed", result: "pass", reviewNote: "Site visit consistent." });
     expect(Date.parse(done.reAuditDueAt!)).toBe(validUntil.getTime() - 30 * day);
     expect((await prisma.business.findUniqueOrThrow({ where: { id: b } })).verificationTier).toBe(3);
-    expect(await listReauditsDue(new Date(validUntil.getTime() - 10 * day))).toHaveLength(1);
-    expect(await listReauditsDue()).toHaveLength(0);
+    // other files create passing audits concurrently, so assert on this audit only
+    expect((await listReauditsDue(new Date(validUntil.getTime() - 10 * day))).map((x) => x.id)).toContain(a.id);
+    expect((await listReauditsDue()).map((x) => x.id)).not.toContain(a.id);
     // expiry returns to T2
     expect(await expireAudits(new Date(validUntil.getTime() + day))).toBeGreaterThanOrEqual(1);
     expect((await prisma.business.findUniqueOrThrow({ where: { id: b } })).verificationTier).toBe(2);
