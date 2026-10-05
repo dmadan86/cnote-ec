@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import * as ops from "../../ops";
-import { Category, Id, Listing, Me, SearchHit, TrustProfile } from "../../schemas";
+import { Category, Facets, Id, Listing, Me, SearchHit, TrustProfile } from "../../schemas";
 import { api, json, router } from "../helpers";
 
 export const catalogueRoutes = router();
@@ -53,12 +53,17 @@ catalogueRoutes.openapi(
           q: z.string().max(500).openapi({ example: "stainless steel hex bolts", description: "Free-text query (any supported language)." }),
           category: z.string().optional().openapi({ description: "Category slug filter." }),
           limit: z.coerce.number().int().min(1).max(50).default(20),
+          in_stock: z.enum(["true", "false"]).optional().openapi({ description: "`true` = only listings that are in stock now (made-to-order does not count). A filter only: it never changes ranking." }),
+          variant: z.string().max(400).optional().openapi({ example: "size:m,size:l,colour:red", description: "Variant filter as comma-separated `axis:value` pairs: OR within an axis, AND across axes, case-insensitive. Axes come from the category's `attributeSchema.variantAxes`." }),
         }),
       },
-      responses: { 200: json(z.object({ items: z.array(SearchHit) }), "Ranked hits") },
+      responses: { 200: json(z.object({ items: z.array(SearchHit), facets: Facets.optional().openapi({ description: "Facet counts (incl. `variant` buckets) when the backend provides them." }) }), "Ranked hits") },
     },
   }),
-  async (c) => c.json(await ops.search(c.req.valid("query")), 200),
+  async (c) => {
+    const { in_stock, ...q } = c.req.valid("query");
+    return c.json(await ops.search({ ...q, inStock: in_stock === "true" }), 200);
+  },
 );
 
 catalogueRoutes.openapi(

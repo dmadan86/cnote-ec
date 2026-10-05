@@ -290,6 +290,22 @@
               "hasPrice": {
                 "type": "boolean",
                 "description": "Exclude price-on-request listings"
+              },
+              "inStockOnly": {
+                "type": "boolean",
+                "description": "Only listings that are in stock (made-to-order does not count). A filter, never a ranking signal."
+              },
+              "variantOptions": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "maxItems": 20
+                },
+                "description": "Variant axis -> chosen values, e.g. { \"size\": [\"M\", \"L\"], \"colour\": [\"red\"] }. OR within an axis, AND across axes, case-insensitive; at most 6 axes."
               }
             }
           },

@@ -1,5 +1,7 @@
-import { SKU_RE, validateAttributes, LANGS, type CategoryView, type ListingView } from "@cnote/catalogue";
-import { BASE_KEYS, READONLY_KEYS } from "./columns";
+import { SKU_RE, validateAttributes, validateStock, LANGS, type Availability, type CategoryView, type ListingView } from "@cnote/catalogue";
+import { parseMoq, parseStockCells, rupeesToPaise } from "./cells";
+import { BASE_KEYS, READONLY_KEYS, VARIANT_PREFIX } from "./columns";
+import { isVariantRow, validateVariantRows } from "./variant-rows";
 import { LIMITS, type ImportMode, type RawRow, type RowError } from "./types";
 
 type Field = CategoryView["attributeSchema"]["fields"][number];
@@ -22,6 +24,26 @@ export interface ImportRow {
   /** zip paths relative to images/ (original case) */
   imageFiles: string[];
   imageUrls: string[];
+  /** stock columns; `undefined` = blank cell (leave unchanged on an existing listing) */
+  availability?: Availability;
+  availableQty?: number;
+  leadTimeDays?: number;
+  /** the complete variant set from the file's variant rows (replaces the listing's variants); absent = the file says nothing about variants */
+  variants?: ImportVariant[];
+  /** variant rows for an EXISTING listing with no product row in the file: only its variants are applied */
+  variantsOnly?: boolean;
+}
+
+/** One validated variant row. Axis values are raw; the catalogue snaps them to the category's options on apply. */
+export interface ImportVariant {
+  row: number;
+  sku: string;
+  axisValues: Record<string, string>;
+  pricePaise?: number;
+  moq?: number;
+  availability?: Availability;
+  availableQty?: number;
+  leadTimeDays?: number;
 }
 
 export interface ValidationContext {
@@ -35,6 +57,8 @@ export interface ValidationContext {
   existing: Map<string, Pick<ListingView, "id" | "status">>;
   /** header keys present in the file (to warn about ignored columns) */
   fileKeys?: string[];
+  /** category id of existing listings by SKU: needed for variant rows of a listing that has no product row in the file */
+  existingCategoryBySku?: Map<string, string>;
 }
 
 export interface ValidationResult {
@@ -46,13 +70,7 @@ export interface ValidationResult {
 
 const attrKeyNorm = (k: string) => k.trim().toLowerCase().replace(/\s+/g, "_");
 
-/** "1,250.5" / "Rs 12" / "₹12.50" -> paise, or null when not a valid money amount. */
-export function rupeesToPaise(raw: string): number | null {
-  const s = raw.replace(/[₹,\s]|^rs\.?/gi, "");
-  const m = /^(\d{1,12})(?:\.(\d{1,2}))?$/.exec(s);
-  if (!m) return null;
-  return Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0") || "0");
-}
+export { rupeesToPaise };
 
 const splitList = (s: string) => s.split(/[,\n;|]/).map((x) => x.trim()).filter(Boolean);
 
@@ -71,6 +89,17 @@ export function resolveImage(ref: string, zipImages: string[]): { path: string }
 }
 
 export function validateRows(rows: RawRow[], ctx: ValidationContext): ValidationResult {
+  const productRows = rows.filter((r) => !isVariantRow(r));
+  const variantRows = rows.filter(isVariantRow);
+  const res = validateProductRows(productRows, ctx);
+  if (variantRows.length) {
+    validateVariantRows(variantRows, ctx, res, new Set(productRows.map((r) => r.cells.sku ?? "")));
+    res.errors.sort((a, b) => a.row - b.row);
+  }
+  return res;
+}
+
+function validateProductRows(rows: RawRow[], ctx: ValidationContext): ValidationResult {
   const errors: RowError[] = [];
   const valid: ImportRow[] = [];
   const invalidRows = new Set<number>();
@@ -80,7 +109,7 @@ export function validateRows(rows: RawRow[], ctx: ValidationContext): Validation
   const firstRowOfSku = new Map<string, number>();
 
   for (const k of ctx.fileKeys ?? []) {
-    if (k && !BASE_KEYS.has(k) && !READONLY_KEYS.has(k) && !k.startsWith("attr:")) warnings.push(`Column "${k}" is not recognised and was ignored`);
+    if (k && !BASE_KEYS.has(k) && !READONLY_KEYS.has(k) && !k.startsWith("attr:") && !k.startsWith(VARIANT_PREFIX)) warnings.push(`Column "${k}" is not recognised and was ignored`);
   }
 
   for (const r of rows) {
@@ -125,12 +154,18 @@ export function validateRows(rows: RawRow[], ctx: ValidationContext): Validation
       else pricePaise = p;
     }
     let moq: number | undefined;
-    if (c.moq) {
-      const n = Number(c.moq.replace(/,/g, ""));
-      if (!Number.isInteger(n) || n < 1 || n > 2_000_000_000) bad("moq", "MOQ must be a whole number, 1 or more");
-      else moq = n;
-    }
+    if (c.moq) moq = parseMoq(c.moq, bad);
     for (const col of ["price_unit", "moq_unit"] as const) if ((c[col] ?? "").length > 30) bad(col, "Unit is longer than 30 characters");
+
+    // stock
+    const stock = parseStockCells(c, bad);
+    if (stock.availability) {
+      // an existing listing may already carry a lead time; the catalogue re-checks it on apply
+      const lead = stock.leadTimeDays ?? (ctx.existing.has(sku) ? 0 : null);
+      for (const m of validateStock({ availability: stock.availability, availableQty: stock.availableQty ?? null, leadTimeDays: lead })) bad("availability", m);
+    } else if (stock.availableQty === 0) {
+      bad("available_qty", "Quantity 0 needs availability out_of_stock");
+    }
 
     // hsn
     let hsn: string | undefined;
@@ -213,6 +248,7 @@ export function validateRows(rows: RawRow[], ctx: ValidationContext): Validation
     valid.push({
       row: r.row, sku, categoryId: category!.id, categorySlug: category!.slug, title, description, pricePaise, priceUnit: c.price_unit || undefined,
       moq, moqUnit: c.moq_unit || undefined, hsn, language, attributes, imageFiles, imageUrls,
+      ...stock,
     });
   }
   return { valid, errors, warnings, invalidRows };
