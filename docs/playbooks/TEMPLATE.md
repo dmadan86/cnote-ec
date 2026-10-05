@@ -6,6 +6,7 @@ Expansion rule: a vertical moves `candidate -> pilot -> open` only while every c
 
 ## 1. Schema
 - Define the category attribute schema (fields, units, select options) in the catalogue.
+- Define variant axes (size, colour, grade ...) in the category schema (`variantAxes`) where buyers choose between SKUs of one product.
 - Map HSN codes and price units.
 - Set the per-category lead cap (default 3).
 - Review the schema with 5 real sellers.

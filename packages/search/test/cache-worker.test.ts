@@ -33,7 +33,7 @@ describe("cache worker", () => {
     expect(fetchMock.mock.calls[0]![1].headers.authorization).toBe("Bearer sekret");
   });
 
-  it.each(["ListingPublished", "ListingVersionPublished"])("%s only soft-invalidates", async (name) => {
+  it.each(["ListingPublished", "ListingVersionPublished", "ListingAvailabilityChanged"])("%s only soft-invalidates", async (name) => {
     await cacheHandlers[name]!(ev({ listingId: "L", sellerBusinessId: "S" }));
     expect(invalidate).not.toHaveBeenCalled();
     expect(soft).toHaveBeenCalled();

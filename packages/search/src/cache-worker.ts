@@ -69,6 +69,8 @@ export const cacheHandlers: EventHandlers = {
   ListingPublished: async (e) => listingChanged(e.payload.listingId, e.payload.sellerBusinessId, false),
   // Live-DB publisher (CQRS): a new version went live, or the listing was pulled from LIVE.
   ListingVersionPublished: async (e) => listingChanged(e.payload.listingId, e.payload.sellerBusinessId, false),
+  // stock flipped (out of stock <-> orderable): the PDP, cards and "in stock only" results must follow; soft, it is not a takedown
+  ListingAvailabilityChanged: async (e) => listingChanged(e.payload.listingId, e.payload.sellerBusinessId, false),
   ListingUnpublished: async (e) => listingChanged(e.payload.listingId, e.payload.sellerBusinessId, true),
   ListingModerated: async (e) => listingChanged(e.payload.listingId, e.payload.sellerBusinessId, true),
   ListingArchived: async (e) => listingChanged(e.payload.listingId, e.payload.sellerBusinessId, true),
