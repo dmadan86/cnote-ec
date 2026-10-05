@@ -1,5 +1,5 @@
 "use client";
-import { LIMITS, parseMarkup, richTextSchema, toMarkup, youtubeIdFromInput, type EmbedSource, type ImageRef, type Section, type SectionOf } from "@cnote/storefront/document";
+import { LIMITS, parseMarkup, richTextSchema, toMarkup, vimeoIdFromInput, youtubeIdFromInput, type EmbedSource, type ImageRef, type Section, type SectionOf } from "@cnote/storefront/document";
 import type { RenderData } from "@cnote/storefront/render";
 import { Alert, Field, Input, Select, Textarea } from "@cnote/ui";
 import { useId, useState } from "react";
@@ -107,9 +107,10 @@ function DecimalField({ label, value, min, max, onChange }: { label: string; val
  */
 function EmbedForm({ s, set }: P<"embed">) {
   const [kind, setKind] = useState<EmbedSource["kind"]>(s.source.kind);
-  const [link, setLink] = useState(s.source.kind === "youtube" ? s.source.videoId : "");
+  const [link, setLink] = useState(s.source.kind === "youtube" || s.source.kind === "vimeo" ? s.source.videoId : "");
   const id = useId();
-  const parsed = link.trim() ? youtubeIdFromInput(link) : null;
+  const idOf = (k: EmbedSource["kind"], v: string) => (k === "vimeo" ? vimeoIdFromInput(v) : youtubeIdFromInput(v));
+  const parsed = link.trim() && kind !== "map" ? idOf(kind, link) : null;
   const map = s.source.kind === "map" ? s.source : { kind: "map" as const, lat: 20.5937, lng: 78.9629, zoom: 5 };
   return (
     <div className="space-y-4">
@@ -120,21 +121,28 @@ function EmbedForm({ s, set }: P<"embed">) {
         onChange={(next) => {
           setKind(next);
           if (next === "map") set({ source: map });
-          else if (parsed) set({ source: { kind: "youtube", videoId: parsed } });
+          else {
+            const again = link.trim() ? idOf(next, link) : null;
+            if (again) set({ source: { kind: next, videoId: again } as EmbedSource });
+          }
         }}
-        options={[{ value: "youtube", label: "A YouTube video" }, { value: "map", label: "A map of your location" }]}
-        hint="Visitors see a cookie notice first. The video or map loads only after they agree, or choose to load it."
+        options={[{ value: "youtube", label: "A YouTube video" }, { value: "vimeo", label: "A Vimeo video" }, { value: "map", label: "A map of your location" }]}
+        hint="Videos are checked by our team before visitors can see them. Visitors see a cookie notice first; the video or map loads only after they agree, or choose to load it."
       />
-      {kind === "youtube" ? (
-        <Field label="YouTube link" htmlFor={id} hint="Paste the video's link, e.g. https://www.youtube.com/watch?v=..." error={link.trim() && !parsed ? "That is not a YouTube video link." : undefined}>
+      {kind !== "map" ? (
+        <Field
+          label={kind === "vimeo" ? "Vimeo link" : "YouTube link"} htmlFor={id}
+          hint={kind === "vimeo" ? "Paste the video's link, e.g. https://vimeo.com/123456789 (unlisted videos are not supported)." : "Paste the video's link, e.g. https://www.youtube.com/watch?v=..."}
+          error={link.trim() && !parsed ? (kind === "vimeo" ? "That is not a Vimeo video link." : "That is not a YouTube video link.") : undefined}
+        >
           <Input
             id={id}
             value={link}
             spellCheck={false}
             onChange={(e) => {
               setLink(e.target.value);
-              const v = youtubeIdFromInput(e.target.value);
-              if (v) set({ source: { kind: "youtube", videoId: v } });
+              const v = idOf(kind, e.target.value);
+              if (v) set({ source: { kind, videoId: v } as EmbedSource });
             }}
           />
         </Field>

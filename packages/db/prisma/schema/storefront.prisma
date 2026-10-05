@@ -21,6 +21,14 @@ enum StorefrontVersionStatus {
   @@map("storefront_version_status")
 }
 
+enum StorefrontEmbedStatus {
+  pending // fetched or not yet, waiting for the auto-approver or an ops decision; NOT shown to visitors
+  approved
+  rejected
+
+  @@map("storefront_embed_status")
+}
+
 model Storefront {
   id                 String           @id @default(uuid()) @db.Uuid
   sellerBusinessId   String           @unique @map("seller_business_id") @db.Uuid
@@ -37,8 +45,46 @@ model Storefront {
   published StorefrontVersion?  @relation("StorefrontPublished", fields: [publishedVersionId], references: [id])
   domains   StorefrontDomain[]
   traffic   StorefrontTrafficDaily[]
+  embedReviews StorefrontEmbedReview[]
 
   @@map("storefronts")
+}
+
+/// A third-party video (YouTube / Vimeo) a seller embedded, with the public oEmbed metadata the platform fetched server-side and the
+/// moderation decision on it. A video is rendered only while `approved`. The metadata is the provider's public title/author/description,
+/// not seller or visitor personal data. Unique per storefront + provider + media id; re-checked periodically (`nextCheckAt`).
+model StorefrontEmbedReview {
+  id             String                  @id @default(uuid()) @db.Uuid
+  storefrontId   String                  @map("storefront_id") @db.Uuid
+  provider       String // youtube | vimeo
+  mediaId        String                  @map("media_id")
+  status         StorefrontEmbedStatus   @default(pending)
+  title          String?
+  authorName     String?                 @map("author_name")
+  description    String?
+  thumbnailUrl   String?                 @map("thumbnail_url")
+  /// allow | review: … | block: … (never the raw text)
+  aiVerdict      String?                 @map("ai_verdict")
+  aiDecisionId   String?                 @map("ai_decision_id") @db.Uuid
+  /// auto | staff
+  decidedBy      String?                 @map("decided_by")
+  reviewNote     String?                 @map("review_note")
+  reviewedBy     String?                 @map("reviewed_by") @db.Uuid
+  reviewedAt     DateTime?               @map("reviewed_at") @db.Timestamptz
+  /// last oEmbed failure (host blocked, 404, timeout, bad JSON); the embed stays pending until a retry works or staff decide
+  fetchError     String?                 @map("fetch_error")
+  checkedAt      DateTime?               @map("checked_at") @db.Timestamptz
+  /// when the periodic re-check should look at an approved embed again
+  nextCheckAt    DateTime?               @map("next_check_at") @db.Timestamptz
+  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  storefront Storefront @relation(fields: [storefrontId], references: [id])
+
+  @@unique([storefrontId, provider, mediaId])
+  @@index([status, createdAt])
+  @@index([status, nextCheckAt])
+  @@map("storefront_embed_reviews")
 }
 
 model StorefrontVersion {

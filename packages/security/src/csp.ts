@@ -55,7 +55,7 @@ const GOOGLE_ACCOUNTS = "https://accounts.google.com";
  * youtube-nocookie.com host, OpenStreetMap). Mirrors EMBED_FRAME_ORIGINS in @cnote/storefront (apps/web/test/consent-gate.test.ts
  * asserts they stay equal; security may not depend on storefront).
  */
-export const EMBED_FRAME_ORIGINS = ["https://www.youtube-nocookie.com", "https://www.openstreetmap.org"] as const;
+export const EMBED_FRAME_ORIGINS = ["https://www.youtube-nocookie.com", "https://www.openstreetmap.org", "https://player.vimeo.com"] as const;
 
 const truthy = (v: string | undefined) => v === "1" || v === "true";
 

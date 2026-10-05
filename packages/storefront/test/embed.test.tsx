@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { blankDocument, collectText, documentHasEmbeds, embedsEnabled, defaultSection, EMBED_FRAME_ORIGINS, embedSourceSchema, embedSpec, newSectionId, sectionSchema, validateDocument, youtubeIdFromInput, type StorefrontDocument } from "../src/document";
+import { blankDocument, collectText, documentHasEmbeds, documentRemoteEmbeds, embedKey, embedsEnabled, defaultSection, EMBED_FRAME_ORIGINS, embedSourceSchema, embedSpec, newSectionId, remoteEmbedRef, sectionSchema, validateDocument, vimeoIdFromInput, youtubeIdFromInput, type StorefrontDocument } from "../src/document";
 import { StorefrontView } from "../src/render/view";
 import type { EmbedProps, RenderData } from "../src/render/types";
 
@@ -12,6 +12,7 @@ const data: RenderData = {
   products: [],
   categories: [],
   testimonials: [],
+  approvedEmbeds: [`youtube:${ID}`, "vimeo:123456789"],
 };
 const hrefs = { page: (s: string) => `/store/acme/${s}`, product: (p: { id: string }) => `/p/${p.id}`, rfq: "/rfq?seller=b1" };
 const doc = (source: unknown): StorefrontDocument => {
@@ -23,12 +24,17 @@ const doc = (source: unknown): StorefrontDocument => {
 describe("embed sources", () => {
   it("accepts a YouTube id or a map, and nothing else (no URLs, no HTML, no other providers)", () => {
     expect(embedSourceSchema.safeParse({ kind: "youtube", videoId: ID }).success).toBe(true);
+    expect(embedSourceSchema.safeParse({ kind: "vimeo", videoId: "123456789" }).success).toBe(true);
     expect(embedSourceSchema.safeParse({ kind: "map", lat: 18.52, lng: 73.85, zoom: 14 }).success).toBe(true);
     for (const bad of [
       { kind: "youtube", videoId: "short" },
       { kind: "youtube", videoId: `${ID}12` },
       { kind: "youtube", videoId: "https://evil.test/x" },
       { kind: "youtube", videoId: ID, src: "https://evil.test" },
+      { kind: "vimeo", videoId: "12345" },
+      { kind: "vimeo", videoId: "abc123456" },
+      { kind: "vimeo", videoId: "https://vimeo.com/123456789" },
+      { kind: "dailymotion", videoId: "x7tgad0" },
       { kind: "iframe", src: "https://evil.test" },
       { kind: "map", lat: 91, lng: 0, zoom: 5 },
       { kind: "map", lat: 0, lng: 181, zoom: 5 },
@@ -54,6 +60,30 @@ describe("embed sources", () => {
     expect(e).toBeGreaterThan(73.85);
     expect(s).toBeLessThan(18.52);
     expect(n).toBeGreaterThan(18.52);
+  });
+
+  it("Vimeo: privacy-enhanced player URL (dnt=1) on the allow-listed origin, marketing consent", () => {
+    const v = embedSpec({ kind: "vimeo", videoId: "123456789" });
+    expect(v).toMatchObject({ kind: "vimeo", provider: "Vimeo", category: "marketing", href: "https://vimeo.com/123456789", src: "https://player.vimeo.com/video/123456789?dnt=1" });
+    expect(EMBED_FRAME_ORIGINS.some((o) => v.src.startsWith(`${o}/`))).toBe(true);
+  });
+
+  it("extracts a Vimeo id from a pasted link, refusing other hosts, look-alikes and unlisted (hash) links", () => {
+    for (const ok of ["123456789", " 123456789 ", "https://vimeo.com/123456789", "vimeo.com/123456789", "https://www.vimeo.com/123456789?share=copy", "https://player.vimeo.com/video/123456789"]) {
+      expect(vimeoIdFromInput(ok), ok).toBe("123456789");
+    }
+    for (const bad of ["", "12345", "https://vimeo.com/", "https://vimeo.com/channels/staffpicks/123456789", "https://vimeo.com/123456789/abcdef1234", "https://notvimeo.com/123456789", "https://vimeo.com.evil.test/123456789", "https://youtube.com/watch?v=dQw4w9WgXcQ", "http://[bad"]) {
+      expect(vimeoIdFromInput(bad), bad).toBeNull();
+    }
+  });
+
+  it("lists the remote videos in a document once each; maps are not moderated", () => {
+    const d = doc({ kind: "youtube", videoId: ID });
+    d.pages[0]!.sections.push({ id: "e2", type: "embed", tone: "default", title: "Again", source: { kind: "youtube", videoId: ID } } as never);
+    d.pages[0]!.sections.push({ id: "e3", type: "embed", tone: "default", title: "Tour", source: { kind: "vimeo", videoId: "123456789" } } as never);
+    d.pages[0]!.sections.push({ id: "e4", type: "embed", tone: "default", title: "Map", source: { kind: "map", lat: 1, lng: 1, zoom: 5 } } as never);
+    expect(documentRemoteEmbeds(d).map(embedKey)).toEqual([`youtube:${ID}`, "vimeo:123456789"]);
+    expect(remoteEmbedRef({ kind: "map", lat: 1, lng: 1, zoom: 5 })).toBeNull();
   });
 
   it("extracts the video id from what a seller pastes, and rejects other hosts and look-alikes", () => {
@@ -110,6 +140,21 @@ describe("embed block rendering", () => {
     expect(html).toContain("Our workshop: open on YouTube");
     expect(html).toContain('rel="noopener noreferrer nofollow"');
     expect(html).not.toContain("youtube-nocookie");
+  });
+
+  it("a third-party video that is not approved is not rendered at all; in the editor preview the seller is told it is waiting", () => {
+    const d = doc({ kind: "youtube", videoId: ID });
+    const pending = { ...data, approvedEmbeds: [] };
+    const view = (dd: RenderData, preview = false) => renderToStaticMarkup(<StorefrontView document={d} data={dd} hrefs={hrefs} embedsEnabled preview={preview} />);
+    expect(view(pending)).not.toMatch(/Our workshop|class="sf-embed"|youtube\.com/);
+    expect(view({ ...data, approvedEmbeds: undefined })).not.toMatch(/Our workshop|class="sf-embed"|youtube\.com/); // fail closed
+    expect(view({ ...data, approvedEmbeds: ["youtube:other-id01"] })).not.toContain("Our workshop");
+    expect(view(pending, true)).toContain("waiting for approval");
+    expect(view(data)).toContain("Our workshop");
+  });
+  it("maps need no approval", () => {
+    const html = renderToStaticMarkup(<StorefrontView document={doc({ kind: "map", lat: 18.52, lng: 73.85, zoom: 14 })} data={{ ...data, approvedEmbeds: [] }} hrefs={hrefs} embedsEnabled />);
+    expect(html).toContain("Our workshop");
   });
 
   it("hands the host the spec (privacy-enhanced src, provider, category, accessible title) and puts it in a titled section", () => {

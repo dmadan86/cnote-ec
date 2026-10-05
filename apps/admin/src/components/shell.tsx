@@ -20,6 +20,7 @@ const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Pri
   { href: "/coupons", label: "Coupons", icon: <Ticket className="size-4" aria-hidden />, privilege: "coupons.read" },
   { href: "/referrals", label: "Referrals", icon: <Gift className="size-4" aria-hidden />, privilege: "referrals.review" },
   { href: "/storefronts/review", label: "Storefront review", icon: <Store className="size-4" aria-hidden />, privilege: "storefronts.review" },
+  { href: "/storefronts/embeds", label: "Storefront embeds", icon: <Store className="size-4" aria-hidden />, privilege: "storefronts.review" },
   { href: "/storefronts/templates", label: "Storefront templates", icon: <LayoutTemplate className="size-4" aria-hidden />, privilege: "storefronts.templates" },
   { href: "/developers", label: "API keys", icon: <KeyRound className="size-4" aria-hidden />, privilege: "api_keys.read" },
   { href: "/queues", label: "Queues", icon: <ListChecks className="size-4" aria-hidden />, privilege: "queues.read" },

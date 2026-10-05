@@ -37,7 +37,7 @@ describe("buildCsp", () => {
     });
     expect(dir(csp, "script-src")).toContain("https://www.clarity.ms");
     expect(dir(csp, "script-src")).toContain("https://challenges.cloudflare.com");
-    expect(dir(csp, "frame-src")).toBe("frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.openstreetmap.org");
+    expect(dir(csp, "frame-src")).toBe("frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.openstreetmap.org https://player.vimeo.com");
     expect(dir(buildCsp({ app: "admin", nonce: "n", env: prod }), "frame-src")).toBe("frame-src 'none'");
     expect(dir(csp, "img-src")).toContain("https://media.example.in");
     expect(dir(csp, "connect-src")).toContain("https://o1.ingest.sentry.io");
@@ -45,10 +45,10 @@ describe("buildCsp", () => {
   });
 
   it("frame-src allows ONLY the privacy-enhanced storefront embed hosts on the web, and nothing on the other apps", () => {
-    expect(dir(buildCsp({ app: "web", nonce: "n", env: prod }), "frame-src")).toBe("frame-src https://www.youtube-nocookie.com https://www.openstreetmap.org");
-    expect([...EMBED_FRAME_ORIGINS]).toEqual(["https://www.youtube-nocookie.com", "https://www.openstreetmap.org"]);
+    expect(dir(buildCsp({ app: "web", nonce: "n", env: prod }), "frame-src")).toBe("frame-src https://www.youtube-nocookie.com https://www.openstreetmap.org https://player.vimeo.com");
+    expect([...EMBED_FRAME_ORIGINS]).toEqual(["https://www.youtube-nocookie.com", "https://www.openstreetmap.org", "https://player.vimeo.com"]);
     // static (ISR) mode carries the same directive
-    expect(dir(buildCsp({ app: "web", env: prod }), "frame-src")).toBe("frame-src https://www.youtube-nocookie.com https://www.openstreetmap.org");
+    expect(dir(buildCsp({ app: "web", env: prod }), "frame-src")).toBe("frame-src https://www.youtube-nocookie.com https://www.openstreetmap.org https://player.vimeo.com");
     // the regular YouTube host (cookies, tracking) is never framed
     const framed = dir(buildCsp({ app: "web", nonce: "n", env: prod }), "frame-src")!.split(" ").slice(1);
     expect(framed.filter((o) => new URL(o).hostname.replace(/^www\./, "") === "youtube.com")).toEqual([]);
