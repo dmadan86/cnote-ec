@@ -1,5 +1,6 @@
 // Pure helpers for the stock + variants UI (no server imports: unit-testable). docs/design/variants-stock.md
-import { rupeesToPaise } from "@cnote/core";
+// client-safe subpath: the package root also loads Redis (node:net/tls), which must not reach the browser bundle
+import { rupeesToPaise } from "@cnote/core/money";
 import type { Availability, SellerVariantView, VariantAxis, VariantInput } from "@cnote/catalogue";
 
 export const MAX_VARIANT_ROWS = 100;
