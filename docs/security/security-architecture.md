@@ -207,6 +207,7 @@ Residual risks: XSS mitigation on static pages relies on `unsafe-inline` (per-pa
 | `admin_audit_log`, `credit_ledger`, `ad_wallet_ledger`, `consents`, `ledger_journals`, `ledger_lines` | never | only inside a retention purge |
 | `domain_events` (outbox) | only `published_at` (the relay) | only inside a retention purge |
 | `cookie_consent_receipts` | only `person_id` -> `NULL` (DPDP erasure) | only inside a retention purge |
+| `approval_decisions` | only `comment` -> `NULL` (DPDP erasure) | only inside a retention purge (`approvals.resolved_requests`) |
 
 A purge opts in per transaction: `withPurge(tx => ...)` from `@cnote/db` runs `set_config('cnote.allow_purge', 'on', true)` (transaction-local, so it cannot leak to other queries on a pooled connection). The only production purge on these tables is `purgeCookieConsentReceipts` (compliance retention policy `compliance.cookie_consent_receipts`). The dev seed reset also uses it. Test and e2e databases set `cnote.allow_purge = 'on'` as a database default (`scripts/allow-test-purge.sh`, called by `pnpm db:test:prepare`, e2e `prepare-db.ts` and CI) so suite cleanup can delete; UPDATE is never bypassed, so application code that mutates an append-only row still fails the suite. `packages/db/test/append-only.db.test.ts` runs its denial tests on a client whose sessions start with the setting off, i.e. what production sees.
 
