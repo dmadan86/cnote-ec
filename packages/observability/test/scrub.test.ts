@@ -21,6 +21,17 @@ describe("scrub", () => {
   });
 });
 
+describe("reachability webhook credentials", () => {
+  it("redacts the per-check token (and any secret) wherever the callback URL is captured", () => {
+    const url = "https://api.cnote.test/webhooks/reachability?check=3f1c&token=Zm9vYmFyYmF6&CallSid=CS1&secret=hunter";
+    const out = scrubEvent({ request: { url, query_string: "check=3f1c&token=Zm9vYmFyYmF6" }, message: `POST ${url}` });
+    const all = JSON.stringify(out);
+    expect(all).not.toContain("Zm9vYmFyYmF6");
+    expect(all).not.toContain("hunter");
+    expect(all).toContain("token=[redacted]");
+  });
+});
+
 describe("sentryOptions", () => {
   it("is disabled without a DSN", () => {
     expect(sentryOptions("web", "nodejs", {}).enabled).toBe(false);

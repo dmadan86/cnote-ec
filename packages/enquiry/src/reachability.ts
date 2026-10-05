@@ -113,10 +113,9 @@ async function tryPlaceCall(check: { id: string; enquiryId: string; token: strin
     const enq = await prisma.enquiry.findUnique({ where: { id: check.enquiryId }, select: { title: true, buyerPersonId: true, language: true } });
     const contact = enq && (await identity.getPersonContact(enq.buyerPersonId, { self: true }));
     if (!enq || !contact?.phone) return false;
-    const secret = process.env.REACHABILITY_WEBHOOK_SECRET;
     const { providerRef } = await provider.place({
       checkId: check.id, phone: contact.phone, token: check.token, language: enq.language, enquiryTitle: enq.title,
-      callbackUrl: `${callbackBase()}/webhooks/reachability${secret ? `?secret=${encodeURIComponent(secret)}` : ""}`,
+      callbackUrl: `${callbackBase()}/webhooks/reachability`,
     });
     await prisma.reachabilityCheck.updateMany({ where: { id: check.id, status: "sent" }, data: { channel: "ivr", providerRef } });
     return true;
@@ -293,9 +292,11 @@ async function markNoResponse(checkId: string): Promise<boolean> {
 export async function handleReachabilityCallback(rawBody: string, headers: Record<string, string | undefined>, query: URLSearchParams): Promise<{ checkId: string | null; outcome: CallOutcome | "unknown_reference" }> {
   const provider = getReachabilityProvider();
   if (!provider) throw new DomainError("not_found", "Reachability telephony is not enabled");
-  const { providerRef, outcome } = provider.parseCallback(rawBody, headers, query);
+  const { providerRef, outcome, checkId: claimed } = provider.parseCallback(rawBody, headers, query);
   const check = await prisma.reachabilityCheck.findUnique({ where: { providerRef } });
   if (!check) return { checkId: null, outcome: "unknown_reference" }; // ack so the vendor stops retrying
+  // a per-check URL token only vouches for the check it was issued for
+  if (claimed && claimed !== check.id) throw new DomainError("forbidden", "Invalid callback");
   if (outcome === "confirmed") await recordReachabilityResponse(check.token);
   else if (outcome === "denied") await markNoResponse(check.id);
   else {

@@ -56,6 +56,19 @@ describe("funnel metrics (exact numerator/denominator)", () => {
     expect(await val("conversation_to_deal_rate", d)).toEqual({ value: 0.25, num: 1, den: 4 });
   });
 
+  it("fake_lead_precision / fake_lead_recall: ops labels vs the frozen prediction (ADR-002)", async () => {
+    const d = "2001-02-01";
+    const lab = (id: string, label: string, isFake: boolean, predictedFake: boolean) =>
+      ev("EnquiryLabelled", { enquiryId: id, label, isFake, predictedFake, riskScore: 0, intentScore: null }, at(d, "10:00"));
+    await insert([
+      lab("e1", "fake", true, true), lab("e2", "spam", true, true), lab("e3", "genuine", false, true), // predicted: 2 right, 1 wrong
+      lab("e4", "unreachable", true, false), lab("e5", "genuine", false, false), // missed one fake
+    ]);
+    await computeDay(d, { only: ["fake_lead_precision", "fake_lead_recall"] });
+    expect(await val("fake_lead_precision", d)).toEqual({ value: 2 / 3, num: 2, den: 3 });
+    expect(await val("fake_lead_recall", d)).toEqual({ value: 2 / 3, num: 2, den: 3 });
+  });
+
   it("auto_refund_rate: refunded / accepted, 14-day window", async () => {
     const d = "2001-01-12";
     await insert([

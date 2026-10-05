@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   ExotelReachabilityProvider, KnowlarityReachabilityProvider, MockReachabilityProvider, collectSignals, computeFakeLeadRisk, exportFakeLeadLabelsCsv, fakeLeadPrecisionRecall, getReachabilityProvider,
-  handleReachabilityCallback, hashIpPrefix, ipPrefix, labelEnquiry, labelledRowsToCsv, listLabelQueue, precisionRecall, proactiveMode, purgeEnquirySignals, recordSignals,
+  handleReachabilityCallback, hashIpPrefix, reachabilityUrlToken, ipPrefix, labelEnquiry, labelledRowsToCsv, listLabelQueue, precisionRecall, proactiveMode, purgeEnquirySignals, recordSignals,
   recordReachabilityResponse, resolveReachabilityChecks, setReachabilityDispatchMode, setReachabilityNotifier, setReachabilityProvider, signReachabilityCallback, startProactiveReachability,
   uaFamily, type ReachabilityMessage,
 } from "../src";
@@ -84,14 +84,14 @@ describe("signals, labels, export", () => {
   it("collects velocity per person and per ip-prefix, stores no raw IP, purges the hash", async () => {
     const a = await party(), b = await party();
     for (let i = 0; i < 3; i++) await enquiry(a, 50);
-    const ctx = { ip: "198.51.100.7", userAgent: "Mozilla/5.0 (Linux; Android 14) Chrome/120 Mobile", phoneVerified: true };
+    const ctx = { ip: `198.51.${100 + Math.floor(Math.random() * 100)}.7`, userAgent: "Mozilla/5.0 (Linux; Android 14) Chrome/120 Mobile", phoneVerified: true };
     const s = (await collectSignals(a.personId, ctx))!;
     expect(s).toMatchObject({ velocityPerson1h: 3, velocityPerson24h: 3, uaFamily: "chrome-android" });
     expect(s.risk.score).toBe(20);
     const eid = await enquiry(b, 50);
     await prisma.$transaction((tx) => recordSignals(tx, eid, s));
     const row = await prisma.enquirySignals.findUniqueOrThrow({ where: { enquiryId: eid } });
-    expect(JSON.stringify(row)).not.toContain("198.51.100");
+    expect(JSON.stringify(row)).not.toContain("198.51.");
     expect(row.ipHash).toHaveLength(64);
     const again = (await collectSignals(a.personId, ctx))!;
     expect(again.velocityIp24h).toBe(1);
@@ -165,7 +165,8 @@ describe("proactive reachability", () => {
     const { checkId } = (await post(e, 20))!;
     const c = await prisma.reachabilityCheck.findUniqueOrThrow({ where: { id: checkId } });
     expect(c).toMatchObject({ channel: "ivr", providerRef: `mock_${checkId}`, trigger: "proactive", status: "sent", attempt: 1 });
-    expect(mock.calls[0]).toMatchObject({ token: c.token, callbackUrl: expect.stringContaining("/webhooks/reachability?secret=") });
+    expect(mock.calls[0]).toMatchObject({ token: c.token, callbackUrl: expect.stringMatching(/\/webhooks\/reachability$/) });
+    expect(JSON.stringify(mock.calls[0])).not.toContain(SECRET); // the master secret never travels in a URL
     expect(sent).toHaveLength(0);
     expect(await cb(c.providerRef!, "confirmed")).toMatchObject({ checkId, outcome: "confirmed" });
     expect((await prisma.reachabilityCheck.findUniqueOrThrow({ where: { id: checkId } })).status).toBe("responded");
@@ -225,18 +226,20 @@ describe("proactive reachability", () => {
     expect((await prisma.match.findUniqueOrThrow({ where: { id: m } })).status).toBe("refunded");
     expect(await cb("mock_unknown", "confirmed")).toEqual({ checkId: null, outcome: "unknown_reference" });
     await expect(handleReachabilityCallback('{"providerRef":"x","outcome":"confirmed"}', {}, new URLSearchParams())).rejects.toMatchObject({ code: "forbidden" });
-    await expect(handleReachabilityCallback("junk", {}, new URLSearchParams({ secret: SECRET }))).rejects.toMatchObject({ code: "validation" });
+    await expect(handleReachabilityCallback("junk", { "x-reachability-signature": signReachabilityCallback(SECRET, "junk") }, new URLSearchParams())).rejects.toMatchObject({ code: "validation" });
+    // the master secret in the query string is NOT an accepted credential any more
+    await expect(handleReachabilityCallback('{"providerRef":"x","outcome":"confirmed"}', {}, new URLSearchParams({ secret: SECRET }))).rejects.toMatchObject({ code: "forbidden" });
     setReachabilityProvider(null);
     await expect(handleReachabilityCallback("{}", {}, new URLSearchParams())).rejects.toMatchObject({ code: "not_found" });
   });
 });
 
 describe("telephony adapters", () => {
-  const req = { checkId: "c1", phone: "+919900000001", token: "tok", language: "en", enquiryTitle: "t", callbackUrl: "https://api.example/webhooks/reachability?secret=s" };
-  it("Exotel places a call to the flow with Basic auth and maps digits to outcomes", async () => {
+  const req = { checkId: "c1", phone: "+919900000001", token: "tok", language: "en", enquiryTitle: "t", callbackUrl: "https://api.example/webhooks/reachability" };
+  it("Exotel places a call to the flow with Basic auth and a per-check URL token (never the master secret)", async () => {
     let seen: { url: string; auth: string; body: URLSearchParams } | null = null;
     const p = new ExotelReachabilityProvider({
-      sid: "acme", key: "k", token: "t", callerId: "0801234", flowId: "99", webhookSecret: "s",
+      sid: "acme", key: "k", token: "t", callerId: "0801234", flowId: "99", urlSecret: "url-secret",
       call: async (url, init) => { seen = { url, auth: new Headers(init.headers).get("authorization")!, body: init.body as URLSearchParams }; return new Response(JSON.stringify({ Call: { Sid: "CS1" } })); },
     });
     expect(await p.place(req)).toEqual({ providerRef: "CS1" });
@@ -244,17 +247,25 @@ describe("telephony adapters", () => {
     expect(seen!.auth).toBe(`Basic ${Buffer.from("k:t").toString("base64")}`);
     expect(seen!.body.get("Url")).toBe("http://my.exotel.com/acme/exoml/start_voice/99");
     expect(seen!.body.get("From")).toBe("+919900000001");
-    const q = (extra: Record<string, string>) => new URLSearchParams({ secret: "s", ...extra });
-    expect(p.parseCallback("", {}, q({ CallSid: "CS1", digits: '"1"', Status: "completed" }))).toEqual({ providerRef: "CS1", outcome: "confirmed" });
-    expect(p.parseCallback("CallSid=CS1&digits=%222%22", {}, q({}))).toEqual({ providerRef: "CS1", outcome: "denied" });
+    const cb = new URL(seen!.body.get("StatusCallback")!);
+    expect(cb.origin + cb.pathname).toBe("https://api.example/webhooks/reachability");
+    expect(cb.searchParams.get("check")).toBe("c1");
+    expect(cb.searchParams.get("token")).toBe(reachabilityUrlToken("url-secret", "c1"));
+    expect(seen!.body.toString()).not.toContain("url-secret");
+    const q = (extra: Record<string, string>, id = "c1") => new URLSearchParams({ check: id, token: reachabilityUrlToken("url-secret", id), ...extra });
+    expect(p.parseCallback("", {}, q({ CallSid: "CS1", digits: '"1"', Status: "completed" }))).toEqual({ providerRef: "CS1", outcome: "confirmed", checkId: "c1" });
+    expect(p.parseCallback("CallSid=CS1&digits=%222%22", {}, q({}))).toEqual({ providerRef: "CS1", outcome: "denied", checkId: "c1" });
     expect(p.parseCallback("", {}, q({ CallSid: "CS1", Status: "no-answer" })).outcome).toBe("no_answer");
     expect(p.parseCallback("", {}, q({ CallSid: "CS1", Status: "failed" })).outcome).toBe("failed");
+    // a token is bound to its check; missing/wrong/foreign tokens and the old ?secret= style are refused
+    expect(() => p.parseCallback("", {}, new URLSearchParams({ check: "c2", token: reachabilityUrlToken("url-secret", "c1"), CallSid: "CS1" }))).toThrow(/Invalid callback/);
+    expect(() => p.parseCallback("", {}, new URLSearchParams({ CallSid: "CS1", secret: "url-secret" }))).toThrow(/Invalid callback/);
     expect(() => p.parseCallback("", {}, new URLSearchParams({ CallSid: "CS1" }))).toThrow(/Invalid callback/);
     expect(() => p.parseCallback("", {}, q({}))).toThrow(/CallSid/);
-    const bad = new ExotelReachabilityProvider({ sid: "a", key: "k", token: "t", callerId: "c", flowId: "f", webhookSecret: "s", call: async () => new Response("no", { status: 500 }) });
+    const bad = new ExotelReachabilityProvider({ sid: "a", key: "k", token: "t", callerId: "c", flowId: "f", urlSecret: "s", call: async () => new Response("no", { status: 500 }) });
     await expect(bad.place(req)).rejects.toThrow(/500/);
   });
-  it("Knowlarity posts makecall with the api key and parses the webhook", async () => {
+  it("Knowlarity posts makecall with the api key, puts no credential in the URL, and requires the HMAC header", async () => {
     let body: Record<string, unknown> = {};
     let key = "";
     const p = new KnowlarityReachabilityProvider({
@@ -268,16 +279,21 @@ describe("telephony adapters", () => {
     const hdr = (r: string) => ({ "x-reachability-signature": signReachabilityCallback("s", r) });
     expect(p.parseCallback(raw({ call_id: "K1", dtmf: 1 }), hdr(raw({ call_id: "K1", dtmf: 1 })), new URLSearchParams())).toEqual({ providerRef: "K1", outcome: "confirmed" });
     expect(p.parseCallback(raw({ call_id: "K1", status: "failed" }), hdr(raw({ call_id: "K1", status: "failed" })), new URLSearchParams()).outcome).toBe("failed");
+    // query-string credentials are not accepted for HMAC vendors, and a signature over a different body is refused
+    expect(() => p.parseCallback(raw({ call_id: "K1", dtmf: 1 }), {}, new URLSearchParams({ secret: "s", token: reachabilityUrlToken("s", "x") }))).toThrow(/Invalid callback/);
+    expect(() => p.parseCallback(raw({ call_id: "K1", dtmf: 1 }), hdr(raw({ call_id: "K2", dtmf: 1 })), new URLSearchParams())).toThrow(/Invalid callback/);
   });
   it("factory: off by default, mock refused in production, vendors need their credentials", () => {
     setReachabilityProvider(undefined);
     expect(getReachabilityProvider({})).toBeNull();
     expect(getReachabilityProvider({ REACHABILITY_IVR_PROVIDER: "mock" })?.name).toBe("mock");
     expect(() => getReachabilityProvider({ REACHABILITY_IVR_PROVIDER: "mock", NODE_ENV: "production" })).toThrow(/production/);
-    expect(() => getReachabilityProvider({ REACHABILITY_IVR_PROVIDER: "exotel" })).toThrow(/REACHABILITY_IVR_SID/);
+    expect(() => getReachabilityProvider({ REACHABILITY_IVR_PROVIDER: "exotel", REACHABILITY_URL_SECRET: "u" })).toThrow(/REACHABILITY_IVR_SID/);
     expect(() => getReachabilityProvider({ REACHABILITY_IVR_PROVIDER: "nope" })).toThrow(/Unknown/);
-    const env = { REACHABILITY_IVR_PROVIDER: "exotel", REACHABILITY_IVR_SID: "a", REACHABILITY_IVR_KEY: "k", REACHABILITY_IVR_SECRET: "t", REACHABILITY_IVR_CALLER_ID: "c", REACHABILITY_IVR_FLOW_ID: "f", REACHABILITY_WEBHOOK_SECRET: "s" };
+    const env = { REACHABILITY_IVR_PROVIDER: "exotel", REACHABILITY_IVR_SID: "a", REACHABILITY_IVR_KEY: "k", REACHABILITY_IVR_SECRET: "t", REACHABILITY_IVR_CALLER_ID: "c", REACHABILITY_IVR_FLOW_ID: "f", REACHABILITY_URL_SECRET: "u", REACHABILITY_WEBHOOK_SECRET: "w" };
     expect(getReachabilityProvider(env)?.name).toBe("exotel");
     expect(getReachabilityProvider({ ...env, REACHABILITY_IVR_PROVIDER: "knowlarity" })?.name).toBe("knowlarity");
+    expect(() => getReachabilityProvider({ ...env, REACHABILITY_URL_SECRET: "w" })).toThrow(/must differ/);
+    expect(() => getReachabilityProvider({ ...env, REACHABILITY_URL_SECRET: "" })).toThrow(/REACHABILITY_URL_SECRET/);
   });
 });

@@ -4,7 +4,12 @@
 // Env: REACHABILITY_IVR_PROVIDER = off (default) | mock (refused in production) | exotel | knowlarity
 //      REACHABILITY_IVR_KEY / REACHABILITY_IVR_SECRET (vendor credentials), REACHABILITY_IVR_SID (Exotel account sid),
 //      REACHABILITY_IVR_CALLER_ID (ExoPhone / DID shown to the buyer), REACHABILITY_IVR_FLOW_ID (Exotel call-flow app id),
-//      REACHABILITY_WEBHOOK_SECRET (authenticates the status callback), REACHABILITY_CALLBACK_BASE_URL (public API origin).
+//      REACHABILITY_WEBHOOK_SECRET (HMAC key: authenticates callbacks from vendors that can sign: mock, Knowlarity),
+//      REACHABILITY_URL_SECRET (Exotel only: key for the per-check URL token; MUST differ from the webhook secret),
+//      REACHABILITY_CALLBACK_BASE_URL (public API origin).
+// Callback auth (security review): the master secret never appears in a URL. Vendors that cannot sign (Exotel Passthru) get a
+// per-check token HMAC(REACHABILITY_URL_SECRET, checkId) in `?check=<id>&token=<t>`: a leaked URL authenticates that one check
+// only, and the `token` param is redacted by @cnote/observability scrubbing. Everyone else must send `x-reachability-signature`.
 //
 // Vendor research (docs gated beyond the public pages; field names UNCONFIRMED until a sandbox account exists):
 //   Exotel   "Outgoing call to a call flow": POST https://api.exotel.com/v1/Accounts/{sid}/Calls/connect (Basic auth key:token),
@@ -29,7 +34,7 @@ export interface ReachabilityCallRequest {
   token: string;
   language: string;
   enquiryTitle: string;
-  /** where the vendor reports the result (carries the shared secret as `?secret=`) */
+  /** our public callback endpoint without credentials (`<origin>/webhooks/reachability`); an adapter that needs URL auth appends its own per-check token */
   callbackUrl: string;
 }
 
@@ -37,17 +42,25 @@ export interface ReachabilityProvider {
   readonly name: string;
   place(req: ReachabilityCallRequest): Promise<{ providerRef: string }>;
   /** Authenticates and parses a vendor callback; throws DomainError("forbidden") on a bad secret, ("validation") on junk. */
-  parseCallback(rawBody: string, headers: Record<string, string | undefined>, query: URLSearchParams): { providerRef: string; outcome: CallOutcome };
+  parseCallback(rawBody: string, headers: Record<string, string | undefined>, query: URLSearchParams): { providerRef: string; outcome: CallOutcome; checkId?: string };
 }
 
-// ---- callback authenticity: HMAC header (our mock / programmable vendors) or shared secret in the query (Exotel Passthru cannot sign) ----
+// ---- callback authenticity ----
+// 1. HMAC-SHA256(REACHABILITY_WEBHOOK_SECRET, rawBody) in `x-reachability-signature` (hex): the default for every adapter.
+// 2. Per-check URL token for vendors that cannot sign: base64url(HMAC-SHA256(REACHABILITY_URL_SECRET, "reach:" + checkId)).
+// Both are compared as canonical strings (never decoded bytes) in constant time.
 export const signReachabilityCallback = (secret: string, rawBody: string): string => createHmac("sha256", secret).update(rawBody).digest("hex");
+export const reachabilityUrlToken = (urlSecret: string, checkId: string): string => createHmac("sha256", urlSecret).update(`reach:${checkId}`).digest("base64url");
 const eq = (a: string, b: string): boolean => { const x = Buffer.from(a), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); };
-export function verifyReachabilityCallback(secret: string | undefined, rawBody: string, headers: Record<string, string | undefined>, query: URLSearchParams): void {
-  if (!secret) throw new DomainError("forbidden", "Invalid callback");
-  const sig = headers["x-reachability-signature"]?.replace(/^sha256=/, "");
-  const q = query.get("secret");
-  if ((sig && eq(sig, signReachabilityCallback(secret, rawBody))) || (q && eq(q, secret))) return;
+export function verifyReachabilityCallback(secret: string | undefined, rawBody: string, headers: Record<string, string | undefined>): void {
+  const sig = headers["x-reachability-signature"]?.replace(/^sha256=/, "").toLowerCase();
+  if (secret && sig && eq(sig, signReachabilityCallback(secret, rawBody))) return;
+  throw new DomainError("forbidden", "Invalid callback");
+}
+/** Returns the check id the URL token was issued for. */
+export function verifyReachabilityUrlToken(urlSecret: string | undefined, query: URLSearchParams): string {
+  const checkId = query.get("check"), token = query.get("token");
+  if (urlSecret && checkId && token && eq(token, reachabilityUrlToken(urlSecret, checkId))) return checkId;
   throw new DomainError("forbidden", "Invalid callback");
 }
 
@@ -64,8 +77,8 @@ export class MockReachabilityProvider implements ReachabilityProvider {
     this.calls.push(req);
     return { providerRef: `mock_${req.checkId}` };
   }
-  parseCallback(rawBody: string, headers: Record<string, string | undefined>, query: URLSearchParams) {
-    verifyReachabilityCallback(this.secret, rawBody, headers, query);
+  parseCallback(rawBody: string, headers: Record<string, string | undefined>, _query: URLSearchParams) {
+    verifyReachabilityCallback(this.secret, rawBody, headers);
     let o: { providerRef?: unknown; outcome?: unknown };
     try { o = JSON.parse(rawBody); } catch { throw new DomainError("validation", "Malformed callback"); }
     if (typeof o.providerRef !== "string" || !OUTCOMES.has(o.outcome as CallOutcome)) throw new DomainError("validation", "Malformed callback");
@@ -78,7 +91,7 @@ type Call = (url: string, init: RequestInit) => Promise<Response>;
 const defaultCall: Call = async (url, init) => pinnedFetch(await assertPublicHttpTarget(url), { ...init, timeoutMs: 10_000 });
 
 // ---- Exotel ----
-export interface ExotelConfig { sid: string; key: string; token: string; callerId: string; flowId: string; webhookSecret: string; baseUrl?: string; call?: Call }
+export interface ExotelConfig { sid: string; key: string; token: string; callerId: string; flowId: string; urlSecret: string; baseUrl?: string; call?: Call }
 export class ExotelReachabilityProvider implements ReachabilityProvider {
   readonly name = "exotel";
   constructor(private cfg: ExotelConfig) {}
@@ -87,7 +100,7 @@ export class ExotelReachabilityProvider implements ReachabilityProvider {
     const url = `${(c.baseUrl ?? "https://api.exotel.com").replace(/\/+$/, "")}/v1/Accounts/${encodeURIComponent(c.sid)}/Calls/connect.json`;
     const body = new URLSearchParams({
       From: req.phone, CallerId: c.callerId, Url: `http://my.exotel.com/${c.sid}/exoml/start_voice/${c.flowId}`, CallType: "trans", TimeOut: "25",
-      StatusCallback: req.callbackUrl, CustomField: req.token,
+      StatusCallback: `${req.callbackUrl}?check=${encodeURIComponent(req.checkId)}&token=${reachabilityUrlToken(c.urlSecret, req.checkId)}`, CustomField: req.token,
     });
     const res = await (c.call ?? defaultCall)(url, {
       method: "POST", body, headers: { authorization: `Basic ${Buffer.from(`${c.key}:${c.token}`).toString("base64")}`, "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
@@ -100,7 +113,8 @@ export class ExotelReachabilityProvider implements ReachabilityProvider {
   }
   /** Exotel posts/gets application/x-www-form-urlencoded (or query): CallSid, Status, digits (quoted, e.g. "\"1\""). */
   parseCallback(rawBody: string, headers: Record<string, string | undefined>, query: URLSearchParams) {
-    verifyReachabilityCallback(this.cfg.webhookSecret, rawBody, headers, query);
+    void headers;
+    const checkId = verifyReachabilityUrlToken(this.cfg.urlSecret, query);
     const form = new URLSearchParams(rawBody || "");
     const get = (k: string) => form.get(k) ?? query.get(k) ?? undefined;
     const providerRef = get("CallSid");
@@ -108,7 +122,7 @@ export class ExotelReachabilityProvider implements ReachabilityProvider {
     const digits = (get("digits") ?? "").replace(/["'\s]/g, "");
     const status = (get("Status") ?? "").toLowerCase();
     const outcome: CallOutcome = digits === "1" ? "confirmed" : digits === "2" ? "denied" : status === "failed" ? "failed" : "no_answer";
-    return { providerRef, outcome };
+    return { providerRef, outcome, checkId };
   }
 }
 
@@ -130,7 +144,8 @@ export class KnowlarityReachabilityProvider implements ReachabilityProvider {
   }
   /** Knowlarity IVR/CDR webhook JSON: {call_id, dtmf, status}. UNCONFIRMED mapping; adjust against the account's CDR schema. */
   parseCallback(rawBody: string, headers: Record<string, string | undefined>, query: URLSearchParams) {
-    verifyReachabilityCallback(this.cfg.webhookSecret, rawBody, headers, query);
+    void query;
+    verifyReachabilityCallback(this.cfg.webhookSecret, rawBody, headers);
     let j: { call_id?: string; dtmf?: string | number; status?: string };
     try { j = JSON.parse(rawBody); } catch { throw new DomainError("validation", "Malformed callback"); }
     if (!j.call_id) throw new DomainError("validation", "Callback has no call_id");
@@ -156,7 +171,9 @@ export function getReachabilityProvider(env: Record<string, string | undefined> 
   }
   const need = (k: string) => { const v = env[k]; if (!v) throw new DomainError("validation", `${k} is required for REACHABILITY_IVR_PROVIDER=${name}`); return v; };
   if (name === "exotel") {
-    return new ExotelReachabilityProvider({ sid: need("REACHABILITY_IVR_SID"), key: need("REACHABILITY_IVR_KEY"), token: need("REACHABILITY_IVR_SECRET"), callerId: need("REACHABILITY_IVR_CALLER_ID"), flowId: need("REACHABILITY_IVR_FLOW_ID"), webhookSecret: need("REACHABILITY_WEBHOOK_SECRET") });
+    const urlSecret = need("REACHABILITY_URL_SECRET");
+    if (urlSecret === env.REACHABILITY_WEBHOOK_SECRET) throw new DomainError("validation", "REACHABILITY_URL_SECRET must differ from REACHABILITY_WEBHOOK_SECRET");
+    return new ExotelReachabilityProvider({ sid: need("REACHABILITY_IVR_SID"), key: need("REACHABILITY_IVR_KEY"), token: need("REACHABILITY_IVR_SECRET"), callerId: need("REACHABILITY_IVR_CALLER_ID"), flowId: need("REACHABILITY_IVR_FLOW_ID"), urlSecret });
   }
   if (name === "knowlarity") {
     return new KnowlarityReachabilityProvider({ apiKey: need("REACHABILITY_IVR_KEY"), srKey: need("REACHABILITY_IVR_SECRET"), kNumber: need("REACHABILITY_IVR_CALLER_ID"), agentNumber: need("REACHABILITY_IVR_SID"), webhookSecret: need("REACHABILITY_WEBHOOK_SECRET") });
