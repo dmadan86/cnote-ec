@@ -192,3 +192,46 @@ export async function seedPurchaseOrder(email: string): Promise<{ orderId: strin
     return { ...me, orderId: String(o.id), purchaseOrderId: String(po.id), overdueInvoiceId: overdue, openInvoiceId: open };
   });
 }
+
+/**
+ * GRN / three-way match / returns (docs/design/grn-returns.md): builds on seedPurchaseOrder. Adds one goods receipt (100 received, 90 accepted,
+ * 10 rejected as damaged, received 5 days ago so the return window is open) and a REJECTED return with a reason (the dispute entry point).
+ * The two seeded invoices are amount-only and together bill Rs 24,000 before GST against Rs 22,500 accepted, so the match is a mismatch.
+ */
+export async function seedGoodsReceipt(email: string): Promise<{ orderId: string; purchaseOrderId: string; receiptId: string; returnId: string } & Principal> {
+  const seeded = await seedPurchaseOrder(email);
+  return withDb(async (c) => {
+    await c.query("update supplier_invoices set taxable_paise = 1200000 where purchase_order_id = $1", [seeded.purchaseOrderId]);
+    const order = (await c.query("select seller_business_id from orders where id = $1", [seeded.orderId])).rows[0]!;
+    const fy = "2026-27";
+    await c.query("insert into document_sequences (buyer_business_id, kind, financial_year, last_number) values ($1, 'grn', $2, 1), ($1, 'rma', $2, 1)", [seeded.businessId, fy]);
+    const grn = (
+      await c.query(
+        `insert into goods_receipts (id, purchase_order_id, order_id, buyer_business_id, seller_business_id, number, financial_year, received_on, receiver_name, confirmed_delivery, created_by_person_id)
+         values (gen_random_uuid(), $1, $2, $3, $4, 'GRN/26-27/000001', $5, current_date - 5, 'E2E Receiver', true, $6) returning id`,
+        [seeded.purchaseOrderId, seeded.orderId, seeded.businessId, order.seller_business_id, fy, seeded.personId],
+      )
+    ).rows[0]!;
+    const line = (
+      await c.query(
+        `insert into goods_receipt_lines (id, receipt_id, po_line_no, description, unit, received_qty, accepted_qty, rejected_qty, reject_reason, unit_price_paise)
+         values (gen_random_uuid(), $1, 1, 'Corrugated boxes', 'pcs', 100, 90, 10, 'damaged', 25000) returning id`,
+        [grn.id],
+      )
+    ).rows[0]!;
+    const ret = (
+      await c.query(
+        `insert into goods_returns (id, number, financial_year, receipt_id, purchase_order_id, order_id, buyer_business_id, seller_business_id, status, reason_code, reason_note, estimated_paise,
+           requested_by_person_id, decided_at, decision_note, updated_at)
+         values (gen_random_uuid(), 'RMA/26-27/000001', $1, $2, $3, $4, $5, $6, 'rejected', 'damaged', 'Wet cartons', 250000, $7, now(), 'Goods match the purchase order', now()) returning id`,
+        [fy, grn.id, seeded.purchaseOrderId, seeded.orderId, seeded.businessId, order.seller_business_id, seeded.personId],
+      )
+    ).rows[0]!;
+    await c.query(
+      `insert into goods_return_lines (id, return_id, receipt_line_id, po_line_no, description, unit, quantity, source, unit_price_paise)
+       values (gen_random_uuid(), $1, $2, 1, 'Corrugated boxes', 'pcs', 10, 'rejected', 25000)`,
+      [ret.id, line.id],
+    );
+    return { ...seeded, receiptId: String(grn.id), returnId: String(ret.id) };
+  });
+}

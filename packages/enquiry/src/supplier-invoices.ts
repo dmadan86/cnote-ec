@@ -14,6 +14,7 @@ import {
   addDays, checkSignedQr, daysRemaining, fromDbDate, isIsoDate, istDate, normaliseAckNo, normaliseEwayBill, normaliseInvoiceNumber, normaliseIrn,
   normalisePaymentReference, reminderStage, statutoryDueDate, STATUTORY_MAX_DAYS, toDbDate, type ReminderStage,
 } from "./po-core";
+import { matchGateTx, matchSummaryJson } from "./match";
 import { profiles } from "./support";
 import type { Actor } from "./types";
 
@@ -45,7 +46,13 @@ export interface SupplierInvoiceView {
   gstPaise: number;
   totalPaise: number;
   paidPaise: number;
+  /** credit notes recorded against this invoice (returns); they reduce what is payable */
+  creditedPaise: number;
   outstandingPaise: number;
+  /** paid more than the invoice is worth after credit notes: the seller owes the buyer this (settled off-platform) */
+  refundDuePaise: number;
+  /** the seller gave line detail (quantity and unit price per PO line), so the three-way match runs per line */
+  hasLines: boolean;
   file: { fileName: string; mimeType: string; sizeBytes: number } | null;
   eInvoice: { irn: string; ackNo: string | null; ackDate: string | null; hasSignedQr: boolean; check: EInvoiceCheckStatus; checkNote: string | null; qrDataUri?: string | null } | null;
   ewayBill: { number: string; validUntil: string | null; expired: boolean } | null;
@@ -69,7 +76,7 @@ export interface SupplierInvoiceView {
   createdAt: string;
 }
 
-type InvoiceRow = SupplierInvoice & { payments?: SupplierInvoicePayment[] };
+type InvoiceRow = SupplierInvoice & { payments?: SupplierInvoicePayment[]; lines?: unknown[]; _count?: { lines: number } };
 
 export function toInvoiceView(i: InvoiceRow, now: Date = new Date(), qrDataUri?: string | null): SupplierInvoiceView {
   const today = istDate(now);
@@ -91,7 +98,10 @@ export function toInvoiceView(i: InvoiceRow, now: Date = new Date(), qrDataUri?:
     gstPaise: Number(i.gstPaise),
     totalPaise: Number(i.totalPaise),
     paidPaise: Number(i.paidPaise),
-    outstandingPaise: open ? Number(i.totalPaise - i.paidPaise) : 0,
+    creditedPaise: Number(i.creditedPaise),
+    outstandingPaise: open ? Math.max(0, Number(i.totalPaise - i.creditedPaise - i.paidPaise)) : 0,
+    refundDuePaise: i.status === "void" ? 0 : Math.max(0, Number(i.paidPaise + i.creditedPaise - i.totalPaise)),
+    hasLines: (i.lines?.length ?? i._count?.lines ?? 0) > 0,
     file: i.fileKey ? { fileName: i.fileName ?? "invoice", mimeType: i.fileMime ?? "application/pdf", sizeBytes: i.fileSize ?? 0 } : null,
     eInvoice: i.irn
       ? { irn: i.irn, ackNo: i.ackNo, ackDate: i.ackDate?.toISOString() ?? null, hasSignedQr: !!i.signedQr, check: (i.eInvoiceCheck as EInvoiceCheckStatus | null) ?? "unchecked", checkNote: i.eInvoiceNote, ...(qrDataUri !== undefined ? { qrDataUri } : {}) }
@@ -133,6 +143,32 @@ export interface RecordInvoiceInput {
   /** ISO date or date-time */
   ewbValidUntil?: string | null;
   file?: AttachmentUpload | null;
+  /** optional line detail (docs/design/grn-returns.md): enables the per-line three-way match. Sum of quantity x unit price must equal taxablePaise. */
+  lines?: InvoiceLineInput[] | null;
+}
+
+export interface InvoiceLineInput { poLineNo: number; quantity: number; /** per unit, excluding GST */ unitPricePaise: number }
+
+const MAX_INVOICE_LINES = 50;
+
+/** Validates optional invoice line detail against the PO lines and the invoice taxable value. Returns null when no detail was given. */
+function checkInvoiceLines(lines: InvoiceLineInput[] | null | undefined, taxable: number, poLineNos: ReadonlySet<number>): InvoiceLineInput[] | null {
+  if (!lines || lines.length === 0) return null;
+  const bad = (m: string): never => { throw new DomainError("validation", m, { lines: m }); };
+  if (lines.length > MAX_INVOICE_LINES) bad(`An invoice can have up to ${MAX_INVOICE_LINES} lines.`);
+  const seen = new Set<number>();
+  let sum = 0;
+  for (const l of lines) {
+    if (!Number.isSafeInteger(l.poLineNo) || !poLineNos.has(l.poLineNo)) bad("Each invoice line must refer to a line of the purchase order.");
+    if (seen.has(l.poLineNo)) bad("Each purchase order line can appear once on the invoice.");
+    seen.add(l.poLineNo);
+    if (!Number.isSafeInteger(l.quantity) || l.quantity < 1 || l.quantity > 1_000_000_000) bad("Invoice line quantities must be whole numbers above 0.");
+    if (!Number.isSafeInteger(l.unitPricePaise) || l.unitPricePaise < 0 || l.unitPricePaise > 1_000_000_000_000) bad("Invoice line prices must be whole paise, 0 or more.");
+    sum += l.quantity * l.unitPricePaise;
+    if (!Number.isSafeInteger(sum)) bad("Invoice line amounts are too large.");
+  }
+  if (sum !== taxable) bad("The invoice lines add up to a different taxable value than the invoice. Check quantity and unit price on each line.");
+  return lines;
 }
 
 const blank = (v: string | null | undefined): string | null => (v && v.trim() !== "" ? v.trim() : null);
@@ -201,6 +237,7 @@ export async function recordSupplierInvoice(actor: Actor, input: RecordInvoiceIn
       if (invoiced + BigInt(total) > ver.totalPaise) {
         throw new DomainError("validation", "This invoice would take the total invoiced above the purchase order value. Ask the buyer to amend the purchase order first.", { total: "Above the remaining purchase order value." });
       }
+      const lineDetail = checkInvoiceLines(input.lines, taxable, new Set((await tx.purchaseOrderLine.findMany({ where: { versionId: ver.id }, select: { lineNo: true } })).map((l) => l.lineNo)));
       const written = cur.status === "acknowledged";
       const delivered = cur.order.deliveredAt;
       const acceptance = delivered ? istDate(delivered) : input.invoiceDate;
@@ -230,11 +267,16 @@ export async function recordSupplierInvoice(actor: Actor, input: RecordInvoiceIn
         }
         throw e;
       }
+      if (lineDetail) {
+        await tx.supplierInvoiceLine.createMany({
+          data: lineDetail.map((l, i) => ({ invoiceId: id, lineNo: i + 1, poLineNo: l.poLineNo, quantity: l.quantity, unitPricePaise: BigInt(l.unitPricePaise), taxablePaise: BigInt(l.quantity * l.unitPricePaise) })),
+        });
+      }
       await emit(tx, "SupplierInvoiceRecorded", { type: "supplier_invoice", id }, {
         supplierInvoiceId: id, purchaseOrderId: cur.id, orderId: cur.orderId, buyerBusinessId: cur.buyerBusinessId, sellerBusinessId: cur.sellerBusinessId,
         invoiceNumber, totalPaise: total, dueDate, msmeCovered: covered, hasIrn: !!irn, hasEwayBill: !!ewbNo,
       });
-      return toInvoiceView({ ...row, payments: [] }, now);
+      return toInvoiceView({ ...row, payments: [], lines: lineDetail ?? [] }, now);
     });
   } catch (e) {
     if (fileKey) await getMediaStore("private").delete(fileKey).catch(() => undefined);
@@ -256,11 +298,11 @@ export async function voidSupplierInvoice(actor: Actor, invoiceId: string, reaso
   if (why.length < 3 || why.length > 300) throw new DomainError("validation", "Give a reason (3 to 300 characters).", { reason: "Give a reason (3 to 300 characters)." });
   return prisma.$transaction(async (tx) => {
     await lockInvoice(tx, invoiceId);
-    const inv = await tx.supplierInvoice.findUnique({ where: { id: invoiceId }, include: { payments: true } });
+    const inv = await tx.supplierInvoice.findUnique({ where: { id: invoiceId }, include: { payments: true, _count: { select: { lines: true } } } });
     if (!inv || inv.sellerBusinessId !== actor.businessId) throw new DomainError("not_found", "Invoice not found");
     if (inv.status !== "open") throw new DomainError("conflict", `This invoice is ${inv.status}.`);
     if (inv.paidPaise > 0n) throw new DomainError("conflict", "A payment is already recorded against this invoice, so it cannot be withdrawn.");
-    const row = await tx.supplierInvoice.update({ where: { id: invoiceId }, data: { status: "void", voidReason: why }, include: { payments: true } });
+    const row = await tx.supplierInvoice.update({ where: { id: invoiceId }, data: { status: "void", voidReason: why }, include: { payments: true, _count: { select: { lines: true } } } });
     await emit(tx, "SupplierInvoiceVoided", { type: "supplier_invoice", id: invoiceId }, {
       supplierInvoiceId: invoiceId, purchaseOrderId: inv.purchaseOrderId, orderId: inv.orderId, buyerBusinessId: inv.buyerBusinessId, sellerBusinessId: inv.sellerBusinessId, invoiceNumber: inv.invoiceNumber, reason: why, system: false,
     });
@@ -275,6 +317,11 @@ export interface RecordPaymentInput {
   paidOn: string;
   /** UTR / bank reference */
   reference: string;
+  /**
+   * Pay although the three-way match blocks it (mismatch, or no goods receipt yet when the buyer blocks on that): the reason is logged
+   * in `invoice_match_overrides` and shown on the match view. Ignored when nothing blocks.
+   */
+  overrideReason?: string | null;
 }
 
 /** Buyer records a payment (full or part) they made to the seller. */
@@ -291,10 +338,27 @@ export async function recordInvoicePayment(actor: Actor, invoiceId: string, inpu
     if (!inv || inv.buyerBusinessId !== actor.businessId) throw new DomainError("not_found", "Invoice not found");
     if (inv.status !== "open") throw new DomainError("conflict", `This invoice is ${inv.status}.`);
     if (input.paidOn < fromDbDate(inv.invoiceDate)) throw new DomainError("validation", "The payment date cannot be before the invoice date.", { paidOn: "The payment date cannot be before the invoice date." });
-    const outstanding = inv.totalPaise - inv.paidPaise;
+    const outstanding = inv.totalPaise - inv.creditedPaise - inv.paidPaise;
+    if (outstanding <= 0n) throw new DomainError("conflict", "Nothing is outstanding on this invoice.");
     const amount = input.amountPaise == null ? outstanding : BigInt(input.amountPaise);
     if (typeof amount !== "bigint" || amount <= 0n || (input.amountPaise != null && !Number.isSafeInteger(input.amountPaise))) throw new DomainError("validation", "Enter a valid amount.", { amount: "Enter a valid amount." });
     if (amount > outstanding) throw new DomainError("validation", "The amount is more than the outstanding balance.", { amount: "More than the outstanding balance." });
+    // Three-way match gate (docs/design/grn-returns.md): a mismatch blocks "mark paid" unless the buyer overrides with a logged reason.
+    const gate = await matchGateTx(tx, inv);
+    if (gate.gate.blocked) {
+      const why = input.overrideReason?.trim() ?? "";
+      if (!why) {
+        throw new DomainError("conflict", gate.gate.reason === "mismatch"
+          ? "This invoice does not match the purchase order and the goods received. Resolve it with the seller, or pay anyway with a reason."
+          : "No goods receipt is recorded for this purchase order yet. Record the receipt, or pay anyway with a reason.", { matchBlocked: gate.gate.reason, invoiceId });
+      }
+      if (why.length < 5 || why.length > 300) throw new DomainError("validation", "Give a reason (5 to 300 characters).", { overrideReason: "Give a reason (5 to 300 characters)." });
+      await tx.invoiceMatchOverride.create({ data: { invoiceId, fingerprint: gate.match.fingerprint, reason: why, summary: matchSummaryJson(gate.match), byPersonId: actor.personId } });
+      await emit(tx, "InvoiceMatchOverridden", { type: "supplier_invoice", id: invoiceId }, {
+        supplierInvoiceId: invoiceId, purchaseOrderId: inv.purchaseOrderId, orderId: inv.orderId, buyerBusinessId: inv.buyerBusinessId, sellerBusinessId: inv.sellerBusinessId,
+        invoiceNumber: inv.invoiceNumber, matchStatus: gate.gate.reason,
+      });
+    }
     try {
       await tx.supplierInvoicePayment.create({ data: { invoiceId, amountPaise: amount, paidOn: toDbDate(input.paidOn), reference, byPersonId: actor.personId } });
     } catch (e) {
@@ -302,8 +366,8 @@ export async function recordInvoicePayment(actor: Actor, invoiceId: string, inpu
       throw e;
     }
     const paid = inv.paidPaise + amount;
-    const fully = paid === inv.totalPaise;
-    const row = await tx.supplierInvoice.update({ where: { id: invoiceId }, data: { paidPaise: paid, ...(fully ? { status: "paid", paidAt: now } : {}) }, include: { payments: true } });
+    const fully = paid + inv.creditedPaise >= inv.totalPaise;
+    const row = await tx.supplierInvoice.update({ where: { id: invoiceId }, data: { paidPaise: paid, ...(fully ? { status: "paid", paidAt: now } : {}) }, include: { payments: true, _count: { select: { lines: true } } } });
     const due = inv.dueDate ? fromDbDate(inv.dueDate) : null;
     await emit(tx, "SupplierInvoicePaymentRecorded", { type: "supplier_invoice", id: invoiceId }, {
       supplierInvoiceId: invoiceId, purchaseOrderId: inv.purchaseOrderId, orderId: inv.orderId, buyerBusinessId: inv.buyerBusinessId, sellerBusinessId: inv.sellerBusinessId,
@@ -346,7 +410,7 @@ export async function voidOpenInvoicesForOrderTx(tx: Tx, orderId: string, reason
 
 export async function getSupplierInvoice(actor: Actor, invoiceId: string, now: Date = new Date()): Promise<SupplierInvoiceView | null> {
   if (!UUID.test(invoiceId)) return null;
-  const inv = await prisma.supplierInvoice.findUnique({ where: { id: invoiceId }, include: { payments: { orderBy: { createdAt: "asc" } } } });
+  const inv = await prisma.supplierInvoice.findUnique({ where: { id: invoiceId }, include: { payments: { orderBy: { createdAt: "asc" } }, _count: { select: { lines: true } } } });
   if (!inv || (inv.buyerBusinessId !== actor.businessId && inv.sellerBusinessId !== actor.businessId)) return null;
   const qr = inv.signedQr ? await qrSvgDataUri(inv.signedQr) : null;
   return toInvoiceView(inv, now, inv.irn ? qr : undefined);
@@ -395,17 +459,17 @@ export async function listBuyerPayables(actor: Actor, opts: { filter?: PayablesF
   const cursor = opts.cursor && UUID.test(opts.cursor) ? { id: opts.cursor } : undefined;
   const [rows, open, overdue, dueSoon, msmeOpen] = await Promise.all([
     prisma.supplierInvoice.findMany({
-      where, include: { payments: true, purchaseOrder: { select: { number: true } } },
+      where, include: { payments: true, _count: { select: { lines: true } }, purchaseOrder: { select: { number: true } } },
       orderBy: filter === "paid" || filter === "all" ? [{ createdAt: "desc" }, { id: "desc" }] : [{ dueDate: { sort: "asc", nulls: "last" } }, { id: "asc" }],
       take: PAGE + 1, ...(cursor ? { cursor, skip: 1 } : {}),
     }),
-    prisma.supplierInvoice.aggregate({ where: { ...base, status: "open" }, _count: true, _sum: { totalPaise: true, paidPaise: true } }),
-    prisma.supplierInvoice.aggregate({ where: { ...base, status: "open", dueDate: { lt: today } }, _count: true, _sum: { totalPaise: true, paidPaise: true } }),
+    prisma.supplierInvoice.aggregate({ where: { ...base, status: "open" }, _count: true, _sum: { totalPaise: true, creditedPaise: true, paidPaise: true } }),
+    prisma.supplierInvoice.aggregate({ where: { ...base, status: "open", dueDate: { lt: today } }, _count: true, _sum: { totalPaise: true, creditedPaise: true, paidPaise: true } }),
     prisma.supplierInvoice.count({ where: { ...base, status: "open", dueDate: { gte: today, lte: toDbDate(addDays(istDate(now), 7)) } } }),
     prisma.supplierInvoice.count({ where: { ...base, status: "open", msmeCovered: true } }),
   ]);
   const page = rows.slice(0, PAGE);
-  const out = (a: typeof open) => Number((a._sum.totalPaise ?? 0n) - (a._sum.paidPaise ?? 0n));
+  const out = (a: typeof open) => Number((a._sum.totalPaise ?? 0n) - (a._sum.creditedPaise ?? 0n) - (a._sum.paidPaise ?? 0n));
   return {
     items: await toPayableRows(page, now),
     nextCursor: rows.length > PAGE ? page[page.length - 1]!.id : null,
@@ -420,11 +484,11 @@ export async function listOverdueMsmePayables(opts: { cursor?: string | null; li
   const where: Prisma.SupplierInvoiceWhereInput = { status: "open", msmeCovered: true, dueDate: { lt: cutoff } };
   const cursor = opts.cursor && UUID.test(opts.cursor) ? { id: opts.cursor } : undefined;
   const [rows, agg] = await Promise.all([
-    prisma.supplierInvoice.findMany({ where, include: { payments: true, purchaseOrder: { select: { number: true } } }, orderBy: [{ dueDate: "asc" }, { id: "asc" }], take: limit + 1, ...(cursor ? { cursor, skip: 1 } : {}) }),
-    prisma.supplierInvoice.aggregate({ where, _count: true, _sum: { totalPaise: true, paidPaise: true } }),
+    prisma.supplierInvoice.findMany({ where, include: { payments: true, _count: { select: { lines: true } }, purchaseOrder: { select: { number: true } } }, orderBy: [{ dueDate: "asc" }, { id: "asc" }], take: limit + 1, ...(cursor ? { cursor, skip: 1 } : {}) }),
+    prisma.supplierInvoice.aggregate({ where, _count: true, _sum: { totalPaise: true, creditedPaise: true, paidPaise: true } }),
   ]);
   const page = rows.slice(0, limit);
-  return { items: await toPayableRows(page, now), nextCursor: rows.length > limit ? page[page.length - 1]!.id : null, totalOverdue: agg._count, totalOverduePaise: Number((agg._sum.totalPaise ?? 0n) - (agg._sum.paidPaise ?? 0n)) };
+  return { items: await toPayableRows(page, now), nextCursor: rows.length > limit ? page[page.length - 1]!.id : null, totalOverdue: agg._count, totalOverduePaise: Number((agg._sum.totalPaise ?? 0n) - (agg._sum.creditedPaise ?? 0n) - (agg._sum.paidPaise ?? 0n)) };
 }
 
 // ---- reminders (scheduled job in the module worker) -----------------------------------------------------------------------------
@@ -456,13 +520,13 @@ export async function sendPayableReminders(now: Date = new Date(), opts: { batch
       const stage: ReminderStage | null = reminderStage(due, today);
       if (!stage || inv.reminders.some((r) => r.stage === stage)) continue;
       const ok = await prisma.$transaction(async (tx) => {
-        const fresh = await tx.supplierInvoice.findUnique({ where: { id: inv.id }, select: { status: true, paidPaise: true, totalPaise: true } });
+        const fresh = await tx.supplierInvoice.findUnique({ where: { id: inv.id }, select: { status: true, paidPaise: true, creditedPaise: true, totalPaise: true } });
         if (!fresh || fresh.status !== "open") return false;
         const created = await tx.supplierInvoiceReminder.createMany({ data: [{ invoiceId: inv.id, stage }], skipDuplicates: true });
         if (created.count === 0) return false;
         await emit(tx, "SupplierInvoiceDueReminder", { type: "supplier_invoice", id: inv.id }, {
           supplierInvoiceId: inv.id, purchaseOrderId: inv.purchaseOrderId, orderId: inv.orderId, buyerBusinessId: inv.buyerBusinessId, sellerBusinessId: inv.sellerBusinessId,
-          invoiceNumber: inv.invoiceNumber, stage, dueDate: due, outstandingPaise: Number(fresh.totalPaise - fresh.paidPaise), daysOverdue: Math.max(0, -daysRemaining(due, today)),
+          invoiceNumber: inv.invoiceNumber, stage, dueDate: due, outstandingPaise: Number(fresh.totalPaise - fresh.creditedPaise - fresh.paidPaise), daysOverdue: Math.max(0, -daysRemaining(due, today)),
         });
         return true;
       });

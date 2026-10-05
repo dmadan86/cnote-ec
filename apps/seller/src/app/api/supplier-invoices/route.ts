@@ -21,6 +21,13 @@ export async function POST(req: Request) {
     const file = form.get("file");
     const upload = file && typeof file !== "string" && file.size > 0 ? { fileName: file.name, bytes: new Uint8Array(await file.arrayBuffer()) } : null;
     const orderId = str(form, "orderId");
+    // optional line detail: qty__<poLineNo> and price__<poLineNo> (rupees per unit, excluding GST); a line with a quantity is billed
+    const lines: { poLineNo: number; quantity: number; unitPricePaise: number }[] = [];
+    for (const k of form.keys()) {
+      const m = /^qty__(\d{1,3})$/.exec(k);
+      if (!m || str(form, k) === "") continue;
+      lines.push({ poLineNo: Number(m[1]), quantity: Number(str(form, k)), unitPricePaise: rupeesToPaise(numOrNull(form, `price__${m[1]}`)) });
+    }
     await enquiry.recordSupplierInvoice(actorOf(session as SessionWithBusiness), {
       purchaseOrderId: str(form, "purchaseOrderId"),
       invoiceNumber: str(form, "invoiceNumber"),
@@ -34,6 +41,7 @@ export async function POST(req: Request) {
       ewbNo: str(form, "ewbNo") || null,
       ewbValidUntil: str(form, "ewbValidUntil") || null,
       file: upload,
+      lines: lines.length ? lines : null,
     });
     if (orderId) revalidatePath(`/orders/${orderId}`, "layout");
     return Response.json({ ok: true, data: null }, { headers: { "Cache-Control": "no-store" } });

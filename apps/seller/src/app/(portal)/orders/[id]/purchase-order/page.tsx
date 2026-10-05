@@ -10,6 +10,7 @@ import { load } from "@/lib/safe";
 import { enquiry } from "@/lib/services";
 import { AckForm, InvoiceForm } from "@/features/purchase-orders/forms";
 import { InvoiceCard, PO_TONE, Row, day, inr } from "@/features/purchase-orders/views";
+import { ReceiptsAndMatch } from "@/features/goods-returns/panels";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("purchaseOrders"))("metaTitle") };
@@ -148,10 +149,12 @@ export default async function SellerPurchaseOrderPage({ params }: { params: Prom
         )}
       </section>
 
+      <ReceiptsAndMatch orderId={id} purchaseOrderId={po.id} session={session} />
+
       {po.actions.recordInvoice ? (
         <Card>
           <CardHeader><CardTitle>{t("invoiceForm.title")}</CardTitle></CardHeader>
-          <CardBody><InvoiceForm orderId={id} purchaseOrderId={po.id} today={today} /></CardBody>
+          <CardBody><InvoiceForm orderId={id} purchaseOrderId={po.id} today={today} poLines={po.lines.map((l) => ({ lineNo: l.lineNo, description: l.description, unit: l.unit, quantity: l.quantity, unitPrice: inr(Math.round(l.taxablePaise / l.quantity)) }))} /></CardBody>
         </Card>
       ) : null}
     </div>

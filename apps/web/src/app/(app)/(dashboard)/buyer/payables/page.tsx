@@ -1,4 +1,4 @@
-import { istDate, listBuyerPayables, purchaseOrdersEnabled, type PayablesFilter } from "@cnote/enquiry";
+import { getInvoiceMatchStatuses, istDate, listBuyerPayables, purchaseOrdersEnabled, type PayablesFilter } from "@cnote/enquiry";
 import { actorOf, requireBusiness } from "@cnote/next-kit";
 import { Alert, Card, CardBody, Container, EmptyState, LinkTabs, PageHeader } from "@cnote/ui";
 import type { Metadata } from "next";
@@ -26,6 +26,7 @@ export default async function BuyerPayablesPage(props: { searchParams: Promise<{
   const now = new Date();
   const page = await listBuyerPayables(actorOf(s), { filter, cursor: sp.cursor }, now);
   const today = istDate(now);
+  const matches = await getInvoiceMatchStatuses(actorOf(s), page.items.map((i) => i.purchaseOrderId));
   const sum = page.summary;
   return (
     <Container className="py-8">
@@ -61,7 +62,7 @@ export default async function BuyerPayablesPage(props: { searchParams: Promise<{
                       <Link href={`/buyer/orders/${inv.orderId}/purchase-order#invoice-${inv.id}`} className="inline-flex min-h-11 items-center text-sm font-medium text-brand-700 underline">{t("viewOrder")}</Link>
                     </div>
                     {inv.status === "open" ? (
-                      <PayDisclosure invoiceId={inv.id} orderId={inv.orderId} balance={inr(inv.outstandingPaise)} today={today} minDate={inv.invoiceDate} locale={locale} />
+                      <PayDisclosure invoiceId={inv.id} orderId={inv.orderId} balance={inr(inv.outstandingPaise)} today={today} minDate={inv.invoiceDate} locale={locale} matchBlock={matches.get(inv.id)?.gate?.blocked ? matches.get(inv.id)!.gate!.reason : null} />
                     ) : null}
                   </CardBody>
                 </Card>
@@ -80,12 +81,12 @@ export default async function BuyerPayablesPage(props: { searchParams: Promise<{
   );
 }
 
-async function PayDisclosure(p: { invoiceId: string; orderId: string; balance: string; today: string; minDate: string; locale: Awaited<ReturnType<typeof getRequestLocale>> }) {
+async function PayDisclosure(p: { matchBlock: "mismatch" | "pending_grn" | null; invoiceId: string; orderId: string; balance: string; today: string; minDate: string; locale: Awaited<ReturnType<typeof getRequestLocale>> }) {
   const t = await getTranslations({ locale: p.locale, namespace: "po.pay" });
   return (
     <details className="rounded-lg border border-line p-3">
       <summary className="min-h-11 cursor-pointer text-sm font-semibold text-brand-700 focus-visible:outline-2 focus-visible:outline-brand-600">{t("title")}</summary>
-      <div className="pt-3"><PayForm invoiceId={p.invoiceId} orderId={p.orderId} balanceLabel={p.balance} today={p.today} minDate={p.minDate} /></div>
+      <div className="pt-3"><PayForm invoiceId={p.invoiceId} orderId={p.orderId} balanceLabel={p.balance} today={p.today} minDate={p.minDate} matchBlock={p.matchBlock} /></div>
     </details>
   );
 }

@@ -5,7 +5,7 @@ import { prisma } from "@cnote/db";
 
 export async function exportPersonalData(personId: string, ctx: PersonalExportContext): Promise<PersonalExport> {
   const biz = ctx.businessIds;
-  const [enquiries, messages, quotes, orders, dealReports, attachments, quarantined, signals, enquiryLines, quoteLines, purchaseOrders, supplierInvoices] = await Promise.all([
+  const [enquiries, messages, quotes, orders, dealReports, attachments, quarantined, signals, enquiryLines, quoteLines, purchaseOrders, supplierInvoices, goodsReceipts, goodsReturns, matchOverrides, matchSettings] = await Promise.all([
     prisma.enquiry.findMany({
       where: { buyerPersonId: personId },
       orderBy: { createdAt: "asc" },
@@ -78,6 +78,27 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
           include: { payments: { orderBy: { createdAt: "asc" } } },
         })
       : Promise.resolve([]),
+    // goods receipt notes (docs/design/grn-returns.md): receiver name, quantities and reason codes; photo metadata only, never storage keys
+    biz.length
+      ? prisma.goodsReceipt.findMany({
+          where: { OR: [{ buyerBusinessId: { in: biz } }, { sellerBusinessId: { in: biz } }] },
+          orderBy: { createdAt: "asc" },
+          take: EXPORT_TAKE,
+          include: { lines: { orderBy: { poLineNo: "asc" } }, photos: { omit: { key: true }, orderBy: { createdAt: "asc" } } },
+        })
+      : Promise.resolve([]),
+    // returns with their lines and credit notes
+    biz.length
+      ? prisma.goodsReturn.findMany({
+          where: { OR: [{ buyerBusinessId: { in: biz } }, { sellerBusinessId: { in: biz } }] },
+          orderBy: { createdAt: "asc" },
+          take: EXPORT_TAKE,
+          include: { lines: { orderBy: { poLineNo: "asc" } }, creditNote: true },
+        })
+      : Promise.resolve([]),
+    // reasons the person gave when paying an invoice whose three-way match was blocking
+    prisma.invoiceMatchOverride.findMany({ where: { byPersonId: personId }, orderBy: { createdAt: "asc" }, take: EXPORT_TAKE }),
+    biz.length ? prisma.buyerMatchSettings.findMany({ where: { buyerBusinessId: { in: biz } }, take: EXPORT_TAKE }) : Promise.resolve([]),
   ]);
   return {
     enquiries: exportCollection(enquiries),
@@ -92,5 +113,9 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
     quoteLines: exportCollection(quoteLines),
     purchaseOrders: exportCollection(purchaseOrders),
     supplierInvoices: exportCollection(supplierInvoices),
+    goodsReceipts: exportCollection(goodsReceipts),
+    goodsReturns: exportCollection(goodsReturns),
+    invoiceMatchOverrides: exportCollection(matchOverrides),
+    matchSettings: exportCollection(matchSettings),
   };
 }

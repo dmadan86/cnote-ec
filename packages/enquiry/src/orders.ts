@@ -6,6 +6,7 @@ import { prisma, type Order, type OrderStatus, type Tx } from "@cnote/db";
 import { profiles } from "./support";
 import { availableFulfilmentStages, type FulfilmentStage } from "./fulfilment";
 import { onOrderCancelledTx } from "./purchase-orders";
+import { istDate } from "./po-core";
 import { onOrderDeliveredTx } from "./supplier-invoices";
 import type { Actor } from "./types";
 
@@ -352,6 +353,31 @@ async function persist(tx: Tx, order: Order, next: OrderState, actorBusinessId: 
     if (updated.status === "cancelled") await onOrderCancelledTx(tx, order.id, actorBusinessId);
   }
   return updated;
+}
+
+/**
+ * The buyer's first goods receipt with accepted units IS the delivery confirmation (docs/design/grn-returns.md): a dispatched order moves
+ * to `delivered` and `deliveredAt` (the MSMED s.15 / IT Act s.43B(h) day of acceptance) is stamped with the received date. Idempotent and
+ * never double counted: when delivery was already confirmed (manually, or by an earlier receipt) nothing changes and false is returned.
+ * Runs inside the receipt's transaction.
+ */
+export async function acceptDeliveryOnReceiptTx(tx: Tx, orderId: string, receivedOn: string, now: Date): Promise<boolean> {
+  await tx.$queryRaw`SELECT id FROM orders WHERE id = ${orderId}::uuid FOR UPDATE`;
+  const order = await tx.order.findUnique({ where: { id: orderId } });
+  if (!order || order.deliveredAt) return false;
+  const at = receivedOn >= istDate(now) ? now : new Date(`${receivedOn}T12:00:00+05:30`);
+  if (order.status === "dispatched") {
+    await tx.order.update({ where: { id: orderId }, data: { status: "delivered", deliveredAt: at } });
+    await emit(tx, "OrderStatusChanged", { type: "order", id: orderId }, {
+      orderId, buyerBusinessId: order.buyerBusinessId, sellerBusinessId: order.sellerBusinessId, from: "dispatched", to: "delivered",
+    });
+  } else if (order.status === "delivered" || order.status === "completed") {
+    await tx.order.update({ where: { id: orderId }, data: { deliveredAt: at } });
+  } else {
+    return false;
+  }
+  await onOrderDeliveredTx(tx, orderId, at);
+  return true;
 }
 
 /** Records the actor's side of the two-party confirmation; both sides confirmed => status `confirmed`. */

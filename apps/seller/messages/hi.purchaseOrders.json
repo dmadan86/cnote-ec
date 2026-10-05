@@ -14,7 +14,11 @@
       "cancelled": "रद्द"
     },
     "version": "संस्करण {n}",
-    "ack": { "pending": "आपके जवाब का इंतज़ार", "accepted": "स्वीकृत", "rejected": "अस्वीकृत" },
+    "ack": {
+      "pending": "आपके जवाब का इंतज़ार",
+      "accepted": "स्वीकृत",
+      "rejected": "अस्वीकृत"
+    },
     "ackReason": "आपका कारण: {reason}",
     "cancelledReason": "बायर ने रद्द किया: {reason}",
     "partiesTitle": "पक्ष और डिलीवरी",
@@ -35,11 +39,31 @@
     "notes": "बायर के नोट्स",
     "linesTitle": "आइटम",
     "linesCaption": "इस क्रय आदेश के आइटम",
-    "col": { "item": "आइटम", "hsn": "HSN", "qty": "मात्रा", "rate": "दर", "taxable": "कर योग्य मूल्य", "gst": "GST", "total": "कुल" },
+    "col": {
+      "item": "आइटम",
+      "hsn": "HSN",
+      "qty": "मात्रा",
+      "rate": "दर",
+      "taxable": "कर योग्य मूल्य",
+      "gst": "GST",
+      "total": "कुल"
+    },
     "priceIncludesGst": "कीमत में GST शामिल है",
-    "totals": { "taxable": "कर योग्य मूल्य", "cgst": "CGST", "sgst": "SGST", "igst": "IGST", "total": "कुल" },
+    "totals": {
+      "taxable": "कर योग्य मूल्य",
+      "cgst": "CGST",
+      "sgst": "SGST",
+      "igst": "IGST",
+      "total": "कुल"
+    },
     "amountsTitle": "क्रय आदेश और इनवॉइस",
-    "amounts": { "po": "क्रय आदेश का मूल्य", "invoiced": "आपने इनवॉइस किया", "paid": "बायर ने चुकाया", "toInvoice": "अभी इनवॉइस नहीं हुआ", "outstanding": "अभी मिलना बाकी" },
+    "amounts": {
+      "po": "क्रय आदेश का मूल्य",
+      "invoiced": "आपने इनवॉइस किया",
+      "paid": "बायर ने चुकाया",
+      "toInvoice": "अभी इनवॉइस नहीं हुआ",
+      "outstanding": "अभी मिलना बाकी"
+    },
     "pdf": "PDF डाउनलोड करें (संस्करण {n})",
     "versionsTitle": "संस्करण",
     "versionRow": "संस्करण {n}: {total}, {terms}",
@@ -75,7 +99,13 @@
       "ewbValid": "ई-वे बिल की वैधता",
       "submit": "इनवॉइस दर्ज करें",
       "pending": "सेव हो रहा है...",
-      "saved": "इनवॉइस दर्ज हो गया।"
+      "saved": "इनवॉइस दर्ज हो गया।",
+      "linesTitle": "क्रय आदेश की पंक्ति के अनुसार बिल बनाएं (वैकल्पिक)",
+      "linesHint": "इस इनवॉइस की पंक्तियों के लिए मात्रा और प्रति इकाई कीमत (GST से पहले) भरें। तब खरीदार की माल प्राप्ति से पंक्ति दर पंक्ति मिलान होता है। पंक्तियों का योग ऊपर के कर योग्य मूल्य के बराबर होना चाहिए।",
+      "lineQty": "बिल की गई मात्रा ({unit})",
+      "lineQtyHint": "ऑर्डर की गई {qty}",
+      "linePrice": "GST से पहले प्रति इकाई कीमत (Rs)",
+      "linePriceHint": "क्रय आदेश की कीमत {price}"
     },
     "invoices": {
       "title": "आपके इनवॉइस",

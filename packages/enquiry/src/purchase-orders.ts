@@ -79,7 +79,7 @@ export interface PurchaseOrderView {
   /** the seller's own MSME standing (declared) and whether the payment-time limit applies to this supplier */
   sellerMsme: { category: "micro" | "small" | "medium" | null; covered: boolean };
   invoices: SupplierInvoiceView[];
-  amounts: { poPaise: number; invoicedPaise: number; paidPaise: number; remainingToInvoicePaise: number; outstandingPaise: number };
+  amounts: { poPaise: number; invoicedPaise: number; paidPaise: number; remainingToInvoicePaise: number; outstandingPaise: number; creditedPaise: number };
   actions: { amend: boolean; cancel: boolean; acknowledge: boolean; recordInvoice: boolean; payInvoices: boolean };
 }
 
@@ -130,7 +130,7 @@ async function buildView(po: PoFull, role: "buyer" | "seller", now: Date): Promi
     cancelReason: po.cancelReason, cancelledAt: po.cancelledAt?.toISOString() ?? null, createdAt: po.createdAt.toISOString(),
     sellerMsme: { category: msme?.category ?? null, covered: !!msme?.covered },
     invoices,
-    amounts: { poPaise, invoicedPaise: invoiced, paidPaise: paid, remainingToInvoicePaise: Math.max(0, poPaise - invoiced), outstandingPaise: invoiced - paid },
+    amounts: { poPaise, invoicedPaise: invoiced, paidPaise: paid, remainingToInvoicePaise: Math.max(0, poPaise - invoiced), outstandingPaise: live.reduce((sum, i) => sum + i.outstandingPaise, 0), creditedPaise: live.reduce((sum, i) => sum + i.creditedPaise, 0) },
     actions: {
       amend: role === "buyer" && !cancelled,
       cancel: role === "buyer" && !cancelled && live.length === 0,
@@ -143,7 +143,7 @@ async function buildView(po: PoFull, role: "buyer" | "seller", now: Date): Promi
 
 const INCLUDE = {
   versions: { include: { lines: true, acks: true } },
-  invoices: { include: { payments: true } },
+  invoices: { include: { payments: true, _count: { select: { lines: true } } } },
 } satisfies Prisma.PurchaseOrderInclude;
 
 function roleOf(po: Pick<PurchaseOrder, "buyerBusinessId" | "sellerBusinessId">, actor: Actor): "buyer" | "seller" | null {

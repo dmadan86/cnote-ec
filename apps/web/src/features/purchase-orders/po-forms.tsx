@@ -99,8 +99,9 @@ export function CancelPoForm({ orderId, purchaseOrderId }: { orderId: string; pu
 }
 
 /** Mark an invoice paid (full or part): date, UTR / bank reference. Records the buyer's own payment; nothing is paid from here. */
-export function PayForm({ invoiceId, orderId, balanceLabel, today, minDate }: { invoiceId: string; orderId: string; balanceLabel: string; today: string; minDate: string }) {
+export function PayForm({ invoiceId, orderId, balanceLabel, today, minDate, matchBlock = null }: { invoiceId: string; orderId: string; balanceLabel: string; today: string; minDate: string; matchBlock?: "mismatch" | "pending_grn" | null }) {
   const t = useTranslations("po");
+  const tg = useTranslations("grn.pay");
   const [state, action, pending] = useActionState<State, FormData>(payInvoiceAction, null);
   const id = `pay-${invoiceId}`;
   const err = (k: string) => (state && !state.ok && state.fieldErrors?.[k]) || undefined;
@@ -109,6 +110,7 @@ export function PayForm({ invoiceId, orderId, balanceLabel, today, minDate }: { 
       <input type="hidden" name="invoiceId" value={invoiceId} />
       <input type="hidden" name="orderId" value={orderId} />
       <p className="text-xs text-muted">{t("pay.note")}</p>
+      {matchBlock ? <Alert tone="warning">{tg(matchBlock === "mismatch" ? "blockedMismatch" : "blockedPending")}</Alert> : null}
       <Result state={state} />
       <div className="grid gap-3 sm:grid-cols-3">
         <Field label={t("pay.amount")} htmlFor={`${id}-amount`} hint={t("pay.amountHint", { balance: balanceLabel })} error={err("amount")}>
@@ -121,8 +123,13 @@ export function PayForm({ invoiceId, orderId, balanceLabel, today, minDate }: { 
           <Input id={`${id}-ref`} name="reference" required minLength={6} maxLength={30} autoComplete="off" autoCapitalize="characters" />
         </Field>
       </div>
+      {matchBlock ? (
+        <Field label={tg("overrideReason")} htmlFor={`${id}-override`} hint={tg("overrideHint")} error={err("overrideReason")}>
+          <Input id={`${id}-override`} name="overrideReason" required minLength={5} maxLength={300} autoComplete="off" />
+        </Field>
+      ) : null}
       <div>
-        <Button type="submit" disabled={pending}>{pending ? t("pay.pending") : t("pay.submit")}</Button>
+        <Button type="submit" disabled={pending}>{pending ? t("pay.pending") : matchBlock ? tg("submitAnyway") : t("pay.submit")}</Button>
       </div>
     </form>
   );

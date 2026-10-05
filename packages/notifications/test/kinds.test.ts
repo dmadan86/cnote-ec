@@ -7,6 +7,7 @@ vi.mock("@cnote/templates", () => ({ defineTemplates: (d: unknown) => { h.define
 vi.mock("@cnote/email", () => ({ sendEmail: async () => "id" }));
 vi.mock("@cnote/identity", () => ({ BADGE_THRESHOLD: 40, getConsents: async () => ({ marketing: false }) }));
 
+import { GRN_KINDS } from "../src/kinds-grn";
 import { PAYABLE_KINDS } from "../src/kinds-payables";
 import { PHASE23_KINDS } from "../src/kinds-phase23";
 import { APPROVAL_KINDS } from "../src/kinds-approvals";
@@ -107,7 +108,7 @@ describe("kinds registry", () => {
   });
   it("every kind is exercised by the mapping table", () => {
     const covered = new Set(TABLE.map((r) => r.key));
-    const phase23 = new Set([...PHASE23_KINDS, ...PAYABLE_KINDS].map((k) => k.key)); // covered in kinds-phase23.test.ts / kinds-payables.test.ts
+    const phase23 = new Set([...PHASE23_KINDS, ...PAYABLE_KINDS, ...GRN_KINDS].map((k) => k.key)); // covered in kinds-phase23.test.ts / kinds-payables.test.ts
     const approvals = new Set(APPROVAL_KINDS.map((k) => k.key)); // covered in kinds-approvals.test.ts
     for (const k of KINDS) if (!phase23.has(k.key) && !approvals.has(k.key) && k.category !== "alerts") expect(covered, k.key).toContain(k.key); // alerts: kinds-alerts.db.test.ts
   });

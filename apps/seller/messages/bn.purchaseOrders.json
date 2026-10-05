@@ -14,7 +14,11 @@
       "cancelled": "বাতিল"
     },
     "version": "সংস্করণ {n}",
-    "ack": { "pending": "আপনার উত্তরের অপেক্ষায়", "accepted": "গৃহীত", "rejected": "প্রত্যাখ্যাত" },
+    "ack": {
+      "pending": "আপনার উত্তরের অপেক্ষায়",
+      "accepted": "গৃহীত",
+      "rejected": "প্রত্যাখ্যাত"
+    },
     "ackReason": "আপনার কারণ: {reason}",
     "cancelledReason": "বায়ার বাতিল করেছেন: {reason}",
     "partiesTitle": "পক্ষ ও ডেলিভারি",
@@ -35,11 +39,31 @@
     "notes": "বায়ারের নোট",
     "linesTitle": "আইটেম",
     "linesCaption": "এই ক্রয় আদেশের আইটেম",
-    "col": { "item": "আইটেম", "hsn": "HSN", "qty": "পরিমাণ", "rate": "দর", "taxable": "করযোগ্য মূল্য", "gst": "GST", "total": "মোট" },
+    "col": {
+      "item": "আইটেম",
+      "hsn": "HSN",
+      "qty": "পরিমাণ",
+      "rate": "দর",
+      "taxable": "করযোগ্য মূল্য",
+      "gst": "GST",
+      "total": "মোট"
+    },
     "priceIncludesGst": "দামে GST ধরা আছে",
-    "totals": { "taxable": "করযোগ্য মূল্য", "cgst": "CGST", "sgst": "SGST", "igst": "IGST", "total": "মোট" },
+    "totals": {
+      "taxable": "করযোগ্য মূল্য",
+      "cgst": "CGST",
+      "sgst": "SGST",
+      "igst": "IGST",
+      "total": "মোট"
+    },
     "amountsTitle": "ক্রয় আদেশ ও ইনভয়েস",
-    "amounts": { "po": "ক্রয় আদেশের মূল্য", "invoiced": "আপনি ইনভয়েস করেছেন", "paid": "বায়ার পরিশোধ করেছেন", "toInvoice": "এখনও ইনভয়েস হয়নি", "outstanding": "এখনও পাওনা" },
+    "amounts": {
+      "po": "ক্রয় আদেশের মূল্য",
+      "invoiced": "আপনি ইনভয়েস করেছেন",
+      "paid": "বায়ার পরিশোধ করেছেন",
+      "toInvoice": "এখনও ইনভয়েস হয়নি",
+      "outstanding": "এখনও পাওনা"
+    },
     "pdf": "PDF ডাউনলোড করুন (সংস্করণ {n})",
     "versionsTitle": "সংস্করণ",
     "versionRow": "সংস্করণ {n}: {total}, {terms}",
@@ -75,7 +99,13 @@
       "ewbValid": "ই-ওয়ে বিল বৈধ থাকবে",
       "submit": "ইনভয়েস নথিভুক্ত করুন",
       "pending": "সেভ হচ্ছে...",
-      "saved": "ইনভয়েস নথিভুক্ত হয়েছে।"
+      "saved": "ইনভয়েস নথিভুক্ত হয়েছে।",
+      "linesTitle": "ক্রয় আদেশের লাইন ধরে বিল করুন (ঐচ্ছিক)",
+      "linesHint": "এই ইনভয়েসের লাইনগুলির জন্য পরিমাণ ও প্রতি ইউনিটের দাম (GST-এর আগে) লিখুন। তখন বায়ারের মাল গ্রহণ লাইন ধরে ধরে মেলানো হবে। লাইনগুলির যোগফল উপরের করযোগ্য মূল্যের সমান হতে হবে।",
+      "lineQty": "বিল করা পরিমাণ ({unit})",
+      "lineQtyHint": "অর্ডার করা {qty}",
+      "linePrice": "GST-এর আগে প্রতি ইউনিটের দাম (₹)",
+      "linePriceHint": "ক্রয় আদেশের দাম {price}"
     },
     "invoices": {
       "title": "আপনার ইনভয়েস",

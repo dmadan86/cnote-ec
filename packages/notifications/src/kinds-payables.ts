@@ -8,7 +8,7 @@ import { fan, HREF, inr, kind, membersOf, RECIPIENT_NAME, v } from "./kind-helpe
 import type { NotificationApp, NotificationCategory, NotificationKind, Recipient } from "./types";
 import type { Directory } from "./recipients";
 
-type Side = "buyer" | "seller";
+export type Side = "buyer" | "seller";
 const APP: Record<Side, NotificationApp> = { buyer: "web", seller: "seller" };
 const poHref = (side: Side, orderId: string) => (side === "buyer" ? `/buyer/orders/${orderId}/purchase-order` : `/orders/${orderId}/purchase-order`);
 
@@ -18,7 +18,7 @@ export function niceDate(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 }
 
-interface Spec<E extends DomainEventType> {
+export interface Spec<E extends DomainEventType> {
   key: string;
   name: string;
   description: string;
@@ -33,7 +33,7 @@ interface Spec<E extends DomainEventType> {
   resolve: NotificationKind<E>["resolve"];
 }
 
-function mk<E extends DomainEventType>(s: Spec<E>): NotificationKind {
+export function mk<E extends DomainEventType>(s: Spec<E>): NotificationKind {
   const email = (greeting: string, body: string, cta: string) => `${greeting} {{recipientName}},\n\n${body}\n\n${cta}: {{href}}`;
   return kind<E>({
     key: s.key,
@@ -54,7 +54,7 @@ const AMOUNT = v("amount", "Amount", "₹29,500");
 const INVOICE = v("invoiceNumber", "Supplier invoice number", "INV/26-27/001");
 const DUE = v("dueDate", "Payment due date", "31 Oct 2026");
 
-async function to(dir: Directory, side: Side, businessId: string, orderId: string, vars: Record<string, unknown>, href = poHref(side, orderId)): Promise<Recipient[]> {
+export async function to(dir: Directory, side: Side, businessId: string, orderId: string, vars: Record<string, unknown>, href = poHref(side, orderId)): Promise<Recipient[]> {
   return fan(await membersOf(dir, businessId), { businessId, app: APP[side], vars, href });
 }
 

@@ -14,7 +14,11 @@
       "cancelled": "રદ કર્યો"
     },
     "version": "આવૃત્તિ {n}",
-    "ack": { "pending": "તમારા જવાબની રાહ જોવાય છે", "accepted": "સ્વીકાર્યો", "rejected": "નકાર્યો" },
+    "ack": {
+      "pending": "તમારા જવાબની રાહ જોવાય છે",
+      "accepted": "સ્વીકાર્યો",
+      "rejected": "નકાર્યો"
+    },
     "ackReason": "તમારું કારણ: {reason}",
     "cancelledReason": "બાયરે રદ કર્યો: {reason}",
     "partiesTitle": "પક્ષો અને ડિલિવરી",
@@ -35,11 +39,31 @@
     "notes": "બાયરની નોંધ",
     "linesTitle": "આઇટમ",
     "linesCaption": "આ ખરીદ ઓર્ડરની આઇટમ",
-    "col": { "item": "આઇટમ", "hsn": "HSN", "qty": "જથ્થો", "rate": "દર", "taxable": "કરપાત્ર મૂલ્ય", "gst": "GST", "total": "કુલ" },
+    "col": {
+      "item": "આઇટમ",
+      "hsn": "HSN",
+      "qty": "જથ્થો",
+      "rate": "દર",
+      "taxable": "કરપાત્ર મૂલ્ય",
+      "gst": "GST",
+      "total": "કુલ"
+    },
     "priceIncludesGst": "કિંમતમાં GST સામેલ છે",
-    "totals": { "taxable": "કરપાત્ર મૂલ્ય", "cgst": "CGST", "sgst": "SGST", "igst": "IGST", "total": "કુલ" },
+    "totals": {
+      "taxable": "કરપાત્ર મૂલ્ય",
+      "cgst": "CGST",
+      "sgst": "SGST",
+      "igst": "IGST",
+      "total": "કુલ"
+    },
     "amountsTitle": "ખરીદ ઓર્ડર અને ઇનવોઇસ",
-    "amounts": { "po": "ખરીદ ઓર્ડરનું મૂલ્ય", "invoiced": "તમે ઇનવોઇસ કર્યું", "paid": "બાયરે ચૂકવ્યું", "toInvoice": "હજી ઇનવોઇસ થયું નથી", "outstanding": "હજી મળવાનું બાકી" },
+    "amounts": {
+      "po": "ખરીદ ઓર્ડરનું મૂલ્ય",
+      "invoiced": "તમે ઇનવોઇસ કર્યું",
+      "paid": "બાયરે ચૂકવ્યું",
+      "toInvoice": "હજી ઇનવોઇસ થયું નથી",
+      "outstanding": "હજી મળવાનું બાકી"
+    },
     "pdf": "PDF ડાઉનલોડ કરો (આવૃત્તિ {n})",
     "versionsTitle": "આવૃત્તિઓ",
     "versionRow": "આવૃત્તિ {n}: {total}, {terms}",
@@ -75,7 +99,13 @@
       "ewbValid": "ઈ-વે બિલ ક્યાં સુધી માન્ય",
       "submit": "ઇનવોઇસ નોંધો",
       "pending": "સેવ થઈ રહ્યું છે...",
-      "saved": "ઇનવોઇસ નોંધાયું."
+      "saved": "ઇનવોઇસ નોંધાયું.",
+      "linesTitle": "ખરીદ ઓર્ડરની લાઇન પ્રમાણે બિલ કરો (વૈકલ્પિક)",
+      "linesHint": "આ ઇનવોઇસની લાઇન માટે જથ્થો અને એકમ દીઠ ભાવ (GST પહેલાં) ભરો. પછી બાયરની માલ પ્રાપ્તિ લાઇન પ્રમાણે મેળવાશે. લાઇનોનો સરવાળો ઉપરના કરપાત્ર મૂલ્ય જેટલો હોવો જોઈએ.",
+      "lineQty": "બિલ કરેલ જથ્થો ({unit})",
+      "lineQtyHint": "ઓર્ડર કરેલ {qty}",
+      "linePrice": "GST પહેલાં એકમ દીઠ ભાવ (₹)",
+      "linePriceHint": "ખરીદ ઓર્ડરનો ભાવ {price}"
     },
     "invoices": {
       "title": "તમારા ઇનવોઇસ",

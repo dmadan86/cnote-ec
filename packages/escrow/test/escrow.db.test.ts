@@ -5,7 +5,7 @@ import {
   acceptDelivery, createEscrowForOrder, expireUnfunded, getEscrowDetail, getEscrowForOrder, getEscrowOffer, getEscrowSnapshotForOrder, handleEscrowWebhook, listEscrows,
   processPayouts, quoteEscrow, runAutoRelease, shouldNudgeEscrow, simulateMockFunding, staffRefundEscrow, staffReleaseEscrow, escrowStats, trialBalance,
 } from "../src/index";
-import { onDisputeOpened, onDisputeResolved, onOrderStatusChanged } from "../src/escrow";
+import { onDisputeOpened, onDisputeResolved, onOrderStatusChanged, onReturnCreditNote } from "../src/escrow";
 import { DAY, actorOf, cleanup, eventsOf, fundedEscrow, ledgerFor, mkOrder, mock, setOrder, uid } from "./helpers";
 
 afterAll(cleanup);
@@ -447,5 +447,42 @@ describe("reads, nudge and stats", () => {
     expect(v.actions.accept).toBe(false);
     expect(v.payout).toBeNull();
     await expect(new Promise((_, r) => r(new DomainError("validation", "x")))).rejects.toBeInstanceOf(DomainError);
+  });
+});
+
+describe("return credit notes (docs/design/grn-returns.md)", () => {
+  it("refunds held funds up to the credited amount, once per credit note, and emits EscrowRefunded with cause return_credit", async () => {
+    const f = await fundedEscrow();
+    const cn = uid();
+    await onReturnCreditNote({ creditNoteId: cn, orderId: f.orderId, totalPaise: 250_000 });
+    await onReturnCreditNote({ creditNoteId: cn, orderId: f.orderId, totalPaise: 250_000 }); // replay
+    const e = await prisma.escrowAgreement.findUniqueOrThrow({ where: { id: f.escrowId } });
+    expect(e.status).toBe("funded");
+    expect(Number(e.refundedPaise)).toBe(250_000);
+    const l = await ledgerFor(f.escrowId);
+    expect(l.debit).toBe(l.credit);
+    expect(l.escrowHeld).toBe(750_000);
+    expect(l.refundPayable).toBe(250_000);
+    const ev = await eventsOf("EscrowRefunded", f.escrowId);
+    expect(ev).toHaveLength(1);
+    expect(ev[0]!.payload).toMatchObject({ cause: "return_credit", amountPaise: 250_000 });
+    // a credit larger than what is held is clamped and drains the escrow
+    await onReturnCreditNote({ creditNoteId: uid(), orderId: f.orderId, totalPaise: 5_000_000 });
+    expect(await status(f.escrowId)).toBe("refunded");
+    expect(Number((await prisma.escrowAgreement.findUniqueOrThrow({ where: { id: f.escrowId } })).refundedPaise)).toBe(1_000_000);
+    await onReturnCreditNote({ creditNoteId: uid(), orderId: f.orderId, totalPaise: 1 }); // nothing held any more: no-op
+  });
+  it("does nothing without an escrow, and opens an ops issue instead of moving money while a dispute freezes it", async () => {
+    const none = await mkOrder();
+    await onReturnCreditNote({ creditNoteId: uid(), orderId: none.orderId, totalPaise: 100 });
+    const f = await fundedEscrow();
+    await onDisputeOpened({ disputeId: uid(), orderId: f.orderId });
+    const cn = uid();
+    await onReturnCreditNote({ creditNoteId: cn, orderId: f.orderId, totalPaise: 100_000 });
+    await onReturnCreditNote({ creditNoteId: cn, orderId: f.orderId, totalPaise: 100_000 });
+    const e = await prisma.escrowAgreement.findUniqueOrThrow({ where: { id: f.escrowId } });
+    expect(Number(e.refundedPaise)).toBe(0);
+    expect(await prisma.escrowReconciliationIssue.count({ where: { dedupeKey: `return_credit_frozen:${cn}` } })).toBe(1);
+    expect(await prisma.escrowReturnRefund.count({ where: { creditNoteId: cn } })).toBe(0);
   });
 });

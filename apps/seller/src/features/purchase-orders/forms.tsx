@@ -45,7 +45,9 @@ export function VoidInvoiceForm({ orderId, invoiceId }: { orderId: string; invoi
 }
 
 /** Posts to /api/supplier-invoices (multipart, own body cap; server actions are capped at 2 MB). */
-export function InvoiceForm({ orderId, purchaseOrderId, today }: { orderId: string; purchaseOrderId: string; today: string }) {
+export interface InvoicePoLine { lineNo: number; description: string; unit: string; quantity: number; unitPrice: string }
+
+export function InvoiceForm({ orderId, purchaseOrderId, today, poLines = [] }: { orderId: string; purchaseOrderId: string; today: string; poLines?: InvoicePoLine[] }) {
   const t = useTranslations("purchaseOrders.invoiceForm");
   const router = useRouter();
   const [state, action] = useActionState<PoResult | null, FormData>(async (_prev, fd) => {
@@ -77,6 +79,28 @@ export function InvoiceForm({ orderId, purchaseOrderId, today }: { orderId: stri
       <Field label={t("file")} htmlFor="inv-file">
         <Input id="inv-file" name="file" type="file" accept="application/pdf,image/jpeg,image/png" className="h-auto py-2" />
       </Field>
+      {poLines.length ? (
+        <details className="rounded-lg border border-line p-3">
+          <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-brand-700">{t("linesTitle")}</summary>
+          <p className="mb-3 text-sm text-muted">{t("linesHint")}</p>
+          <div className="space-y-4">
+            {poLines.map((l) => (
+              <fieldset key={l.lineNo} className="rounded-lg border border-line p-3">
+                <legend className="px-1 text-sm font-medium text-ink">{l.description}</legend>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label={t("lineQty", { unit: l.unit })} htmlFor={`inv-qty-${l.lineNo}`} hint={t("lineQtyHint", { qty: l.quantity })}>
+                    <Input id={`inv-qty-${l.lineNo}`} name={`qty__${l.lineNo}`} type="number" inputMode="numeric" min={1} step={1} className="h-11" />
+                  </Field>
+                  <Field label={t("linePrice")} htmlFor={`inv-price-${l.lineNo}`} hint={t("linePriceHint", { price: l.unitPrice })}>
+                    <Input id={`inv-price-${l.lineNo}`} name={`price__${l.lineNo}`} type="number" inputMode="decimal" min={0} step={0.01} className="h-11" />
+                  </Field>
+                </div>
+              </fieldset>
+            ))}
+          </div>
+          {fieldError(state, "lines") ? <p className="mt-2 text-sm text-danger" role="alert">{fieldError(state, "lines")}</p> : null}
+        </details>
+      ) : null}
       <details className="rounded-lg border border-line p-3">
         <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-brand-700">{t("einvoiceTitle")}</summary>
         <p className="mb-3 text-sm text-muted">{t("einvoiceHint")}</p>
