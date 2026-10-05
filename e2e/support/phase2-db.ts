@@ -236,6 +236,7 @@ export async function seedGoodsReceipt(email: string): Promise<{ orderId: string
   });
 }
 
+/**
  * Rate contracts (docs/design/rate-contracts.md) for the buyer with the given email: one ACTIVE contract (a capped item at 80% used, an
  * indexed item, a value cap, one call-off) and one contract whose seller revision 2 waits for the buyer's answer. Also saves a default
  * delivery address so the call-off form shows. Returns the ids the specs open.

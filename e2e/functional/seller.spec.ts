@@ -115,7 +115,7 @@ test.describe("seller portal", () => {
     await page.getByRole("button", { name: "Save and submit for review" }).click();
     await expect(page.getByRole("heading", { level: 2, name: /Submitted for review|Approved: going live shortly/ })).toBeVisible();
     await page.getByRole("link", { name: /Back to listings|listings/i }).first().click();
-    await expect(page.getByText(title)).toBeVisible();
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
   });
 
   test("language switch translates the portal and is remembered across pages", async ({ page }) => {
