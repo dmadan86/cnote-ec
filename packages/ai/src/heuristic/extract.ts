@@ -40,7 +40,7 @@ function parsePrice(text: string): { paise: number; unit: string | null } | null
 const MOQ_RE = new RegExp(
   String.raw`\b(?:moq|min(?:imum)?\.?(?:\s+order)?(?:\s+(?:qty|quantity))?)\s*[:\-]?\s*${NUM}\s*([a-zA-Z]+)?`, "i");
 
-const HSN_RE = /\bhsn(?:\s*(?:code|no\.?))?\s*[:\-]?\s*(\d{4,8})\b/i;
+const HSN_RE = /\bhsn(?:\s{0,4}(?:code|no\.?))?\s{0,4}[:\-]?\s{0,4}(\d{4,8})\b/i;
 
 const FILLER = /^(?:hello|hi|namaste|we|i|mere paas|hamare paas)?\s*(?:sell|selling|supply|supplying|manufacture|manufacturing|offer|offering|have|available|deal in|dealing in|mil jayega|hai)\b[:\s-]*/i;
 

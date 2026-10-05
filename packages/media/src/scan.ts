@@ -46,10 +46,16 @@ export interface ClamdOptions {
 
 /** clamd answers `stream: OK`, `stream: <Signature> FOUND` or `... ERROR`, NUL-terminated (we send the z-prefixed command). */
 export function parseClamdReply(raw: string): ScanVerdict {
-  const reply = raw.replace(/\0+$/, "").trim();
+  let end = raw.length;
+  while (end > 0 && raw.charCodeAt(end - 1) === 0) end--;
+  const reply = raw.slice(0, end).trim();
   if (/^stream:\s*OK$/i.test(reply)) return { status: "clean" };
-  const found = /^stream:\s*(.+?)\s+FOUND$/i.exec(reply);
-  if (found) return { status: "infected", signature: found[1]!.slice(0, 120) };
+  const head = /^stream:\s{0,16}/i.exec(reply);
+  if (head && reply.slice(-5).toUpperCase() === "FOUND") {
+    const body = reply.slice(head[0].length, -5);
+    const sig = body.trimEnd();
+    if (sig.length > 0 && sig.length < body.length) return { status: "infected", signature: sig.slice(0, 120) };
+  }
   throw new ScanUnavailableError(`clamd replied: ${reply.slice(0, 200) || "(empty)"}`);
 }
 

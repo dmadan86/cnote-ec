@@ -29,7 +29,7 @@ describe("normaliseItem", () => {
     ["indexed with a one-letter note", { variationKind: "indexed", variationCapBps: 500, variationNote: "x" }],
     ["indexed with a long note", { variationKind: "indexed", variationCapBps: 500, variationNote: "n".repeat(301) }],
   ] as [string, Partial<RcItemInput>][])("rejects %s", (_n, over) => {
-    expect(() => normaliseItem(item(over), "Item 2")).toThrowError(/^Item 2: |Keep this|whole number|from 1 to/);
+    expect(() => normaliseItem(item(over), "Item 2")).toThrowError(/^(?:Item 2: |Keep this|whole number|from 1 to)/);
   });
 
   it("lowercases keys, empties optional text to null and keeps an indexed band", () => {

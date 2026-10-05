@@ -7,12 +7,12 @@ export const INTENT_HEURISTIC_VERSION = "intent-heuristic-v1";
 
 const UNIT_ALT = "mm|cm|mtr|kg|gsm|micron|mic|ml|ltr|inch|ft|ply|watt|kw|hp|mah|gb|tb|pcs|nos|meter|litre|liter|gm|ton|tonne|dozen|sets?|rolls?";
 const SPEC_PATTERNS: RegExp[] = [
-  new RegExp(`\\b\\d+(?:\\.\\d+)?\\s*(?:${UNIT_ALT})\\b`, "gi"), // 180 gsm, 3 ply, 12mm
-  /\b\d+(?:\.\d+)?\s*[x×*]\s*\d+(?:\.\d+)?(?:\s*[x×*]\s*\d+(?:\.\d+)?)?\b/gi, // 10x10x5
-  /\bgsm\s*[:\-]?\s*\d+\b/gi,
-  /\b(?:grade|gr)\.?\s*[:\-]?\s*[a-z0-9]+\b/gi,
-  /\b(?:ss|ms|en|is|astm|din)\s*[- ]?\d{2,5}[a-z]?\b/gi, // SS304, IS 2062
-  /\b(?:size|sz|dia|diameter|thickness|length|width)\s*[:\-]?\s*\d+/gi,
+  new RegExp(`\\b\\d+(?:\\.\\d+)?\\s{0,4}(?:${UNIT_ALT})\\b`, "gi"), // 180 gsm, 3 ply, 12mm
+  /\b\d+(?:\.\d+)?\s{0,4}[x×*]\s{0,4}\d+(?:\.\d+)?(?:\s{0,4}[x×*]\s{0,4}\d+(?:\.\d+)?)?\b/gi, // 10x10x5
+  /\bgsm\s{0,4}[:\-]?\s{0,4}\d+\b/gi,
+  /\b(?:grade|gr)\.?\s{0,4}[:\-]?\s{0,4}[a-z0-9]+\b/gi,
+  /\b(?:ss|ms|en|is|astm|din)\s{0,4}[- ]?\d{2,5}[a-z]?\b/gi, // SS304, IS 2062
+  /\b(?:size|sz|dia|diameter|thickness|length|width)\s{0,4}[:\-]?\s{0,4}\d+/gi,
 ];
 
 export function specMatches(text: string): string[] {
@@ -113,7 +113,7 @@ export function scoreIntentHeuristic(input: IntentInput, now: Date = new Date())
   if (allCaps(text)) { score -= 12; bad.push("Text is mostly capital letters"); }
   if (URL_RE.test(text)) { score -= 15; bad.push("Contains a link"); }
   URL_RE.lastIndex = 0;
-  if (PHONE.test(text) || /[\w.+-]+@[\w-]+\.\w+/.test(text)) { score -= 10; bad.push("Contains contact details in the text"); }
+  if (PHONE.test(text) || /[\w.+-]{1,64}@[\w-]{1,255}\.\w{1,24}/.test(text)) { score -= 10; bad.push("Contains contact details in the text"); }
   PHONE.lastIndex = 0;
   if (gibberishRatio(text) > 0.4) { score -= 20; bad.push("Text looks like gibberish"); }
 

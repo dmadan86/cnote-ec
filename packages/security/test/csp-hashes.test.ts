@@ -49,3 +49,11 @@ describe("buildManifest", () => {
     expect(buildManifest({}).stats).toMatchObject({ pages: 0, distinctHashes: 0, maxPerPage: 0 });
   });
 });
+
+describe("inlineScripts closing-tag variants", () => {
+  it("accepts a closing tag with whitespace or attributes and any case", async () => {
+    const { inlineScripts } = await import("../src/csp-hashes");
+    expect(inlineScripts("<script>a()</SCRIPT >")[0]?.text).toBe("a()");
+    expect(inlineScripts("<script>b()</script foo='x'>")[0]?.text).toBe("b()");
+  });
+});

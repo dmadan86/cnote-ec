@@ -186,12 +186,12 @@ export function normaliseQuotesHeuristic(input: NormaliseQuotesInput): ProviderR
       else if (/(?:freight|transport(?:ation)?|delivery|shipping)[^.\n]{0,20}(?:extra|additional|at actuals?|to pay|to-pay)|ex[- ]?works?/.test(n)) deliveryIncluded = false;
     }
     let gstPercent: number | null = null;
-    const pct = /gst\s*(?:@|of|-|:)?\s*(\d{1,2})\s*%|(\d{1,2})\s*%\s*gst/.exec(n);
+    const pct = /gst\s{0,4}(?:@|of|-|:)?\s{0,4}(\d{1,2})\s{0,4}%|(\d{1,2})\s{0,4}%\s{0,4}gst/.exec(n);
     if (pct) gstPercent = Number(pct[1] ?? pct[2]);
     let gstIncluded: boolean | null = null;
-    if (/(inclusive of gst|incl\.?\s*gst|gst\s+(?:is\s+)?(?:included|inclusive)|including gst|taxes? included|all[- ]inclusive)/.test(n)) gstIncluded = true;
-    else if (/(gst\s*(?:@|of|-|:)?\s*\d{0,2}\s*%?\s*(?:extra|additional|separate)|\d{1,2}\s*%\s*gst\s*(?:extra|additional)|gst\s+(?:is\s+)?(?:extra|additional|separate|as applicable|applicable)|\+\s*gst|plus gst|excl\.?\s*gst|excluding gst|exclusive of gst)/.test(n)) gstIncluded = false;
-    const pay = /(\d{1,3}\s*%\s*advance|100%\s*advance|advance payment|\bcod\b|cash on delivery|net\s*\d+|\d+\s*days?\s*credit)/.exec(n);
+    if (/(inclusive of gst|incl\.?\s{0,4}gst|gst\s+(?:is\s+)?(?:included|inclusive)|including gst|taxes? included|all[- ]inclusive)/.test(n)) gstIncluded = true;
+    else if (/(gst\s{0,4}(?:@|of|-|:)?\s{0,4}\d{0,2}\s{0,4}%?\s{0,4}(?:extra|additional|separate)|\d{1,2}\s{0,4}%\s{0,4}gst\s{0,4}(?:extra|additional)|gst\s+(?:is\s+)?(?:extra|additional|separate|as applicable|applicable)|\+\s*gst|plus gst|excl\.?\s{0,4}gst|excluding gst|exclusive of gst)/.test(n)) gstIncluded = false;
+    const pay = /(\d{1,3}\s{0,4}%\s{0,4}advance|100%\s{0,4}advance|advance payment|\bcod\b|cash on delivery|net\s{0,4}\d{1,4}|\d{1,4}\s{0,4}days?\s{0,4}credit)/.exec(n);
     if (deliveryIncluded !== null || deliveryChargePaise !== null || gstPercent !== null || gstIncluded !== null || pay) found++;
     return { quoteId: q.quoteId, deliveryChargePaise, deliveryIncluded, gstPercent, gstIncluded, paymentTerms: pay ? pay[1]!.trim() : null };
   });
