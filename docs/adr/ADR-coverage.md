@@ -1,7 +1,47 @@
 # ADR coverage: what the code implements against ADR-000 to ADR-025
 
-**As of:** 3 Oct 2026, after PRs #13 to #41 (see the updates below, newest first); the 30 Sep 2026 wave 8 state follows; wave-4 notes refer to HEAD `425e151` (wave 4: metrics, orders, boundary guard, Hindi UI, photo/voice listings, WhatsApp channel, DPDP compliance). A "Wave 4 update" note under each affected ADR supersedes the older gap text above it.
+**As of:** 6 Oct 2026, after PRs #43 to #57 (overnight build; see the updates below, newest first); the 3 Oct 2026 state (PRs #13 to #41) follows; the 30 Sep 2026 wave 8 state follows; wave-4 notes refer to HEAD `425e151` (wave 4: metrics, orders, boundary guard, Hindi UI, photo/voice listings, WhatsApp channel, DPDP compliance). A "Wave 4 update" note under each affected ADR supersedes the older gap text above it.
 **Method:** read `docs/adr/ADR-v0.1.md`, `ADR-024-025-proposed.md`, every `docs/design/*.md`, the package sources, the Prisma schemas and the event catalogue; then judged each ADR by what is actually in code. Evidence lists packages and files; gaps are stated against the ADR text.
+
+## 6 Oct 2026 update (PRs #43 to #57): procurement, verification depth, vernacular search, security and DPDP
+
+Supersedes the "Gaps that remain" list of the October update below wherever they overlap. Each item names its design doc; decisions and residuals are recorded there.
+
+**Built**
+
+- **Purchase orders, supplier invoices, e-invoice and MSME dues (ADR-001, ADR-007; `docs/design/purchase-orders.md`, #50):** buyer-issued line-based POs with gap-free per-buyer, per-FY numbers, immutable versioned PDFs, amendments as new versions, seller accept/reject, cancellation; supplier tax invoices recorded against a PO with optional copy, PO vs invoiced vs outstanding; IRN, ack, signed QR and e-way bill references (record-only, `EInvoiceVerifier` port with an offline mock); MSME s.43B(h) due date (agreed terms capped at 45 days, 15 without agreement) from acceptance, T-7/T-1/overdue reminders, buyer payables and an admin overdue view. `PURCHASE_ORDERS_ENABLED`.
+- **Goods receipts, three-way match and returns (`docs/design/grn-returns.md`, #55):** partial GRNs per PO line with reason codes and photos, first accepted GRN is the 43B(h) acceptance date; PO/GRN/invoice match with per-buyer tolerances, mismatch blocks mark-paid unless overridden with a logged reason; RMA with seller decision, return shipment, credit note reducing the payable, escrow refund link and a dispute entry point.
+- **Multi-line RFQ / BOM (ADR-002; `docs/design/rfq-multiline.md`, #46):** 1 to 50 lines per RFQ, CSV/XLSX BOM upload with column mapping (formula-safe), per-line quotes with server-side totals, a line-by-line compare matrix and per-line awards (one order per supplier with only its lines); REST, OpenAPI and MCP carry lines.
+- **Buyer team roles, approvals and spend limits (`docs/design/buyer-approvals.md`, #52):** owner/admin/requester/approver/finance/viewer roles with invites; `@cnote/approvals` (policies up to three levels, append-only decision log, no self-approval, delegation, SLA reminders, monthly spend limits). RFQ publish and quote acceptance (including per-line quotes) are held until approved and resume from `ApprovalApproved`; direct line awards by a team member are refused when a rule or limit applies.
+- **Rate contracts (`docs/design/rate-contracts.md`, #56):** versioned contracts both parties accept, created from scratch or from an accepted quote, call-off orders and POs at locked prices with caps and MOQ, 80%/100% and expiry alerts; never auto-renewed (ADR-005) and never part of ranking or matching (property test).
+- **Product variants and stock (ADR-009; `docs/design/variants-stock.md`, #53):** category-configured variant axes, per-variant SKU/tiers/MOQ/availability, accessible PDP selector, in-stock filter and variant facets on both search backends, and a real "back in stock" alert on availability transitions.
+- **Freight estimator (`docs/design/freight-estimator.md`, #47):** `@cnote/logistics` with a deterministic PIN/zone/weight rate card (admin-editable, audited) and Shiprocket/Delhivery adapters; PDP estimate, "Suggest freight" for sellers, landed cost in quote compare. Estimate only (non-goal: owning logistics).
+- **Verification depth and reachability (ADR-002, ADR-003; `docs/design/verification-t2-t3.md`, #48):** Udyam and MCA/CIN checks behind ports (mock + Surepass) with name/address match scoring and a 90-day re-check; T3 partner audits via single-use links with geotagged photos and audited review; IVR reachability (Exotel/Knowlarity skeletons, off by default) feeding the 72h refund; privacy-preserving fake-lead signals into intent scoring, ops labelling, export and precision/recall metrics.
+- **Search (ADR-004, ADR-009; `docs/design/search-vernacular-image-voice.md`, #45):** staff-curated, versioned synonym dictionary feeding both backends; a self-contained relevance fixture (nDCG@10, MRR, recall@20) with a committed baseline and CI floor; judgement capture in admin; image and voice search polish.
+- **AI operations and hardening (ADR-008, ADR-010, ADR-019; #49):** shadow mode for the document, inspection, dispute and quote capabilities; audited ops-label export for training (redacted); RFQ/quote attachment malware scanning (ClamAV adapter, fail closed, production refuses to start without a scanner unless waived) and attachment retention; storefront embed moderation (embeds flag still off); refund status polling; credit cooling-off verified and cited.
+- **Admin passkeys (ADR-029, ADR-042; `docs/design/admin-passkeys.md`, #44):** WebAuthn registration, passkey-first sign-in, `ADMIN_REQUIRE_PASSKEY` enforcement, sign-counter clone detection with revocation, audited super-admin reset.
+- **Polish and DPDP (ADR-010, ADR-041; #51):** API-key expiry emails; Hindi `error`/`not-found`/`global-error` pages; seller cookie-policy page (seller consent policy v2) and seller consent sync into the identity ledger; DPDP 48-hour inactivity-erasure notice (off until counsel confirms the Third Schedule applies) and the nominee right with an audited admin queue; SRI on the buyer web and a hash-mode CSP builder.
+- **Samples (#57):** sample request, dispatch, evaluation and "golden sample" flowing into a bulk RFQ, with SLA expiry and a trust signal. `SAMPLES_ENABLED` (off).
+- **Phase-1 vertical (ADR-011; `docs/adr/ADR-011-vertical-selection.md`, `docs/research/vertical-selection.md`, #43):** desk research recommends packaging materials (Bengaluru corridor), pending 20+ field interviews; the playbook ships as data that loads only by an explicit seed command.
+
+**Still open (honest list)**
+
+Needs a person, a vendor or a decision rather than code:
+- ADR-011 field validation (20+ seller and buyer interviews) before the recommendation becomes the decision; regulatory points marked unverified in the research doc need counsel.
+- Provider credentials and sandbox confirmation of field names: GST (Surepass), Udyam/MCA (Surepass), video KYC (IDfy), IVR (Exotel/Knowlarity), WhatsApp Cloud, Sarvam ASR, MSG91, Razorpay/Cashfree, Shiprocket/Delhivery, the NBFC partner, a ClamAV deployment.
+- The Anthropic eval baseline and the protected `ai-evals` environment.
+- Native review of machine-drafted catalogues (kn, ta, te, mr, gu, bn) across web and seller.
+- Counsel: DPDP rule references, the Third Schedule threshold for inactivity erasure, RBI cooling-off text, 43B(h) deemed acceptance.
+- ONDC certification; Docker image builds of the new services.
+
+Code follow-ups recorded in the design docs:
+- GSP adapter for live e-invoice verification; editing PO lines in the amend form; deemed acceptance and MSMED s.16 interest.
+- Variant-level search hits and variant prices in price facets; inventory decrement.
+- Admin read-only view and MCP tools for rate contracts; indexed-price lookups.
+- Per-seller return policies and partial credit notes; escrow auto-release paused while a return is open.
+- Sample disputes, evaluation reminders and an admin screen.
+- Seller/buyer passkeys; an edge layer for the hash-mode CSP; Vimeo in the consent notice before embeds can be enabled.
+- OpenSearch relevance baseline (needs a cluster); image moderation of embed thumbnails; ops screen for quarantined uploads.
 
 ## October 2026 update (PRs #13 to #41, 1 to 3 Oct): buyer web depth, consent, billing, eval gate, security hardening
 
@@ -216,7 +256,10 @@ Nothing to build. Drivers 1 to 7 are visible in code: trust weighting (`identity
 - **Wave 4:** `@cnote/metrics` now computes the ADR targets daily from the event log (see docs/design/metrics.md) with SLO alerts and an admin scorecard; the list below is the pre-wave-4 state.
 - **Missing (before wave 4):** no metrics job or warehouse view computes any ADR target (lead to conversation, conversation to deal, refund rate, T1+ share, time-to-first-listing, onboarding completion, edit rate, fake-lead precision/recall, ops queue age). No product-analytics dashboard in admin beyond queues. No SLO alerts (matching < 2 s, ad decision < 30 ms).
 
-## Prioritised gap list for Phase 1
+## Prioritised gap list for Phase 1 (historical, pre-wave 4)
+
+Kept for the record: every row below has since been built or moved to the "Still open" list in the 6 Oct 2026 update at the top.
+
 
 | # | Gap | ADR | Why now | Rough size |
 |---|---|---|---|---|
