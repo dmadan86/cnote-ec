@@ -213,6 +213,12 @@ model ReachabilityCheck {
   respondedAt DateTime? @map("responded_at") @db.Timestamptz
   expiresAt   DateTime  @map("expires_at") @db.Timestamptz
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  /// seller_report (old path) | proactive (automatic, after the enquiry)
+  trigger     String    @default("seller_report")
+  /// IVR call reference at the telephony provider
+  providerRef String?   @unique @map("provider_ref")
+  /// 1 = IVR/first channel, 2 = fallback link after the call went unanswered
+  attempt     Int       @default(1)
 
   @@index([enquiryId])
   @@index([status, expiresAt])
@@ -242,4 +248,28 @@ model LeadRefundReview {
   @@index([status, createdAt])
   @@index([sellerBusinessId, status])
   @@map("lead_refund_reviews")
+}
+
+/// ADR-002 fake-lead signals, collected server-side at enquiry creation. Privacy: no raw IP, no device cookie. `ipHash` is a
+/// keyed hash of the /24 (IPv4) or /48 (IPv6) prefix; velocity counts are per person and ip-prefix. Purged after 90 days
+/// (hash nulled, labels kept). `label` is the ops ground truth used for precision/recall.
+model EnquirySignals {
+  id                String    @id @default(uuid()) @db.Uuid
+  enquiryId         String    @unique @map("enquiry_id") @db.Uuid
+  ipHash            String?   @map("ip_hash")
+  uaFamily          String    @map("ua_family")
+  velocityPerson1h  Int       @default(0) @map("velocity_person_1h")
+  velocityPerson24h Int       @default(0) @map("velocity_person_24h")
+  velocityIp24h     Int       @default(0) @map("velocity_ip_24h")
+  riskScore         Int       @map("risk_score") @db.SmallInt
+  riskReasons       String[]  @map("risk_reasons")
+  /// genuine | fake | spam | unreachable (ops label)
+  label             String?
+  labelledBy        String?   @map("labelled_by") @db.Uuid
+  labelledAt        DateTime? @map("labelled_at") @db.Timestamptz
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([label, createdAt])
+  @@index([ipHash, createdAt])
+  @@map("enquiry_signals")
 }

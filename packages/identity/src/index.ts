@@ -37,3 +37,4 @@ export { findOrCreatePersonByVerifiedPhone } from "./verified-phone";
 export * from "./kyc";
 export * from "./audits";
 export * from "./addresses";
+export * from "./registry";

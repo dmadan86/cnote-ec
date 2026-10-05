@@ -16,6 +16,10 @@ export interface TrustSignals {
   offersBroken?: number;
   /** Seller-initiated lead refunds (buyer_fake / buyer_unreachable). Only an abnormal share of accepted leads costs points. */
   refundsClaimed?: number;
+  /** Udyam / MCA registry checks that currently stand verified (0-2), ADR-003 T1. */
+  registryVerified?: number;
+  /** The MCA record is no longer Active (struck off, liquidation): a penalty until re-verified. */
+  registryFlag?: boolean;
   inactiveDays: number;
 }
 
@@ -32,6 +36,9 @@ const PRIOR_RATE = 0.7;
 // exist, ADR-002); each refund beyond that costs 3 points, capped at 15. Needs a minimum sample so a new seller is not hit.
 export const REFUND_FREE_SHARE = 0.2;
 export const REFUND_MIN_SAMPLE = 5;
+// Registry evidence (ADR-003): each verified Udyam / MCA record adds a little; a struck-off company costs more than both give.
+export const REGISTRY_POINTS = 3;
+export const REGISTRY_FLAG_PENALTY = 10;
 
 export function computeTrustScore(s: TrustSignals): { score: number; badgeActive: boolean } {
   const tierPts = TIER_POINTS[Math.min(Math.max(Math.trunc(s.tier), 0), 3)]!;
@@ -48,6 +55,7 @@ export function computeTrustScore(s: TrustSignals): { score: number; badgeActive
   const excessRefunds = acceptedTotal >= REFUND_MIN_SAMPLE ? Math.max(0, (s.refundsClaimed ?? 0) - Math.floor(acceptedTotal * REFUND_FREE_SHARE)) : 0;
   const refundPts = -Math.min(15, excessRefunds * 3);
   const decay = -Math.min(15, Math.max(0, Math.floor((s.inactiveDays - 30) / 10) + (s.inactiveDays > 30 ? 1 : 0)));
-  const score = Math.round(Math.min(100, Math.max(0, tierPts + responsePts + dealPts + disputePts + moderationPts + offerPts + refundPts + decay)));
+  const registryPts = Math.min(2, Math.max(0, s.registryVerified ?? 0)) * REGISTRY_POINTS - (s.registryFlag ? REGISTRY_FLAG_PENALTY : 0);
+  const score = Math.round(Math.min(100, Math.max(0, tierPts + responsePts + dealPts + disputePts + moderationPts + offerPts + refundPts + registryPts + decay)));
   return { score, badgeActive: s.tier >= 1 && score >= BADGE_THRESHOLD };
 }
