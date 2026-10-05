@@ -36,5 +36,6 @@ export * from "./otp-senders";
 export { findOrCreatePersonByVerifiedPhone } from "./verified-phone";
 export * from "./kyc";
 export * from "./audits";
+export * from "./audit-partners";
 export * from "./addresses";
 export * from "./registry";

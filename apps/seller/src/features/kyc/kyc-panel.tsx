@@ -13,6 +13,7 @@ export const DOC_GUIDE: { type: KycDocType; required: boolean }[] = [
   { type: "udyam_certificate", required: false },
   { type: "bank_proof", required: false },
   { type: "address_proof", required: false },
+  { type: "shop_establishment", required: false },
 ];
 
 const tone = (v: KycDocView["verdict"]) => (v === "pass" ? "success" : v === "fail" ? "danger" : "warning");

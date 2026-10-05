@@ -15,7 +15,7 @@ import { aiTransport, remoteDocumentExtractor, remoteFallbackEnabled, sharedAiSe
 import type { AiResult, Subject, VisionImage } from "./index";
 import type { ProviderResult } from "./types";
 
-export const DOCUMENT_TYPES = ["gst_certificate", "pan_card", "bank_proof", "address_proof", "udyam_certificate"] as const;
+export const DOCUMENT_TYPES = ["gst_certificate", "pan_card", "bank_proof", "address_proof", "udyam_certificate", "shop_establishment"] as const;
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 
 export const DOCUMENT_MIMES = ["image/jpeg", "image/png", "image/webp"] as const;

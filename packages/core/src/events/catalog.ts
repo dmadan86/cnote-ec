@@ -177,6 +177,8 @@ export interface DomainEventPayloads {
   KycSubmitted: { sessionId: string; businessId: string; provider: string };
   KycDecided: { sessionId: string; businessId: string; status: "approved" | "rejected" | "review"; decidedBy: string | null };
   AuditCompleted: { auditId: string; businessId: string; result: "pass" | "fail" | "conditional"; validUntil: string | null };
+  // trust_verif: T3 partner submitted checklist + photos for staff review (ADR-003)
+  AuditSubmitted: { auditId: string; businessId: string; partner: string; photoCount: number; flagged: boolean };
   // buyer reachability (ADR-002)
   ReachabilityChecked: { checkId: string; enquiryId: string; matchId: string | null; channel: string; status: "responded" | "no_response" | "failed"; sellerBusinessId?: string };
   // billing
@@ -288,6 +290,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   KycSubmitted: 1,
   KycDecided: 1,
   AuditCompleted: 1,
+  AuditSubmitted: 1,
   OrderFulfilmentUpdated: 1,
   CreditCancelled: 1,
   CreditScoreComputed: 1,

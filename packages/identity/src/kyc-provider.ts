@@ -71,8 +71,10 @@ export class MockKycProvider implements KycProvider {
 
 // ---- fetch-based skeleton for hosted-link vendors ----
 export interface HttpKycConfig {
-  name: "hyperverge" | "signzy";
+  name: "hyperverge" | "signzy" | "idfy";
   baseUrl: string;
+  /** IDfy sends `account-id` next to `api-key` (KYC_ACCOUNT_ID) */
+  accountId?: string;
   apiKey: string;
   webhookSecret: string;
   fetch?: typeof fetch;
@@ -82,6 +84,7 @@ export interface HttpKycConfig {
  * Skeleton shared by the vendor adapters. Field names below are the PLATFORM-side contract; each vendor's
  * request/response is mapped in `VENDOR` (verify against the vendor's current docs / sandbox before go-live):
  *   HyperVerge: workflow/"Link KYC" transaction  -> POST {base}/transactions {transactionId, callbackUrl, redirectUrl}; result: applicationStatus (auto_approved|auto_declined|needs_review), face-match/liveness module scores.
+ *   IDfy:       Video KYC "Create Profile Link" (profile created from a configuration id) -> POST {base}/profiles {reference_id, config_id, redirect_url}; webhook/FetchProfile status APPROVED | REJECTED | PENDING + face-match results. Auth: `api-key` + `account-id` headers (https://docs.idfy.com, vendor docs gated).
  *   Signzy:     onboarding/"video KYC" journey   -> POST {base}/journeys {callbackUrl, redirectUrl, meta}; result: overall status + faceMatch/liveness objects.
  */
 interface VendorMap {
@@ -107,6 +110,18 @@ const VENDOR: Record<HttpKycConfig["name"], VendorMap> = {
       };
     },
   },
+  idfy: {
+    createPath: "/profiles", resultPath: (r) => `/profiles/${encodeURIComponent(r)}`,
+    body: (r) => ({ reference_id: r.sessionId, redirect_url: r.returnUrl, config_id: process.env.KYC_IDFY_CONFIG_ID, metadata: { businessId: r.businessId } }),
+    ref: (j) => str(j.profile_id ?? j.id), url: (j) => str(j.profile_url ?? j.url),
+    result: (j) => {
+      const s = (str(j.status) ?? "").toLowerCase();
+      return {
+        status: s === "approved" || s === "completed" ? "passed" : s === "rejected" || s === "declined" || s === "failed" ? "failed" : "pending",
+        livenessScore: num(j.liveness_score ?? j.livenessScore), faceMatchScore: num(j.face_match_score ?? j.faceMatchScore), reasons: Array.isArray(j.reasons) ? j.reasons.filter((x): x is string => typeof x === "string") : undefined,
+      };
+    },
+  },
   signzy: {
     createPath: "/journeys", resultPath: (r) => `/journeys/${encodeURIComponent(r)}`,
     body: (r) => ({ callbackUrl: undefined, redirectUrl: r.returnUrl, meta: { sessionId: r.sessionId, businessId: r.businessId } }),
@@ -126,7 +141,7 @@ export class HttpKycProvider implements KycProvider {
   constructor(private cfg: HttpKycConfig) { this.name = cfg.name; }
   private async call(path: string, init?: RequestInit): Promise<Record<string, unknown>> {
     const res = await (this.cfg.fetch ?? fetch)(`${this.cfg.baseUrl}${path}`, {
-      ...init, headers: { authorization: `Bearer ${this.cfg.apiKey}`, "content-type": "application/json" }, signal: AbortSignal.timeout(15_000),
+      ...init, headers: { ...(this.cfg.name === "idfy" ? { "api-key": this.cfg.apiKey, "account-id": this.cfg.accountId ?? "" } : { authorization: `Bearer ${this.cfg.apiKey}` }), "content-type": "application/json" }, signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) throw new DomainError("validation", `KYC provider error (${res.status})`);
     return (await res.json()) as Record<string, unknown>;
@@ -151,7 +166,7 @@ export class HttpKycProvider implements KycProvider {
 let override: KycProvider | null = null;
 export function setKycProvider(p: KycProvider | null): void { override = p; }
 
-/** KYC_PROVIDER=mock (default, non-production only) | hyperverge | signzy; KYC_API_KEY, KYC_BASE_URL, KYC_WEBHOOK_SECRET. */
+/** KYC_PROVIDER=mock (default, non-production only) | hyperverge | signzy | idfy (KYC_ACCOUNT_ID, KYC_IDFY_CONFIG_ID); KYC_API_KEY, KYC_BASE_URL, KYC_WEBHOOK_SECRET. */
 export function getKycProvider(env: Record<string, string | undefined> = process.env): KycProvider {
   if (override) return override;
   const name = (env.KYC_PROVIDER ?? "mock").toLowerCase();
@@ -159,10 +174,11 @@ export function getKycProvider(env: Record<string, string | undefined> = process
     if (env.NODE_ENV === "production") throw new DomainError("validation", "KYC_PROVIDER=mock is not allowed in production");
     return new MockKycProvider(undefined, env.KYC_WEBHOOK_SECRET ?? "mock-secret");
   }
-  if (name === "hyperverge" || name === "signzy") {
+  if (name === "hyperverge" || name === "signzy" || name === "idfy") {
     const apiKey = env.KYC_API_KEY, baseUrl = env.KYC_BASE_URL, webhookSecret = env.KYC_WEBHOOK_SECRET;
     if (!apiKey || !baseUrl || !webhookSecret) throw new DomainError("validation", `KYC_API_KEY, KYC_BASE_URL and KYC_WEBHOOK_SECRET are required for KYC_PROVIDER=${name}`);
-    return new HttpKycProvider({ name, apiKey, baseUrl, webhookSecret });
+    if (name === "idfy" && !env.KYC_ACCOUNT_ID) throw new DomainError("validation", "KYC_ACCOUNT_ID is required for KYC_PROVIDER=idfy");
+    return new HttpKycProvider({ name, apiKey, baseUrl, webhookSecret, accountId: env.KYC_ACCOUNT_ID });
   }
   throw new DomainError("validation", `Unknown KYC_PROVIDER "${name}"`);
 }

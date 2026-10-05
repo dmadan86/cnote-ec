@@ -76,6 +76,10 @@
         "address_proof": {
           "label": "Address proof",
           "tips": "Optional. Electricity bill or rent agreement page showing the business address."
+        },
+        "shop_establishment": {
+          "label": "Shop establishment licence",
+          "tips": "Optional. Shops and Establishments registration showing the business name, address and registration date."
         }
       },
       "optional": "(optional)",
