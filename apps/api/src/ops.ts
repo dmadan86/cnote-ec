@@ -11,7 +11,7 @@ import { DomainError } from "@cnote/core";
 import type { ApiPrincipal } from "@cnote/developer";
 import {
   acceptLead, createEnquiry, declineLead, getBuyerEnquiry, getConversation, getSellerLead, listBuyerEnquiries, listSellerLeads,
-  reportDeal, sendMessage, sendQuote, type EnquiryInput, type EnquiryView, type LeadView,
+  awardLines, listAwardedLines, reportDeal, sendMessage, sendQuote, type EnquiryInput, type EnquiryView, type LeadView,
 } from "@cnote/enquiry";
 import { getPersonBusinesses, getPersonSummaries, getTrustProfiles } from "@cnote/identity";
 import { getRatingSummary, listApprovedReviews, submitReview, type ReviewInput } from "@cnote/reviews";
@@ -164,6 +164,12 @@ export async function conversation(p: P, id: string) {
   const c = await getConversation(actor(p), id);
   if (!c) throw new DomainError("not_found", "Conversation not found");
   return { ...c, quotes: c.quotes.map((q) => ({ ...q, currency: CURRENCY })) };
+}
+export async function awardEnquiryLines(p: P, enquiryId: string, awards: { enquiryLineId: string; quoteId: string }[]) {
+  return awardLines(actor(p), enquiryId, awards);
+}
+export async function awardedLines(p: P, enquiryId: string) {
+  return { items: await listAwardedLines(actor(p), enquiryId) };
 }
 export async function message(p: P, conversationId: string, body: string) {
   await sendMessage(actor(p), conversationId, body);

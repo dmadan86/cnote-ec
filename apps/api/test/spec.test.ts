@@ -14,6 +14,8 @@ const m = vi.hoisted(() => ({
   getConversation: vi.fn(),
   sendMessage: vi.fn(),
   sendQuote: vi.fn(),
+  awardLines: vi.fn(),
+  listAwardedLines: vi.fn(),
   reportDeal: vi.fn(),
   getBalance: vi.fn(),
   getActiveSubscription: vi.fn(),
@@ -44,7 +46,7 @@ vi.mock("@cnote/catalogue", () => ({
 vi.mock("@cnote/enquiry", () => ({
   acceptLead: m.acceptLead, createEnquiry: m.createEnquiry, declineLead: m.declineLead, getBuyerEnquiry: m.getBuyerEnquiry,
   getConversation: m.getConversation, getSellerLead: m.getSellerLead, listBuyerEnquiries: m.listBuyerEnquiries, listSellerLeads: m.listSellerLeads,
-  reportDeal: m.reportDeal, sendMessage: m.sendMessage, sendQuote: m.sendQuote,
+  reportDeal: m.reportDeal, sendMessage: m.sendMessage, sendQuote: m.sendQuote, awardLines: m.awardLines, listAwardedLines: m.listAwardedLines,
 }));
 vi.mock("@cnote/identity", () => ({ getPersonBusinesses: m.getPersonBusinesses, getPersonSummaries: m.getPersonSummaries, getTrustProfiles: m.getTrustProfiles }));
 vi.mock("@cnote/reviews", () => ({ getRatingSummary: m.getRatingSummary, listApprovedReviews: m.listApprovedReviews, submitReview: m.submitReview }));
@@ -172,8 +174,13 @@ describe("validation (422) shape", () => {
   });
   it("bad body: missing fields, wrong types, malformed JSON", async () => {
     const o = find("createEnquiry");
-    const e = await expect422(await send(o, undefined, { title: 1 }));
+    const e = await expect422(await send(o, undefined, { title: 1, requirement: 2 }));
     expect(e.issues.map((i: { path: string }) => i.path)).toEqual(expect.arrayContaining(["title", "requirement"]));
+    // title/requirement are only optional together with lines (multi-line RFQ)
+    const none = await expect422(await send(o, undefined, {}));
+    expect(none.issues.map((i: { path: string }) => i.path)).toContain("title");
+    await expect422(await send(o, undefined, { lines: [] }));
+    await expect422(await send(o, undefined, { lines: [{ itemName: "x", quantity: 0, unit: "pcs" }] }));
     const bad = await app.request(o.url, { method: "POST", headers: { authorization: `Bearer ${KEY}`, "content-type": "application/json" }, body: "{nope" });
     expect(bad.status).toBe(400); // regression: hono's malformed-JSON HTTPException used to surface as 500
     expect((await bad.json()).error).toMatchObject({ code: "invalid_request" });
@@ -543,6 +550,18 @@ describe("REST happy paths", () => {
     const q = { pricePaise: 20500, quantity: 5, unit: "kg" };
     expect((await call("sendQuote", { body: q })).status).toBe(201);
     expect(m.sendQuote).toHaveBeenCalledWith(A, UUID, expect.objectContaining(q));
+    // multi-line: per-line quote, per-line award, lines on read
+    const lq = { gstIncluded: false, lines: [{ ordinal: 1, unitPricePaise: 100, gstRatePct: 18 }, { ordinal: 2, cantSupply: true }] };
+    expect((await call("sendQuote", { body: lq })).status).toBe(201);
+    expect(m.sendQuote).toHaveBeenLastCalledWith(A, UUID, expect.objectContaining(lq));
+    expect((await call("sendQuote", { body: { notes: "no price, no lines" } })).status).toBe(422);
+    m.awardLines.mockResolvedValue({ results: [{ orderId: UUID, quoteId: UUID, matchId: UUID, sellerBusinessId: UUID, enquiryLineIds: [UUID], totalPaise: 5 }] });
+    const aw = { awards: [{ enquiryLineId: UUID, quoteId: UUID }] };
+    expect((await call("awardEnquiryLines", { body: aw })).status).toBe(201);
+    expect(m.awardLines).toHaveBeenCalledWith(A, UUID, aw.awards);
+    expect((await call("awardEnquiryLines", { body: { awards: [] } })).status).toBe(422);
+    m.listAwardedLines.mockResolvedValue([]);
+    expect(await (await call("listEnquiryAwards")).json()).toEqual({ items: [] });
     expect((await call("reportDeal", { body: { outcome: "won", valuePaise: 100 } })).status).toBe(201);
     expect(m.reportDeal).toHaveBeenCalledWith(A, UUID, "won", 100);
   });
@@ -628,7 +647,9 @@ describe("MCP tools happy paths", () => {
       send_message: { conversationId: UUID, body: "hi" }, send_quote: { conversationId: UUID, pricePaise: 5, quantity: 2, unit: "kg" },
       list_wishlists: {}, add_to_wishlist: { wishlistId: UUID, listingId: UUID }, list_reviews: { listingId: UUID },
       submit_review: { listingId: UUID, rating: 4, body: "Solid quality, prompt delivery." }, get_credit_balance: {},
+      award_lines: { enquiryId: UUID, awards: [{ enquiryLineId: UUID, quoteId: UUID }] },
     };
+    m.awardLines.mockResolvedValue({ results: [] });
     expect(Object.keys(args).sort()).toEqual(TOOLS.map((t) => t.name).sort());
     for (const t of TOOLS) {
       const res = await callTool(t.name, args[t.name]);

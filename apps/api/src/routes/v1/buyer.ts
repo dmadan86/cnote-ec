@@ -2,7 +2,7 @@ import { clientIp } from "@cnote/security/client-ip";
 import { z } from "@hono/zod-openapi";
 import * as ops from "../../ops";
 import {
-  Conversation, DealReportCreate, Enquiry, EnquiryCreate, Id, MessageCreate, Ok, QuoteCreate, pageOf, pageQuery,
+  AwardedLine, Conversation, DealReportCreate, Enquiry, EnquiryCreate, Id, LineAwardCreate, LineAwardResult, MessageCreate, Ok, QuoteCreate, pageOf, pageQuery,
 } from "../../schemas";
 import { api, body, json, router } from "../helpers";
 
@@ -51,6 +51,33 @@ buyerRoutes.openapi(
     },
   }),
   async (c) => c.json(await ops.enquiry(c.get("principal"), c.req.valid("param").id), 200),
+);
+
+buyerRoutes.openapi(
+  api({
+    scope: "enquiries:write", errors: [404, 409, 422],
+    cfg: {
+      method: "post", path: "/enquiries/{id}/awards", operationId: "awardEnquiryLines", tags: ["Enquiries"], summary: "Award requirement lines to supplier quotes",
+      description:
+        `Per-line award for a multi-line RFQ: give different lines to different suppliers' latest quotes. Each supplier gets one off-platform order covering only its lines, valued at the server-computed line totals. A line can be awarded once, and a supplier that already has an order on this enquiry takes no more lines. ${buyerNote}`,
+      request: { params: Id, body: body(LineAwardCreate) },
+      responses: { 201: json(LineAwardResult, "One order per awarded supplier") },
+    },
+  }),
+  async (c) => c.json(await ops.awardEnquiryLines(c.get("principal"), c.req.valid("param").id, c.req.valid("json").awards), 201),
+);
+
+buyerRoutes.openapi(
+  api({
+    scope: "enquiries:read", errors: [404],
+    cfg: {
+      method: "get", path: "/enquiries/{id}/awards", operationId: "listEnquiryAwards", tags: ["Enquiries"], summary: "List awarded lines",
+      description: `Immutable snapshots of the lines awarded so far (item, spec, quantity, unit price, GST, supplier, order). ${buyerNote}`,
+      request: { params: Id },
+      responses: { 200: json(z.object({ items: z.array(AwardedLine) }).openapi("AwardedLinePage"), "Awarded lines, ordered by line number") },
+    },
+  }),
+  async (c) => c.json(await ops.awardedLines(c.get("principal"), c.req.valid("param").id), 200),
 );
 
 buyerRoutes.openapi(

@@ -150,6 +150,31 @@ export const Match = z
   })
   .openapi("Match");
 
+export const EnquiryLine = z
+  .object({
+    id: uuid(),
+    ordinal: z.number().int().openapi({ description: "1-based line number." }),
+    itemName: z.string(),
+    spec: z.string().nullable(),
+    quantity: z.number().int(),
+    unit: z.string(),
+    targetPricePaise: z.number().int().nullable().openapi({ description: "Target unit price in paise." }),
+    category: z.object({ slug: z.string(), name: z.string() }).nullable(),
+    hsn: z.string().nullable(),
+  })
+  .openapi("EnquiryLine");
+export const EnquiryLineCreate = z
+  .object({
+    itemName: z.string().min(1).max(140),
+    spec: z.string().max(1000).nullish(),
+    quantity: z.number().int().positive(),
+    unit: z.string().min(1).max(20),
+    targetPricePaise: z.number().int().positive().nullish().openapi({ description: "Target unit price in paise." }),
+    categorySlug: z.string().max(100).nullish(),
+    hsn: z.string().regex(/^\d{4}(\d{2}(\d{2})?)?$/).nullish().openapi({ description: "HSN code, 4, 6 or 8 digits." }),
+  })
+  .openapi("EnquiryLineCreate");
+
 const enquiryBase = {
   id: uuid(),
   title: z.string(),
@@ -169,13 +194,17 @@ const enquiryBase = {
   buyerPicks: z.boolean().optional(),
   sellerCap: z.number().int().optional(),
   awaitingPick: z.boolean().optional(),
+  lines: z.array(EnquiryLine).openapi({ description: "Bill-of-materials lines (always at least one). Line 1 mirrors `quantity`/`quantityUnit`." }),
 };
 export const Enquiry = z.object({ ...enquiryBase, matches: z.array(Match) }).openapi("Enquiry");
 
 export const EnquiryCreate = z
   .object({
-    title: z.string().min(5).max(140),
-    requirement: z.string().min(10).max(4000),
+    title: z.string().min(5).max(140).optional().openapi({ description: "Required unless `lines` is given (then derived from the lines)." }),
+    requirement: z.string().min(10).max(4000).optional().openapi({ description: "Required unless `lines` is given." }),
+    lines: z.array(EnquiryLineCreate).min(1).max(50).nullish().openapi({
+      description: "Multi-line RFQ (bill of materials), 1-50 lines. `quantity`, `quantityUnit` and `targetPricePaise` then mirror line 1 and are ignored if sent. Each line is matched, moderated and intent-scored with the rest of the RFQ.",
+    }),
     categorySlug: z.string().nullish(),
     quantity: z.number().int().positive().nullish(),
     quantityUnit: z.string().max(20).nullish(),
@@ -186,6 +215,7 @@ export const EnquiryCreate = z
     language: z.string().max(8).default("en"),
     preferredListingId: z.string().nullish().openapi({ description: "Rank this listing's seller first if eligible." }),
   })
+  .refine((v) => !!v.lines?.length || (!!v.title && !!v.requirement), { message: "title and requirement are required unless lines are given", path: ["title"] })
   .openapi("EnquiryCreate", {
     example: {
       title: "500 kg SS304 sheets", requirement: "Need 500 kg of 2mm SS304 sheets, mill test certificate required, delivery to Pune.",
@@ -210,10 +240,22 @@ export const Lead = z
   })
   .openapi("Lead");
 
+export const QuoteLine = z
+  .object({
+    id: uuid(), enquiryLineId: uuid(), ordinal: z.number().int(),
+    unitPricePaise: z.number().int().nullable().openapi({ description: "Per unit; null when the supplier cannot supply the line." }),
+    gstRatePct: z.number().int().nullable(), leadTimeDays: z.number().int().nullable(), cantSupply: z.boolean(), notes: z.string().nullable(),
+    quantity: z.number().int().openapi({ description: "The requirement line's quantity the amounts were computed for." }),
+    lineSubtotalPaise: z.number().int().nullable(), lineGstPaise: z.number().int().nullable(), lineTotalPaise: z.number().int().nullable(),
+  })
+  .openapi("QuoteLine");
 export const Quote = z
   .object({
     id: uuid(), pricePaise: z.number().int(), currency: Currency, quantity: z.number(), unit: z.string(),
     leadTimeDays: z.number().nullable(), notes: z.string().nullable(), validUntil: z.string().nullable(), createdAt: iso("2026-09-03T10:00:00.000Z"),
+    lineTotals: z.object({ subtotalPaise: z.number().int(), gstPaise: z.number().int(), totalPaise: z.number().int(), quotedLineCount: z.number().int() }).nullable()
+      .openapi({ description: "Server-computed totals of a per-line quote (null on single-field quotes). `pricePaise`/`quantity`/`unit` then mirror the first priced line." }),
+    lines: z.array(QuoteLine).optional().openapi({ description: "Per-line prices of a multi-line quote." }),
   })
   .openapi("Quote");
 export const Conversation = z
@@ -229,16 +271,55 @@ export const Conversation = z
   })
   .openapi("Conversation");
 export const MessageCreate = z.object({ body: z.string().min(1).max(4000) }).openapi("MessageCreate");
+export const QuoteLineCreate = z
+  .object({
+    enquiryLineId: z.string().nullish().openapi({ description: "Requirement line id. Give this or `ordinal`." }),
+    ordinal: z.number().int().positive().nullish().openapi({ description: "1-based requirement line number. Give this or `enquiryLineId`." }),
+    unitPricePaise: z.number().int().positive().nullish().openapi({ description: "Unit price in paise. Required unless `cantSupply`." }),
+    gstRatePct: z.number().int().min(0).max(40).nullish(),
+    leadTimeDays: z.number().int().min(0).max(730).nullish(),
+    cantSupply: z.boolean().nullish().openapi({ description: "The supplier cannot supply this line. Lines you leave out are treated as skipped (partial quote)." }),
+    notes: z.string().max(300).nullish(),
+  })
+  .openapi("QuoteLineCreate");
 export const QuoteCreate = z
   .object({
-    pricePaise: z.number().int().positive().openapi({ description: "Unit price in paise." }),
-    quantity: z.number().int().positive(),
-    unit: z.string().min(1).max(20),
+    pricePaise: z.number().int().positive().optional().openapi({ description: "Unit price in paise. Required unless `lines` is given (then mirrored from the first priced line)." }),
+    quantity: z.number().int().positive().optional(),
+    unit: z.string().min(1).max(20).optional(),
     leadTimeDays: z.number().int().min(0).max(730).nullish(),
     notes: z.string().max(2000).nullish(),
     validUntil: z.string().nullish().openapi({ description: "ISO date." }),
+    gstIncluded: z.boolean().nullish().openapi({ description: "Unit prices already include GST. Applies to every line." }),
+    lines: z.array(QuoteLineCreate).min(1).max(50).nullish().openapi({
+      description: "Per-line prices for a multi-line RFQ (required when the enquiry has more than one line; partial quotes are fine). Totals are computed by the server.",
+    }),
   })
+  .refine((v) => !!v.lines?.length || (v.pricePaise != null && v.quantity != null && !!v.unit), { message: "pricePaise, quantity and unit are required unless lines are given", path: ["pricePaise"] })
   .openapi("QuoteCreate", { example: { pricePaise: 20500, quantity: 500, unit: "kg", leadTimeDays: 7, notes: "MTC included", validUntil: "2026-10-15" } });
+export const LineAwardCreate = z
+  .object({
+    awards: z.array(z.object({ enquiryLineId: z.string(), quoteId: z.string() })).min(1).max(50).openapi({
+      description: "One entry per requirement line: which supplier quote gets it. Lines may go to different suppliers; each supplier gets one order covering only its lines.",
+    }),
+  })
+  .openapi("LineAwardCreate");
+export const LineAwardResult = z
+  .object({
+    results: z.array(z.object({
+      orderId: uuid(), quoteId: uuid(), matchId: uuid(), sellerBusinessId: uuid(), enquiryLineIds: z.array(z.string()),
+      totalPaise: z.number().int().openapi({ description: "Payable for the awarded lines, GST per line." }),
+    })),
+  })
+  .openapi("LineAwardResult");
+export const AwardedLine = z
+  .object({
+    enquiryLineId: uuid(), quoteLineId: uuid(), quoteId: uuid(), orderId: uuid(), enquiryId: uuid(), sellerBusinessId: uuid(), ordinal: z.number().int(),
+    itemName: z.string(), spec: z.string().nullable(), hsn: z.string().nullable(), quantity: z.number().int(), unit: z.string(), unitPricePaise: z.number().int(),
+    gstRatePct: z.number().int().nullable(), gstIncluded: z.boolean().nullable(), leadTimeDays: z.number().int().nullable(),
+    lineSubtotalPaise: z.number().int(), lineGstPaise: z.number().int(), lineTotalPaise: z.number().int(), awardedAt: iso("2026-09-05T10:00:00.000Z"),
+  })
+  .openapi("AwardedLine");
 export const DealReportCreate = z
   .object({ outcome: z.enum(["won", "lost", "pending"]), valuePaise: z.number().int().min(0).nullish().openapi({ description: "Final deal value in paise." }) })
   .openapi("DealReportCreate");
