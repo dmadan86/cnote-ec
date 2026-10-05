@@ -64,6 +64,9 @@ export const PRIVILEGES = [
   "agents.read", // standing agent mandates, negotiation transcripts (structured terms)
   "agents.suspend", // suspend a mandate or an external agent integration (abuse)
   "prices.manage", // benchmark publication, k-anonymity thresholds, premium analytics access
+  // Search tuning (ADR-004/009): vernacular synonym dictionary + relevance judgements
+  "search.read", // view the synonym dictionary, its history, and recorded relevance judgements
+  "search.manage", // publish/rollback synonym versions, record/delete relevance judgements (all audited)
 ] as const;
 export type Privilege = (typeof PRIVILEGES)[number];
 
@@ -81,7 +84,7 @@ export const ROLE_PRIVILEGES: Record<Role, readonly Privilege[]> = {
     "ugc.read", "ugc.moderate", "images.moderate", "api_keys.read", "api_keys.revoke", "queues.read",
     "storefronts.review", "metrics.read", "compliance.read", "compliance.manage", "compliance.consent",
     "ads.read", "ads.review", "ads.suspend", "ads.fraud.review", "offers.review", "promotions.read", "kyc.review",
-    "disputes.read", "quality.review", "verticals.manage", "ondc.manage", "agents.read", "agents.suspend",
+    "disputes.read", "quality.review", "verticals.manage", "ondc.manage", "agents.read", "agents.suspend", "search.read", "search.manage",
   ],
   /** Business verification (ADR-003). Sees the queue read-only for context. */
   verification_officer: ["businesses.read", "businesses.verify", "reviews.read", "kyc.review", "audits.manage"],

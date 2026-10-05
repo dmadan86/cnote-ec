@@ -69,7 +69,8 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   ],
   "@cnote/developer": ["@cnote/core", "@cnote/db", "@cnote/identity"],
   "@cnote/catalogue": ["@cnote/ai", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media", "@cnote/live-db"],
-  "@cnote/search": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity"],
+  // + live-db (DEV dependency only): the relevance harness (packages/search/relevance/, outside src/) writes its fixture corpus to the live read DB.
+  "@cnote/search": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/live-db"],
   "@cnote/enquiry": ["@cnote/ai", "@cnote/billing", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media"],
   "@cnote/wishlist": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity"],
   // Buyer retention: follows, saved searches, opt-in alerts. Reads saved items via wishlist and new matches via search (public APIs only).

@@ -3,9 +3,9 @@ import { readFileSync } from "node:fs";
 
 export const ALIAS = "listings";
 export const EMBEDDING_DIM = 256;
-export const indexName = (version: number) => `${ALIAS}_v${version}`;
-export const parseIndexVersion = (name: string): number => {
-  const m = /^listings_v(\d+)$/.exec(name);
+export const indexName = (version: number, alias = ALIAS) => `${alias}_v${version}`;
+export const parseIndexVersion = (name: string, alias = ALIAS): number => {
+  const m = new RegExp(`^${alias.replace(/[^\w]/g, "\\$&")}_v(\\d+)$`).exec(name);
   return m ? Number(m[1]) : 0;
 };
 
