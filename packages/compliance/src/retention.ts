@@ -13,6 +13,8 @@ import { purgeReadNotifications } from "@cnote/notifications";
 import { purgeRejectedUgc } from "@cnote/reviews";
 import * as whatsapp from "@cnote/whatsapp";
 import { purgeOldDispatches } from "@cnote/alerts";
+import { purgeEndedDelegations, purgeResolvedRequests } from "@cnote/approvals";
+import { purgeOldInvites } from "@cnote/identity";
 import { purgeStaleEmptyWishlists } from "@cnote/wishlist";
 import { purgeClosedCreditData } from "@cnote/credit";
 import { purgeResolvedDisputeEvidence } from "@cnote/disputes";
@@ -169,6 +171,25 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     description: "Alert dedupe ledger rows (no content); they only need to outlive event redelivery.",
     legalBasis: "DPDP s.8(7)",
     run: (before, { dryRun }) => purgeOldDispatches(before, { dryRun }),
+  },
+  // --- buyer approvals + team (docs/design/buyer-approvals.md) ---
+  {
+    name: "approvals.resolved_requests", module: "approvals", envKey: "APPROVAL_RECORDS", defaultDays: 2920, supportsDryRun: true,
+    description: "Resolved approval requests and their append-only decision log. Business records: kept 8 years by default, then purged (pending requests are never purged).",
+    legalBasis: "Companies Act 2013 s.128 / GST records horizon; DPDP s.8(7)",
+    run: (before, { dryRun }) => purgeResolvedRequests(before, { dryRun }),
+  },
+  {
+    name: "approvals.ended_delegations_12m", module: "approvals", envKey: "APPROVAL_DELEGATIONS", defaultDays: 365, supportsDryRun: true,
+    description: "Out-of-office delegations that ended or were revoked.",
+    legalBasis: "DPDP s.8(7)",
+    run: (before, { dryRun }) => purgeEndedDelegations(before, { dryRun }),
+  },
+  {
+    name: "identity.team_invites_30d", module: "identity", envKey: "TEAM_INVITES", defaultDays: 30, supportsDryRun: true,
+    description: "Used, revoked and expired team invitations (they hold the invitee's email address).",
+    legalBasis: "DPDP s.8(7)",
+    run: (before, { dryRun }) => purgeOldInvites(before, { dryRun }),
   },
 ];
 

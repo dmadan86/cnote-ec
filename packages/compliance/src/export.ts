@@ -7,6 +7,7 @@
 // Bounded and streamed: every module caps its collections (EXPORT_ROW_CAP, flagged `truncated`), and the response is written section by
 // section as JSON with a total byte budget, so one account can never make the server buffer an unbounded document.
 import { exportAlertsData } from "@cnote/alerts";
+import { exportPersonalData as approvalsExport } from "@cnote/approvals";
 import { exportPersonalData as catalogueExport } from "@cnote/catalogue";
 import { EXPORT_TAKE, exportCollection, type PersonalExport, type PersonalExporter } from "@cnote/core";
 import { prisma } from "@cnote/db";
@@ -49,6 +50,7 @@ export const EXPORT_SOURCES: readonly ExportSource[] = [
   { module: "leadgen", description: "Lead-capture funnel rows", export: (id) => leadgenExport(id) },
   { module: "disputes", description: "Disputes, evidence statements, messages and appeals", export: disputesExport },
   { module: "compliance", description: "Cookie-consent receipts", export: (id) => exportCookieConsentReceipts(id) },
+  { module: "approvals", description: "Approval requests you raised, decisions you made, delegations, spend limits and spend records", export: (id) => approvalsExport(id) },
 ];
 
 /** JSON.stringify replacer: money is BigInt paise (stringified, exact), everything else is plain data. */
