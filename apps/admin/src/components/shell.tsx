@@ -27,6 +27,7 @@ const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Pri
   { href: "/domains", label: "Domains", icon: <Globe className="size-4" aria-hidden />, privilege: "storefronts.review" },
   { href: "/whatsapp", label: "WhatsApp", icon: <MessageCircle className="size-4" aria-hidden />, privilege: "businesses.read" },
   { href: "/payments", label: "Payments", icon: <CreditCard className="size-4" aria-hidden />, privilege: "payments.read" },
+  { href: "/payables", label: "MSME payables", icon: <Scale className="size-4" aria-hidden />, privilege: "payables.read" }, // purchase orders (docs/design/purchase-orders.md)
   { href: "/credit", label: "Credit", icon: <Banknote className="size-4" aria-hidden />, privilege: "credit.read" },
   { href: "/escrow", label: "Escrow", icon: <Landmark className="size-4" aria-hidden />, privilege: "escrow.read" },
   { href: "/disputes", label: "Disputes", icon: <Gavel className="size-4" aria-hidden />, privilege: "disputes.read" },

@@ -251,6 +251,35 @@ async function storePdfSafe(p: Persisted): Promise<void> {
   try { await storePdf(p); } catch (e) { console.error("[enquiry] purchase order PDF could not be stored", e); }
 }
 
+export interface PoSuggestion {
+  /** from the quote's payment terms when they name a number of days */
+  paymentTermsDays: number | null;
+  /** today + the quote's lead time, when known */
+  expectedDelivery: string | null;
+  gstPercent: number;
+  /** the line that will be created from the order */
+  line: { description: string; quantity: number; unit: string; unitPricePaise: number; priceIncludesGst: boolean } | null;
+}
+
+/** Form defaults for issuing a PO for an order, derived from the order and its quote. Null when the actor is not the buyer. */
+export async function suggestPurchaseOrder(actor: Actor, orderId: string, now: Date = new Date()): Promise<PoSuggestion | null> {
+  if (!UUID.test(orderId)) return null;
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order || order.buyerBusinessId !== actor.businessId) return null;
+  const [quote, enquiry] = await Promise.all([
+    order.quoteId ? prisma.quote.findUnique({ where: { id: order.quoteId } }) : Promise.resolve(null),
+    order.enquiryId ? prisma.enquiry.findUnique({ where: { id: order.enquiryId }, select: { title: true } }) : Promise.resolve(null),
+  ]);
+  return {
+    paymentTermsDays: paymentTermsToDays(quote?.paymentTerms),
+    expectedDelivery: quote?.leadTimeDays != null ? addDays(istDate(now), quote.leadTimeDays) : null,
+    gstPercent: defaultPoGstRateBps() / 100,
+    line: order.quantity !== null && order.pricePaise !== null && order.unit
+      ? { description: enquiry?.title ?? "Goods as per order", quantity: order.quantity, unit: order.unit, unitPricePaise: Number(order.pricePaise), priceIncludesGst: quote?.gstIncluded ?? false }
+      : null,
+  };
+}
+
 /**
  * Buyer issues the PO for an order. Lines default to the order's single quote line; pass `lines` for several. The PO number is
  * consumed only if the transaction commits. One PO per order: use amendPurchaseOrder to change it.
