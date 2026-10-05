@@ -1,12 +1,13 @@
 "use server";
 // Buyer-side server actions. Each re-checks the session: server actions are reachable by direct POST.
-import { pickSellers, createEnquiry, decideQuote, reportDeal, sendMessage, setQuoteShortlisted, type AttachmentUpload, type EnquiryView } from "@cnote/enquiry";
+import { awardLines, pickSellers, createEnquiry, decideQuote, reportDeal, sendMessage, setQuoteShortlisted, type AttachmentUpload, type EnquiryView } from "@cnote/enquiry";
 import { actorOf, requireBusiness, type ActionResult } from "@cnote/next-kit";
 import { clientIp } from "@cnote/security/client-ip";
 import { headers } from "next/headers";
 import { runLocalized } from "@/i18n/errors";
 import { revalidatePath } from "next/cache";
 import { attributeEnquiryFromCookie } from "@/features/ads/slots";
+import { linesFromForm } from "./bom";
 
 const str = (f: FormData, k: string) => {
   const v = f.get(k);
@@ -38,6 +39,7 @@ export async function postRfqAction(_prev: ActionResult<EnquiryView> | null, f: 
       {
         title: str(f, "title") ?? "",
         requirement: str(f, "requirement") ?? "",
+        lines: linesFromForm(f),
         categorySlug: str(f, "categorySlug"),
         quantity: num(f, "quantity"),
         quantityUnit: str(f, "quantityUnit"),
@@ -110,5 +112,20 @@ export async function shortlistQuoteAction(_prev: ActionResult | null, f: FormDa
   return runLocalized(async () => {
     await setQuoteShortlisted(actorOf(s), str(f, "quoteId") ?? "", f.get("shortlisted") === "true");
     revalidatePath(`/buyer/enquiries/${enquiryId}`);
+  });
+}
+
+/** Per-line award (rfq-multiline): `award` fields are "<enquiryLineId>:<quoteId>". Amounts come from the stored, server-computed line totals. */
+export async function awardLinesAction(_prev: ActionResult<{ orders: number }> | null, f: FormData): Promise<ActionResult<{ orders: number }>> {
+  const enquiryId = str(f, "enquiryId") ?? "";
+  const s = await requireBusiness(`/buyer/enquiries/${enquiryId}`);
+  return runLocalized(async () => {
+    const awards = f.getAll("award").flatMap((v) => {
+      const [enquiryLineId, quoteId] = String(v).split(":");
+      return enquiryLineId && quoteId ? [{ enquiryLineId, quoteId }] : [];
+    });
+    const { results } = await awardLines(actorOf(s), enquiryId, awards);
+    revalidatePath(`/buyer/enquiries/${enquiryId}`);
+    return { orders: results.length };
   });
 }

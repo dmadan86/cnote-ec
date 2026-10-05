@@ -37,8 +37,9 @@ const row = (o: Partial<ComparisonRow> & { id: string }): ComparisonRow => ({
   quote: {
     id: `q-${o.id}`, pricePaise: 500, quantity: 200, unit: "pcs", leadTimeDays: 10, notes: null, validUntil: "2026-12-01", createdAt: "2026-10-01T00:00:00.000Z",
     moq: null, moqUnit: null, deliveryTerms: null, deliveryNote: null, deliveryChargePaise: null, paymentTerms: "net_15", paymentNote: null, gstIncluded: null,
-    attachments: [], shortlisted: false,
+    attachments: [], shortlisted: false, lineTotals: null,
   },
+  coverage: null,
   ...o,
 });
 
@@ -47,7 +48,7 @@ const B = row({ id: "b", rank: 2, verificationTier: 1, totalPaise: 90000, quote:
 const C = row({ id: "c", rank: 3, verificationTier: 1, totalPaise: 90000, decision: "won", quote: { ...row({ id: "c" }).quote, pricePaise: 450, leadTimeDays: null, paymentTerms: null } });
 
 const comparison = (rows: ComparisonRow[], o: Partial<QuoteComparison> = {}): QuoteComparison => ({
-  enquiryId: "e1", quantity: 200, quantityUnit: "pcs", sentTo: 3, quotesFrom: rows.length, expiresAt: "2026-10-09T00:00:00.000Z", rows, ...o,
+  enquiryId: "e1", quantity: 200, quantityUnit: "pcs", sentTo: 3, quotesFrom: rows.length, expiresAt: "2026-10-09T00:00:00.000Z", rows, lines: [], lowestByLine: {}, awards: [], ...o,
 });
 
 function render(ui: React.ReactElement, locale = "en") {

@@ -15,7 +15,7 @@ interface PgClient {
   query(q: string, p?: unknown[]): Promise<{ rows: Row[]; rowCount: number | null }>;
 }
 
-async function withDb<T>(fn: (c: PgClient) => Promise<T>): Promise<T> {
+export async function withDb<T>(fn: (c: PgClient) => Promise<T>): Promise<T> {
   const url = e2eEnv.DATABASE_URL!;
   if (!/_e2e$/.test(new URL(url).pathname.slice(1))) throw new Error("refusing to touch a database that does not end in _e2e");
   const root = path.resolve(__dirname, "../..");

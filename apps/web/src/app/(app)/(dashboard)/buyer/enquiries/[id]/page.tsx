@@ -29,6 +29,7 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
   const t = await getTranslations({ locale, namespace: "buyer" });
   const t2 = await getTranslations({ locale, namespace: "rfq2" });
   const tc = await getTranslations({ locale, namespace: "cards" });
+  const tl = await getTranslations({ locale, namespace: "rfqLines" });
   const comparison = await getQuoteComparison(actorOf(s), e.id);
   const money = (p: number) => `₹${(p / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
@@ -80,6 +81,43 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
             ) : null}
           </CardBody>
         </Card>
+
+        {e.lines.length > 1 ? (
+          <Card>
+            <CardBody className="flex flex-col gap-3">
+              <CardTitle>{tl("itemsHeading", { count: e.lines.length })}</CardTitle>
+              <div role="region" aria-label={tl("itemsHeading", { count: e.lines.length })} tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-brand-600">
+                <table className="w-full min-w-[32rem] border-collapse text-left text-sm">
+                  <caption className="sr-only">{tl("itemsHeading", { count: e.lines.length })}</caption>
+                  <thead className="text-xs text-muted">
+                    <tr>
+                      <th scope="col" className="py-1 pr-3 font-semibold">{tl("lineCol")}</th>
+                      <th scope="col" className="py-1 pr-3 font-semibold">{tl("field.itemName")}</th>
+                      <th scope="col" className="py-1 pr-3 font-semibold">{tl("field.quantity")}</th>
+                      <th scope="col" className="py-1 pr-3 font-semibold">{tl("field.targetPrice")}</th>
+                      <th scope="col" className="py-1 font-semibold">{tl("field.hsn")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {e.lines.map((l) => (
+                      <tr key={l.id} className="border-t border-line align-top">
+                        <td className="py-2 pr-3 text-muted">{l.ordinal}</td>
+                        <th scope="row" className="py-2 pr-3 font-medium text-ink">
+                          {l.itemName}
+                          {l.spec ? <span className="block text-xs font-normal text-muted">{l.spec}</span> : null}
+                          {l.category ? <span className="block text-xs font-normal text-muted">{l.category.name}</span> : null}
+                        </th>
+                        <td className="py-2 pr-3">{l.quantity} {l.unit}</td>
+                        <td className="py-2 pr-3">{l.targetPricePaise ? <Money paise={l.targetPricePaise} unit={l.unit} /> : "—"}</td>
+                        <td className="py-2">{l.hsn ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardBody>
+          </Card>
+        ) : null}
 
         {e.intentScore !== null ? (
           <Card>

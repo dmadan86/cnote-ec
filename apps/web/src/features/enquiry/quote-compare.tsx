@@ -11,6 +11,7 @@ import { useActionState, useId, useMemo, useRef, useState } from "react";
 import { formatDate, isLocale } from "@/i18n/config";
 import { quoteDecisionAction, shortlistQuoteAction } from "./actions";
 import { bestByColumn, SORT_KEYS, sortRows, type BestColumn, type SortKey } from "./compare-logic";
+import { LineMatrix } from "./line-matrix";
 import { trustLabels } from "./trust-labels";
 
 type T = ReturnType<typeof useTranslations>;
@@ -114,6 +115,7 @@ function Notes({ row, t, unit }: { row: ComparisonRow; t: T; unit: string }) {
 export function QuoteCompare({ comparison }: { comparison: QuoteComparison }) {
   const t = useTranslations("rfq2.compare");
   const tc = useTranslations("cards");
+  const tl = useTranslations("rfqLines.matrix");
   const locale = useLocale();
   const loc = isLocale(locale) ? locale : "en";
   const labels = trustLabels(tc);
@@ -218,7 +220,7 @@ export function QuoteCompare({ comparison }: { comparison: QuoteComparison }) {
                             <Best show={isBest("rank", r)} column={col.rank} t={t} />
                           </td>
                           <td className="px-3 py-3">
-                            <Money paise={r.quote.pricePaise} unit={r.quote.unit} />
+                            {r.coverage ? <span>{tl("perLineQuote", { quoted: r.coverage.quoted, of: r.coverage.of })}</span> : <Money paise={r.quote.pricePaise} unit={r.quote.unit} />}
                             <Best show={isBest("price", r)} column={col.price} t={t} />
                             {r.quote.deliveryChargePaise ? <p className="text-xs text-muted">{t("delivery", { amount: `₹${(r.quote.deliveryChargePaise / 100).toLocaleString("en-IN")}` })}</p> : null}
                           </td>
@@ -265,7 +267,7 @@ export function QuoteCompare({ comparison }: { comparison: QuoteComparison }) {
                         <dt className="text-muted">{t("rank")}</dt>
                         <dd>{t("rankOf", { rank: r.rank, of: r.of })}<Best show={isBest("rank", r)} column={col.rank} t={t} /></dd>
                         <dt className="text-muted">{t("unitPrice")}</dt>
-                        <dd><Money paise={r.quote.pricePaise} unit={r.quote.unit} /><Best show={isBest("price", r)} column={col.price} t={t} /></dd>
+                        <dd>{r.coverage ? <span>{tl("perLineQuote", { quoted: r.coverage.quoted, of: r.coverage.of })}</span> : <Money paise={r.quote.pricePaise} unit={r.quote.unit} />}<Best show={isBest("price", r)} column={col.price} t={t} /></dd>
                         <dt className="text-muted">{totalHead(r)}</dt>
                         <dd><Money paise={r.totalPaise} /><Best show={isBest("total", r)} column={col.total} t={t} /></dd>
                         <dt className="text-muted">{t("leadTime")}</dt>
@@ -291,6 +293,7 @@ export function QuoteCompare({ comparison }: { comparison: QuoteComparison }) {
                 ) : null}
               </div>
               <p className="text-xs text-muted">{t("totalNote")} {t("acceptNote")}</p>
+              {comparison.lines.length > 1 && comparison.rows.some((r) => r.quote.lines?.length) ? <LineMatrix comparison={comparison} /> : null}
             </>
           ) : null}
         </>

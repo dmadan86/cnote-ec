@@ -48,6 +48,13 @@ async function loadPrefill(s: Session, enquiryId: string | undefined, orderId: s
       budgetMaxRupees: paiseToRupees(e?.budgetMaxPaise ?? null),
       minSellerTier: e?.minSellerTier ?? undefined,
       sameSupplier: supplier,
+      // a multi-line requirement is requested again as the same bill of materials
+      lines: e && e.lines.length > 1
+        ? e.lines.map((l) => ({
+            itemName: l.itemName, spec: l.spec ?? "", quantity: String(l.quantity), unit: l.unit, targetPrice: l.targetPricePaise === null ? "" : String(l.targetPricePaise / 100),
+            hsn: l.hsn ?? "", categorySlug: l.category?.slug ?? "",
+          }))
+        : undefined,
     },
   };
 }
