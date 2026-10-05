@@ -20,6 +20,12 @@ export interface ImportRow {
   moqUnit?: string;
   hsn?: string;
   language?: string;
+  /** sample workflow settings (docs/design/samples.md); undefined = cell blank (leave unchanged on update) */
+  sampleAvailable?: boolean;
+  samplePricePaise?: number;
+  sampleMaxQty?: number;
+  sampleDispatchDays?: number;
+  sampleMinBuyerTier?: number;
   /** shipping facts per unit for the freight estimator (grams / millimetres); only the cells that were filled */
   shipping?: { unitWeightGrams?: number; unitLengthMm?: number; unitWidthMm?: number; unitHeightMm?: number };
   attributes: Record<string, string | number>;
@@ -184,6 +190,38 @@ function validateProductRows(rows: RawRow[], ctx: ValidationContext): Validation
       else language = l;
     }
 
+    // samples
+    let sampleAvailable: boolean | undefined;
+    if (c.sample_available) {
+      const v = c.sample_available.toLowerCase();
+      if (["yes", "y", "true", "1"].includes(v)) sampleAvailable = true;
+      else if (["no", "n", "false", "0"].includes(v)) sampleAvailable = false;
+      else bad("sample_available", "sample_available must be yes or no");
+    }
+    let samplePricePaise: number | undefined;
+    if (c.sample_price_rupees) {
+      const p = rupeesToPaise(c.sample_price_rupees);
+      if (p === null) bad("sample_price_rupees", "Sample price must be an amount in rupees with at most 2 decimals, e.g. 150 (0 = free)");
+      else samplePricePaise = p;
+    }
+    const wholeIn = (col: string, min: number, max: number, label: string): number | undefined => {
+      const raw = c[col];
+      if (!raw) return undefined;
+      const n = Number(raw.replace(/,/g, ""));
+      if (!Number.isInteger(n) || n < min || n > max) {
+        bad(col, `${label} must be a whole number from ${min} to ${max}`);
+        return undefined;
+      }
+      return n;
+    };
+    const sampleMaxQty = wholeIn("sample_max_qty", 1, 1_000_000, "Sample max quantity");
+    const sampleDispatchDays = wholeIn("sample_dispatch_days", 0, 90, "Sample dispatch days");
+    const sampleMinBuyerTier = wholeIn("sample_min_buyer_tier", 0, 3, "Sample minimum buyer tier");
+    if (sampleAvailable !== true && [samplePricePaise, sampleMaxQty, sampleDispatchDays, sampleMinBuyerTier].some((x) => x !== undefined) && !errs.some((e) => e.column === "sample_available")) {
+      if (sampleAvailable === false) warnings.push(`Row ${r.row}: sample_ details are ignored because sample_available is no`);
+      else if (!ctx.existing.has(sku)) bad("sample_available", "Set sample_available to yes to use the other sample_ columns");
+    }
+
     // shipping facts (freight estimator)
     const shipping: NonNullable<ImportRow["shipping"]> = {};
     if (c.unit_weight_g) {
@@ -264,7 +302,7 @@ function validateProductRows(rows: RawRow[], ctx: ValidationContext): Validation
     }
     valid.push({
       row: r.row, sku, categoryId: category!.id, categorySlug: category!.slug, title, description, pricePaise, priceUnit: c.price_unit || undefined,
-      moq, moqUnit: c.moq_unit || undefined, hsn, language, shipping: Object.keys(shipping).length ? shipping : undefined, attributes, imageFiles, imageUrls,
+      moq, moqUnit: c.moq_unit || undefined, hsn, language, sampleAvailable, samplePricePaise, sampleMaxQty, sampleDispatchDays, sampleMinBuyerTier, shipping: Object.keys(shipping).length ? shipping : undefined, attributes, imageFiles, imageUrls,
       ...stock,
     });
   }

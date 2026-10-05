@@ -67,7 +67,7 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   // export/erase functions, so it may depend on many of them. Nothing may depend on it except apps.
   "@cnote/compliance": [
     "@cnote/alerts", "@cnote/approvals", "@cnote/catalogue", "@cnote/core", "@cnote/credit", "@cnote/db", "@cnote/disputes", "@cnote/enquiry", "@cnote/identity", "@cnote/leadgen", "@cnote/notifications",
-    "@cnote/developer", "@cnote/ondc", "@cnote/quality", "@cnote/reviews", "@cnote/security", "@cnote/storefront", "@cnote/whatsapp", "@cnote/wishlist",
+    "@cnote/developer", "@cnote/ondc", "@cnote/quality", "@cnote/reviews", "@cnote/samples", "@cnote/security", "@cnote/storefront", "@cnote/whatsapp", "@cnote/wishlist",
   ],
   "@cnote/developer": ["@cnote/core", "@cnote/db", "@cnote/identity"],
   "@cnote/catalogue": ["@cnote/ai", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media", "@cnote/live-db"],
@@ -82,6 +82,8 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   // Buyer retention: follows, saved searches, opt-in alerts. Reads saved items via wishlist and new matches via search (public APIs only).
   "@cnote/alerts": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/search", "@cnote/wishlist"],
   "@cnote/bulk": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media", "@cnote/security"],
+  // Sample request and approval workflow before a bulk order: listing settings via catalogue, parties/orders/quotes via enquiry, buyer tier via identity, private photos via media.
+  "@cnote/samples": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity", "@cnote/media"],
   "@cnote/reviews": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity"],
   "@cnote/leadgen": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity"],
   "@cnote/storefront": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/reviews", "@cnote/security"],

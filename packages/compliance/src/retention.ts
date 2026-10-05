@@ -11,6 +11,7 @@ import { purgeAuditPhotos, purgeErasedPersonResiduals, purgeExpiredAuthSessions,
 import { purgeAbandonedCaptures } from "@cnote/leadgen";
 import { purgeReadNotifications } from "@cnote/notifications";
 import { purgeRejectedUgc } from "@cnote/reviews";
+import { purgeClosedSamplePersonalData } from "@cnote/samples";
 import * as whatsapp from "@cnote/whatsapp";
 import { purgeOldDispatches } from "@cnote/alerts";
 import { purgeEndedDelegations, purgeResolvedRequests } from "@cnote/approvals";
@@ -150,6 +151,12 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     description: "Network buyer billing/delivery contact and payment blocks in finished ONDC orders; context, items and totals are kept.",
     legalBasis: "DPDP s.8(7); order records themselves are kept for tax/accounting (ADR-017)",
     run: (before, { dryRun }) => purgeOndcOrderPayloads(before, { dryRun }),
+  },
+  {
+    name: "samples.closed_request_personal_data", module: "samples", envKey: "SAMPLE_PERSONAL_DATA", defaultDays: 365, supportsDryRun: true,
+    description: "Ship-to details, buyer notes and evaluation photos of sample requests that reached a final status; statuses, reasons and amounts are kept (trust record).",
+    legalBasis: "DPDP s.8(7); the address is needed only to send the sample, photos only as quality evidence for the bulk order that follows (docs/design/samples.md)",
+    run: (before, { dryRun }) => purgeClosedSamplePersonalData(before, { dryRun }),
   },
   {
     name: "leadgen.abandoned_captures_90d", module: "leadgen", envKey: "ABANDONED_CAPTURES", defaultDays: 90, supportsDryRun: true,

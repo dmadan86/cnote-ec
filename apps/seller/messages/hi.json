@@ -37,6 +37,7 @@
       "credit": "क्रेडिट",
       "agents": "कोटेशन एजेंट",
       "questions": "सवाल",
+      "samples": "सैंपल",
       "returns": "वापसी"
     },
     "questionsUnanswered": "{count} बिना जवाब"

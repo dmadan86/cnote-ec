@@ -59,6 +59,8 @@ export const e2eEnv: Record<string, string> = {
   ESCROW_PARTNER: "mock",
   DISPUTES_ENABLED: "true",
   A2A_ENABLED: "true",
+  // Sample requests (docs/design/samples.md): the buyer samples screens and the product-page request dialog render only with this on (a11y gate: e2e/a11y/samples.spec.ts). Nothing here moves money.
+  SAMPLES_ENABLED: "true",
   // The servers run in production mode, where the mock payment gateway is refused. The seller billing spec cancels a seeded
   // annual plan and needs the mock provider's refund to succeed (ADR-005); nothing here charges money.
   PAYMENTS_ALLOW_MOCK_IN_PRODUCTION: "1",

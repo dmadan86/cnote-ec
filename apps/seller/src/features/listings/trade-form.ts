@@ -34,6 +34,10 @@ export interface TradeFields {
   packaging: string;
   sampleAvailable: boolean;
   samplePriceRupees: string;
+  /** sample workflow settings (docs/design/samples.md); blank = not set */
+  sampleMaxQty?: string;
+  sampleDispatchDays?: string;
+  sampleMinBuyerTier?: string;
   supplyCapacityPerMonth: string;
   paymentTerms: string;
   certifications: string;
@@ -60,6 +64,11 @@ export function parseTradeFields(f: TradeFields): { trade: TradeInfo; invalid: b
   const samplePrice = blank(f.samplePriceRupees) ? null : Number(f.samplePriceRupees);
   if (samplePrice !== null && (!Number.isFinite(samplePrice) || samplePrice < 0)) invalid = true;
   const capacity = whole(f.supplyCapacityPerMonth);
+  const maxQty = whole(f.sampleMaxQty ?? "");
+  const dispatchDays = whole(f.sampleDispatchDays ?? "");
+  const minTier = whole(f.sampleMinBuyerTier ?? "");
+  if (minTier !== null && minTier > 3) invalid = true;
+  if (maxQty !== null && maxQty < 1) invalid = true;
   const positiveInt = (s: string | undefined, scale = 1): number | null => {
     if (!s || blank(s)) return null;
     const n = Number(s);
@@ -76,6 +85,9 @@ export function parseTradeFields(f: TradeFields): { trade: TradeInfo; invalid: b
     packaging: f.packaging.trim() || null,
     sampleAvailable: f.sampleAvailable,
     samplePricePaise: f.sampleAvailable && samplePrice !== null && Number.isFinite(samplePrice) && samplePrice >= 0 ? rupeesToPaise(samplePrice) : null,
+    sampleMaxQty: f.sampleAvailable && maxQty !== null && maxQty >= 1 ? maxQty : null,
+    sampleDispatchDays: f.sampleAvailable ? dispatchDays : null,
+    sampleMinBuyerTier: f.sampleAvailable && minTier !== null && minTier <= 3 ? minTier : null,
     supplyCapacityPerMonth: capacity === 0 ? null : capacity,
     paymentTerms: f.paymentTerms.trim() || null,
     certifications: f.certifications.split(/[,\n]+/).map((s) => s.trim()).filter(Boolean).slice(0, 12),

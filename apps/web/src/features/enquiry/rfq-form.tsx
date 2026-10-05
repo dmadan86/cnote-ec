@@ -109,6 +109,8 @@ export interface RfqFormProps {
     deliveryCity?: string; deliveryPincode?: string; budgetMinRupees?: string; budgetMaxRupees?: string; minSellerTier?: number; expiresInDays?: number;
     /** The supplier of the earlier requirement/order: offered as a checkbox ("Send to X first") that sets preferredSellerId. */
     sameSupplier?: { id: string; name: string };
+    /** Raised from an approved sample: it is linked to the new requirement as its quality reference (docs/design/samples.md). */
+    sampleId?: string;
     /** Lines of an earlier multi-line requirement ("Request again"): opens the form in bill-of-materials mode. */
     lines?: Partial<BomRow>[];
   };
@@ -138,6 +140,7 @@ export function RfqForm({ categories, defaults }: RfqFormProps) {
   return (
     <form action={action} className="flex flex-col gap-5" noValidate>
       {state && !state.ok ? <Alert tone="danger">{state.error}</Alert> : null}
+      {defaults?.sampleId ? <input type="hidden" name="sampleId" value={defaults.sampleId} /> : null}
       {defaults?.preferredListingId ? <input type="hidden" name="preferredListingId" value={defaults.preferredListingId} /> : null}
       {defaults?.preferredSellerId && !defaults.sameSupplier ? <input type="hidden" name="preferredSellerId" value={defaults.preferredSellerId} /> : null}
       {defaults?.sameSupplier ? (

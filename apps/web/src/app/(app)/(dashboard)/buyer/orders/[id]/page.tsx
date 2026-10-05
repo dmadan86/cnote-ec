@@ -13,6 +13,7 @@ import { EscrowPanel } from "@/features/escrow/escrow-panel";
 import { OrderStatusBadge } from "@/features/orders/status";
 import { RequestAgain } from "@/features/retention/request-again";
 import { ReportProblem } from "@/features/disputes/report-problem";
+import { GoldenSample } from "@/features/samples/golden-sample";
 import { PO_TONE } from "@/features/purchase-orders/po-view";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -57,6 +58,7 @@ export default async function BuyerOrderPage(props: { params: Promise<{ id: stri
             </dl>
           </CardBody>
         </Card>
+        <GoldenSample orderId={o.id} actor={actorOf(s)} locale={locale} />
         {poSummary !== undefined ? (
           <Card>
             <CardBody className="flex flex-col gap-3">

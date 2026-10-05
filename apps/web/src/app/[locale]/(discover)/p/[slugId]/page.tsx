@@ -21,6 +21,7 @@ import { VariantProvider } from "@/features/pdp/variant-context";
 import { VariantSelector } from "@/features/pdp/variant-selector";
 import { ShareMenu } from "@/features/pdp/share-menu";
 import { TradeInfo } from "@/features/pdp/trade-info";
+import { SampleOffer } from "@/features/samples/sample-offer";
 import { FreightEstimate } from "@/features/pdp/freight-estimate";
 import { ProductQa } from "@/features/qa/section";
 import { ProductReviewsStatic } from "@/features/reviews";
@@ -201,6 +202,8 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
           <FreightEstimate listingId={listing.id} unit={listing.moqUnit ?? listing.priceUnit} moq={listing.moq} />
 
           <TradeInfo listing={listing} locale={locale} />
+
+          <SampleOffer listing={listing} locale={locale} />
 
           {listing.description ? (
             <section aria-labelledby="desc">

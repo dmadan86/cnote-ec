@@ -1,4 +1,4 @@
-import { Undo2, Bot, Wallet, TrendingUp, Gavel, BookOpen, Network, BadgePercent, BarChart3, Gift, Megaphone, Bell, ClipboardList, Globe, LayoutTemplate, CreditCard, Inbox, LayoutDashboard, Package, Scale, Settings, Star, ShieldCheck, MessageCircleQuestion, type LucideIcon, FileSignature } from "lucide-react";
+import { FlaskConical, Undo2, Bot, Wallet, TrendingUp, Gavel, BookOpen, Network, BadgePercent, BarChart3, Gift, Megaphone, Bell, ClipboardList, Globe, LayoutTemplate, CreditCard, Inbox, LayoutDashboard, Package, Scale, Settings, Star, ShieldCheck, MessageCircleQuestion, type LucideIcon, FileSignature } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -17,6 +17,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/leads", key: "leads", icon: Inbox, primary: true },
   { href: "/listings", key: "listings", icon: Package, primary: true },
   { href: "/orders", key: "orders", icon: ClipboardList, primary: false },
+  { href: "/samples", key: "samples", icon: FlaskConical, primary: false },
   { href: "/returns", key: "returns", icon: Undo2, primary: false },
   { href: "/contracts", key: "contracts", icon: FileSignature, primary: false },
   { href: "/disputes", key: "disputes", icon: Gavel, primary: false },

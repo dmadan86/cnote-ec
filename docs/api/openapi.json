@@ -3,7 +3,7 @@
   "info": {
     "title": "cnote API",
     "version": "1.0.0",
-    "description": "Public REST API for the cnote B2B marketplace for Indian MSMEs. An MCP server exposing the same capabilities is available at `http://localhost:3003/mcp`.\n\n## Authentication\nCreate a personal API key in the web app (Account > Developers) or the seller portal, then send it on every request:\n\n`Authorization: Bearer ck_live_...`\n\nKeys are shown once, can expire (1 day to never) and are revoked instantly. A missing/invalid key returns 401 with a `WWW-Authenticate` header.\n\n## Scopes\nEach operation lists its scope in `x-required-scope`. A `:write` scope implies the matching `:read`. Missing scope returns 403.\n\n- `agents:read`: Read your agent mandates and negotiations (business keys).\n- `agents:write`: Start negotiations and send offers, counters, accepts, rejects and withdrawals as your business's agent. Deals still need human confirmation.\n- `profile:read`: Read the key owner's profile and business summary (GET /v1/me).\n- `catalogue:read`: Browse categories, published listings and seller trust profiles.\n- `search:read`: Search the catalogue (trust-ranked).\n- `listings:read`: Read your own listings, including drafts (seller keys).\n- `listings:write`: Create, edit, publish and archive your own listings (seller keys).\n- `enquiries:read`: Read your enquiries and their matches (buyer).\n- `enquiries:write`: Create enquiries (buyer).\n- `leads:read`: Read leads offered to your business (seller).\n- `leads:write`: Accept (consumes 1 credit) or decline leads (seller).\n- `messages:read`: Read conversations you take part in.\n- `messages:write`: Send messages and quotes, report deal outcomes.\n- `wishlist:read`: Read your wishlists.\n- `wishlist:write`: Add and remove wishlist items.\n- `reviews:read`: Read approved reviews.\n- `reviews:write`: Submit reviews (held for moderation).\n- `billing:read`: Read your lead-credit balance (seller).\n\n## Rate limits\n120 requests per minute per key (REST and MCP combined). Exceeding it returns 429 with a `Retry-After` header (seconds). Some actions have tighter limits (e.g. chat messages).\n\n## Conventions\n- Money is integer paise; every money-bearing object carries `currency: \"INR\"`.\n- Dates are ISO 8601. Lists use cursor pagination: `?cursor=&limit=` (limit up to 100); pass `nextCursor` back until it is null.\n- Errors: `{ \"error\": { \"code\", \"message\", \"requestId\", \"issues\"? } }`. Quote `requestId` (also the `X-Request-Id` header) when contacting support.\n\n## Business rules\n- Search ranks by relevance x seller trust, never by paid tier; `sponsored` is always false.\n- Enquiries are intent-scored and matched exclusively to at most N sellers; buyer contact is revealed to a seller only after accepting.\n- Accepting a lead consumes 1 credit.\n- Listings and reviews are moderated: only published + approved listings and approved reviews are public.\n- A key acts only within its own person/business; keys not bound to a business cannot use buyer/seller endpoints.",
+    "description": "Public REST API for the cnote B2B marketplace for Indian MSMEs. An MCP server exposing the same capabilities is available at `http://localhost:3003/mcp`.\n\n## Authentication\nCreate a personal API key in the web app (Account > Developers) or the seller portal, then send it on every request:\n\n`Authorization: Bearer ck_live_...`\n\nKeys are shown once, can expire (1 day to never) and are revoked instantly. A missing/invalid key returns 401 with a `WWW-Authenticate` header.\n\n## Scopes\nEach operation lists its scope in `x-required-scope`. A `:write` scope implies the matching `:read`. Missing scope returns 403.\n\n- `agents:read`: Read your agent mandates and negotiations (business keys).\n- `agents:write`: Start negotiations and send offers, counters, accepts, rejects and withdrawals as your business's agent. Deals still need human confirmation.\n- `profile:read`: Read the key owner's profile and business summary (GET /v1/me).\n- `catalogue:read`: Browse categories, published listings and seller trust profiles.\n- `search:read`: Search the catalogue (trust-ranked).\n- `listings:read`: Read your own listings, including drafts (seller keys).\n- `listings:write`: Create, edit, publish and archive your own listings (seller keys).\n- `enquiries:read`: Read your enquiries and their matches (buyer).\n- `enquiries:write`: Create enquiries (buyer).\n- `leads:read`: Read leads offered to your business (seller).\n- `leads:write`: Accept (consumes 1 credit) or decline leads (seller).\n- `messages:read`: Read conversations you take part in.\n- `messages:write`: Send messages and quotes, report deal outcomes.\n- `wishlist:read`: Read your wishlists.\n- `wishlist:write`: Add and remove wishlist items.\n- `reviews:read`: Read approved reviews.\n- `reviews:write`: Submit reviews (held for moderation).\n- `billing:read`: Read your lead-credit balance (seller).\n- `samples:read`: Read sample requests you made (buyer) or received (seller).\n- `samples:write`: Request, cancel, answer, dispatch and evaluate samples, request a bulk quote from an approved sample.\n- `contracts:read`: Read your rate contracts and their consumption (buyer and seller keys bound to a business).\n- `contracts:write`: Place call-off orders against your active rate contracts at the contract prices (buyer keys). Creating, changing and accepting contracts needs the app.\n\n## Rate limits\n120 requests per minute per key (REST and MCP combined). Exceeding it returns 429 with a `Retry-After` header (seconds). Some actions have tighter limits (e.g. chat messages).\n\n## Conventions\n- Money is integer paise; every money-bearing object carries `currency: \"INR\"`.\n- Dates are ISO 8601. Lists use cursor pagination: `?cursor=&limit=` (limit up to 100); pass `nextCursor` back until it is null.\n- Errors: `{ \"error\": { \"code\", \"message\", \"requestId\", \"issues\"? } }`. Quote `requestId` (also the `X-Request-Id` header) when contacting support.\n\n## Business rules\n- Search ranks by relevance x seller trust, never by paid tier; `sponsored` is always false.\n- Enquiries are intent-scored and matched exclusively to at most N sellers; buyer contact is revealed to a seller only after accepting.\n- Accepting a lead consumes 1 credit.\n- Listings and reviews are moderated: only published + approved listings and approved reviews are public.\n- A key acts only within its own person/business; keys not bound to a business cannot use buyer/seller endpoints.",
     "contact": {
       "name": "cnote developers"
     }
@@ -46,6 +46,9 @@
     },
     {
       "name": "Reviews"
+    },
+    {
+      "name": "Samples"
     }
   ],
   "components": {
@@ -4313,6 +4316,1716 @@
             "description": "Withdraw from the negotiation (either side, any time while open)."
           }
         ]
+      },
+      "Sample": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "buyer",
+              "seller"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "accepted",
+              "declined",
+              "dispatched",
+              "delivered",
+              "approved",
+              "rejected",
+              "expired",
+              "cancelled"
+            ],
+            "description": "requested -> accepted | declined | expired | cancelled; accepted -> dispatched; dispatched -> delivered; delivered -> approved | rejected."
+          },
+          "subject": {
+            "type": "string"
+          },
+          "listingId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enquiryId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matchId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quoteId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "buyerNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "buyer": {
+            "type": "object",
+            "properties": {
+              "businessId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+              },
+              "name": {
+                "type": "string"
+              },
+              "verificationTier": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "businessId",
+              "name",
+              "verificationTier"
+            ]
+          },
+          "seller": {
+            "type": "object",
+            "properties": {
+              "businessId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "businessId",
+              "name"
+            ]
+          },
+          "shipTo": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 100
+              },
+              "phone": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "line1": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 160
+              },
+              "line2": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 160
+              },
+              "city": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 80
+              },
+              "pincode": {
+                "type": "string",
+                "example": "560001"
+              }
+            },
+            "required": [
+              "name",
+              "line1",
+              "city",
+              "pincode"
+            ],
+            "description": "Hidden from the seller until the request is accepted."
+          },
+          "payment": {
+            "type": "object",
+            "properties": {
+              "amountPaise": {
+                "type": "integer"
+              },
+              "adjustableAgainstBulk": {
+                "type": "boolean"
+              },
+              "note": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "receivedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "free": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "amountPaise",
+              "adjustableAgainstBulk",
+              "note",
+              "receivedAt",
+              "free"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "INR"
+            ],
+            "description": "All money is integer paise in INR."
+          },
+          "respondBy": {
+            "type": "string"
+          },
+          "overdue": {
+            "type": "boolean"
+          },
+          "respondedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "declineReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "out_of_stock",
+              "not_offered",
+              "buyer_tier",
+              "region_not_served",
+              "quantity_too_high",
+              "other",
+              null
+            ]
+          },
+          "declineNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expectedDispatchBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "courier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trackingRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dispatchedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deliveredAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deliveredBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "buyer",
+              "seller",
+              null
+            ]
+          },
+          "evaluation": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "approved": {
+                "type": "boolean"
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "quality_below_spec",
+                    "dimensions_off",
+                    "material_mismatch",
+                    "finish_defect",
+                    "colour_mismatch",
+                    "packaging_damaged",
+                    "not_as_described",
+                    "other"
+                  ]
+                }
+              },
+              "notes": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "photos": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              },
+              "at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "approved",
+              "reasons",
+              "notes",
+              "photos",
+              "at"
+            ]
+          },
+          "bulkEnquiryId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "timeline": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "requested",
+                    "accepted",
+                    "declined",
+                    "dispatched",
+                    "delivered",
+                    "approved",
+                    "rejected",
+                    "expired",
+                    "cancelled"
+                  ],
+                  "description": "requested -> accepted | declined | expired | cancelled; accepted -> dispatched; dispatched -> delivered; delivered -> approved | rejected."
+                },
+                "actor": {
+                  "type": "string",
+                  "enum": [
+                    "buyer",
+                    "seller",
+                    "system"
+                  ]
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "status",
+                "actor",
+                "note",
+                "at"
+              ]
+            }
+          },
+          "can": {
+            "type": "object",
+            "properties": {
+              "cancel": {
+                "type": "boolean"
+              },
+              "respond": {
+                "type": "boolean"
+              },
+              "dispatch": {
+                "type": "boolean"
+              },
+              "markDelivered": {
+                "type": "boolean"
+              },
+              "recordPayment": {
+                "type": "boolean"
+              },
+              "evaluate": {
+                "type": "boolean"
+              },
+              "requestBulk": {
+                "type": "boolean"
+              },
+              "acceptLinkedQuote": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "cancel",
+              "respond",
+              "dispatch",
+              "markDelivered",
+              "recordPayment",
+              "evaluate",
+              "requestBulk",
+              "acceptLinkedQuote"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "status",
+          "subject",
+          "listingId",
+          "enquiryId",
+          "matchId",
+          "quoteId",
+          "quantity",
+          "unit",
+          "buyerNote",
+          "buyer",
+          "seller",
+          "shipTo",
+          "payment",
+          "currency",
+          "respondBy",
+          "overdue",
+          "respondedAt",
+          "declineReason",
+          "declineNote",
+          "expectedDispatchBy",
+          "courier",
+          "trackingRef",
+          "dispatchedAt",
+          "deliveredAt",
+          "deliveredBy",
+          "evaluation",
+          "bulkEnquiryId",
+          "createdAt",
+          "timeline",
+          "can"
+        ]
+      },
+      "SampleRequestCreate": {
+        "type": "object",
+        "properties": {
+          "listingId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Product page request. Give exactly one of listingId / conversationId."
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Matched conversation request (buyer side)."
+          },
+          "quoteId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000
+          },
+          "language": {
+            "type": "string",
+            "default": "en"
+          },
+          "shipTo": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 100
+              },
+              "phone": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "line1": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 160
+              },
+              "line2": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 160
+              },
+              "city": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 80
+              },
+              "pincode": {
+                "type": "string",
+                "example": "560001"
+              }
+            },
+            "required": [
+              "name",
+              "line1",
+              "city",
+              "pincode"
+            ]
+          }
+        },
+        "required": [
+          "quantity",
+          "shipTo"
+        ],
+        "example": {
+          "listingId": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10",
+          "quantity": 3,
+          "shipTo": {
+            "name": "Asha Rao",
+            "phone": "9876543210",
+            "line1": "12 MG Road",
+            "city": "Bengaluru",
+            "pincode": "560001"
+          }
+        }
+      },
+      "SamplePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SampleSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "null when there are no more results."
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "SampleSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "buyer",
+              "seller"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "accepted",
+              "declined",
+              "dispatched",
+              "delivered",
+              "approved",
+              "rejected",
+              "expired",
+              "cancelled"
+            ],
+            "description": "requested -> accepted | declined | expired | cancelled; accepted -> dispatched; dispatched -> delivered; delivered -> approved | rejected."
+          },
+          "subject": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counterparty": {
+            "type": "object",
+            "properties": {
+              "businessId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "businessId",
+              "name"
+            ]
+          },
+          "respondBy": {
+            "type": "string"
+          },
+          "overdue": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "needsMyAction": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "status",
+          "subject",
+          "quantity",
+          "unit",
+          "counterparty",
+          "respondBy",
+          "overdue",
+          "createdAt",
+          "needsMyAction"
+        ]
+      },
+      "SampleAccept": {
+        "type": "object",
+        "properties": {
+          "amountPaise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "What the buyer pays for the sample (recorded only; settled off-platform). Defaults to the listing's sample price."
+          },
+          "adjustableAgainstBulk": {
+            "type": "boolean",
+            "default": false
+          },
+          "paymentNote": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          }
+        }
+      },
+      "SampleDecline": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "out_of_stock",
+              "not_offered",
+              "buyer_tier",
+              "region_not_served",
+              "quantity_too_high",
+              "other"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "SampleDispatch": {
+        "type": "object",
+        "properties": {
+          "courier": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "trackingRef": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "courier"
+        ]
+      },
+      "SamplePayment": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          }
+        }
+      },
+      "SampleEvaluate": {
+        "type": "object",
+        "properties": {
+          "approved": {
+            "type": "boolean"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "quality_below_spec",
+                "dimensions_off",
+                "material_mismatch",
+                "finish_defect",
+                "colour_mismatch",
+                "packaging_damaged",
+                "not_as_described",
+                "other"
+              ]
+            },
+            "default": [],
+            "description": "Required (at least one) when approved is false."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "approved"
+        ],
+        "description": "Evaluation photos are uploaded from the web app; the API records the verdict, reasons and notes."
+      },
+      "SampleBulkLink": {
+        "type": "object",
+        "properties": {
+          "enquiryId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "enquiryId"
+        ]
+      },
+      "SampleBulkPrefill": {
+        "type": "object",
+        "properties": {
+          "sampleId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "sellerBusinessId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "sellerName": {
+            "type": "string"
+          },
+          "listingId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "categorySlug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quantityUnit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quoteId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requirementNote": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sampleId",
+          "subject",
+          "sellerBusinessId",
+          "sellerName",
+          "listingId",
+          "categorySlug",
+          "quantityUnit",
+          "quoteId",
+          "requirementNote"
+        ]
+      },
+      "SellerSampleStats": {
+        "type": "object",
+        "properties": {
+          "sellerBusinessId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "evaluated": {
+            "type": "integer"
+          },
+          "approved": {
+            "type": "integer"
+          },
+          "approvalRate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "approved / evaluated; null until at least 5 samples were evaluated."
+          },
+          "expired": {
+            "type": "integer"
+          },
+          "responded": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sellerBusinessId",
+          "evaluated",
+          "approved",
+          "approvalRate",
+          "expired",
+          "responded"
+        ]
+      },
+      "RateContractPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RateContractRow"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "null when there are no more results."
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "RateContractRow": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "number": {
+            "type": "string",
+            "example": "RC/26-27/000003"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "proposed",
+              "active",
+              "expired",
+              "terminated"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "buyer",
+              "seller"
+            ]
+          },
+          "counterparty": {
+            "type": "object",
+            "properties": {
+              "businessId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "businessId",
+              "name"
+            ]
+          },
+          "validFrom": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Indian calendar date, YYYY-MM-DD.",
+            "example": "2026-10-06"
+          },
+          "validTo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Indian calendar date, YYYY-MM-DD.",
+            "example": "2027-10-05"
+          },
+          "valuePercent": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Percent of the contract value cap used; null without a value cap."
+          },
+          "needsAnswer": {
+            "type": "boolean",
+            "description": "True when your business has to accept or decline a pending revision."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title",
+          "status",
+          "role",
+          "counterparty",
+          "validFrom",
+          "validTo",
+          "valuePercent",
+          "needsAnswer",
+          "createdAt"
+        ]
+      },
+      "RateContract": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "number": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "proposed",
+              "active",
+              "expired",
+              "terminated"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "buyer",
+              "seller"
+            ]
+          },
+          "counterparty": {
+            "type": "object",
+            "properties": {
+              "businessId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "businessId",
+              "name"
+            ]
+          },
+          "latestRevision": {
+            "type": "integer"
+          },
+          "activeRevision": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "phase": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "not_started",
+              "in_force",
+              "ended",
+              null
+            ]
+          },
+          "daysLeft": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "current": {
+            "$ref": "#/components/schemas/RateContractRevision"
+          },
+          "pending": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateContractRevision"
+              },
+              {
+                "description": "A revision waiting for an answer, if any."
+              }
+            ]
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "revision": {
+                  "type": "integer"
+                },
+                "proposedByRole": {
+                  "type": "string",
+                  "enum": [
+                    "buyer",
+                    "seller"
+                  ]
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "changeNote": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "superseded",
+                    "pending",
+                    "declined"
+                  ]
+                }
+              },
+              "required": [
+                "revision",
+                "proposedByRole",
+                "createdAt",
+                "changeNote",
+                "state"
+              ]
+            }
+          },
+          "consumption": {
+            "type": "object",
+            "properties": {
+              "valueUsedPaise": {
+                "type": "integer"
+              },
+              "valueCapPaise": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "valuePercent": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "valueUsedPaise",
+              "valueCapPaise",
+              "valuePercent"
+            ]
+          },
+          "callOffs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RateContractCallOff"
+            }
+          },
+          "sourceQuoteId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "renewedFromId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "terminationReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "terminatedByRole": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "buyer",
+              "seller",
+              null
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actions": {
+            "type": "object",
+            "properties": {
+              "edit": {
+                "type": "boolean"
+              },
+              "send": {
+                "type": "boolean"
+              },
+              "propose": {
+                "type": "boolean"
+              },
+              "respond": {
+                "type": "boolean"
+              },
+              "terminate": {
+                "type": "boolean"
+              },
+              "callOff": {
+                "type": "boolean"
+              },
+              "renew": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "edit",
+              "send",
+              "propose",
+              "respond",
+              "terminate",
+              "callOff",
+              "renew"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title",
+          "status",
+          "role",
+          "counterparty",
+          "latestRevision",
+          "activeRevision",
+          "phase",
+          "daysLeft",
+          "current",
+          "pending",
+          "history",
+          "consumption",
+          "callOffs",
+          "sourceQuoteId",
+          "renewedFromId",
+          "terminationReason",
+          "terminatedByRole",
+          "createdAt",
+          "actions"
+        ]
+      },
+      "RateContractRevision": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer"
+          },
+          "proposedByRole": {
+            "type": "string",
+            "enum": [
+              "buyer",
+              "seller"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "validFrom": {
+            "type": "string",
+            "description": "Indian calendar date, YYYY-MM-DD.",
+            "example": "2026-10-06"
+          },
+          "validTo": {
+            "type": "string",
+            "description": "Indian calendar date, YYYY-MM-DD.",
+            "example": "2027-10-05"
+          },
+          "paymentTermsDays": {
+            "type": "integer"
+          },
+          "priceBasis": {
+            "type": "string",
+            "enum": [
+              "ex_works",
+              "for_destination",
+              "delivered",
+              "other"
+            ]
+          },
+          "valueCapPaise": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changeNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RateContractItem"
+            }
+          },
+          "answers": {
+            "type": "object",
+            "properties": {
+              "buyer": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "accepted",
+                  "rejected"
+                ]
+              },
+              "seller": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "accepted",
+                  "rejected"
+                ]
+              },
+              "buyerReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sellerReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "buyer",
+              "seller",
+              "buyerReason",
+              "sellerReason"
+            ]
+          }
+        },
+        "required": [
+          "revision",
+          "proposedByRole",
+          "createdAt",
+          "validFrom",
+          "validTo",
+          "paymentTermsDays",
+          "priceBasis",
+          "valueCapPaise",
+          "notes",
+          "changeNote",
+          "items",
+          "answers"
+        ],
+        "description": "The terms in force (the revision both parties accepted)."
+      },
+      "RateContractItem": {
+        "type": "object",
+        "properties": {
+          "itemKey": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "lineNo": {
+            "type": "integer"
+          },
+          "listingId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "hsn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "unit": {
+            "type": "string"
+          },
+          "unitPricePaise": {
+            "type": "integer",
+            "description": "Contract price per unit before GST, integer paise (INR x 100)."
+          },
+          "gstRateBps": {
+            "type": "integer",
+            "description": "GST rate in basis points (1800 = 18%)."
+          },
+          "moq": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Minimum quantity per call-off."
+          },
+          "quantityCap": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Cap on the total quantity over the life of the contract."
+          },
+          "variationKind": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "indexed"
+            ]
+          },
+          "variationCapBps": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "For indexed items: the most a call-off price may differ from the contract price, in basis points."
+          },
+          "variationNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "consumedQuantity": {
+            "type": "integer"
+          },
+          "remainingQuantity": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "usedPercent": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "itemKey",
+          "lineNo",
+          "listingId",
+          "description",
+          "hsn",
+          "unit",
+          "unitPricePaise",
+          "gstRateBps",
+          "moq",
+          "quantityCap",
+          "variationKind",
+          "variationCapBps",
+          "variationNote",
+          "consumedQuantity",
+          "remainingQuantity",
+          "usedPercent"
+        ]
+      },
+      "RateContractCallOff": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "callOffNo": {
+            "type": "integer"
+          },
+          "orderId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "placed",
+              "cancelled"
+            ]
+          },
+          "taxablePaise": {
+            "type": "integer",
+            "description": "Order value before GST, paise."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "itemKey": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer"
+                },
+                "contractPricePaise": {
+                  "type": "integer"
+                },
+                "appliedPricePaise": {
+                  "type": "integer"
+                },
+                "taxablePaise": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "itemKey",
+                "description",
+                "unit",
+                "quantity",
+                "contractPricePaise",
+                "appliedPricePaise",
+                "taxablePaise"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "callOffNo",
+          "orderId",
+          "revision",
+          "status",
+          "taxablePaise",
+          "createdAt",
+          "lines"
+        ]
+      },
+      "RateContractCallOffResult": {
+        "type": "object",
+        "properties": {
+          "callOff": {
+            "$ref": "#/components/schemas/RateContractCallOff"
+          },
+          "orderId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "purchaseOrder": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+              },
+              "number": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "totalPaise": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "number",
+              "status",
+              "totalPaise"
+            ]
+          },
+          "purchaseOrderError": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Set when the order exists but its purchase order could not be issued; issue it from the order page."
+          },
+          "contract": {
+            "$ref": "#/components/schemas/RateContract"
+          }
+        },
+        "required": [
+          "callOff",
+          "orderId",
+          "purchaseOrder",
+          "purchaseOrderError",
+          "contract"
+        ]
+      },
+      "RateContractCallOffCreate": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "itemKey": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10",
+                  "description": "`itemKey` of an item on the contract's current terms."
+                },
+                "quantity": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "example": 500
+                },
+                "unitPricePaise": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "exclusiveMinimum": 0,
+                  "description": "Only for an `indexed` item: the price for this call-off, within the item's cap. Fixed prices cannot be overridden."
+                }
+              },
+              "required": [
+                "itemKey",
+                "quantity"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 50
+          },
+          "addressId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10",
+            "description": "One of your saved delivery addresses; required while purchase orders are enabled."
+          },
+          "expectedDelivery": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "YYYY-MM-DD, not in the past."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "lines"
+        ],
+        "example": {
+          "lines": [
+            {
+              "itemKey": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10",
+              "quantity": 500
+            }
+          ],
+          "addressId": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d11",
+          "expectedDelivery": "2026-11-15"
+        }
       }
     },
     "parameters": {}
@@ -8457,6 +10170,1706 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AgentNegotiation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/samples": {
+      "post": {
+        "operationId": "requestSample",
+        "tags": [
+          "Samples"
+        ],
+        "summary": "Request a sample (buyer)",
+        "description": "From a product page (`listingId`, the seller must offer samples) or a matched conversation (`conversationId`, optionally `quoteId`). The seller must answer within 48 hours or the request expires. Guards: quantity cap, the seller's minimum buyer verification tier, open requests per buyer and a daily limit. Requires a key bound to a business. Sample payment is off-platform in Phase 1: the amount and whether it is adjustable against the bulk order are recorded only. Answers 404 while SAMPLES_ENABLED is off.\n\n**Required scope:** `samples:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "samples:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SampleRequestCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sample"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listSamples",
+        "tags": [
+          "Samples"
+        ],
+        "summary": "List sample requests",
+        "description": "`role=buyer` lists requests you made, `role=seller` the ones sent to your business (the sample inbox). Requires a key bound to a business. Sample payment is off-platform in Phase 1: the amount and whether it is adjustable against the bulk order are recorded only. Answers 404 while SAMPLES_ENABLED is off.\n\n**Required scope:** `samples:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "samples:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "buyer",
+                "seller"
+              ],
+              "default": "buyer",
+              "description": "Which side of the sample requests to list."
+            },
+            "required": false,
+            "description": "Which side of the sample requests to list.",
+            "name": "role",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "done"
+              ]
+            },
+            "required": false,
+            "name": "filter",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Opaque cursor from a previous response's `nextCursor`."
+            },
+            "required": false,
+            "description": "Opaque cursor from a previous response's `nextCursor`.",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "description": "Page size (1-100)."
+            },
+            "required": false,
+            "description": "Page size (1-100).",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of sample requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SamplePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/samples/{id}": {
+      "get": {
+        "operationId": "getSample",
+        "tags": [
+          "Samples"
+        ],
+        "summary": "Get a sample request",
+        "description": "Status, timeline, what you can do next (`can`) and, for the seller, the ship-to address once accepted. Requires a key bound to a business. Sample payment is off-platform in Phase 1: the amount and whether it is adjustable against the bulk order are recorded only. Answers 404 while SAMPLES_ENABLED is off.\n\n**Required scope:** `samples:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "samples:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sample request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sample"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/samples/{id}/cancel": {
+      "post": {
+        "operationId": "cancelSample",
+        "tags": [
+          "Samples"
+        ],
+        "summary": "Cancel a request (buyer)",
+        "description": "Possible while the request is `requested` or `accepted`. Requires a key bound to a business. Sample payment is off-platform in Phase 1: the amount and whether it is adjustable against the bulk order are recorded only. Answers 404 while SAMPLES_ENABLED is off.\n\n**Required scope:** `samples:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "samples:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated sample request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sample"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/samples/{id}/accept": {
+      "post": {
+        "operationId": "acceptSample",
+        "tags": [
+          "Samples"
+        ],
+        "summary": "Accept a request (seller)",
+        "description": "Reveals the ship-to address to you. Set the amount the buyer pays and whether it is adjustable against the bulk order. Requires a key bound to a business. Sample payment is off-platform in Phase 1: the amount and whether it is adjustable against the bulk order are recorded only. Answers 404 while SAMPLES_ENABLED is off.\n\n**Required scope:** `samples:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "samples:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SampleAccept"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated sample request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sample"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/samples/{id}/decline": {
+      "post": {
+        "operationId": "declineSample",
+        "tags": [
+          "Samples"
+        ],
+        "summary": "Decline a request (seller)",
+        "description": "Needs a structured reason. Requires a key bound to a business. Sample payment is off-platform in Phase 1: the amount and whether it is adjustable against the bulk order are recorded only. Answers 404 while SAMPLES_ENABLED is off.\n\n**Required scope:** `samples:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "samples:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SampleDecline"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated sample request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sample"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/samples/{id}/dispatch": {
+      "post": {
+        "operationId": "dispatchSample",
+        "tags": [
+          "Samples"
+        ],
+        "summary": "Mark a sample dispatched (seller)",
+        "description": "Courier is required, the tracking reference optional. Requires a key bound to a business. Sample payment is off-platform in Phase 1: the amount and whether it is adjustable against the bulk order are recorded only. Answers 404 while SAMPLES_ENABLED is off.\n\n**Required scope:** `samples:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "samples:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SampleDispatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated sample request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sample"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/samples/{id}/delivered": {
+      "post": {
+        "operationId": "markSampleDelivered",
+        "tags": [
+          "Samples"
+        ],
+        "summary": "Mark a sample delivered (buyer or seller)",
+        "description": "The buyer's confirmation is the normal path. Requires a key bound to a business. Sample payment is off-platform in Phase 1: the amount and whether it is adjustable against the bulk order are recorded only. Answers 404 while SAMPLES_ENABLED is off.\n\n**Required scope:** `samples:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "samples:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated sample request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sample"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/samples/{id}/payment": {
+      "post": {
+        "operationId": "recordSamplePayment",
+        "tags": [
+          "Samples"
+        ],
+        "summary": "Record that the sample payment arrived (seller)",
+        "description": "Record only; nothing is charged by the platform. Requires a key bound to a business. Sample payment is off-platform in Phase 1: the amount and whether it is adjustable against the bulk order are recorded only. Answers 404 while SAMPLES_ENABLED is off.\n\n**Required scope:** `samples:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "samples:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SamplePayment"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated sample request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sample"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/samples/{id}/evaluate": {
+      "post": {
+        "operationId": "evaluateSample",
+        "tags": [
+          "Samples"
+        ],
+        "summary": "Evaluate a delivered sample (buyer)",
+        "description": "Approve it, or reject with at least one structured reason. An approved sample becomes the golden quality reference for the bulk order. Photos are uploaded from the web app. Requires a key bound to a business. Sample payment is off-platform in Phase 1: the amount and whether it is adjustable against the bulk order are recorded only. Answers 404 while SAMPLES_ENABLED is off.\n\n**Required scope:** `samples:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "samples:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SampleEvaluate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated sample request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sample"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/samples/{id}/accept-quote": {
+      "post": {
+        "operationId": "acceptSampleQuote",
+        "tags": [
+          "Samples"
+        ],
+        "summary": "Accept the linked quote (buyer)",
+        "description": "For a sample requested against a seller's quote: accepts that quote (recording the deal and creating the order) with the approved sample as the quality reference. Requires a key bound to a business. Sample payment is off-platform in Phase 1: the amount and whether it is adjustable against the bulk order are recorded only. Answers 404 while SAMPLES_ENABLED is off.\n\n**Required scope:** `samples:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "samples:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated sample request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sample"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/samples/{id}/bulk-enquiry": {
+      "post": {
+        "operationId": "linkSampleBulkEnquiry",
+        "tags": [
+          "Samples"
+        ],
+        "summary": "Link a bulk RFQ to an approved sample (buyer)",
+        "description": "Call after creating the RFQ from `GET /samples/{id}/bulk-prefill`; the supplier then sees it refers to an approved sample. Requires a key bound to a business. Sample payment is off-platform in Phase 1: the amount and whether it is adjustable against the bulk order are recorded only. Answers 404 while SAMPLES_ENABLED is off.\n\n**Required scope:** `samples:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "samples:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SampleBulkLink"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated sample request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sample"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/samples/{id}/bulk-prefill": {
+      "get": {
+        "operationId": "getSampleBulkPrefill",
+        "tags": [
+          "Samples"
+        ],
+        "summary": "RFQ pre-fill from an approved sample (buyer)",
+        "description": "What to put in the bulk RFQ: subject, category, supplier and a requirement note that names the approved sample as the quality reference. Requires a key bound to a business. Sample payment is off-platform in Phase 1: the amount and whether it is adjustable against the bulk order are recorded only. Answers 404 while SAMPLES_ENABLED is off.\n\n**Required scope:** `samples:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "samples:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pre-fill",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SampleBulkPrefill"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sellers/{id}/sample-stats": {
+      "get": {
+        "operationId": "getSellerSampleStats",
+        "tags": [
+          "Samples"
+        ],
+        "summary": "A seller's sample track record",
+        "description": "Evaluated and approved sample counts. `approvalRate` is null until 5 samples were evaluated. Answers 404 while SAMPLES_ENABLED is off.\n\n**Required scope:** `catalogue:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "catalogue:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SellerSampleStats"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contracts": {
+      "get": {
+        "operationId": "listRateContracts",
+        "tags": [
+          "Rate contracts"
+        ],
+        "summary": "List your rate contracts",
+        "description": "Contracts where your business is the buyer or the seller (choose with `role`). Sellers never see a buyer's unsent drafts. Requires a key bound to a business. Contracts are private between the two parties.\n\n**Required scope:** `contracts:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "contracts:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "buyer",
+                "seller"
+              ],
+              "default": "buyer",
+              "description": "Which side of the contracts to list: those where your business is the buyer or the seller."
+            },
+            "required": false,
+            "description": "Which side of the contracts to list: those where your business is the buyer or the seller.",
+            "name": "role",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "proposed",
+                "active",
+                "expired",
+                "terminated"
+              ]
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Opaque cursor from a previous response's `nextCursor`."
+            },
+            "required": false,
+            "description": "Opaque cursor from a previous response's `nextCursor`.",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 25,
+              "description": "Page size (1-50)."
+            },
+            "required": false,
+            "description": "Page size (1-50).",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of contracts, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateContractPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contracts/{id}": {
+      "get": {
+        "operationId": "getRateContract",
+        "tags": [
+          "Rate contracts"
+        ],
+        "summary": "Get a rate contract",
+        "description": "The terms in force, any revision waiting for an answer, the revision history, consumption against the caps and every call-off. Requires a key bound to a business. Contracts are private between the two parties.\n\n**Required scope:** `contracts:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "contracts:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rate contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateContract"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contracts/{id}/call-offs": {
+      "post": {
+        "operationId": "placeRateContractCallOff",
+        "tags": [
+          "Rate contracts"
+        ],
+        "summary": "Place a call-off order",
+        "description": "Buyer only. Creates an order (and, while purchase orders are enabled, a purchase order) at the contract's locked prices without an RFQ. Fixed prices cannot be overridden; an `indexed` item may move within its declared cap. The minimum per call-off, each item's quantity cap and the contract value cap are enforced, and the contract must be active and inside its dates. Crossing 80% or 100% of a cap notifies both parties. Requires a key bound to a business. Contracts are private between the two parties.\n\n**Required scope:** `contracts:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "contracts:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "description": "REQUIRED. Unique per call-off you intend to place; retrying with the same key returns the original result instead of ordering twice.",
+              "example": "po-run-2026-10-06-1"
+            },
+            "required": true,
+            "description": "REQUIRED. Unique per call-off you intend to place; retrying with the same key returns the original result instead of ordering twice.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateContractCallOffCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The call-off, its order and purchase order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateContractCallOffResult"
                 }
               }
             }

@@ -37,6 +37,7 @@
       "credit": "Credit",
       "agents": "Quoting agent",
       "questions": "Questions",
+      "samples": "Samples",
       "returns": "Returns"
     },
     "questionsUnanswered": "{count} unanswered"

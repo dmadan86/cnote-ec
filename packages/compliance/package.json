@@ -27,6 +27,7 @@
     "@cnote/quality": "workspace:*",
     "@cnote/security": "workspace:*",
     "@cnote/reviews": "workspace:*",
+    "@cnote/samples": "workspace:*",
     "@cnote/storefront": "workspace:*",
     "@cnote/whatsapp": "workspace:*",
     "@cnote/wishlist": "workspace:*",

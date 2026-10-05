@@ -243,6 +243,19 @@ async function saveCheckpoint(jobId: string, row: number, o: Outcome): Promise<v
   }
 }
 
+/** Trade info for the sample columns merged over the listing's existing trade facts; null when the row sets no sample column. */
+function sampleTrade(r: ImportRow, existing: catalogue.TradeInfo | undefined): catalogue.TradeInfo | null {
+  const touched = [r.sampleAvailable, r.samplePricePaise, r.sampleMaxQty, r.sampleDispatchDays, r.sampleMinBuyerTier].some((x) => x !== undefined);
+  if (!touched) return null;
+  const t: catalogue.TradeInfo = { ...(existing ?? {}) };
+  if (r.sampleAvailable !== undefined) t.sampleAvailable = r.sampleAvailable;
+  if (r.samplePricePaise !== undefined) t.samplePricePaise = r.samplePricePaise;
+  if (r.sampleMaxQty !== undefined) t.sampleMaxQty = r.sampleMaxQty;
+  if (r.sampleDispatchDays !== undefined) t.sampleDispatchDays = r.sampleDispatchDays;
+  if (r.sampleMinBuyerTier !== undefined) t.sampleMinBuyerTier = r.sampleMinBuyerTier;
+  return t;
+}
+
 /**
  * Replaces the listing's variant set with the file's. A variant that already exists (same SKU) keeps its id, its quantity tiers and its image,
  * and any stock cell left blank keeps the stored value; new variants start in stock.
@@ -291,6 +304,8 @@ async function processRow(job: JobRow, opts: ImportOptions, r: ImportRow, images
       if (r.language !== undefined) patch.language = r.language;
       if (r.shipping) patch.trade = { ...ex.trade, ...r.shipping }; // updateListing replaces the whole trade block, so keep the rest
       if (r.imageUrls.length) patch.imageUrls = r.imageUrls;
+      const trade = sampleTrade(r, patch.trade ?? ex.trade);
+      if (trade) patch.trade = trade;
       listingId = (await catalogue.updateListing(bid, ex.id, patch)).id;
       // stock is operational: it goes through the fast path (no review) and reaches a live listing at once
       if (r.availability !== undefined || r.availableQty !== undefined || r.leadTimeDays !== undefined) {
@@ -307,8 +322,8 @@ async function processRow(job: JobRow, opts: ImportOptions, r: ImportRow, images
         moq: r.moq ?? null, moqUnit: r.moqUnit ?? null, hsn: r.hsn ?? null, language: r.language ?? "en", imageUrls: r.imageUrls,
         ...(r.availability !== undefined ? { availability: r.availability } : {}),
         ...(r.availableQty !== undefined ? { availableQty: r.availableQty } : {}),
-        ...(r.shipping || r.leadTimeDays !== undefined
-          ? { trade: { ...(r.shipping ?? {}), ...(r.leadTimeDays !== undefined ? { leadTimeDays: r.leadTimeDays } : {}) } }
+        ...(r.shipping || r.leadTimeDays !== undefined || sampleTrade(r, undefined)
+          ? { trade: { ...(r.shipping ?? {}), ...(r.leadTimeDays !== undefined ? { leadTimeDays: r.leadTimeDays } : {}), ...(sampleTrade(r, undefined) ?? {}) } }
           : {}),
       });
       listingId = created.id;
@@ -549,7 +564,10 @@ export async function buildExport(sellerBusinessId: string, opts: { format: "xls
     const values: Record<string, Cell> = {
       availability: l.ownAvailability ?? l.availability ?? "in_stock", available_qty: l.availableQty, lead_time_days: l.trade?.leadTimeDays ?? null,
       sku, title: l.title, category: l.category.slug, description: l.description, price_rupees: l.pricePaise === null ? "" : l.pricePaise / 100, price_unit: l.priceUnit, moq: l.moq,
-      moq_unit: l.moqUnit, hsn: l.hsn, language: l.language, image_files: files.map((f) => f.name).join(", "), image_urls: l.imageUrls.filter((u) => u.startsWith("https://")).join(", "),
+      moq_unit: l.moqUnit, hsn: l.hsn, language: l.language,
+      sample_available: l.trade?.sampleAvailable ? "yes" : "", sample_price_rupees: l.trade?.samplePricePaise == null ? "" : l.trade.samplePricePaise / 100,
+      sample_max_qty: l.trade?.sampleMaxQty ?? "", sample_dispatch_days: l.trade?.sampleDispatchDays ?? "", sample_min_buyer_tier: l.trade?.sampleMinBuyerTier ?? "",
+      image_files: files.map((f) => f.name).join(", "), image_urls: l.imageUrls.filter((u) => u.startsWith("https://")).join(", "),
       unit_weight_g: l.trade?.unitWeightGrams ?? "", unit_length_cm: l.trade?.unitLengthMm ? l.trade.unitLengthMm / 10 : "",
       unit_width_cm: l.trade?.unitWidthMm ? l.trade.unitWidthMm / 10 : "", unit_height_cm: l.trade?.unitHeightMm ? l.trade.unitHeightMm / 10 : "",
     };

@@ -47,6 +47,8 @@ Missing or invalid key: `401` with `WWW-Authenticate`. Missing scope: `403` nami
 | `messages:write` | Send messages and quotes, report deal outcomes. |
 | `wishlist:read` | Read your wishlists. |
 | `wishlist:write` | Add and remove wishlist items. |
+| `samples:read` | Read sample requests you made (buyer) or received (seller). |
+| `samples:write` | Request, cancel, answer, dispatch and evaluate samples; link a bulk RFQ to an approved sample. |
 | `reviews:read` | Read approved reviews. |
 | `reviews:write` | Submit reviews (held for moderation). |
 | `billing:read` | Read your lead-credit balance (seller). |
@@ -91,6 +93,9 @@ Codes: `unauthenticated` (401), `insufficient_scope` / `forbidden` (403), `not_f
 | `POST /v1/conversations/{id}/messages`, `…/quotes` (seller), `POST /v1/matches/{matchId}/deal-report` | messages:write |
 | `GET /v1/wishlists`, `GET /v1/wishlists/{id}` | wishlist:read |
 | `POST /v1/wishlists/{id}/items`, `DELETE /v1/wishlists/{id}/items/{listingId}` | wishlist:write |
+| `GET /v1/samples`, `GET /v1/samples/{id}`, `GET /v1/samples/{id}/bulk-prefill` | samples:read |
+| `POST /v1/samples`, `/v1/samples/{id}/(cancel\|accept\|decline\|dispatch\|delivered\|payment\|evaluate\|accept-quote\|bulk-enquiry)` | samples:write |
+| `GET /v1/sellers/{id}/sample-stats` | catalogue:read |
 | `GET /v1/listings/{id}/reviews` | reviews:read |
 | `POST /v1/listings/{id}/reviews` | reviews:write |
 

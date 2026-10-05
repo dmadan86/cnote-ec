@@ -55,6 +55,7 @@ export function TierFields({ tiers, state }: { tiers: PriceTier[]; state: SaveRe
 /** Optional trade facts; field names match parseTradeFields' inputs. */
 export function TradeFields({ trade, state }: { trade: TradeInfo; state: SaveResult | null }) {
   const t = useTranslations("listings.editor");
+  const ts = useTranslations("samples.settings");
   const [sample, setSample] = useState(!!trade.sampleAvailable);
   const err = fieldError(state, "trade");
   return (
@@ -77,11 +78,26 @@ export function TradeFields({ trade, state }: { trade: TradeInfo; state: SaveRes
           {t("sampleAvailable")}
         </label>
         {sample ? (
-          <Field label={t("samplePrice")} htmlFor="samplePriceRupees">
+          <Field label={t("samplePrice")} htmlFor="samplePriceRupees" hint={ts("priceHint")}>
             <Input id="samplePriceRupees" name="samplePriceRupees" inputMode="decimal" defaultValue={trade.samplePricePaise != null ? rupees(trade.samplePricePaise) : ""} className="h-11" />
           </Field>
         ) : null}
       </div>
+      {sample ? (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label={ts("maxQty")} htmlFor="sampleMaxQty">
+            <Input id="sampleMaxQty" name="sampleMaxQty" inputMode="numeric" defaultValue={trade.sampleMaxQty ?? ""} className="h-11" />
+          </Field>
+          <Field label={ts("dispatchDays")} htmlFor="sampleDispatchDays">
+            <Input id="sampleDispatchDays" name="sampleDispatchDays" inputMode="numeric" defaultValue={trade.sampleDispatchDays ?? ""} className="h-11" />
+          </Field>
+          <Field label={ts("minBuyerTier")} htmlFor="sampleMinBuyerTier" hint={ts("minBuyerTierHint")}>
+            <select id="sampleMinBuyerTier" name="sampleMinBuyerTier" defaultValue={String(trade.sampleMinBuyerTier ?? 0)} className="h-11 w-full rounded-md border border-line bg-surface px-3 text-sm">
+              {[0, 1, 2, 3].map((n) => <option key={n} value={n}>{ts(`tier${n}` as "tier0")}</option>)}
+            </select>
+          </Field>
+        </div>
+      ) : null}
       <Field label={t("paymentTerms")} htmlFor="paymentTerms">
         <Textarea id="paymentTerms" name="paymentTerms" defaultValue={trade.paymentTerms ?? ""} maxLength={500} className="min-h-16" />
       </Field>

@@ -24,6 +24,9 @@ function signalsFrom(tier: number, h: Record<string, string>, createdAt: Date, n
     disputesLost: n("disputesLost"),
     offersBroken: n("offersBroken"),
     refundsClaimed: n("refundsClaimed"),
+    samplesEvaluated: n("samplesEvaluated"),
+    samplesApproved: n("samplesApproved"),
+    samplesExpired: n("samplesExpired"),
     inactiveDays: Math.max(0, Math.floor((now - last) / DAY)),
     registryVerified: registry.verified,
     registryFlag: registry.flag,
@@ -104,6 +107,17 @@ export const trustHandlers: EventHandlers = {
     const fault = e.payload.faultBusinessId;
     if (!fault) return;
     await once(e.id, fault, (p) => p.hincrby(counterKey(fault), "disputesLost", 1));
+  },
+  // Samples (docs/design/samples.md): the buyer's verdict on a delivered sample feeds the approval rate; an unanswered request is an SLA miss.
+  async SampleEvaluated(e) {
+    const id = e.payload.sellerBusinessId;
+    await once(e.id, id, (p) => {
+      p.hincrby(counterKey(id), "samplesEvaluated", 1);
+      if (e.payload.approved) p.hincrby(counterKey(id), "samplesApproved", 1);
+    });
+  },
+  async SampleExpired(e) {
+    await once(e.id, e.payload.sellerBusinessId, (p) => p.hincrby(counterKey(e.payload.sellerBusinessId), "samplesExpired", 1));
   },
   // The released business lost its GST-backed tier: recompute (and drop the badge) now rather than at the next decay run.
   async GstinClaimReleased(e) {

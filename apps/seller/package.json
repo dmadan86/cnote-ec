@@ -39,6 +39,7 @@
     "@cnote/promotions": "workspace:*",
     "@cnote/quality": "workspace:*",
     "@cnote/reviews": "workspace:*",
+    "@cnote/samples": "workspace:*",
     "@cnote/security": "workspace:*",
     "@cnote/storefront": "workspace:*",
     "@cnote/ui": "workspace:*",

@@ -6,6 +6,7 @@ import { clientIp } from "@cnote/security/client-ip";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { attributeEnquiryFromCookie } from "@/features/ads/slots";
+import { linkBulkEnquiry, samplesEnabled } from "@/lib/samples";
 import { linesFromForm } from "./bom";
 
 /** Whole-request cap for the upload route: every allowed attachment at full size plus form fields and multipart framing. */
@@ -62,6 +63,11 @@ export async function postRfq(f: FormData, s: SessionWithBusiness, opts: { withF
     { buyerPhoneVerified: s.phoneVerified, ip: clientIp(await headers()), userAgent: (await headers()).get("user-agent") },
   );
   await attributeEnquiryFromCookie({ enquiryId: enquiry.id, buyerBusinessId: s.business.id, listingId: str(f, "preferredListingId") });
+  // Raised from an approved sample: link it as the requirement's quality reference. A failure never loses the posted requirement.
+  const sampleId = str(f, "sampleId");
+  if (sampleId && samplesEnabled()) {
+    await linkBulkEnquiry(actorOf(s), sampleId, enquiry.id).catch((err) => console.error("[samples] linking the bulk requirement failed", err instanceof Error ? err.message : err));
+  }
   revalidatePath("/buyer/enquiries");
   return enquiry;
 }

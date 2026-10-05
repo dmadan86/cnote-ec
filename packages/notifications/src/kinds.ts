@@ -14,6 +14,7 @@ import { GRN_KINDS } from "./kinds-grn";
 import { CONTRACT_KINDS } from "./kinds-contracts";
 import { PAYABLE_KINDS } from "./kinds-payables";
 import { PHASE23_KINDS } from "./kinds-phase23";
+import { SAMPLE_KINDS } from "./kinds-samples";
 import type { NotificationCategory, NotificationKind } from "./types";
 
 export const KINDS: NotificationKind[] = [
@@ -544,6 +545,7 @@ export const KINDS: NotificationKind[] = [
   ...PAYABLE_KINDS,
   ...GRN_KINDS,
   ...CONTRACT_KINDS,
+  ...SAMPLE_KINDS,
 ];
 
 const KEY_INDEX = new Map(KINDS.map((k) => [k.key, k]));

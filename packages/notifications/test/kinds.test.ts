@@ -11,6 +11,7 @@ import { GRN_KINDS } from "../src/kinds-grn";
 import { CONTRACT_KINDS } from "../src/kinds-contracts";
 import { PAYABLE_KINDS } from "../src/kinds-payables";
 import { PHASE23_KINDS } from "../src/kinds-phase23";
+import { SAMPLE_KINDS } from "../src/kinds-samples";
 import { APPROVAL_KINDS } from "../src/kinds-approvals";
 import { KINDS, getKind, kindsFor, observedEvents, registerNotificationTemplates, templateDefinitions } from "../src/kinds";
 import { CATEGORY_META, channelLock, defaultPreference, effectiveChannels } from "../src/preferences";
@@ -109,7 +110,7 @@ describe("kinds registry", () => {
   });
   it("every kind is exercised by the mapping table", () => {
     const covered = new Set(TABLE.map((r) => r.key));
-    const phase23 = new Set([...PHASE23_KINDS, ...PAYABLE_KINDS, ...GRN_KINDS, ...CONTRACT_KINDS].map((k) => k.key)); // covered in kinds-phase23.test.ts / kinds-payables.test.ts
+    const phase23 = new Set([...PHASE23_KINDS, ...PAYABLE_KINDS, ...GRN_KINDS, ...CONTRACT_KINDS, ...SAMPLE_KINDS].map((k) => k.key)); // covered in kinds-phase23.test.ts / kinds-payables.test.ts / kinds-samples.test.ts
     const approvals = new Set(APPROVAL_KINDS.map((k) => k.key)); // covered in kinds-approvals.test.ts
     for (const k of KINDS) if (!phase23.has(k.key) && !approvals.has(k.key) && k.category !== "alerts") expect(covered, k.key).toContain(k.key); // alerts: kinds-alerts.db.test.ts
   });

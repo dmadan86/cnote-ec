@@ -112,7 +112,7 @@ export const openApiConfig = () => ({
     contact: { name: "cnote developers" },
   },
   servers: [{ url: config.publicUrl }],
-  tags: ["Account", "Catalogue", "Search", "Seller listings", "Bulk import and export", "Seller leads", "Seller billing", "Enquiries", "Conversations", "Wishlist", "Reviews"].map((name) => ({ name })),
+  tags: ["Account", "Catalogue", "Search", "Seller listings", "Bulk import and export", "Seller leads", "Seller billing", "Enquiries", "Conversations", "Wishlist", "Reviews", "Samples"].map((name) => ({ name })),
 });
 
 async function defaultHealth() {

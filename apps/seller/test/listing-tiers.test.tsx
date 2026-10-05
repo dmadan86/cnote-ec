@@ -8,7 +8,8 @@ vi.mock("../src/features/listings/actions", () => ({ saveListingAction: async ()
 const { parseTierRows, parseTradeFields } = await import("../src/features/listings/trade-form");
 const { ShippingFields, TierFields, TradeFields } = await import("../src/features/listings/tier-fields");
 
-const messages = JSON.parse(readFileSync(join(__dirname, "..", "messages", "en.listings.json"), "utf8"));
+const read = (f: string) => JSON.parse(readFileSync(join(__dirname, "..", "messages", f), "utf8"));
+const messages = { ...read("en.listings.json"), ...read("en.samples.json") };
 const wrap = (node: React.ReactNode) => renderToStaticMarkup(<NextIntlClientProvider locale="en" messages={messages}>{node}</NextIntlClientProvider>);
 
 describe("parseTierRows", () => {
@@ -26,13 +27,21 @@ describe("parseTierRows", () => {
 describe("parseTradeFields", () => {
   const base = { leadTimeDays: "", packaging: "", sampleAvailable: false, samplePriceRupees: "", supplyCapacityPerMonth: "", paymentTerms: "", certifications: "" };
   it("is empty by default", () => {
-    expect(parseTradeFields(base)).toEqual({ trade: { leadTimeDays: null, packaging: null, sampleAvailable: false, samplePricePaise: null, supplyCapacityPerMonth: null, paymentTerms: null, certifications: [], unitWeightGrams: null, unitLengthMm: null, unitWidthMm: null, unitHeightMm: null }, invalid: false, shippingInvalid: false });
+    expect(parseTradeFields(base)).toEqual({ trade: { leadTimeDays: null, packaging: null, sampleAvailable: false, samplePricePaise: null, sampleMaxQty: null, sampleDispatchDays: null, sampleMinBuyerTier: null, supplyCapacityPerMonth: null, paymentTerms: null, certifications: [], unitWeightGrams: null, unitLengthMm: null, unitWidthMm: null, unitHeightMm: null }, invalid: false, shippingInvalid: false });
   });
   it("parses numbers, sample price (only when a sample is offered) and certifications", () => {
     const r = parseTradeFields({ ...base, leadTimeDays: "7", supplyCapacityPerMonth: "5000", sampleAvailable: true, samplePriceRupees: "150", certifications: "ISO 9001, BIS\nCE", packaging: " Carton of 50 " });
     expect(r.invalid).toBe(false);
     expect(r.trade).toMatchObject({ leadTimeDays: 7, supplyCapacityPerMonth: 5000, sampleAvailable: true, samplePricePaise: 15000, certifications: ["ISO 9001", "BIS", "CE"], packaging: "Carton of 50" });
     expect(parseTradeFields({ ...base, sampleAvailable: false, samplePriceRupees: "150" }).trade.samplePricePaise).toBeNull();
+  });
+  it("parses the sample workflow settings only when a sample is offered, and flags bad values", () => {
+    const on = { ...base, sampleAvailable: true, sampleMaxQty: "10", sampleDispatchDays: "3", sampleMinBuyerTier: "2" };
+    expect(parseTradeFields(on)).toMatchObject({ invalid: false, trade: { sampleMaxQty: 10, sampleDispatchDays: 3, sampleMinBuyerTier: 2 } });
+    expect(parseTradeFields({ ...on, sampleAvailable: false }).trade).toMatchObject({ sampleMaxQty: null, sampleDispatchDays: null, sampleMinBuyerTier: null });
+    expect(parseTradeFields({ ...on, sampleMinBuyerTier: "5" }).invalid).toBe(true);
+    expect(parseTradeFields({ ...on, sampleMaxQty: "0" }).invalid).toBe(true);
+    expect(parseTradeFields({ ...on, sampleDispatchDays: "x" }).invalid).toBe(true);
   });
   it("flags non-whole or negative numbers", () => {
     expect(parseTradeFields({ ...base, leadTimeDays: "2.5" }).invalid).toBe(true);
@@ -83,6 +92,9 @@ describe("tier + trade form fields", () => {
     expect(on).toContain('name="samplePriceRupees"');
     expect(on).toContain('value="150"');
     expect(on).toContain('value="ISO 9001, BIS"');
+    expect(on).toContain('name="sampleMaxQty"');
+    expect(on).toContain('name="sampleMinBuyerTier"');
     expect(wrap(<TradeFields trade={{}} state={null} />)).not.toContain("samplePriceRupees");
+    expect(wrap(<TradeFields trade={{}} state={null} />)).not.toContain("sampleMaxQty");
   });
 });
