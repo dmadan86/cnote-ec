@@ -61,7 +61,6 @@ export function detectMapping(headers: string[]): BomMapping {
  * neutralise on the way out (defence in depth). Control characters are removed.
  */
 export function sanitizeCell(v: string, max = 1000): string {
-  // eslint-disable-next-line no-control-regex
   let s = v.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim();
   s = s.replace(/^[=+@\t\r]+/, "");
   while (/^-/.test(s) && !/^-\s*[\d.]/.test(s)) s = s.slice(1);
