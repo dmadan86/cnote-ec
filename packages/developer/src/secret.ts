@@ -9,7 +9,8 @@ export function generateSecret(): string {
   return `ck_${env}_${randomBytes(32).toString("base64url")}`;
 }
 export const prefixOf = (secret: string): string => secret.slice(0, PREFIX_LEN);
-export const hashSecret = (secret: string): string => createHash("sha256").update(secret).digest("hex");
+/** SHA-256 digest of a 256-bit random API token (not a password: no stretching needed; unchanged so stored digests keep matching). */
+export const hashSecret = (token: string): string => createHash("sha256").update(Buffer.from(token, "utf8")).digest("hex");
 export const isWellFormedSecret = (s: unknown): s is string => typeof s === "string" && s.length <= 80 && FORMAT.test(s);
 
 export function safeEqualHex(a: string, b: string): boolean {

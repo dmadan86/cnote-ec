@@ -101,7 +101,7 @@ export function parseAvailability(raw: string): "in_stock" | "made_to_order" | "
  * "Attr:GSM* (GSM, g/m2)" -> "attr:gsm" and "Price Rupees" -> "price_rupees".
  */
 export function normalizeHeader(raw: string): string {
-  let h = raw.replace(/^﻿/, "").replace(/\([^)]*\)/g, "").replace(/\*/g, "").trim().toLowerCase();
+  let h = raw.replace(/^﻿/, "").replace(/\([^)]{0,200}\)/g, "").replace(/\*/g, "").trim().toLowerCase();
   if (h.startsWith("variant")) {
     const m = /^variant\s*:\s*(.+)$/.exec(h);
     if (m) return `${VARIANT_PREFIX}${m[1]!.trim().replace(/\s+/g, "_")}`;

@@ -17,7 +17,7 @@ export interface InlineScript {
   type: string | null;
 }
 
-const SCRIPT_RE = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
+const SCRIPT_RE = /<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi;
 const ATTR_SRC = /\ssrc\s*=/i;
 const ATTR_TYPE = /\stype\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
 /** MIME types a browser treats as script. Anything else (ld+json, importmap, speculationrules...) is a data block: CSP does not apply to it. */

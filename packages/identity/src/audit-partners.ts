@@ -45,12 +45,21 @@ export function auditChecklist(env: Record<string, string | undefined> = process
 export interface AuditPartnerView { id: string; name: string; contactEmail: string | null; active: boolean; createdAt: string }
 const pview = (p: Prisma.AuditPartnerGetPayload<object>): AuditPartnerView => ({ id: p.id, name: p.name, contactEmail: p.contactEmail, active: p.active, createdAt: p.createdAt.toISOString() });
 
+/** local@domain.tld without whitespace; string ops only (no backtracking regex on staff input). */
+function isPlausibleEmail(email: string): boolean {
+  if (email.length > 254 || /\s/.test(email)) return false;
+  const parts = email.split("@");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return false;
+  const dot = parts[1].lastIndexOf(".");
+  return dot > 0 && dot < parts[1].length - 1;
+}
+
 /** Staff (wrap in audited "audits.manage"). */
 export async function createAuditPartner(input: { name: string; contactEmail?: string }): Promise<AuditPartnerView> {
   const name = input.name.trim();
   if (name.length < 2 || name.length > 120) throw new DomainError("validation", "Enter the partner name.");
   const email = input.contactEmail?.trim() || null;
-  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new DomainError("validation", "Enter a valid contact email.");
+  if (email && !isPlausibleEmail(email)) throw new DomainError("validation", "Enter a valid contact email.");
   return pview(await prisma.auditPartner.create({ data: { name, contactEmail: email } }));
 }
 export async function setAuditPartnerActive(id: string, active: boolean): Promise<AuditPartnerView> {

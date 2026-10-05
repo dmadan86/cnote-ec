@@ -101,7 +101,7 @@ function classify(input: BriefDisputeInput): { type: DisputeKind; evidenceIds: s
 function receivedCount(texts: string[], ordered: number): number | null {
   const found: number[] = [];
   for (const t of texts) {
-    for (const m of t.matchAll(/(?:received|got|only|mila|milaa|आया|मिला)\D{0,12}(\d{1,7})|(\d{1,7})\s*(?:pcs|pieces|units|nos|boxes|cartons|kg)?\s*(?:only|received|mila)/gi)) {
+    for (const m of t.slice(0, 4000).matchAll(/(?:received|got|only|mila|milaa|आया|मिला)\D{0,12}(\d{1,7})|(\d{1,7})\s{0,8}(?:(?:pcs|pieces|units|nos|boxes|cartons|kg)\s{0,8})?(?:only|received|mila)/gi)) {
       const n = Number(m[1] ?? m[2]);
       if (Number.isFinite(n) && n >= 0 && n < ordered) found.push(n);
     }
