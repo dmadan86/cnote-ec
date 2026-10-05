@@ -68,6 +68,8 @@ export const PRIVILEGES = [
   // Search tuning (ADR-004/009): vernacular synonym dictionary + relevance judgements
   "search.read", // view the synonym dictionary, its history, and recorded relevance judgements
   "search.manage", // publish/rollback synonym versions, record/delete relevance judgements (all audited)
+  // AI ops (labels export)
+  "ai.labels.export", // export labelled ops decisions as training data (redacted inputs; every export is audited)
 ] as const;
 export type Privilege = (typeof PRIVILEGES)[number];
 

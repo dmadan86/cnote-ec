@@ -244,7 +244,7 @@ e2e: the flag is on only for `e2e/a11y/storefront-embed.spec.ts`, which runs in 
 
 ### Moderation follow-up (before the flag is turned on)
 
-1. Resolve the video's title (YouTube oEmbed: `https://www.youtube.com/oembed?url=...`, title + author, no API key) when the seller saves the block and
+0. DONE (see docs/design/storefront-embed-moderation.md). Original plan: 1. Resolve the video title (YouTube oEmbed: `https://www.youtube.com/oembed?url=...`, title + author, no API key) when the seller saves the block and
    run it, with the block title, through `ai.moderate` (ADR-008: log prompt version and model, route low confidence to the ops queue). Block saving on a
    `block` verdict; map blocks need only the title.
 2. Add the embed block to `collectText` for the publish pre-screen (title is already there) and send any storefront with an embed to **staff review**

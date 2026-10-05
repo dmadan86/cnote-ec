@@ -23,6 +23,9 @@ describe("rbac matrix", () => {
   it("the cookie-consent log (person ids, CSV export) is for the compliance role and super_admin only", () => {
     for (const r of ROLES) expect(ROLE_PRIVILEGES[r].includes("compliance.consent"), r).toBe(r === "super_admin" || r === "ops_moderator");
   });
+  it("the ops-labels training export is super_admin only", () => {
+    for (const r of ROLES) expect(ROLE_PRIVILEGES[r].includes("ai.labels.export"), r).toBe(r === "super_admin");
+  });
   it("only ops_moderator/super_admin can resolve reviews and moderate", () => {
     for (const r of ROLES) {
       const ok = r === "super_admin" || r === "ops_moderator";

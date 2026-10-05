@@ -50,28 +50,33 @@ export async function runLogged<T extends object>(
     },
     select: { id: true },
   });
-  if (shadow) startShadow(capability, subject, inputRedacted, row.id, shadow, auditOutput);
+  if (shadow) {
+    const candidate = getShadowProviders();
+    if (candidate) startShadowRun(capability, subject, inputRedacted, row.id, () => shadow(candidate), auditOutput);
+  }
   return { ...r.output, decisionId: row.id, confidence: r.confidence, needsReview: reason !== null };
 }
 
 // ---- Shadow mode (ADR-008) ----
 const pendingShadows = new Set<Promise<void>>();
 
-/** Fire-and-forget: the candidate never delays or changes the live answer, and its failures are logged as shadow rows, not thrown. */
-function startShadow<T extends object>(
-  capability: Capability, subject: Subject, inputRedacted: unknown, liveId: string,
-  run: (p: Providers) => Promise<ProviderResult<T>>, auditOutput: (out: T) => unknown,
+/**
+ * Fire-and-forget: the candidate never delays or changes the live answer, and its failures are logged as shadow rows, not thrown.
+ * Exported for the capabilities that have their own provider port (document, inspection, dispute brief, quotes); callers
+ * resolve their candidate first (null when shadow mode is off) and only call this when there is one.
+ */
+export function startShadowRun<T extends object>(
+  capability: string, subject: { type: string; id: string }, inputRedacted: unknown, liveId: string,
+  run: () => Promise<ProviderResult<T>>, auditOutput: (out: T) => unknown = (o) => o,
 ): void {
-  const candidate = getShadowProviders();
-  if (!candidate) return;
-  const task = logShadow(capability, subject, inputRedacted, liveId, () => run(candidate), auditOutput)
+  const task = logShadow(capability, subject, inputRedacted, liveId, run, auditOutput)
     .catch((err) => console.warn("[ai] shadow logging failed:", err instanceof Error ? err.message : err))
     .finally(() => pendingShadows.delete(task));
   pendingShadows.add(task);
 }
 
 async function logShadow<T extends object>(
-  capability: Capability, subject: Subject, inputRedacted: unknown, liveId: string,
+  capability: string, subject: { type: string; id: string }, inputRedacted: unknown, liveId: string,
   run: () => Promise<ProviderResult<T>>, auditOutput: (out: T) => unknown,
 ): Promise<void> {
   const started = performance.now();

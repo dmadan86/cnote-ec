@@ -89,9 +89,9 @@ describe("cache helpers", () => {
 });
 
 describe("event handlers", () => {
-  it("registers as a module worker with no jobs", () => {
+  it("registers as a module worker with the embed re-check job", () => {
     expect(worker.name).toBe("storefront");
-    expect(worker.jobs).toEqual([]);
+    expect(worker.jobs?.map((j) => j.name)).toEqual(["storefront.embed-recheck"]);
     expect(Object.keys(storefrontHandlers).sort()).toMatchInlineSnapshot(`
       [
         "BusinessVerified",
@@ -103,6 +103,7 @@ describe("event handlers", () => {
         "ListingVersionPublished",
         "ReviewModerated",
         "StorefrontDomainStatusChanged",
+        "StorefrontEmbedDecided",
         "StorefrontPublished",
         "StorefrontSuspended",
         "StorefrontVersionReviewed",

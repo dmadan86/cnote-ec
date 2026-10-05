@@ -201,6 +201,12 @@ export interface DomainEventPayloads {
   PasskeyRevoked: { personId: string; realm: string; passkeyId: string; reason: "user" | "reset" | "clone_suspected"; byStaffId?: string };
   /** The authenticator's sign counter did not advance: the credential may have been cloned. It has been revoked. */
   PasskeyCloneSuspected: { personId: string; realm: string; passkeyId: string; storedCount: number; receivedCount: number };
+  // ai_ops: attachment malware scanning
+  /** The malware scanner flagged an RFQ or quote attachment: bytes quarantined, never visible to the other party; the uploader is told. No file name or content in the payload. */
+  AttachmentQuarantined: { quarantineId: string; enquiryId: string; kind: "rfq" | "quote"; uploadedByBusinessId: string; uploadedByPersonId: string; signature: string; scanner: string };
+  // ai_ops: storefront embed moderation
+  /** A third-party video embed (YouTube / Vimeo) in a storefront was approved, rejected or put back to pending. `decidedBy`: auto (trusted-seller rules), staff, or recheck (periodic re-check of an approved embed). */
+  StorefrontEmbedDecided: { storefrontId: string; sellerBusinessId: string; provider: "youtube" | "vimeo"; mediaId: string; status: "approved" | "rejected" | "pending"; decidedBy: "auto" | "staff" | "recheck" };
 }
 
 export type DomainEventType = keyof DomainEventPayloads;
@@ -352,6 +358,9 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   DataNomineeChanged: 1,
   // polish: developer API keys
   ApiKeyExpiring: 1,
+  // ai_ops
+  AttachmentQuarantined: 1,
+  StorefrontEmbedDecided: 1,
 };
 
 export interface DomainEvent<T extends DomainEventType = DomainEventType> {

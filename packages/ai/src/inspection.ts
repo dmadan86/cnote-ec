@@ -7,7 +7,8 @@ import { createHash } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { REASONING_MODEL, VISION_TIMEOUT_MS, createAnthropicClient, type MessagesClient } from "./anthropic";
-import { REVIEW_THRESHOLDS, runLogged } from "./decisions";
+import { REVIEW_THRESHOLDS, runLogged, startShadowRun } from "./decisions";
+import { shadowSettings } from "./registry";
 import { HEURISTIC_MODEL } from "./heuristic/intent";
 import { redactDeep, redactPii } from "./redact";
 import { aiTransport, remoteDispatchInspector, remoteFallbackEnabled, sharedAiServiceClient } from "./remote";
@@ -115,11 +116,11 @@ const Schema = z.object({
 });
 
 export class AnthropicDispatchInspector implements DispatchInspector {
-  constructor(private client: MessagesClient = createAnthropicClient()) {}
+  constructor(private client: MessagesClient = createAnthropicClient(), private model: string = REASONING_MODEL) {}
   async inspect(input: InspectDispatchInput): Promise<ProviderResult<InspectDispatchOutput>> {
     const res = await this.client.messages.create(
       {
-        model: REASONING_MODEL,
+        model: this.model,
         max_tokens: 1024,
         system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
         messages: [{
@@ -138,13 +139,13 @@ export class AnthropicDispatchInspector implements DispatchInspector {
     if (!block) throw new Error("no text block in response");
     const o = Schema.parse(JSON.parse(block.text));
     const checks = normaliseChecks(o.checks);
-    return { output: { checks, verdict: deriveVerdict(checks) }, confidence: clamp01(o.overallConfidence), provider: "anthropic", modelId: REASONING_MODEL, promptVersion: INSPECTION_PROMPT_VERSION };
+    return { output: { checks, verdict: deriveVerdict(checks) }, confidence: clamp01(o.overallConfidence), provider: "anthropic", modelId: this.model, promptVersion: INSPECTION_PROMPT_VERSION };
   }
 }
 
 /** Anthropic with a heuristic fallback on ANY failure (ADR-008): the fallback's low confidence routes to a human. */
-export function anthropicDispatchInspector(client?: MessagesClient, fallback = true): DispatchInspector {
-  const primary = new AnthropicDispatchInspector(client);
+export function anthropicDispatchInspector(client?: MessagesClient, fallback = true, model?: string): DispatchInspector {
+  const primary = new AnthropicDispatchInspector(client, model);
   return {
     inspect: async (i) => {
       try {
@@ -170,6 +171,19 @@ export function getDispatchInspector(): DispatchInspector {
 }
 export function setDispatchInspectorForTests(i: DispatchInspector | null) { override = i; cached = null; }
 
+let shadowOverride: DispatchInspector | null = null;
+let cachedShadow: { key: string; ins: DispatchInspector } | null = null;
+/** ADR-008 shadow mode: the candidate inspector (no heuristic fallback). Null when off. */
+export function getShadowDispatchInspector(): DispatchInspector | null {
+  if (shadowOverride) return shadowOverride;
+  const s = shadowSettings();
+  if (!s) return null;
+  const key = JSON.stringify(s);
+  if (cachedShadow?.key !== key) cachedShadow = { key, ins: s.provider === "anthropic" ? anthropicDispatchInspector(undefined, false, s.models.reasoning) : { inspect: async (i) => inspectDispatchHeuristic(i) } };
+  return cachedShadow.ins;
+}
+export function setShadowDispatchInspectorForTests(i: DispatchInspector | null) { shadowOverride = i; cachedShadow = null; }
+
 /**
  * Dispatch photos + order expectation -> per-check advisory results + overall verdict. The AiDecision holds hashes and
  * the redacted expectation only. Confidence below INSPECTION_REVIEW_THRESHOLD, or an inconsistent verdict, goes to the
@@ -183,11 +197,14 @@ export async function inspectDispatch(input: InspectDispatchInput, subject: Subj
     confidence = r.confidence;
     return r;
   };
-  return runLogged(
+  const res = await runLogged(
     "inspect_dispatch", subject, redactDeep(inspectionAudit(input)), run,
     // Inconsistent verdicts always go to a human, whatever the confidence (advisory evidence, ADR-015).
     (o) => (confidence < INSPECTION_REVIEW_THRESHOLD
       ? `Low confidence ${confidence.toFixed(2)} (< ${INSPECTION_REVIEW_THRESHOLD})`
       : o.verdict === "inconsistent" ? "Dispatch photos look inconsistent with the order" : null),
   );
+  const candidate = getShadowDispatchInspector();
+  if (candidate) startShadowRun("inspect_dispatch", subject, redactDeep(inspectionAudit(input)), res.decisionId, () => candidate.inspect(input));
+  return res;
 }

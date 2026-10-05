@@ -154,6 +154,8 @@ idempotent by `ref`) and the composition root injects it with `setCreditPorts`.
 
 ## Cooling-off exit (RBI digital lending)
 
+Rule (checked Oct 2026): under the RBI Digital Lending Directions, 2025 (consolidating the 2022 guidelines) a borrower must be able to exit a digital loan during a cooling-off period by repaying the principal and the proportionate APR with no penalty; the regulated entity's Board sets the period, disclosed in the KFS, with a minimum of 1 day (the 2022 text was 3 days for tenors over 7 days, 1 day otherwise). A reasonable one-time processing fee may be kept on exit. Our default of 3 days (`CREDIT_COOLING_OFF_DAYS`) satisfies both versions, and keeping the fees by default (`CREDIT_COOLING_OFF_WAIVES_FEES` off) matches the fee allowance. Sources: [AZB update on the Directions](https://www.azbpartners.com/wp-content/uploads/2025/05/AZB-Update-Digital-Lending-Directions-2025.pdf), [Argus overview](https://www.argus-p.com/updates/updates/rbi-digital-lending-directions-2025-an-overview/). Counsel should confirm against the gazetted text. Status of this assignment item: the partner-port `cancel` call (mock + stub), the borrower-facing exit action with exact-amount confirmation, the versioned `CreditCancelled` event and tests already existed from the ADR-019 work and were verified, not rebuilt.
+
 Within `CREDIT_COOLING_OFF_DAYS` (3) of disbursal the borrower may exit by repaying the principal plus interest accrued pro rata, with no penalty and no
 prepayment charge. `getCoolingOffQuote` / `cancelLoanInCoolingOff` (`src/cooling.ts`), not gated by `CREDIT_ENABLED`:
 

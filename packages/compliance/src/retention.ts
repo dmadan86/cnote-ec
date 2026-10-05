@@ -6,7 +6,7 @@
 // (`RETENTION_<KEY>_DAYS`) with the safe defaults below. Consent ledger rows and admin audit logs are never purged.
 import { prisma } from "@cnote/db";
 import * as catalogue from "@cnote/catalogue";
-import { purgeInactiveConversationMessages } from "@cnote/enquiry";
+import { purgeAttachmentQuarantine, purgeEndedEnquiryAttachments, purgeInactiveConversationMessages } from "@cnote/enquiry";
 import { purgeErasedPersonResiduals, purgeExpiredAuthSessions, purgeKycDocuments } from "@cnote/identity";
 import { purgeAbandonedCaptures } from "@cnote/leadgen";
 import { purgeReadNotifications } from "@cnote/notifications";
@@ -186,6 +186,19 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     description: "Alert dedupe ledger rows (no content); they only need to outlive event redelivery.",
     legalBasis: "DPDP s.8(7)",
     run: (before, { dryRun }) => purgeOldDispatches(before, { dryRun }),
+  },
+  // ai_ops: RFQ / quote attachments
+  {
+    name: "enquiry.attachments_after_close_365d", module: "enquiry", envKey: "ENQUIRY_ATTACHMENTS", defaultDays: 365, supportsDryRun: true,
+    description: "RFQ drawings/specs and quote attachments (bytes and rows) 365 days after the requirement's quote deadline (or, for legacy rows, once it ended). Requirements that became an order keep theirs 2 more years for disputes.",
+    legalBasis: "DPDP s.8(7) storage limitation; one year covers follow-up quotes and repeat orders, and orders keep their drawings for the 3-year limitation period (ADR-013)",
+    run: (before, { dryRun }) => purgeEndedEnquiryAttachments(before, { dryRun }),
+  },
+  {
+    name: "enquiry.attachment_quarantine_30d", module: "enquiry", envKey: "ATTACHMENT_QUARANTINE", defaultDays: 30, supportsDryRun: true,
+    description: "Bytes of uploads the malware scanner flagged; the record (who, when, signature) stays as the audit trail.",
+    legalBasis: "DPDP s.8(7); infected files are kept only long enough for security review",
+    run: (before, { dryRun }) => purgeAttachmentQuarantine(before, { dryRun }),
   },
 ];
 

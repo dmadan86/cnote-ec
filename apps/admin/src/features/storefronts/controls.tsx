@@ -6,7 +6,7 @@ import { useActionState, useState, useTransition } from "react";
 import { StorefrontView, type RenderHrefs } from "@cnote/storefront/render";
 import { validateDocument } from "@cnote/storefront/document";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { reinstateAction, reorderTemplatesAction, reviewVersionAction, saveTemplateAction, seedTemplatesAction, setTemplateActiveAction, suspendAction, type TemplateSaveResult } from "./actions";
+import { reinstateAction, reorderTemplatesAction, reviewEmbedAction, reviewVersionAction, saveTemplateAction, seedTemplatesAction, setTemplateActiveAction, suspendAction, type TemplateSaveResult } from "./actions";
 import { SAMPLE_DATA } from "./sample-data";
 
 export function ReviewForm({ versionId }: { versionId: string }) {
@@ -18,6 +18,20 @@ export function ReviewForm({ versionId }: { versionId: string }) {
       <div className="flex gap-2">
         <SubmitButton name="outcome" value="approved">Approve and publish</SubmitButton>
         <SubmitButton name="outcome" value="rejected" variant="danger">Reject</SubmitButton>
+      </div>
+    </ActionForm>
+  );
+}
+
+export function EmbedReviewForm({ embedId }: { embedId: string }) {
+  return (
+    <ActionForm action={reviewEmbedAction} className="space-y-2" successMessage="Decision recorded.">
+      <input type="hidden" name="embedId" value={embedId} />
+      <label htmlFor={`note-${embedId}`} className="block text-xs font-medium text-ink">Note to seller <span className="font-normal text-muted">(required when rejecting)</span></label>
+      <Input id={`note-${embedId}`} name="note" maxLength={500} />
+      <div className="flex gap-2">
+        <SubmitButton size="sm" name="outcome" value="approved">Approve</SubmitButton>
+        <SubmitButton size="sm" name="outcome" value="rejected" variant="danger">Reject</SubmitButton>
       </div>
     </ActionForm>
   );

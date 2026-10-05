@@ -48,7 +48,7 @@ export async function exportCookieConsentReceipts(personId: string): Promise<Per
 export const EXPORT_SOURCES: readonly ExportSource[] = [
   { module: "identity", flatten: true, description: "Profile, businesses, delivery addresses, consent ledger, login sessions and identities", export: (id) => identityExport(id) },
   { module: "alerts", flatten: true, description: "Followed suppliers, saved searches, alert opt-ins", export: (id) => exportAlertsData(id) },
-  { module: "enquiry", description: "Requirements, messages, quotes, orders, deal reports and attachment metadata", export: enquiryExport },
+  { module: "enquiry", description: "Requirements, messages, quotes, orders, deal reports, attachment metadata (incl. scan results and blocked uploads)", export: enquiryExport },
   { module: "reviews", description: "Reviews, comments, product Q&A and reactions", export: (id) => reviewsExport(id) },
   { module: "wishlist", description: "Saved-product lists", export: (id) => wishlistExport(id) },
   { module: "notifications", description: "In-app notifications and channel preferences", export: (id) => notificationsExport(id) },

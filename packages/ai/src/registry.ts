@@ -73,6 +73,19 @@ let cachedShadow: { key: string; providers: Providers | null } | null = null;
  */
 export function getShadowProviders(): Providers | null {
   if (shadowOverride) return shadowOverride;
+  const cfg = shadowSettings();
+  if (!cfg) return null;
+  const key = JSON.stringify([cfg.provider, cfg.models]);
+  if (cachedShadow?.key !== key) cachedShadow = { key, providers: cfg.provider === "anthropic" ? anthropicProviders(createAnthropicClient(), false, cfg.models) : heuristicProviders };
+  return cachedShadow.providers;
+}
+
+/**
+ * The resolved shadow configuration, shared by every capability family (intent/extract/moderate via `Providers`, and the
+ * document, inspection, dispute and quote capabilities that have their own provider ports). Null when shadow mode is off
+ * or the candidate would just repeat the live provider and models.
+ */
+export function shadowSettings(): { provider: "anthropic" | "heuristic"; models: ModelSet } | null {
   const name = process.env.AI_SHADOW_PROVIDER;
   if (name !== "anthropic" && name !== "heuristic") return null;
   const models: ModelSet = {
@@ -81,10 +94,7 @@ export function getShadowProviders(): Providers | null {
   };
   const live = process.env.AI_PROVIDER === "anthropic" ? "anthropic" : "heuristic";
   const sameAsLive = name === live && models.reasoning === defaultModels().reasoning && models.fast === defaultModels().fast;
-  if (sameAsLive) return null;
-  const key = JSON.stringify([name, models]);
-  if (cachedShadow?.key !== key) cachedShadow = { key, providers: name === "anthropic" ? anthropicProviders(createAnthropicClient(), false, models) : heuristicProviders };
-  return cachedShadow.providers;
+  return sameAsLive ? null : { provider: name, models };
 }
 
 /** Test hook: inject providers (null restores env-based selection). */

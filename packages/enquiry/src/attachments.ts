@@ -2,9 +2,9 @@
 // `rfq/<enquiryId>/<attachmentId>.<ext>` and are only ever read through `openAttachment`, which authorises the caller
 // and hands back a short-lived signed URL (or the bytes when the driver cannot sign). The AI intent scorer never sees
 // attachments (ADR-008/ADR-010: minimise what leaves the platform).
-import { DomainError } from "@cnote/core";
+import { DomainError, emit } from "@cnote/core";
 import { prisma } from "@cnote/db";
-import { getMediaStore, sniffImageMime } from "@cnote/media";
+import { getAttachmentScanner, getMediaStore, ScanUnavailableError, sniffImageMime } from "@cnote/media";
 import { randomUUID } from "node:crypto";
 import type { Actor } from "./types";
 
@@ -52,8 +52,14 @@ export function safeFileName(name: string): string {
   return clean || "attachment";
 }
 
+/** RFQ_ATTACHMENTS_ENABLED=false turns uploads off (e.g. while the scanner is down for a long time). Default on. */
+export function attachmentsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return !["0", "false", "no", "off"].includes((env.RFQ_ATTACHMENTS_ENABLED ?? "").trim().toLowerCase());
+}
+
 export function checkAttachments(files: AttachmentUpload[] | null | undefined, max: number, maxBytes: number): CheckedAttachment[] {
   const list = (files ?? []).filter((f) => f.bytes.length > 0 || f.fileName);
+  if (list.length && !attachmentsEnabled()) throw new DomainError("validation", "Attachments are temporarily unavailable. Please send your requirement without files.");
   if (list.length > max) throw new DomainError("validation", `You can attach up to ${max} files.`);
   return list.map((f) => checkAttachment(f, maxBytes));
 }
@@ -68,10 +74,41 @@ export interface StoredAttachment {
   sizeBytes: number;
   /** Strictly increasing so the upload order is preserved when rows are read back. */
   createdAt: Date;
+  /** malware scan evidence, persisted with the row */
+  scannedAt: Date;
+  scanner: string;
 }
 
-/** Writes checked files to the private bucket. On any failure the already-written objects are removed. */
-export async function storeAttachmentBytes(enquiryId: string, files: CheckedAttachment[]): Promise<StoredAttachment[]> {
+/** Who is uploading, and into what: needed to quarantine and notify when the scanner flags a file. */
+export interface UploadContext {
+  actor: Actor;
+  kind: "rfq" | "quote";
+}
+
+export const quarantineKey = (enquiryId: string, id: string, ext: string) => `rfq/quarantine/${enquiryId}/${id}.${ext}`;
+
+/**
+ * Scans every file, then writes the clean ones to the private bucket. Scanning happens BEFORE any object or row exists, so
+ * a file is never visible to the other party unscanned. A detection quarantines the bytes (private, never served),
+ * records an AttachmentQuarantine row, emits AttachmentQuarantined (the uploader is notified) and rejects the whole upload.
+ * A scanner that cannot answer is NOT "clean": the upload is rejected (fail closed). On any write failure the
+ * already-written objects are removed.
+ */
+export async function storeAttachmentBytes(enquiryId: string, files: CheckedAttachment[], ctx: UploadContext): Promise<StoredAttachment[]> {
+  const scanner = await resolveScanner();
+  for (const f of files) {
+    let verdict;
+    try {
+      verdict = await scanner.scan(f.bytes);
+    } catch (err) {
+      console.error("[enquiry] attachment scan unavailable:", err instanceof Error ? err.message : err);
+      throw new DomainError("conflict", "We could not scan your attachment for viruses right now. Please try again in a few minutes.");
+    }
+    if (verdict.status === "infected") {
+      await quarantine(enquiryId, f, ctx, verdict.signature, scanner.name);
+      throw new DomainError("validation", "One of your attachments was blocked by our security scan. Remove it and try again.");
+    }
+  }
   const store = getMediaStore("private");
   const done: StoredAttachment[] = [];
   try {
@@ -79,13 +116,49 @@ export async function storeAttachmentBytes(enquiryId: string, files: CheckedAtta
       const id = randomUUID();
       const key = attachmentKey(enquiryId, id, f.ext);
       await store.put(key, f.bytes, f.mime);
-      done.push({ id, key, fileName: safeFileName(f.fileName), mimeType: f.mime, sizeBytes: f.bytes.length, createdAt: new Date(Date.now() + done.length) });
+      done.push({ id, key, fileName: safeFileName(f.fileName), mimeType: f.mime, sizeBytes: f.bytes.length, createdAt: new Date(Date.now() + done.length), scannedAt: new Date(), scanner: scanner.name });
     }
   } catch (err) {
     await discardStored(done);
     throw err;
   }
   return done;
+}
+
+async function resolveScanner() {
+  try {
+    return getAttachmentScanner();
+  } catch (err) {
+    if (err instanceof ScanUnavailableError) {
+      console.error("[enquiry] attachment scanner misconfigured:", err.message);
+      throw new DomainError("conflict", "We could not scan your attachment for viruses right now. Please try again in a few minutes.");
+    }
+    throw err;
+  }
+}
+
+async function quarantine(enquiryId: string, f: CheckedAttachment, ctx: UploadContext, signature: string, scannerName: string): Promise<void> {
+  const id = randomUUID();
+  const key = quarantineKey(enquiryId, id, f.ext);
+  let purgedAt: Date | null = null;
+  try {
+    await getMediaStore("private").put(key, f.bytes, f.mime);
+  } catch (err) {
+    // Still block and record it; there are simply no bytes to keep.
+    console.error("[enquiry] could not write quarantined attachment:", err instanceof Error ? err.message : err);
+    purgedAt = new Date();
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.attachmentQuarantine.create({
+      data: {
+        id, enquiryId, kind: ctx.kind, uploadedByBusiness: ctx.actor.businessId, uploadedByPerson: ctx.actor.personId, key, fileName: safeFileName(f.fileName),
+        mimeType: f.mime, sizeBytes: f.bytes.length, signature: signature.slice(0, 120), scanner: scannerName, purgedAt,
+      },
+    });
+    await emit(tx, "AttachmentQuarantined", { type: "enquiry", id: enquiryId }, {
+      quarantineId: id, enquiryId, kind: ctx.kind, uploadedByBusinessId: ctx.actor.businessId, uploadedByPersonId: ctx.actor.personId, signature: signature.slice(0, 120), scanner: scannerName,
+    });
+  });
 }
 
 /** Best-effort cleanup of objects whose DB rows were never committed. */

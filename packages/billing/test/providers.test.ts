@@ -68,6 +68,18 @@ describe("razorpay webhook", () => {
     expect((f.mock.calls[0] as unknown as [string])[0]).toContain("/payments/pay_1/refund");
     await expect(razorpay(rzEnv).refund({ orderId: "o", providerOrderId: "p", providerPaymentId: null, amountPaise: 1, refundId: "r", reason: "x" })).rejects.toThrow();
   });
+  it("fetchRefund maps the provider status and addresses the refund by its provider id", async () => {
+    const look = { orderId: "o", providerOrderId: "p", providerPaymentId: "pay_1", providerRefundId: "rfnd_9", refundId: "r" };
+    const f = stubFetch({ id: "rfnd_9", status: "processed" });
+    expect(await razorpay(rzEnv).fetchRefund(look)).toEqual({ status: "processed" });
+    expect((f.mock.calls[0] as unknown as [string])[0]).toContain("/refunds/rfnd_9");
+    stubFetch({ status: "pending" });
+    expect((await razorpay(rzEnv).fetchRefund(look)).status).toBe("pending");
+    stubFetch({ status: "failed" });
+    expect((await razorpay(rzEnv).fetchRefund(look)).status).toBe("failed");
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 500, json: async () => ({}) }) as Response));
+    await expect(razorpay(rzEnv).fetchRefund(look)).rejects.toThrow();
+  });
 });
 
 describe("cashfree", () => {
@@ -110,6 +122,16 @@ describe("cashfree", () => {
     stubFetch({ cf_refund_id: 3, refund_status: "PENDING" });
     expect(await cashfree(cfEnv).refund({ orderId: "o", providerOrderId: "77", providerPaymentId: "9", amountPaise: 100, refundId: "a-b", reason: "x" })).toEqual({ providerRefundId: "3", status: "pending" });
   });
+  it("fetchRefund maps SUCCESS / CANCELLED / other, using our dashless refund id", async () => {
+    const look = { orderId: "ord", providerOrderId: "77", providerPaymentId: "9", providerRefundId: "3", refundId: "aaaa-bbbb" };
+    const f = stubFetch({ refund_status: "SUCCESS" });
+    expect(await cashfree(cfEnv).fetchRefund(look)).toEqual({ status: "processed" });
+    expect((f.mock.calls[0] as unknown as [string])[0]).toContain("/orders/ord/refunds/aaaabbbb");
+    stubFetch({ refund_status: "CANCELLED" });
+    expect((await cashfree(cfEnv).fetchRefund(look)).status).toBe("failed");
+    stubFetch({ refund_status: "ONHOLD" });
+    expect((await cashfree(cfEnv).fetchRefund(look)).status).toBe("pending");
+  });
 });
 
 describe("mock + selection", () => {
@@ -128,6 +150,11 @@ describe("mock + selection", () => {
     expect((await m.createOrder({ orderId: "o", amountPaise: 1, description: "", customer: {}, returnUrl: "", notifyUrl: "" })).redirectUrl).toBe("http://s/billing/mock-pay?order=o");
     expect((await m.fetchPayment({ id: "o", providerOrderId: null })).status).toBe("pending");
     expect((await m.refund({ orderId: "o", providerOrderId: null, providerPaymentId: null, amountPaise: 1, refundId: "r", reason: "" })).status).toBe("processed");
+    const look = { orderId: "o", providerOrderId: null, providerPaymentId: null, providerRefundId: "x", refundId: "r" };
+    expect(await m.fetchRefund(look)).toEqual({ status: "processed" });
+    expect((await mock({ PAYMENTS_MOCK_REFUND_STATUS: "pending" } as never).fetchRefund(look)).status).toBe("pending");
+    expect((await mock({ PAYMENTS_MOCK_REFUND_STATUS: "failed" } as never).fetchRefund(look)).status).toBe("failed");
+    expect((await mock({ PAYMENTS_MOCK_REFUND_PENDING: "1" } as never).refund({ orderId: "o", providerOrderId: null, providerPaymentId: null, amountPaise: 1, refundId: "r", reason: "" })).status).toBe("pending");
   });
   it("provider selection and production guard for mock", () => {
     expect(configuredProvider({} as never)).toBe("mock");

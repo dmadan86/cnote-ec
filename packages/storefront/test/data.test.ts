@@ -20,6 +20,8 @@ vi.mock("@cnote/catalogue", () => ({
   },
 }));
 vi.mock("@cnote/identity", () => ({ getTrustProfiles: async () => s.profiles }));
+// the embed approvals live in the database; this suite is about the live platform data
+vi.mock("../src/embeds", () => ({ approvedEmbedKeys: async () => ["youtube:abcdefghijk"] }));
 vi.mock("@cnote/reviews", () => ({
   getRatingSummaries: async () => {
     if (s.ratingFails) throw new Error("down");

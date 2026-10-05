@@ -86,7 +86,7 @@ AI_SHADOW_MODEL_REASONING=claude-opus-5-5   # candidate models (optional, defaul
 AI_SHADOW_MODEL_FAST=claude-haiku-4-5
 ```
 
-After each live decision for `intent`, `extract`, `extract_image` and `moderate`, the candidate runs in the background on the same input. Its result is logged to `AiDecision` with `shadow = true` and `shadow_of_id` pointing at the live decision. It never reaches users, never creates a `ReviewItem`, and its failures are stored as `{ "shadowError": ... }` rows rather than thrown. The candidate has no heuristic fallback, so outages show up as errors. A candidate that would just repeat the live provider and models is skipped. Shadow calls double the model spend for those capabilities; turn it on for a bounded window.
+After each live decision for `intent`, `extract`, `extract_image`, `moderate`, `extract_document` (KYC documents), `inspect_dispatch` (quality inspection), `dispute_brief` and the three quote capabilities (`draft_quote`, `normalise_quotes`, `propose_counter`), the candidate runs in the background on the same input. The first four resolve their candidate through `getShadowProviders()`; the others have their own provider ports and resolve it through `getShadowDocumentExtractor()`, `getShadowDispatchInspector()`, `getShadowDisputeProvider()` and `getShadowQuoteProviders()`, all driven by the same `AI_SHADOW_*` settings (`shadowSettings()` in `registry.ts`). Shadow rows for document reads hold the same redacted output as the live row (PAN, GSTIN and names masked), so document agreement compares presence and forgery-or-not rather than raw identifiers. Its result is logged to `AiDecision` with `shadow = true` and `shadow_of_id` pointing at the live decision. It never reaches users, never creates a `ReviewItem`, and its failures are stored as `{ "shadowError": ... }` rows rather than thrown. The candidate has no heuristic fallback, so outages show up as errors. A candidate that would just repeat the live provider and models is skipped. Shadow calls double the model spend for those capabilities; turn it on for a bounded window.
 
 Compare the two from the log:
 
@@ -94,9 +94,27 @@ Compare the two from the log:
 pnpm --filter @cnote/ai run eval:shadow -- --hours 24 [--capability moderate] [--json]
 ```
 
-Per capability it prints pairs, candidate errors, agreement (same moderation verdict, intent score within 10 points, same extracted category and title), moderation missed blocks (candidate allowed what live blocked) and extra blocks, review rate and mean confidence for each side, and p95 latency. Promote only when there are no missed blocks, agreement is high, the review rate does not rise, and the golden-set eval passes on the candidate: set `AI_MODEL_*` to the candidate, run the anthropic eval, bump the prompt version if the prompt changed, update the manifest and the baseline.
+Per capability it prints pairs, candidate errors, agreement (same moderation verdict, intent score within 10 points, same extracted category and title; same inspection verdict; same recommended dispute outcome; quote and counter price within 5%; same delivery and GST terms when normalising quotes; same PAN/GSTIN/Udyam presence and forgery-or-not for documents), moderation missed blocks (candidate allowed what live blocked) and extra blocks, review rate and mean confidence for each side, and p95 latency. Promote only when there are no missed blocks, agreement is high, the review rate does not rise, and the golden-set eval passes on the candidate: set `AI_MODEL_*` to the candidate, run the anthropic eval, bump the prompt version if the prompt changed, update the manifest and the baseline.
 
 Shadow rows are subject to the same 180-day input purge as other decisions.
+
+## Exporting ops labels as training data
+
+Every approve/reject in the review queue is a human label on an AI decision. `/ai/labels` in the admin app (privilege `ai.labels.export`, super_admin only) downloads them as **JSONL** or **CSV** (`GET /ai/labels/export?from=&to=&capability=&format=jsonl|csv`), streamed in keyset pages. The same data is available in code as `iterateOpsLabels()` in `@cnote/ai`.
+
+| Column | Notes |
+|---|---|
+| `decisionId`, `capability`, `subjectType` | opaque decision id; the subject id is **not** exported |
+| `label` | `approved` or `rejected` (what staff decided) |
+| `labelledOn` | UTC day only, no time |
+| `labellerRoles` | role codes of the labeller (`ops_moderator`, ...), `unknown` if the staff row is gone; never a person id, name or email |
+| `provider`, `modelId`, `promptVersion`, `confidence` | what produced the decision |
+| `queueReason` | why it was queued, through `redactPii` |
+| `inputRedacted`, `output` | the audit copy of the input (already redacted when logged) and the model output, both re-run through `redactDeep` (the redaction used for decision logs) |
+
+Rules: shadow decisions are never exported; items whose input the 180-day retention job already purged are skipped; the date filter is on the day the label was applied (IST days in the UI, exclusive upper bound); one export is capped at 250,000 rows (narrow by date). Each export writes an `ai.labels.export` audit row with the filters when it starts and an `ai.labels.export.completed` row with the row count (or `.failed`). CSV cells are neutralised against spreadsheet formula injection (`neutraliseFormula`); JSONL is exact because a trainer must see the real strings and nobody opens it in a spreadsheet. Treat the file as internal training data: it is redacted, not anonymised, so do not publish it or send it to a vendor without the same review as any other personal-data-adjacent dataset (ADR-010).
+
+Decisions: super_admin only (not `ops_moderator`) because the file leaves the console; role rather than staff id so labeller attribution cannot identify a person (but role mix is enough to weight labels, e.g. adjudicator vs moderator); label = queue outcome, and the model's own verdict stays in `output`, so a trainer can derive agreement or disagreement.
 
 ## Plan invariance
 

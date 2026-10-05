@@ -81,6 +81,8 @@ describe("secrets validator", () => {
     BLIND_INDEX_KEY: Buffer.from("0123456789abcdefghijklmnopqrstuvwxyz").toString("base64"),
     TURNSTILE_SECRET: "t",
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: "s",
+    ATTACHMENT_SCANNER: "clamav",
+    CLAMAV_HOST: "clamav.internal",
   });
   it("passes a good production config", () => {
     expect(validateSecrets("web", good()).errors).toEqual([]);

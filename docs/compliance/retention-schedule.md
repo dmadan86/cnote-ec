@@ -18,6 +18,8 @@ Windows are env-configurable (`RETENTION_<KEY>_DAYS`); the values below are the 
 | `wishlist.empty_lists_24m` | wishlist | Empty, non-default wishlists | 730 d | `EMPTY_WISHLISTS` | Storage limitation |
 | `identity.inactive_accounts_erasure` | compliance (via identity) | Buyer-side personal accounts with no sign-in or API-key use for the window: notice, then erasure (`erasePerson`). **Off unless `INACTIVITY_ERASURE_ENABLED=true`.** | 1095 d | `INACTIVE_ACCOUNTS` | DPDP Rules 2025 r.8 and Third Schedule (3 years for e-commerce entities above the user threshold) with a 48-hour prior notice; see below |
 | `compliance.nominee_requests_decided` | compliance | Rejected / completed nominee requests (encrypted requester name, contact, message) and revoked nominations | 1095 d | `NOMINEE_REQUESTS` | Storage limitation; 3 years for a challenge to the decision, pending counsel review |
+| `enquiry.attachments_after_close_365d` | enquiry | RFQ drawings/specs and quote attachments: bytes in the private bucket and the `enquiry_attachments` rows. Clock starts at the requirement's quote deadline (`expiresAt`), or for legacy rows without one, creation of a closed/rejected/unmatched requirement. Requirements that became an order keep theirs a further 730 d from the order (dispute limitation). | 365 d | `ENQUIRY_ATTACHMENTS` | Storage limitation; one year covers follow-up quotes and repeat orders |
+| `enquiry.attachment_quarantine_30d` | enquiry | Bytes of uploads the malware scanner flagged; the `attachment_quarantine` row (who, when, signature, no bytes) stays as the audit record | 30 d | `ATTACHMENT_QUARANTINE` | Storage limitation; kept only for security review |
 
 ## Deliberately never purged
 

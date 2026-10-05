@@ -229,6 +229,7 @@ export const worker: ModuleWorker = {
   ],
 };
 
+export { iterateOpsLabels, OPS_LABEL_MAX_ROWS, type OpsLabelFilters, type OpsLabelRow } from "./labels";
 export * from "./getters";
 export * from "./document";
 export * from "./inspection";
