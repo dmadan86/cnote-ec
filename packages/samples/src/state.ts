@@ -23,7 +23,7 @@ export const FINAL_STATUSES: SampleStatus[] = ["declined", "approved", "rejected
 export const isOpen = (s: SampleStatus) => OPEN_STATUSES.includes(s);
 export const canTransition = (from: SampleStatus, to: SampleStatus) => TRANSITIONS[from].includes(to);
 export function assertTransition(from: SampleStatus, to: SampleStatus): void {
-  if (!canTransition(from, to)) throw new DomainError("conflict", `A sample request that is ${from} cannot become ${to}.`, undefined, "samples.invalidTransition", { from, to });
+  if (!canTransition(from, to)) throw new DomainError("conflict", "That step is not available for a request in its current status.", undefined, "samples.invalidTransition");
 }
 
 /** Why a seller declines (structured, so decline rates are analysable; free text is optional). */

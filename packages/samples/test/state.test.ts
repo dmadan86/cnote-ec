@@ -20,7 +20,7 @@ describe("sample state machine", () => {
   });
 
   it("assertTransition throws a stable conflict", () => {
-    expect(() => assertTransition("approved", "rejected")).toThrowError(/cannot become/);
+    expect(() => assertTransition("approved", "rejected")).toThrowError(/not available for a request in its current status/);
     expect(() => assertTransition("requested", "accepted")).not.toThrow();
   });
 
