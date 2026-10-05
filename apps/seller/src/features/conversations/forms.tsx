@@ -6,6 +6,8 @@ import { Alert, Field, Input, Select, Textarea } from "@cnote/ui";
 import { UNITS } from "@/lib/constants";
 import { FormAlert, SubmitButton, fieldError } from "@/features/shell/form-bits";
 import { hasFileEntries, submitFormAsAction } from "@cnote/next-kit/upload-client";
+import { LineQuoteFields } from "./line-quote-fields";
+import type { EnquiryLineView } from "@cnote/enquiry";
 import { reportDealAction, sendMessageAction, sendQuoteAction, type ConvResult } from "./actions";
 
 export function MessageForm({ conversationId }: { conversationId: string }) {
@@ -27,7 +29,8 @@ export function MessageForm({ conversationId }: { conversationId: string }) {
   );
 }
 
-export function QuoteForm({ conversationId }: { conversationId: string }) {
+export function QuoteForm({ conversationId, lines }: { conversationId: string; lines?: EnquiryLineView[] }) {
+  const multi = (lines?.length ?? 0) > 1;
   const t = useTranslations("leads.conversation");
   const tr = useTranslations("rfqLead");
   // Quotes WITH attachments post to /api/quotes (server actions are capped at 2 MB app-wide); text-only quotes use the server action.
@@ -38,19 +41,24 @@ export function QuoteForm({ conversationId }: { conversationId: string }) {
   return (
     <form action={action} key={state?.ok ? "sent" : "draft"} className="space-y-4">
       <input type="hidden" name="conversationId" value={conversationId} />
+      {multi ? <LineQuoteFields lines={lines!} /> : null}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={t("price")} htmlFor="q-price" error={fieldError(state, "price")}>
-          <Input id="q-price" name="price" inputMode="decimal" required className="h-11" />
-        </Field>
-        <Field label={t("quantity")} htmlFor="q-qty" error={fieldError(state, "quantity")}>
-          <Input id="q-qty" name="quantity" inputMode="decimal" required className="h-11" />
-        </Field>
-        <Field label={t("unit")} htmlFor="q-unit" error={fieldError(state, "unit")}>
-          <Select id="q-unit" name="unit" defaultValue="pcs" className="h-11">{UNITS.map((u) => <option key={u}>{u}</option>)}</Select>
-        </Field>
-        <Field label={t("deliveryTime")} htmlFor="q-lead" error={fieldError(state, "leadTimeDays")}>
-          <Input id="q-lead" name="leadTimeDays" inputMode="numeric" className="h-11" />
-        </Field>
+        {multi ? null : (
+          <>
+            <Field label={t("price")} htmlFor="q-price" error={fieldError(state, "price")}>
+              <Input id="q-price" name="price" inputMode="decimal" required className="h-11" />
+            </Field>
+            <Field label={t("quantity")} htmlFor="q-qty" error={fieldError(state, "quantity")}>
+              <Input id="q-qty" name="quantity" inputMode="decimal" required className="h-11" />
+            </Field>
+            <Field label={t("unit")} htmlFor="q-unit" error={fieldError(state, "unit")}>
+              <Select id="q-unit" name="unit" defaultValue="pcs" className="h-11">{UNITS.map((u) => <option key={u}>{u}</option>)}</Select>
+            </Field>
+            <Field label={t("deliveryTime")} htmlFor="q-lead" error={fieldError(state, "leadTimeDays")}>
+              <Input id="q-lead" name="leadTimeDays" inputMode="numeric" className="h-11" />
+            </Field>
+          </>
+        )}
         <Field label={t("validUntil")} htmlFor="q-valid" error={fieldError(state, "validUntil")}>
           <Input id="q-valid" name="validUntil" type="date" className="h-11" />
         </Field>
