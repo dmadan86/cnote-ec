@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -162,11 +162,11 @@ describe("no hardcoding of the vertical outside the playbook data", () => {
     const root = join(__dirname, "../../..");
     const hits: string[] = [];
     const scan = (dir: string) => {
-      for (const name of readdirSync(dir)) {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const name = entry.name;
         if (name === "node_modules" || name === ".next" || name === "dist") continue;
         const p = join(dir, name);
-        const st = statSync(p);
-        if (st.isDirectory()) { scan(p); continue; }
+        if (entry.isDirectory()) { scan(p); continue; }
         if (!/\.(ts|tsx)$/.test(name)) continue;
         if (p.includes("/packages/verticals/src/playbook/") || p.includes("/test/") || p.includes(".test.")) continue;
         const text = readFileSync(p, "utf8");
