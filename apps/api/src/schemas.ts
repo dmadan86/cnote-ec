@@ -297,3 +297,81 @@ export const Me = z
     })),
   })
   .openapi("Me");
+
+// --- samples (docs/design/samples.md) ---
+const SampleStatusEnum = z.enum(["requested", "accepted", "declined", "dispatched", "delivered", "approved", "rejected", "expired", "cancelled"])
+  .openapi({ description: "requested -> accepted | declined | expired | cancelled; accepted -> dispatched; dispatched -> delivered; delivered -> approved | rejected." });
+const DeclineReasonEnum = z.enum(["out_of_stock", "not_offered", "buyer_tier", "region_not_served", "quantity_too_high", "other"]);
+const RejectReasonEnum = z.enum(["quality_below_spec", "dimensions_off", "material_mismatch", "finish_defect", "colour_mismatch", "packaging_damaged", "not_as_described", "other"]);
+const ShipTo = z.object({
+  name: z.string().min(2).max(100), phone: z.string().nullish(), line1: z.string().min(3).max(160), line2: z.string().max(160).nullish(),
+  city: z.string().min(2).max(80), pincode: z.string().openapi({ example: "560001" }),
+});
+export const SampleRequestCreate = z
+  .object({
+    listingId: z.string().openapi({ format: "uuid", description: "Product page request. Give exactly one of listingId / conversationId." }).optional(),
+    conversationId: z.string().openapi({ format: "uuid", description: "Matched conversation request (buyer side)." }).optional(),
+    quoteId: z.string().openapi({ format: "uuid" }).nullish(),
+    quantity: z.number().int().min(1),
+    note: z.string().max(1000).nullish(),
+    language: z.string().default("en"),
+    shipTo: ShipTo,
+  })
+  .openapi("SampleRequestCreate", { example: { listingId: "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10", quantity: 3, shipTo: { name: "Asha Rao", phone: "9876543210", line1: "12 MG Road", city: "Bengaluru", pincode: "560001" } } });
+export const SampleAccept = z.object({
+  amountPaise: z.number().int().min(0).nullish().openapi({ description: "What the buyer pays for the sample (recorded only; settled off-platform). Defaults to the listing's sample price." }),
+  adjustableAgainstBulk: z.boolean().default(false), paymentNote: z.string().max(500).nullish(),
+}).openapi("SampleAccept");
+export const SampleDecline = z.object({ reason: DeclineReasonEnum, note: z.string().max(500).nullish() }).openapi("SampleDecline");
+export const SampleDispatch = z.object({ courier: z.string().min(2).max(60), trackingRef: z.string().max(80).nullish() }).openapi("SampleDispatch");
+export const SamplePayment = z.object({ note: z.string().max(500).nullish() }).openapi("SamplePayment");
+export const SampleEvaluate = z
+  .object({
+    approved: z.boolean(), reasons: z.array(RejectReasonEnum).default([]).openapi({ description: "Required (at least one) when approved is false." }), notes: z.string().max(2000).nullish(),
+  })
+  .openapi("SampleEvaluate", { description: "Evaluation photos are uploaded from the web app; the API records the verdict, reasons and notes." });
+export const SampleBulkLink = z.object({ enquiryId: z.string().openapi({ format: "uuid" }) }).openapi("SampleBulkLink");
+export const SampleListQuery = z.object({
+  role: z.enum(["buyer", "seller"]).default("buyer").openapi({ description: "Which side of the sample requests to list." }),
+  filter: z.enum(["open", "done"]).optional(),
+  ...pageQuery,
+});
+export const Sample = z
+  .object({
+    id: uuid(), role: z.enum(["buyer", "seller"]), status: SampleStatusEnum, subject: z.string(), listingId: z.string().nullable(), enquiryId: z.string().nullable(),
+    matchId: z.string().nullable(), quoteId: z.string().nullable(), quantity: z.number().int(), unit: z.string().nullable(), buyerNote: z.string().nullable(),
+    buyer: z.object({ businessId: uuid(), name: z.string(), verificationTier: z.number().int() }),
+    seller: z.object({ businessId: uuid(), name: z.string() }),
+    shipTo: ShipTo.nullable().openapi({ description: "Hidden from the seller until the request is accepted." }),
+    payment: z.object({ amountPaise: z.number().int(), adjustableAgainstBulk: z.boolean(), note: z.string().nullable(), receivedAt: z.string().nullable(), free: z.boolean() }),
+    currency: Currency,
+    respondBy: z.string(), overdue: z.boolean(), respondedAt: z.string().nullable(), declineReason: DeclineReasonEnum.nullable(), declineNote: z.string().nullable(),
+    expectedDispatchBy: z.string().nullable(), courier: z.string().nullable(), trackingRef: z.string().nullable(), dispatchedAt: z.string().nullable(),
+    deliveredAt: z.string().nullable(), deliveredBy: z.enum(["buyer", "seller"]).nullable(),
+    evaluation: z.object({ approved: z.boolean(), reasons: z.array(RejectReasonEnum), notes: z.string().nullable(), photos: z.array(z.object({ id: uuid() })), at: z.string() }).nullable(),
+    bulkEnquiryId: z.string().nullable(), createdAt: z.string(),
+    timeline: z.array(z.object({ status: SampleStatusEnum, actor: z.enum(["buyer", "seller", "system"]), note: z.string().nullable(), at: z.string() })),
+    can: z.object({
+      cancel: z.boolean(), respond: z.boolean(), dispatch: z.boolean(), markDelivered: z.boolean(), recordPayment: z.boolean(), evaluate: z.boolean(), requestBulk: z.boolean(), acceptLinkedQuote: z.boolean(),
+    }),
+  })
+  .openapi("Sample");
+export const SampleSummary = z
+  .object({
+    id: uuid(), role: z.enum(["buyer", "seller"]), status: SampleStatusEnum, subject: z.string(), quantity: z.number().int(), unit: z.string().nullable(),
+    counterparty: z.object({ businessId: uuid(), name: z.string() }), respondBy: z.string(), overdue: z.boolean(), createdAt: z.string(), needsMyAction: z.boolean(),
+  })
+  .openapi("SampleSummary");
+export const SampleBulkPrefill = z
+  .object({
+    sampleId: uuid(), subject: z.string(), sellerBusinessId: uuid(), sellerName: z.string(), listingId: z.string().nullable(), categorySlug: z.string().nullable(),
+    quantityUnit: z.string().nullable(), quoteId: z.string().nullable(), requirementNote: z.string(),
+  })
+  .openapi("SampleBulkPrefill");
+export const SellerSampleStats = z
+  .object({
+    sellerBusinessId: uuid(), evaluated: z.number().int(), approved: z.number().int(),
+    approvalRate: z.number().nullable().openapi({ description: "approved / evaluated; null until at least 5 samples were evaluated." }),
+    expired: z.number().int(), responded: z.number().int(),
+  })
+  .openapi("SellerSampleStats");

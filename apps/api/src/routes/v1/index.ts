@@ -4,6 +4,7 @@ import { buyerRoutes } from "./buyer";
 import { bulkRoutes } from "./bulk";
 import { catalogueRoutes } from "./catalogue";
 import { engagementRoutes } from "./engagement";
+import { sampleRoutes } from "./samples";
 import { sellerRoutes } from "./seller";
 
 export const v1 = router();
@@ -13,3 +14,4 @@ v1.route("/", bulkRoutes);
 v1.route("/", buyerRoutes);
 v1.route("/", engagementRoutes);
 v1.route("/", agentRoutes);
+v1.route("/", sampleRoutes);

@@ -212,3 +212,59 @@ export const bulkCancel = (p: P, id: string) => bulk.cancelJob(actor(p), id);
 export const bulkExport = (p: P, o: { format: "xlsx" | "csv"; includeImages: boolean }) => bulk.createExportJob(actor(p), o);
 export const bulkDownload = (p: P, id: string, which: "result" | "errors" | "source") => bulk.getDownload(actor(p), id, which, { preferSignedUrl: true });
 export const bulkAssertSeller = (p: P) => void actor(p);
+
+// --- samples (docs/design/samples.md) ---
+// @cnote/samples is imported lazily: the API boots without loading it, and while SAMPLES_ENABLED is off every sample route answers 404
+// (like the ONDC endpoints) instead of advertising a feature that is not live.
+async function samplesModule() {
+  const s = await import("@cnote/samples");
+  if (!s.samplesEnabled()) throw new DomainError("not_found", "Not found");
+  return s;
+}
+type SampleViewT = import("@cnote/samples").SampleView;
+const sampleOut = (v: SampleViewT) => ({ ...v, currency: CURRENCY });
+
+export async function requestSampleOp(p: P, input: import("@cnote/samples").RequestSampleInput) {
+  const s = await samplesModule();
+  return sampleOut(await s.requestSample(actor(p), input));
+}
+export async function listSamplesOp(p: P, role: "buyer" | "seller", filter: "open" | "done" | undefined, cursor: string | undefined, limit: number) {
+  const s = await samplesModule();
+  const a = actor(p);
+  const all = role === "buyer" ? await s.listBuyerSamples(a, { filter, limit: 200 }) : await s.listSellerSamples(a, { filter, limit: 200 });
+  return paginate(all, cursor, limit);
+}
+export async function getSampleOp(p: P, id: string) {
+  const s = await samplesModule();
+  const v = await s.getSample(actor(p), id);
+  if (!v) throw new DomainError("not_found", "Sample request not found");
+  return sampleOut(v);
+}
+export type SampleActionName = "cancel" | "accept" | "decline" | "dispatch" | "delivered" | "payment" | "evaluate" | "acceptQuote" | "link";
+export async function sampleAction(p: P, action: SampleActionName, id: string, input?: unknown) {
+  const s = await samplesModule();
+  const a = actor(p);
+  const i = (input ?? {}) as never;
+  const run: Record<SampleActionName, () => Promise<SampleViewT>> = {
+    cancel: () => s.cancelSample(a, id),
+    accept: () => s.acceptSample(a, id, i),
+    decline: () => s.declineSample(a, id, i),
+    dispatch: () => s.dispatchSample(a, id, i),
+    delivered: () => s.markSampleDelivered(a, id),
+    payment: () => s.recordSamplePayment(a, id, (input as { note?: string | null } | undefined)?.note),
+    evaluate: () => s.evaluateSample(a, id, i),
+    acceptQuote: () => s.acceptLinkedQuote(a, id),
+    link: () => s.linkBulkEnquiry(a, id, (input as { enquiryId: string }).enquiryId),
+  };
+  return sampleOut(await run[action]());
+}
+export async function sampleBulkPrefillOp(p: P, id: string) {
+  const s = await samplesModule();
+  return s.getBulkPrefill(actor(p), id);
+}
+export async function sellerSampleStatsOp(sellerBusinessId: string) {
+  const s = await samplesModule();
+  const st = (await s.getSellerSampleStats([sellerBusinessId])).get(sellerBusinessId);
+  if (!st) throw new DomainError("not_found", "Seller not found");
+  return st;
+}

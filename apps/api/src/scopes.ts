@@ -20,4 +20,6 @@ export const SCOPE_DOCS: Record<Scope, string> = {
   "reviews:read": "Read approved reviews.",
   "reviews:write": "Submit reviews (held for moderation).",
   "billing:read": "Read your lead-credit balance (seller).",
+  "samples:read": "Read sample requests you made (buyer) or received (seller).",
+  "samples:write": "Request, cancel, answer, dispatch and evaluate samples, request a bulk quote from an approved sample.",
 };

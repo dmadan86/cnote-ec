@@ -301,6 +301,9 @@ importers:
       '@cnote/reviews':
         specifier: workspace:*
         version: link:../../packages/reviews
+      '@cnote/samples':
+        specifier: workspace:*
+        version: link:../../packages/samples
       '@cnote/search':
         specifier: workspace:*
         version: link:../../packages/search
@@ -838,6 +841,9 @@ importers:
       '@cnote/reviews':
         specifier: workspace:*
         version: link:../../packages/reviews
+      '@cnote/samples':
+        specifier: workspace:*
+        version: link:../../packages/samples
       '@cnote/search':
         specifier: workspace:*
         version: link:../../packages/search
@@ -1099,6 +1105,9 @@ importers:
       '@cnote/reviews':
         specifier: workspace:*
         version: link:../reviews
+      '@cnote/samples':
+        specifier: workspace:*
+        version: link:../samples
       '@cnote/storefront':
         specifier: workspace:*
         version: link:../storefront
