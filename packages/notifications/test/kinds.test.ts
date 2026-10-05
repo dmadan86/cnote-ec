@@ -7,6 +7,7 @@ vi.mock("@cnote/templates", () => ({ defineTemplates: (d: unknown) => { h.define
 vi.mock("@cnote/email", () => ({ sendEmail: async () => "id" }));
 vi.mock("@cnote/identity", () => ({ BADGE_THRESHOLD: 40, getConsents: async () => ({ marketing: false }) }));
 
+import { CONTRACT_KINDS } from "../src/kinds-contracts";
 import { PAYABLE_KINDS } from "../src/kinds-payables";
 import { PHASE23_KINDS } from "../src/kinds-phase23";
 import { KINDS, getKind, kindsFor, observedEvents, registerNotificationTemplates, templateDefinitions } from "../src/kinds";
@@ -98,7 +99,7 @@ describe("kinds registry", () => {
   });
   it("every kind is exercised by the mapping table", () => {
     const covered = new Set(TABLE.map((r) => r.key));
-    const phase23 = new Set([...PHASE23_KINDS, ...PAYABLE_KINDS].map((k) => k.key)); // covered in kinds-phase23.test.ts / kinds-payables.test.ts
+    const phase23 = new Set([...PHASE23_KINDS, ...PAYABLE_KINDS, ...CONTRACT_KINDS].map((k) => k.key)); // covered in kinds-phase23.test.ts / kinds-payables.test.ts
     for (const k of KINDS) if (!phase23.has(k.key) && k.category !== "alerts") expect(covered, k.key).toContain(k.key); // alerts: kinds-alerts.db.test.ts
   });
   it("observedEvents/kindsFor are consistent; several kinds may share an event", () => {

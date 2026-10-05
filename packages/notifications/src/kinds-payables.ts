@@ -18,7 +18,7 @@ export function niceDate(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 }
 
-interface Spec<E extends DomainEventType> {
+export interface Spec<E extends DomainEventType> {
   key: string;
   name: string;
   description: string;
@@ -33,7 +33,7 @@ interface Spec<E extends DomainEventType> {
   resolve: NotificationKind<E>["resolve"];
 }
 
-function mk<E extends DomainEventType>(s: Spec<E>): NotificationKind {
+export function mk<E extends DomainEventType>(s: Spec<E>): NotificationKind {
   const email = (greeting: string, body: string, cta: string) => `${greeting} {{recipientName}},\n\n${body}\n\n${cta}: {{href}}`;
   return kind<E>({
     key: s.key,
