@@ -41,6 +41,11 @@ export interface IntentInput {
   buyerPriorResponded: number;
   /** cosine similarity to the buyer's most similar enquiry in the last 7 days, if any */
   nearDuplicateSimilarity?: number | null;
+  /**
+   * Device/behaviour fake-lead risk computed server-side at enquiry creation (ADR-002; enquiry/risk.ts). Applied by scoreIntent()
+   * AFTER the provider answers, for every provider, so no prompt text changes: a riskier enquiry scores lower and says why.
+   */
+  fakeLeadRisk?: { score: number; reasons: string[] } | null;
 }
 export interface IntentOutput {
   score: number; // 0–100
@@ -111,8 +116,23 @@ export interface ModerateOutput {
   deterministic?: "clean" | "review" | "block";
 }
 
+/** Max points a maximal fake-lead risk (100) removes from the intent score. */
+export const FAKE_LEAD_RISK_MAX_PENALTY = 40;
+const withFakeLeadRisk = (r: ProviderResult<IntentOutput>, risk: IntentInput["fakeLeadRisk"]): ProviderResult<IntentOutput> => {
+  if (!risk || risk.score <= 0) return r;
+  const penalty = Math.round((Math.min(100, risk.score) / 100) * FAKE_LEAD_RISK_MAX_PENALTY);
+  if (penalty === 0) return r;
+  const why = risk.reasons.slice(0, 2).join("; ");
+  return { ...r, output: { score: Math.max(0, r.output.score - penalty), reasons: [`Fake-lead risk signals (-${penalty})${why ? `: ${why}` : ""}`, ...r.output.reasons].slice(0, 8) } };
+};
+
 export async function scoreIntent(input: IntentInput, subject: Subject): Promise<AiResult<IntentOutput>> {
-  return runLogged("intent", subject, redactDeep(input), () => getProviders().intent.score(input), undefined, undefined, (p) => p.intent.score(input));
+  return runLogged(
+    "intent", subject, redactDeep(input),
+    async () => withFakeLeadRisk(await getProviders().intent.score(input), input.fakeLeadRisk),
+    undefined, undefined,
+    async (p) => withFakeLeadRisk(await p.intent.score(input), input.fakeLeadRisk),
+  );
 }
 
 /** Embeddings in the platform vector space (EMBEDDING_DIM from @cnote/db). Not logged as decisions. */

@@ -180,6 +180,8 @@ export interface DomainEventPayloads {
   // trust_verif: T3 partner submitted checklist + photos for staff review (ADR-003)
   AuditSubmitted: { auditId: string; businessId: string; partner: string; photoCount: number; flagged: boolean };
   // buyer reachability (ADR-002)
+  // trust_verif: an ops label on an enquiry (fake-lead precision/recall, ADR-002)
+  EnquiryLabelled: { enquiryId: string; label: string; isFake: boolean; predictedFake: boolean; riskScore: number; intentScore: number | null };
   ReachabilityChecked: { checkId: string; enquiryId: string; matchId: string | null; channel: string; status: "responded" | "no_response" | "failed"; sellerBusinessId?: string };
   // billing
   CreditsGranted: { businessId: string; amount: number; reason: string; expiresAt: string };
@@ -328,6 +330,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   OndcCatalogPublished: 1,
   OndcOrderReceived: 1,
   ReachabilityChecked: 1,
+  EnquiryLabelled: 1,
   CreditsGranted: 1,
   CreditConsumed: 1,
   CreditRefunded: 1,

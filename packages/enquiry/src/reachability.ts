@@ -1,12 +1,15 @@
 // Buyer reachability verification (ADR-002): before an "unreachable" auto-refund is granted we ping the buyer
 // (WhatsApp utility template with a one-tap reply, falling back to SMS with a short link). A response keeps the
 // credit with the seller's lead; silence for 24h, or any delivery failure on our side, returns the credit.
-import { emit, getJobQueue } from "@cnote/core";
+import { DomainError, emit, getJobQueue } from "@cnote/core";
 import { prisma, type Match } from "@cnote/db";
 import * as identity from "@cnote/identity";
 import { randomBytes } from "node:crypto";
 import { refundMatch } from "./leads";
-import { lockRow } from "./support";
+import { getReachabilityProvider, type CallOutcome } from "./reachability-provider";
+import { lockRow, REFUND_WINDOW_MS } from "./support";
+
+export * from "./reachability-provider";
 
 export type ReachabilityReason = "seller_reported_unreachable" | "low_intent_intake";
 export type ReachabilityChannel = "whatsapp" | "sms" | "ivr";
@@ -68,9 +71,10 @@ export async function createCheck(
   enquiryId: string,
   matchId: string | null,
   now = new Date(),
+  trigger: "seller_report" | "proactive" = "seller_report",
 ): Promise<string> {
   const row = await db.reachabilityCheck.create({
-    data: { enquiryId, matchId, channel: "pending", status: "sent", token: newToken(), expiresAt: new Date(now.getTime() + REACHABILITY_TTL_MS) },
+    data: { enquiryId, matchId, channel: "pending", status: "sent", token: newToken(), expiresAt: new Date(now.getTime() + REACHABILITY_TTL_MS), trigger },
   });
   return row.id;
 }
@@ -95,10 +99,38 @@ async function markFailed(checkId: string, channel: string): Promise<boolean> {
   });
 }
 
+const callbackBase = () => (process.env.REACHABILITY_CALLBACK_BASE_URL ?? process.env.API_URL ?? appUrl()).replace(/\/+$/, "");
+
+/**
+ * First attempt by IVR when a telephony provider is configured: "press 1 to confirm". Returns true when the call was placed.
+ * Any problem (no provider, no phone, vendor error) returns false and the confirm link goes out instead: the buyer is never
+ * left unasked because telephony is down.
+ */
+async function tryPlaceCall(check: { id: string; enquiryId: string; token: string }): Promise<boolean> {
+  try {
+    const provider = getReachabilityProvider();
+    if (!provider) return false;
+    const enq = await prisma.enquiry.findUnique({ where: { id: check.enquiryId }, select: { title: true, buyerPersonId: true, language: true } });
+    const contact = enq && (await identity.getPersonContact(enq.buyerPersonId, { self: true }));
+    if (!enq || !contact?.phone) return false;
+    const secret = process.env.REACHABILITY_WEBHOOK_SECRET;
+    const { providerRef } = await provider.place({
+      checkId: check.id, phone: contact.phone, token: check.token, language: enq.language, enquiryTitle: enq.title,
+      callbackUrl: `${callbackBase()}/webhooks/reachability${secret ? `?secret=${encodeURIComponent(secret)}` : ""}`,
+    });
+    await prisma.reachabilityCheck.updateMany({ where: { id: check.id, status: "sent" }, data: { channel: "ivr", providerRef } });
+    return true;
+  } catch (err) {
+    console.warn("[enquiry] reachability call not placed, falling back to link", check.id, (err as Error).message);
+    return false;
+  }
+}
+
 /** Sends the buyer ping for an existing check. Never throws; a delivery problem marks the check failed. Returns final status. */
 export async function dispatchCheck(checkId: string): Promise<"sent" | "failed"> {
   const check = await prisma.reachabilityCheck.findUnique({ where: { id: checkId } });
   if (!check || check.status !== "sent") return check?.status === "failed" ? "failed" : "sent";
+  if (check.attempt === 1 && (await tryPlaceCall(check))) return "sent";
   try {
     if (!notifier) throw new Error("no reachability notifier registered");
     const enq = await prisma.enquiry.findUnique({ where: { id: check.enquiryId }, select: { title: true, buyerPersonId: true, language: true } });
@@ -206,6 +238,88 @@ export async function resolveReachabilityCheck(checkId: string, now = new Date()
   return (await refundHeld(fresh.matchId)) ? "refunded" : "none";
 }
 
+// ---------------- automatic check after the enquiry (ADR-002) ----------------
+export type ProactiveMode = "off" | "low_intent" | "all";
+/** REACHABILITY_PROACTIVE = off | low_intent (default) | all. IVR calls cost money, so by default only doubtful enquiries are checked. */
+export function proactiveMode(env: Record<string, string | undefined> = process.env): ProactiveMode {
+  const v = env.REACHABILITY_PROACTIVE?.trim().toLowerCase();
+  return v === "off" || v === "all" ? v : "low_intent";
+}
+export const PROACTIVE_INTENT_BELOW = () => Number(process.env.REACHABILITY_PROACTIVE_INTENT_BELOW) || 60;
+export const PROACTIVE_RISK_AT = 40;
+/** At most this many automatic checks per buyer per 24h: the call/WhatsApp budget cannot be drained by one account. */
+export const PROACTIVE_PER_BUYER_24H = 3;
+
+/**
+ * After an enquiry is created: asks the buyer "do you still need this?" (IVR press-1, else WhatsApp/SMS link) when the
+ * enquiry looks doubtful. No answer inside the window ends as `no_response`, and accepted leads on the enquiry are then
+ * refunded inside their 72h window (sweepProactiveNoResponse), with no support ticket. Idempotent per enquiry.
+ */
+export async function startProactiveReachability(enquiryId: string, s: { intentScore: number | null; riskScore: number }): Promise<{ checkId: string } | null> {
+  const mode = proactiveMode();
+  if (!reachabilityEnabled() || mode === "off") return null;
+  const doubtful = (s.intentScore !== null && s.intentScore < PROACTIVE_INTENT_BELOW()) || s.riskScore >= PROACTIVE_RISK_AT;
+  if (mode === "low_intent" && !doubtful) return null;
+  const enq = await prisma.enquiry.findUnique({ where: { id: enquiryId }, select: { buyerPersonId: true } });
+  if (!enq) return null;
+  if (await prisma.reachabilityCheck.findFirst({ where: { enquiryId, trigger: "proactive" }, select: { id: true } })) return null;
+  const since = new Date(Date.now() - 86_400_000);
+  if ((await prisma.reachabilityCheck.count({ where: { trigger: "proactive", createdAt: { gte: since }, enquiryId: { in: (await prisma.enquiry.findMany({ where: { buyerPersonId: enq.buyerPersonId, createdAt: { gte: since } }, select: { id: true } })).map((e) => e.id) } } })) >= PROACTIVE_PER_BUYER_24H) return null;
+  const checkId = await createCheck(prisma, enquiryId, null, new Date(), "proactive");
+  await enqueueDispatch(checkId);
+  return { checkId };
+}
+
+/** Marks a live check no_response (buyer pressed "not me" or the window closed) and emits once. */
+async function markNoResponse(checkId: string): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    const c = await tx.reachabilityCheck.findUnique({ where: { id: checkId } });
+    if (!c) return false;
+    const { count } = await tx.reachabilityCheck.updateMany({ where: { id: checkId, status: "sent" }, data: { status: "no_response" } });
+    if (count === 0) return false;
+    const sellerBusinessId = await sellerOf(c.matchId);
+    await emit(tx, "ReachabilityChecked", { type: "enquiry", id: c.enquiryId }, {
+      checkId, enquiryId: c.enquiryId, matchId: c.matchId, channel: c.channel, status: "no_response", ...(sellerBusinessId ? { sellerBusinessId } : {}),
+    });
+    return true;
+  });
+}
+
+/**
+ * Telephony status callback (apps/api POST|GET /webhooks/reachability). Authenticity is checked by the provider adapter
+ * (shared secret / HMAC); the body only names the call and the digit pressed, never trusted beyond that.
+ *  confirmed -> same as the link tap; denied ("not me") -> no_response; unanswered/busy/failed -> the link goes out as attempt 2.
+ */
+export async function handleReachabilityCallback(rawBody: string, headers: Record<string, string | undefined>, query: URLSearchParams): Promise<{ checkId: string | null; outcome: CallOutcome | "unknown_reference" }> {
+  const provider = getReachabilityProvider();
+  if (!provider) throw new DomainError("not_found", "Reachability telephony is not enabled");
+  const { providerRef, outcome } = provider.parseCallback(rawBody, headers, query);
+  const check = await prisma.reachabilityCheck.findUnique({ where: { providerRef } });
+  if (!check) return { checkId: null, outcome: "unknown_reference" }; // ack so the vendor stops retrying
+  if (outcome === "confirmed") await recordReachabilityResponse(check.token);
+  else if (outcome === "denied") await markNoResponse(check.id);
+  else {
+    const { count } = await prisma.reachabilityCheck.updateMany({ where: { id: check.id, status: "sent", attempt: 1 }, data: { attempt: 2, channel: "pending" } });
+    if (count) await enqueueDispatch(check.id);
+  }
+  return { checkId: check.id, outcome };
+}
+
+/**
+ * Proactive checks that ended without an answer refund the enquiry's accepted leads that are still inside their 72h window.
+ * Runs from the sweep so it also covers a seller who accepts AFTER the check closed. Delivery failures on OUR side never refund
+ * here (the buyer was not shown to be unreachable); the seller-report path keeps its older rule.
+ */
+export async function sweepProactiveNoResponse(now = new Date()): Promise<number> {
+  const checks = await prisma.reachabilityCheck.findMany({ where: { trigger: "proactive", status: "no_response", matchId: null, createdAt: { gte: new Date(now.getTime() - 14 * 86_400_000) } }, orderBy: { createdAt: "desc" }, take: 200 });
+  let n = 0;
+  for (const c of checks) {
+    const matches = await prisma.match.findMany({ where: { enquiryId: c.enquiryId, status: "accepted", respondedAt: { gte: new Date(now.getTime() - REFUND_WINDOW_MS) } }, select: { id: true } });
+    for (const m of matches) if (await refundHeld(m.id)) n++;
+  }
+  return n;
+}
+
 /** Job (every 10 min): resolves expired and failed checks. Safe under concurrent runs. Returns number refunded. */
 export async function resolveReachabilityChecks(now = new Date()): Promise<number> {
   const expired = await prisma.reachabilityCheck.findMany({ where: { status: "sent", expiresAt: { lte: now } }, orderBy: { expiresAt: "asc" }, take: 200 });
@@ -214,6 +328,7 @@ export async function resolveReachabilityChecks(now = new Date()): Promise<numbe
   const due = [...expired, ...failed.filter((c) => open.has(c.matchId!))];
   let n = 0;
   for (const c of due) if ((await resolveReachabilityCheck(c.id, now).catch((e) => (console.error("[enquiry] reachability resolve failed", c.id, e), "none"))) === "refunded") n++;
+  n += await sweepProactiveNoResponse(now).catch((e) => (console.error("[enquiry] proactive sweep failed", e), 0));
   return n;
 }
 
