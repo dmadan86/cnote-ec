@@ -3,6 +3,7 @@ import { DomainError } from "@cnote/core";
 import { prisma, type Quote } from "@cnote/db";
 import { z } from "zod";
 import type { AttachmentView } from "./attachments";
+import { quoteLinesByQuote, type QuoteLineView } from "./lines";
 import { categoryById } from "./support";
 import type { Actor } from "./types";
 
@@ -60,6 +61,10 @@ export interface QuoteView {
   attachments?: AttachmentView[];
   /** Buyer's shortlist flag (comparison view only; never shown to the seller). */
   shortlisted?: boolean;
+  /** Per-line quote totals, server-computed (null on single-field quotes). `pricePaise`/`quantity` then mirror the first priced line. */
+  lineTotals: { subtotalPaise: number; gstPaise: number; totalPaise: number; quotedLineCount: number } | null;
+  /** Per-line prices (only where the view loads them: conversation, quote detail, comparison). */
+  lines?: QuoteLineView[];
 }
 
 const asDelivery = (v: string | null) => ((DELIVERY_TERMS as readonly string[]).includes(v ?? "") ? (v as DeliveryTerms) : v ? "other" : null);
@@ -83,7 +88,16 @@ export function toQuoteView(q: Quote): QuoteView {
     paymentTerms: asPayment(q.paymentTerms),
     paymentNote: q.paymentNote,
     gstIncluded: q.gstIncluded,
+    lineTotals: q.lineTotalPaise == null
+      ? null
+      : { subtotalPaise: Number(q.lineSubtotalPaise ?? 0), gstPaise: Number(q.lineGstPaise ?? 0), totalPaise: Number(q.lineTotalPaise), quotedLineCount: q.quotedLineCount ?? 0 },
   };
+}
+
+/** Same as toQuoteView for many quotes, with their per-line prices attached. */
+export async function toQuoteViewsWithLines(quotes: Quote[]): Promise<QuoteView[]> {
+  const lines = await quoteLinesByQuote(quotes.filter((q) => q.lineTotalPaise != null).map((q) => q.id));
+  return quotes.map((q) => ({ ...toQuoteView(q), ...(lines.has(q.id) ? { lines: lines.get(q.id) } : {}) }));
 }
 
 export interface QuoteDetail extends QuoteView {
@@ -105,8 +119,9 @@ export async function getQuote(actor: Actor, quoteId: string): Promise<QuoteDeta
   const buyerBusinessId = match.enquiry.buyerBusinessId;
   const role = actor.businessId === buyerBusinessId ? "buyer" : actor.businessId === match.sellerBusinessId ? "seller" : null;
   if (!role) return null;
+  const [view] = await toQuoteViewsWithLines([q]);
   return {
-    ...toQuoteView(q),
+    ...view!,
     conversationId: q.conversationId,
     matchId: match.id,
     enquiryId: match.enquiryId,

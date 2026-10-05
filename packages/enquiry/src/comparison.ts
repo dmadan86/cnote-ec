@@ -3,7 +3,9 @@ import { DomainError } from "@cnote/core";
 import { prisma } from "@cnote/db";
 import { quoteAttachments, type AttachmentView } from "./attachments";
 import { reportDeal } from "./messaging";
-import { getQuote, toQuoteView, type QuoteView } from "./quotes";
+import { awardLines } from "./awards";
+import { linesByEnquiry, lowestPerLine, type EnquiryLineView } from "./lines";
+import { getQuote, toQuoteViewsWithLines, type QuoteView } from "./quotes";
 import { profiles } from "./support";
 import type { Actor, EnquiryView } from "./types";
 
@@ -41,8 +43,10 @@ export interface ComparisonRow {
   quote: QuoteView & { attachments: AttachmentView[]; shortlisted: boolean };
   /** unit price x requested quantity (the quote's own quantity when the buyer gave none). Excludes delivery charge. */
   totalPaise: number;
-  /** Which quantity `totalPaise` was computed for. */
-  quantityBasis: "requested" | "quoted";
+  /** Which quantity `totalPaise` was computed for. "lines" = the sum of the supplier's per-line totals (GST per line), see `quote.lines`. */
+  quantityBasis: "requested" | "quoted" | "lines";
+  /** Per-line coverage of a multi-line quote: priced lines of the requirement's lines (null on single-field quotes). */
+  coverage: { quoted: number; of: number } | null;
   quantity: number;
   /** Latest off-platform deal report on this match: "won" = accepted, "lost" = declined. */
   decision: "won" | "lost" | "pending" | null;
@@ -60,6 +64,12 @@ export interface QuoteComparison {
   quotesFrom: number;
   expiresAt: string | null;
   rows: ComparisonRow[];
+  /** The requirement's lines (rows of the line-by-line matrix), always at least one. */
+  lines: EnquiryLineView[];
+  /** quoteIds with the lowest payable per requirement line (ties all listed); only lines someone priced appear. */
+  lowestByLine: Record<string, string[]>;
+  /** Lines already awarded, so the matrix can show who got what. */
+  awards: { enquiryLineId: string; quoteId: string; sellerBusinessId: string; orderId: string | null }[];
 }
 
 /** All quotes on one of the actor's requirements, latest per supplier, with trust signals. Null if not the buyer's. */
@@ -71,18 +81,25 @@ export async function getQuoteComparison(actor: Actor, enquiryId: string): Promi
   });
   if (!enq) return null;
   const withQuotes = enq.matches.filter((m) => (m.conversation?.quotes.length ?? 0) > 0);
-  const [profs, files] = await Promise.all([
+  const latestQuotes = withQuotes.map((m) => m.conversation!.quotes[m.conversation!.quotes.length - 1]!);
+  const [profs, files, quoteViews, lineMap, awardRows] = await Promise.all([
     profiles(withQuotes.map((m) => m.sellerBusinessId)),
     quoteAttachments(withQuotes.flatMap((m) => m.conversation!.quotes.map((q) => q.id))),
+    toQuoteViewsWithLines(latestQuotes),
+    linesByEnquiry([enquiryId]),
+    prisma.enquiryLineAward.findMany({ where: { enquiryId } }),
   ]);
+  const viewById = new Map(quoteViews.map((v) => [v.id, v]));
+  const lines = lineMap.get(enquiryId) ?? [];
   const rows: ComparisonRow[] = withQuotes
     .map((m) => {
       const quotes = m.conversation!.quotes;
       const latest = quotes[quotes.length - 1]!;
       const p = profs.get(m.sellerBusinessId);
-      const view = toQuoteView(latest);
+      const view = viewById.get(latest.id)!;
       const requested = enq.quantity ?? null;
       const quantity = requested ?? latest.quantity;
+      const lineTotals = view.lineTotals;
       return {
         matchId: m.id,
         conversationId: m.conversation!.id,
@@ -94,8 +111,9 @@ export async function getQuoteComparison(actor: Actor, enquiryId: string): Promi
         rank: m.rank,
         of: enq.sellerCap,
         quote: { ...view, attachments: files.get(latest.id) ?? [], shortlisted: latest.shortlistedAt !== null },
-        totalPaise: Number(latest.pricePaise) * quantity,
-        quantityBasis: requested === null ? ("quoted" as const) : ("requested" as const),
+        totalPaise: lineTotals ? lineTotals.totalPaise : Number(latest.pricePaise) * quantity,
+        quantityBasis: lineTotals ? ("lines" as const) : requested === null ? ("quoted" as const) : ("requested" as const),
+        coverage: lineTotals ? { quoted: lineTotals.quotedLineCount, of: lines.length } : null,
         quantity,
         // a seller-reported "won" is an unconfirmed claim, never the buyer's decision (security audit M7)
         decision: m.dealReports.find((r) => !(r.outcome === "won" && r.reportedByBusinessId === m.sellerBusinessId))?.outcome ?? null,
@@ -111,6 +129,11 @@ export async function getQuoteComparison(actor: Actor, enquiryId: string): Promi
     quotesFrom: rows.length,
     expiresAt: enq.expiresAt ? enq.expiresAt.toISOString() : null,
     rows,
+    lines,
+    lowestByLine: Object.fromEntries(
+      [...lowestPerLine(rows.map((r) => ({ quoteId: r.quote.id, lines: r.quote.lines ?? [] })), lines.map((l) => l.id))].filter(([, w]) => w.size > 0).map(([id, w]) => [id, [...w]]),
+    ),
+    awards: awardRows.map((a) => ({ enquiryLineId: a.enquiryLineId, quoteId: a.quoteId, sellerBusinessId: a.sellerBusinessId, orderId: a.orderId })),
   };
 }
 
@@ -131,6 +154,15 @@ export async function decideQuote(actor: Actor, quoteId: string, decision: "acce
   if (!q || q.role !== "buyer") throw new DomainError("not_found", "Quote not found");
   if (decision !== "accept" && decision !== "decline") throw new DomainError("validation", "Invalid decision");
   if (decision === "decline") { await reportDeal(actor, q.matchId, "lost"); return; }
+  if (q.lineTotals) {
+    // Per-line quote: accepting it awards every priced line of this quote that is still open (a partial quote awards only what it priced).
+    const open = (q.lines ?? []).filter((l) => !l.cantSupply && l.lineTotalPaise !== null);
+    const taken = new Set((await prisma.enquiryLineAward.findMany({ where: { enquiryId: q.enquiryId }, select: { enquiryLineId: true } })).map((a) => a.enquiryLineId));
+    const free = open.filter((l) => !taken.has(l.enquiryLineId));
+    if (free.length === 0) throw new DomainError("conflict", "Every line in this quote has already been awarded.");
+    await awardLines(actor, q.enquiryId, free.map((l) => ({ enquiryLineId: l.enquiryLineId, quoteId: q.id })));
+    return;
+  }
   const enq = await prisma.enquiry.findUnique({ where: { id: q.enquiryId }, select: { quantity: true } });
   await reportDeal(actor, q.matchId, "won", q.pricePaise * (enq?.quantity ?? q.quantity));
 }

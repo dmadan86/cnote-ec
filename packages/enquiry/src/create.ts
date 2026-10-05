@@ -5,6 +5,7 @@ import { prisma, toVectorLiteral } from "@cnote/db";
 import { randomUUID } from "node:crypto";
 import { checkAttachments, discardStored, MAX_RFQ_ATTACHMENTS, MAX_RFQ_ATTACHMENT_BYTES, storeAttachmentBytes } from "./attachments";
 import { getBuyerEnquiry } from "./buyer";
+import { deriveTitle, enquiryLinesSchema, linesDigest, type ParsedEnquiryLine } from "./lines";
 import { runMatching } from "./matching";
 import { enquiryInputSchema } from "./schemas";
 import { profiles } from "./support";
@@ -12,7 +13,20 @@ import type { Actor, CreateEnquiryContext, EnquiryInput, EnquiryView } from "./t
 
 /** Validates, moderates, embeds, scores intent, matches top-N sellers synchronously (< 2s). */
 export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: CreateEnquiryContext = {}): Promise<EnquiryView> {
-  const data = enquiryInputSchema.parse(input);
+  // Multi-line RFQ: with lines the RFQ title/description may be omitted (derived); line 1 mirrors the single quantity fields.
+  const parsedLines: ParsedEnquiryLine[] | null = input.lines?.length ? enquiryLinesSchema.parse(input.lines) : null;
+  if (input.lines && !input.lines.length) throw new DomainError("validation", "Add at least one line.");
+  const head = parsedLines?.[0];
+  const data = enquiryInputSchema.parse(parsedLines
+    ? {
+        ...input,
+        title: input.title?.trim() || deriveTitle(parsedLines),
+        requirement: input.requirement?.trim() || `Bill of materials with ${parsedLines.length} line item${parsedLines.length === 1 ? "" : "s"}.`,
+        quantity: head!.quantity,
+        quantityUnit: head!.unit,
+        targetPricePaise: head!.targetPricePaise ?? input.targetPricePaise ?? null,
+      }
+    : input);
   // Validate files up front (type by magic bytes, size, count) so a bad upload fails before any model call or write.
   const files = checkAttachments(input.attachments, MAX_RFQ_ATTACHMENTS, MAX_RFQ_ATTACHMENT_BYTES);
   // Security audit: a business-only key is bypassed by opening more businesses. Also limit per person and per client IP
@@ -30,8 +44,22 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
   if (data.categorySlug && !category) throw new DomainError("validation", "Unknown category", undefined, "ads.unknownCategory");
   if (category?.prohibited) throw new DomainError("validation", "This category is not allowed on the marketplace.");
 
+  // Resolve each line's category (config/data, never hardcoded); a prohibited category blocks the whole RFQ.
+  const slugCache = new Map<string, string | null>();
+  for (const l of parsedLines ?? []) {
+    if (!l.categorySlug || slugCache.has(l.categorySlug)) continue;
+    const c = await catalogue.getCategoryBySlug(l.categorySlug);
+    if (!c) throw new DomainError("validation", "Unknown category", undefined, "ads.unknownCategory");
+    if (c.prohibited) throw new DomainError("validation", "This category is not allowed on the marketplace.");
+    slugCache.set(l.categorySlug, c.id);
+  }
+  const lineRows = (parsedLines ?? [{ itemName: data.title.slice(0, 140), spec: data.requirement.slice(0, 2000), quantity: data.quantity ?? 1, unit: data.quantityUnit ?? "unit", targetPricePaise: data.targetPricePaise, categorySlug: null, hsn: null }])
+    .map((l, i) => ({ ordinal: i + 1, itemName: l.itemName, spec: l.spec, quantity: l.quantity, unit: l.unit, targetPricePaise: l.targetPricePaise, hsn: l.hsn, categoryId: l.categorySlug ? (slugCache.get(l.categorySlug) ?? null) : (i === 0 && !parsedLines ? (category?.id ?? null) : null) }));
+
   const id = randomUUID();
-  const text = `${data.title}\n${data.requirement}`;
+  // ADR-008: every line goes to the AI capabilities as ordinary requirement text (moderation, embedding, intent), so matching sees the whole BOM.
+  const digest = parsedLines ? linesDigest(parsedLines) : "";
+  const text = `${data.title}\n${data.requirement}${digest ? `\n${digest}` : ""}`;
   const [moderation, emb, buyerProfiles, priorEnquiries, priorResponded] = await Promise.all([
     ai.moderate({ text, categorySlug: category?.slug ?? null }, { type: "enquiry", id }),
     ai.embed([`${text}\n${category?.name ?? ""}`.trim()]),
@@ -56,7 +84,7 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
     const intent = await ai.scoreIntent(
       {
         title: data.title,
-        requirement: data.requirement,
+        requirement: digest ? `${data.requirement}\n${digest}` : data.requirement,
         quantity: data.quantity,
         quantityUnit: data.quantityUnit,
         targetPricePaise: data.targetPricePaise,
@@ -108,6 +136,9 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
         minSellerTier: data.minSellerTier,
       },
     });
+    await tx.enquiryLine.createMany({
+      data: lineRows.map((l) => ({ enquiryId: id, ordinal: l.ordinal, itemName: l.itemName, spec: l.spec, quantity: l.quantity, unit: l.unit, targetPricePaise: l.targetPricePaise === null ? null : BigInt(l.targetPricePaise), categoryId: l.categoryId, hsn: l.hsn })),
+    });
     if (stored.length) {
       await tx.enquiryAttachment.createMany({
         data: stored.map((s) => ({ id: s.id, enquiryId: id, uploadedByBusiness: actor.businessId, key: s.key, fileName: s.fileName, mimeType: s.mimeType, sizeBytes: s.sizeBytes, createdAt: s.createdAt })),
@@ -116,7 +147,7 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
     await tx.$executeRaw`UPDATE enquiries SET embedding = ${vec}::vector, embedding_version = ${emb.version} WHERE id = ${id}::uuid`;
     await emit(tx, "EnquiryCreated", { type: "enquiry", id }, {
       enquiryId: id, buyerBusinessId: actor.businessId, categoryId: category?.id ?? null,
-      attachmentCount: stored.length, minSellerTier: data.minSellerTier, expiresAt: expiresAt.toISOString(),
+      attachmentCount: stored.length, minSellerTier: data.minSellerTier, expiresAt: expiresAt.toISOString(), lineCount: lineRows.length,
     });
     if (intentScore !== null) await emit(tx, "EnquiryScored", { type: "enquiry", id }, { enquiryId: id, intentScore, needsReview: held });
   });

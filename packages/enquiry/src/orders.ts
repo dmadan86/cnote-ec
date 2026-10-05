@@ -172,6 +172,8 @@ export interface RecordOrderInput {
   pricePaise?: number | null;
   /** Explicit total (e.g. the value reported with a "won" deal); computed from price x quantity otherwise. */
   totalPaise?: number | null;
+  /** Per-line order (rfq-multiline): the quote's single price/quantity are not the order's, so quantity/unit/price stay null; the lines live in EnquiryLineAward. */
+  lineItems?: boolean;
 }
 
 /** Bigint-safe total: per-unit paise x whole units. */
@@ -211,9 +213,9 @@ export async function recordOrderTx(tx: Tx, matchId: string, input: RecordOrderI
     quote = await tx.quote.findFirst({ where: { conversationId: match.conversation.id }, orderBy: { createdAt: "desc" } });
   }
 
-  const quantity = input.quantity ?? quote?.quantity ?? null;
-  const unit = input.unit ?? quote?.unit ?? null;
-  const pricePaise = input.pricePaise != null ? BigInt(input.pricePaise) : (quote?.pricePaise ?? null);
+  const quantity = input.lineItems ? null : (input.quantity ?? quote?.quantity ?? null);
+  const unit = input.lineItems ? null : (input.unit ?? quote?.unit ?? null);
+  const pricePaise = input.lineItems ? null : input.pricePaise != null ? BigInt(input.pricePaise) : (quote?.pricePaise ?? null);
   const totalPaise = input.totalPaise != null ? BigInt(input.totalPaise) : computeTotalPaise(pricePaise, quantity);
 
   const order = await tx.order.create({

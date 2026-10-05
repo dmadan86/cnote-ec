@@ -170,7 +170,7 @@ describe("createEnquiry RFQ depth", () => {
     expect(sent).not.toMatch(/bracket drawing\.pdf|photo\.png|sketch\.jpg|rfq\//);
 
     const [ev] = await prisma.$queryRaw<{ version: number; payload: Record<string, unknown> }[]>`SELECT version, payload FROM domain_events WHERE type = 'EnquiryCreated' AND aggregate_id = ${e.id}`;
-    expect(ev!.version).toBe(2);
+    expect(ev!.version).toBe(3);
     expect(ev!.payload).toMatchObject({ enquiryId: e.id, attachmentCount: 3, minSellerTier: 2 });
     expect(JSON.stringify(ev!.payload)).not.toContain("drawing");
 

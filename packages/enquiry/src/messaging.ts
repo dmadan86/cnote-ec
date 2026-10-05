@@ -4,7 +4,8 @@ import { prisma, type Conversation, type Enquiry, type Match } from "@cnote/db";
 import { checkAttachments, discardStored, MAX_QUOTE_ATTACHMENTS, MAX_QUOTE_ATTACHMENT_BYTES, storeAttachmentBytes, type AttachmentUpload } from "./attachments";
 import { recordOrderTx } from "./orders";
 import { messageSchema } from "./schemas";
-import { quoteSchema, toQuoteView, type QuoteTermsInput } from "./quotes";
+import { linesByEnquiry, prepareQuoteLines, type QuoteLineInput } from "./lines";
+import { quoteSchema, quoteTermsSchema, toQuoteViewsWithLines, type QuoteTermsInput } from "./quotes";
 import { profiles } from "./support";
 import type { Actor, ConversationView } from "./types";
 
@@ -49,7 +50,8 @@ export async function getConversation(actor: Actor, conversationId: string): Pro
     buyer: { businessId: c.match.enquiry.buyerBusinessId, name: profs.get(c.match.enquiry.buyerBusinessId)?.name ?? "Buyer" },
     seller: { businessId: c.match.sellerBusinessId, name: profs.get(c.match.sellerBusinessId)?.name ?? "Seller" },
     messages: messages.reverse().map((m) => ({ id: m.id, senderPersonId: m.senderPersonId, body: m.body, createdAt: m.createdAt.toISOString() })),
-    quotes: quotes.map(toQuoteView),
+    quotes: await toQuoteViewsWithLines(quotes),
+    lines: (await linesByEnquiry([c.match.enquiryId])).get(c.match.enquiryId) ?? [],
     dealReported: deal?.outcome ?? null,
     sellerClaimedWon: !!sellerWon,
     role,
@@ -69,12 +71,35 @@ export async function sendMessage(actor: Actor, conversationId: string, body: st
 export async function sendQuote(
   actor: Actor,
   conversationId: string,
-  quote: { pricePaise: number; quantity: number; unit: string; leadTimeDays?: number | null; notes?: string | null; validUntil?: string | null; attachments?: AttachmentUpload[] | null } & QuoteTermsInput,
+  quote: {
+    /** Per unit. Optional (and mirrored from the first priced line) when `lines` is given. */
+    pricePaise?: number;
+    quantity?: number;
+    unit?: string;
+    leadTimeDays?: number | null;
+    notes?: string | null;
+    validUntil?: string | null;
+    attachments?: AttachmentUpload[] | null;
+    /** Per-line prices for a multi-line RFQ (partial quotes allowed; totals are computed here). Required when the RFQ has more than one line. */
+    lines?: QuoteLineInput[] | null;
+  } & QuoteTermsInput,
 ): Promise<{ quoteId: string }> {
-  const q = quoteSchema.parse(quote);
+  const lineInput = quote.lines?.length ? quote.lines : null;
+  // Single-field quotes validate first, as before; per-line quotes need the requirement's lines, so they validate after the membership check.
+  let q = lineInput ? null : quoteSchema.parse(quote);
   const files = checkAttachments(quote.attachments, MAX_QUOTE_ATTACHMENTS, MAX_QUOTE_ATTACHMENT_BYTES);
   const { c, role } = await requireParticipant(actor, conversationId);
   if (role !== "seller") throw new DomainError("forbidden", "Only the seller can send a quote.");
+  const enquiryLines = await prisma.enquiryLine.findMany({ where: { enquiryId: c.match.enquiryId }, select: { id: true, ordinal: true, quantity: true, unit: true } });
+  let prepared: ReturnType<typeof prepareQuoteLines> | null = null;
+  if (lineInput) {
+    const terms = quoteTermsSchema.parse(quote);
+    prepared = prepareQuoteLines(lineInput, enquiryLines, terms.gstIncluded);
+    q = quoteSchema.parse({ ...quote, pricePaise: Number(prepared.first.unitPricePaise), quantity: prepared.first.quantity, unit: prepared.first.unit });
+  } else if (enquiryLines.length > 1) {
+    throw new DomainError("validation", `This requirement has ${enquiryLines.length} lines. Quote each line you can supply.`);
+  }
+  if (!q) throw new DomainError("validation", "Invalid quote");
   const stored = await storeAttachmentBytes(c.match.enquiryId, files);
   try {
   return await prisma.$transaction(async (tx) => {
@@ -96,8 +121,20 @@ export async function sendQuote(
         paymentTerms: q.paymentTerms,
         paymentNote: q.paymentNote,
         gstIncluded: q.gstIncluded,
+        ...(prepared
+          ? { lineSubtotalPaise: prepared.subtotalPaise, lineGstPaise: prepared.gstPaise, lineTotalPaise: prepared.totalPaise, quotedLineCount: prepared.quotedLineCount }
+          : {}),
       },
     });
+    if (prepared) {
+      await tx.quoteLine.createMany({
+        data: prepared.rows.map((r) => ({
+          quoteId: row.id, enquiryLineId: r.enquiryLineId, unitPricePaise: r.unitPricePaise, gstRatePct: r.gstRatePct, leadTimeDays: r.leadTimeDays,
+          cantSupply: r.cantSupply, notes: r.notes, quantity: r.quantity,
+          lineSubtotalPaise: r.amounts?.subtotalPaise ?? null, lineGstPaise: r.amounts?.gstPaise ?? null, lineTotalPaise: r.amounts?.totalPaise ?? null,
+        })),
+      });
+    }
     if (stored.length) {
       await tx.enquiryAttachment.createMany({
         data: stored.map((s) => ({ id: s.id, enquiryId: c.match.enquiryId, quoteId: row.id, uploadedByBusiness: actor.businessId, key: s.key, fileName: s.fileName, mimeType: s.mimeType, sizeBytes: s.sizeBytes, createdAt: s.createdAt })),
@@ -105,6 +142,7 @@ export async function sendQuote(
     }
     await emit(tx, "QuoteSent", { type: "conversation", id: conversationId }, {
       quoteId: row.id, conversationId, sellerBusinessId: actor.businessId, pricePaise: q.pricePaise, quantity: q.quantity,
+      ...(prepared ? { lineCount: prepared.quotedLineCount, totalPaise: Number(prepared.totalPaise) } : {}),
     });
     return { quoteId: row.id };
   });

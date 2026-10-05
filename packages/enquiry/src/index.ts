@@ -22,6 +22,9 @@ export * from "./quotes";
 export * from "./fulfilment";
 export * from "./attachments";
 export * from "./comparison";
+// rfq-multiline: BOM lines, per-line quotes, per-line awards (docs/design/rfq-multiline.md)
+export * from "./lines";
+export * from "./awards";
 
 // DPDP access right: registered with @cnote/compliance's export registry (security audit M10).
 export { exportPersonalData } from "./privacy";
