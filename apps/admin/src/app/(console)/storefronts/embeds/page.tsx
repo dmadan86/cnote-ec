@@ -46,7 +46,7 @@ export default async function StorefrontEmbedsPage(props: { searchParams: Promis
                   <Badge tone={TONE[i.status]}>{i.status}</Badge>
                   <p className="mt-1">{i.aiVerdict ?? "not screened"}</p>
                   {i.fetchError ? <p className="mt-1 text-danger">Could not fetch: {i.fetchError}</p> : null}
-                  {i.thumbnailUrl ? null : <p className="mt-1 text-muted">No thumbnail from the provider's image host.</p>}
+                  {i.thumbnailUrl ? null : <p className="mt-1 text-muted">No thumbnail from the provider&apos;s image host.</p>}
                 </Td>
                 <Td className="whitespace-nowrap">{fmtDate(i.createdAt)}</Td>
                 <Td className="min-w-64">

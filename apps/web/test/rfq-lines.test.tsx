@@ -120,7 +120,7 @@ const qline = (enquiryLineId: string, ordinal: number, unit: number | null, tota
 });
 const mrow = (id: string, lines: ReturnType<typeof qline>[]): ComparisonRow => ({
   matchId: id, conversationId: `c-${id}`, sellerBusinessId: `s-${id}`, sellerName: `Supplier ${id}`, verificationTier: 1, badgeActive: true, trustScore: 60, rank: 1, of: 3,
-  totalPaise: 5000, quantityBasis: "lines", coverage: { quoted: lines.filter((l) => !l.cantSupply).length, of: 3 }, quantity: 10, decision: null, earlierQuotes: 0,
+  totalPaise: 5000, quantityBasis: "lines", coverage: { quoted: lines.filter((l) => !l.cantSupply).length, of: 3 }, quantity: 10, decision: null, earlierQuotes: 0, approval: null,
   quote: {
     id: `q-${id}`, pricePaise: 100, quantity: 10, unit: "pcs", leadTimeDays: 7, notes: null, validUntil: null, createdAt: "2026-10-01T00:00:00.000Z", moq: null, moqUnit: null,
     deliveryTerms: null, deliveryNote: null, deliveryChargePaise: null, paymentTerms: null, paymentNote: null, gstIncluded: null, attachments: [], shortlisted: false,

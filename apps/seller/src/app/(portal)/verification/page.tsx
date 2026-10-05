@@ -26,6 +26,8 @@ export default async function VerificationPage() {
   const company = await load(() => identity.getCompanyProfile(b.id));
   const audits = await load(() => identity.listAudits({ businessId: b.id, limit: 1 }));
   const audit = audits.ok ? audits.data[0] ?? null : null;
+  // computed on the server per request (render-time clocks are impure in components)
+  const reAuditDue = !!audit?.reAuditDueAt && new Date(audit.reAuditDueAt).getTime() <= new Date().getTime();
 
   const tiers = [
     { tier: 0, name: t("tiers.t0.name"), body: t("tiers.t0.body"), done: session.phoneVerified, soon: false },
@@ -89,7 +91,7 @@ export default async function VerificationPage() {
       {b.verificationTier >= 2 || audit ? (
         <Card>
           <CardHeader><CardTitle>{t("auditCard")}</CardTitle></CardHeader>
-          <CardBody><T3Status audit={audit} tier={b.verificationTier} /></CardBody>
+          <CardBody><T3Status audit={audit} tier={b.verificationTier} reAuditDue={reAuditDue} /></CardBody>
         </Card>
       ) : null}
 

@@ -176,13 +176,16 @@ export async function decideQuote(actor: Actor, quoteId: string, decision: "acce
   return { status: "accepted", requestId: gate.requestId };
 }
 
+/** A quote as getQuote returns it (with its enquiry and match ids). */
+type DecidableQuote = NonNullable<Awaited<ReturnType<typeof getQuote>>>;
+
 export interface DecideQuoteResult {
   status: "accepted" | "declined" | "pending_approval";
   requestId: string | null;
 }
 
 /** Priced (not "can't supply") lines of a per-line quote that no supplier has been awarded yet. */
-async function openPricedLines(q: QuoteView) {
+async function openPricedLines(q: DecidableQuote) {
   const open = (q.lines ?? []).filter((l) => !l.cantSupply && l.lineTotalPaise !== null);
   const taken = new Set((await prisma.enquiryLineAward.findMany({ where: { enquiryId: q.enquiryId }, select: { enquiryLineId: true } })).map((a) => a.enquiryLineId));
   return open.filter((l) => !taken.has(l.enquiryLineId));
@@ -198,7 +201,7 @@ async function quoteTotalPaise(q: { enquiryId: string; pricePaise: number; quant
  * Records the buyer's "won" (creating the order record) and the spend. A per-line quote awards its open priced lines instead
  * (one won deal + order with only those lines). Idempotent: a repeated call or event redelivery changes nothing.
  */
-async function completeAcceptance(actor: Actor, q: QuoteView, quoteId: string, total: number, isMember: boolean): Promise<void> {
+async function completeAcceptance(actor: Actor, q: DecidableQuote, quoteId: string, total: number, isMember: boolean): Promise<void> {
   if (q.lineTotals) {
     const free = await openPricedLines(q);
     if (free.length === 0) return; // already awarded (redelivery) or taken by another supplier meanwhile

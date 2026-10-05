@@ -48,10 +48,10 @@ describe("PDP freight panel", () => {
 
 const row = (id: string, o: Partial<ComparisonRow["quote"]> = {}): ComparisonRow => ({
   matchId: id, conversationId: `c-${id}`, sellerBusinessId: `s-${id}`, sellerName: `Supplier ${id}`, verificationTier: 1, badgeActive: true, trustScore: 60, rank: 1, of: 3,
-  totalPaise: 100000, quantityBasis: "requested", quantity: 200, decision: null, earlierQuotes: 0,
-  quote: { id: `q-${id}`, pricePaise: 500, quantity: 200, unit: "pcs", leadTimeDays: 10, notes: null, validUntil: "2026-12-01", createdAt: "2026-10-01T00:00:00.000Z", moq: null, moqUnit: null, deliveryTerms: null, deliveryNote: null, deliveryChargePaise: null, paymentTerms: null, paymentNote: null, gstIncluded: null, attachments: [], shortlisted: false, ...o },
+  totalPaise: 100000, quantityBasis: "requested", coverage: null, approval: null, quantity: 200, decision: null, earlierQuotes: 0,
+  quote: { id: `q-${id}`, pricePaise: 500, quantity: 200, unit: "pcs", leadTimeDays: 10, notes: null, validUntil: "2026-12-01", createdAt: "2026-10-01T00:00:00.000Z", moq: null, moqUnit: null, deliveryTerms: null, deliveryNote: null, deliveryChargePaise: null, paymentTerms: null, paymentNote: null, gstIncluded: null, lineTotals: null, attachments: [], shortlisted: false, ...o },
 });
-const comparison = (rows: ComparisonRow[]): QuoteComparison => ({ enquiryId: "e1", quantity: 200, quantityUnit: "pcs", sentTo: 2, quotesFrom: rows.length, expiresAt: null, rows });
+const comparison = (rows: ComparisonRow[]): QuoteComparison => ({ enquiryId: "e1", quantity: 200, quantityUnit: "pcs", sentTo: 2, quotesFrom: rows.length, expiresAt: null, rows, lines: [], lowestByLine: {}, awards: [] });
 const landed = (o: Partial<QuoteLandedRow>): QuoteLandedRow => ({ key: "a", lowPaise: 112000, highPaise: 124000, freightSource: "estimated", goodsGstPaise: 0, goodsGstAssumed: false, gstUnknown: true, complete: true, estimate: { lowPaise: 10000, highPaise: 20000, mode: "parcel", transitDays: { min: 2, max: 4 }, assumptions: [] }, ...o });
 
 describe("quote compare: landed cost", () => {
