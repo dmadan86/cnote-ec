@@ -32,6 +32,7 @@ const dir = (over: Partial<Directory> = {}): Directory => ({
 const ev = (type: string, payload: unknown): DomainEvent => ({ id: 1, type, version: 1, aggregateType: "x", aggregateId: "x", payload, occurredAt: "" }) as never;
 
 interface Row { key: string; event: ReturnType<typeof ev>; people: string[]; app?: string; vars?: Record<string, unknown>; href?: string }
+const KEY_EXP = { keyId: "k", personId: "owner", name: "CI  deploy", prefix: "ck_live_ab12", expiresAt: "2026-10-12T05:00:00.000Z" };
 const TABLE: Row[] = [
   { key: "lead.matched", event: ev("LeadMatched", { enquiryId: "e", matchId: "m", sellerBusinessId: SB }), people: ["s1", "s2"], vars: { enquiryTitle: "Yarn", intentScore: 80 }, href: "/leads" },
   { key: "lead.accepted", event: ev("LeadAccepted", { enquiryId: "e", sellerBusinessId: SB }), people: ["b1"], vars: { sellerName: "Sharma" }, href: "/buyer/enquiries/e" },
@@ -62,6 +63,8 @@ const TABLE: Row[] = [
   { key: "message.digest", event: ev("MessageSent", { conversationId: "c", senderPersonId: "s1" }), people: [] }, // pipeline-only digest kind: never resolved from an event
   { key: "deal.confirm_requested", event: ev("DealClaimedBySeller", { matchId: "m", sellerBusinessId: SB, buyerBusinessId: BB, conversationId: "c" }), people: ["b1"], vars: { sellerName: "Sharma", enquiryTitle: "Yarn" }, href: "/conversations/c" },
   { key: "domain.claim_superseded", event: ev("DomainClaimSuperseded", { domainId: "d", storefrontId: "sf", sellerBusinessId: SB, hostname: "www.acme.com", reason: "expired" }), people: ["s1", "s2"], href: "/storefront/domains", vars: { hostname: "www.acme.com" } },
+  { key: "developer.api_key_expiring", event: ev("ApiKeyExpiring", { ...KEY_EXP, threshold: "7d" }), people: ["owner"], vars: { keyName: "CI deploy", keyPrefix: "ck_live_ab12", expiresOn: "12 Oct 2026" }, href: "/account/developers" },
+  { key: "developer.api_key_expires_today", event: ev("ApiKeyExpiring", { ...KEY_EXP, threshold: "expiry_day" }), people: ["owner"], href: "/account/developers" },
 ];
 const NONE: { key: string; event: ReturnType<typeof ev>; note: string }[] = [
   { key: "enquiry.under_review", event: ev("EnquiryScored", { enquiryId: "e", needsReview: false }), note: "no review needed" },
@@ -111,7 +114,8 @@ describe("kinds registry", () => {
   it("template definitions map category (security/marketing/transactional) and register once", () => {
     const defs = templateDefinitions();
     expect(defs).toHaveLength(KINDS.length);
-    expect(defs.filter((d) => !d.key.startsWith("alert.")).every((d) => d.category === "transactional")).toBe(true);
+    expect(defs.filter((d) => !d.key.startsWith("alert.") && !d.key.startsWith("developer.")).every((d) => d.category === "transactional")).toBe(true);
+    expect(defs.filter((d) => d.key.startsWith("developer.")).every((d) => d.category === "security" && d.channels.includes("email"))).toBe(true);
     expect(defs.filter((d) => d.key.startsWith("alert.")).map((d) => d.category)).toEqual(["alert", "alert", "alert", "alert"]); // opt-in alerts: unsubscribe footer, no marketing consent
     registerNotificationTemplates();
     registerNotificationTemplates();
