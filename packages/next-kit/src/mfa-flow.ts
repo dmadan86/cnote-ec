@@ -6,9 +6,14 @@ import "server-only";
 //
 //   admin realm:  MFA always required. Enrolled -> "verify"; not enrolled -> "enroll" (forced setup).
 //   other realms: only when the person has enabled MFA (sellers may opt in).
+//
+// Passkeys (docs/design/admin-passkeys.md): a person with a passkey is challenged with it first (TOTP stays as the
+// fallback unless <REALM>_REQUIRE_PASSKEY is on, which refuses TOTP/recovery codes for anyone holding a passkey).
+// With the policy on, a person without a passkey passes TOTP (or TOTP enrollment) and the pending sign-in then moves to
+// mode "passkey_enroll": the session is only released once a passkey is registered.
 import { randomBytes } from "node:crypto";
 import { redis } from "@cnote/core";
-import { beginMfaEnrollment, getSession, isMfaEnabled, signOut, type AuthTokens } from "@cnote/identity";
+import { beginMfaEnrollment, getSession, isMfaEnabled, passkeyPolicy, signOut, type AuthTokens } from "@cnote/identity";
 import { decryptField, encryptField } from "@cnote/security";
 import { cookies } from "next/headers";
 import { safeNext, setAuthCookies } from "./cookies";
@@ -17,7 +22,7 @@ import { appRealm } from "./realm";
 export const MFA_PATH = "/mfa";
 const PENDING_TTL_SECONDS = 5 * 60;
 
-export type MfaMode = "verify" | "enroll";
+export type MfaMode = "verify" | "enroll" | "passkey_enroll";
 interface Pending {
   personId: string;
   mode: MfaMode;
@@ -37,7 +42,8 @@ export const mfaPendingCookieName = () => `${secure() ? "__Host-" : ""}cnote_${a
 const adminMfaOptional = () => !secure() && process.env.MFA_ADMIN_OPTIONAL === "1";
 
 export async function mfaRequirement(personId: string): Promise<MfaMode | null> {
-  if (await isMfaEnabled(personId)) return "verify";
+  const pk = await passkeyPolicy(appRealm(), personId);
+  if (pk.hasPasskey || (await isMfaEnabled(personId))) return "verify";
   return appRealm() === "admin" && !adminMfaOptional() ? "enroll" : null;
 }
 
@@ -83,13 +89,44 @@ export interface MfaPendingView {
   personId: string;
   mode: MfaMode;
   next: string;
+  /** The person has at least one active passkey (offer it first). */
+  hasPasskey: boolean;
+  /** Policy: TOTP and recovery codes are refused for people who hold a passkey. */
+  passkeyRequired: boolean;
 }
 
 /** The pending sign-in for this browser (no secrets), or null when there is none / it expired. */
 export async function getMfaPending(): Promise<MfaPendingView | null> {
   const id = (await cookies()).get(mfaPendingCookieName())?.value;
   const p = await load(id, false);
-  return p ? { personId: p.personId, mode: p.mode, next: p.next } : null;
+  if (!p) return null;
+  const pk = await passkeyPolicy(appRealm(), p.personId);
+  return { personId: p.personId, mode: p.mode, next: p.next, hasPasskey: pk.hasPasskey, passkeyRequired: pk.required };
+}
+
+/** The pending record for this browser including the account label (server-side use only). */
+export async function getMfaPendingAccount(): Promise<{ personId: string; account: string; mode: MfaMode } | null> {
+  const p = await load((await cookies()).get(mfaPendingCookieName())?.value, false);
+  return p ? { personId: p.personId, account: p.account, mode: p.mode } : null;
+}
+
+/**
+ * Called when a second factor passed (or TOTP enrollment finished). Under the passkey policy a person without a passkey
+ * is moved to mode "passkey_enroll" and the session stays parked ("upgrade"); otherwise the session is released.
+ */
+export async function afterSecondFactor(): Promise<{ kind: "released"; next: string } | { kind: "upgrade" } | { kind: "expired" }> {
+  const store = await cookies();
+  const id = store.get(mfaPendingCookieName())?.value;
+  const p = await load(id, false);
+  if (!id || !p) return { kind: "expired" };
+  const pk = await passkeyPolicy(appRealm(), p.personId);
+  if (pk.required && !pk.hasPasskey) {
+    const ttl = await redis.ttl(key(id));
+    if (ttl > 0) await redis.set(key(id), await encryptField(JSON.stringify({ ...p, mode: "passkey_enroll" } satisfies Pending), ctxOf(id)), "EX", ttl);
+    return { kind: "upgrade" };
+  }
+  const next = await completeMfaChallenge();
+  return next === null ? { kind: "expired" } : { kind: "released", next };
 }
 
 /** Release the parked session: sets the real auth cookies and clears the pending cookie. Single use. */

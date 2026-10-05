@@ -23,3 +23,5 @@
 - SMS/WhatsApp OTP delivery providers are still to be integrated (ADR-coverage gap 1).
 
 **Review.** Review after the first security assessment, or if MAU or compliance needs make a managed IdP cheaper than maintaining ours. Consider WebAuthn/passkeys for staff.
+
+**Update (passkeys).** Admin-realm passkeys (WebAuthn) now exist as an opt-in phishing-resistant second factor with an enforcement policy; see `docs/design/admin-passkeys.md`. TOTP remains the baseline factor and fallback.

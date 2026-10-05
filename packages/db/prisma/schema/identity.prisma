@@ -250,6 +250,33 @@ model PersonMfa {
   @@map("person_mfa")
 }
 
+/// WebAuthn passkey (phishing-resistant second factor; ADR-029/ADR-042, docs/design/admin-passkeys.md). Realm-scoped so the
+/// seller/buyer realms can adopt it later; only the admin realm is wired today. The public key is public by design (no
+/// field encryption); revoked rows are kept (revokedAt) as a trail, and are deleted with the person on erasure.
+model PersonPasskey {
+  id           String    @id @default(uuid()) @db.Uuid
+  personId     String    @map("person_id") @db.Uuid
+  realm        String
+  /// base64url credential id as sent by the authenticator
+  credentialId String    @unique @map("credential_id")
+  publicKey    Bytes     @map("public_key")
+  signCount    BigInt    @default(0) @map("sign_count")
+  transports   String[]  @default([])
+  aaguid       String
+  /// "singleDevice" | "multiDevice"
+  deviceType   String    @map("device_type")
+  backedUp     Boolean   @default(false) @map("backed_up")
+  nickname     String
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  lastUsedAt   DateTime? @map("last_used_at") @db.Timestamptz
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz
+  /// "user" | "reset" | "clone_suspected"
+  revokedReason String?  @map("revoked_reason")
+
+  @@index([personId, realm])
+  @@map("person_passkeys")
+}
+
 // ---- T2 / T3 verification (ADR-003) — owned by @cnote/identity ------------------------------------------------
 
 enum KycStatus {

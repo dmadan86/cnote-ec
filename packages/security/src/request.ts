@@ -115,6 +115,11 @@ export type SecurityEventType =
   | "mfa.verified"
   | "mfa.failed"
   | "mfa.recovery_used"
+  | "passkey.registered"
+  | "passkey.verified"
+  | "passkey.failed"
+  | "passkey.revoked"
+  | "passkey.clone_suspected"
   | "ssrf.blocked"
   | "secrets.invalid"
   | (string & {});

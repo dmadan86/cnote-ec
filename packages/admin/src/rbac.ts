@@ -15,6 +15,7 @@ export const PRIVILEGES = [
   "billing.adjust", // FUTURE: manual credit adjustments; reserved, no UI yet
   "staff.read", // list staff and their roles
   "staff.manage", // grant / change roles / deactivate staff
+  "staff.passkeys.reset", // owner-level recovery: revoke another staff member's passkeys (they re-enroll at next sign-in); audited
   "audit.read", // read the admin audit log
   "ai.decisions.read", // inspect AI decisions (may contain redacted personal data)
   "ugc.read", // see the user-generated content moderation queue (reviews, comments, seller replies)

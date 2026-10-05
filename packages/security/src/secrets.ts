@@ -115,6 +115,30 @@ function validateProductionFlags(env: Env, errors: string[], warnings: string[])
   }
 }
 
+/**
+ * WebAuthn relying-party config (ADR-029/042, docs/design/admin-passkeys.md). When a realm turns passkeys on
+ * (`<REALM>_PASSKEYS_ENABLED` or `<REALM>_REQUIRE_PASSKEY`), its own app must be told the exact https origin and RP ID:
+ * a wrong RP ID silently locks everyone out of their passkeys, and a loose one weakens the phishing protection.
+ */
+function validatePasskeys(app: SecretsApp, env: Env, errors: string[]): void {
+  if (app !== "admin" && app !== "seller" && app !== "web") return;
+  const p = app.toUpperCase();
+  if (!truthy(env[`${p}_PASSKEYS_ENABLED`]) && !truthy(env[`${p}_REQUIRE_PASSKEY`])) return;
+  const rpKey = `${p}_WEBAUTHN_RP_ID`;
+  const originKey = `${p}_WEBAUTHN_ORIGIN`;
+  const rpId = env[rpKey]?.trim().toLowerCase();
+  if (!rpId) errors.push(`${rpKey} is not set: passkeys are enabled for ${app} (set the registrable domain, e.g. example.com)`);
+  if (!env[originKey]) errors.push(`${originKey} is not set: passkeys are enabled for ${app} (exact https origin, e.g. https://admin.example.com)`);
+  const origin = urlOf(env[originKey]);
+  if (env[originKey] && (!origin || origin.protocol !== "https:" || origin.pathname !== "/" || origin.search || origin.hash)) {
+    errors.push(`${originKey} must be a bare https origin (scheme + host, no path)`);
+  } else if (origin && rpId) {
+    if (LOCAL_HOSTS.has(origin.hostname)) errors.push(`${originKey} must not be localhost in production`);
+    else if (origin.hostname !== rpId && !origin.hostname.endsWith(`.${rpId}`)) errors.push(`${rpKey} (${rpId}) must equal or be a parent domain of the host in ${originKey} (${origin.hostname})`);
+  }
+  if (rpId && (/^[\d.]+$/.test(rpId) || rpId.includes(":") || rpId.includes("/"))) errors.push(`${rpKey} must be a domain name, not an IP address, port or URL`);
+}
+
 export function validateSecrets(app: SecretsApp, env: Env = process.env): SecretsReport {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -144,6 +168,7 @@ export function validateSecrets(app: SecretsApp, env: Env = process.env): Secret
     if (!env.REDIS_URL) errors.push("REDIS_URL is not set (sessions, rate limits and queues need it)");
     validateTransport(env, errors);
     validateProductionFlags(env, errors, warnings);
+    validatePasskeys(app, env, errors);
   }
 
   const usesFieldCrypto = app !== "studio";

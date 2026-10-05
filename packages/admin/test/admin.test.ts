@@ -8,6 +8,9 @@ import {
 } from "../src";
 
 describe("rbac matrix", () => {
+  it("passkey recovery is owner-level: only super_admin may reset another staff member's passkeys", () => {
+    for (const role of ROLES) expect(privilegesFor([role]).has("staff.passkeys.reset")).toBe(role === "super_admin");
+  });
   it("super_admin has every privilege", () => {
     expect([...privilegesFor(["super_admin"])].sort()).toEqual([...PRIVILEGES].sort());
   });

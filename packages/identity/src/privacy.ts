@@ -21,6 +21,7 @@ export async function exportPersonalData(personId: string): Promise<Record<strin
   const { memberships, consents, authSessions, authIdentities, passwordHash, ...p } = person;
   void passwordHash;
   const businessIds = memberships.map((m) => m.businessId);
+  const passkeys = await prisma.personPasskey.findMany({ where: { personId }, orderBy: { createdAt: "asc" } });
   const addresses = businessIds.length ? await prisma.businessAddress.findMany({ where: { businessId: { in: businessIds } }, orderBy: { createdAt: "asc" } }) : [];
   return {
     exportedAt: new Date().toISOString(),
@@ -30,6 +31,8 @@ export async function exportPersonalData(personId: string): Promise<Record<strin
     deliveryAddresses: addresses.map(({ id, businessId, label, contactName, phone, line1, line2, city, state, pincode, isDefault, createdAt }) => ({ id, businessId, label, contactName, phone, line1, line2, city, state, pincode, isDefault, createdAt })),
     consents: consents.map((c) => ({ purpose: c.purpose, granted: c.granted, source: c.source, createdAt: c.createdAt })),
     sessions: authSessions.map((s) => ({ id: s.id, userAgent: s.userAgent, ip: s.ip, createdAt: s.createdAt, lastUsedAt: s.lastUsedAt, expiresAt: s.expiresAt, revokedAt: s.revokedAt })),
+    // credential ids and public keys are not exported: they are not useful to the person and weaken nothing if leaked, but add noise.
+    passkeys: passkeys.map((k) => ({ realm: k.realm, nickname: k.nickname, deviceType: k.deviceType, backedUp: k.backedUp, transports: k.transports, createdAt: k.createdAt, lastUsedAt: k.lastUsedAt, revokedAt: k.revokedAt, revokedReason: k.revokedReason })),
     loginIdentities: authIdentities.map((i) => ({ provider: i.provider, email: i.email, createdAt: i.createdAt })),
   };
 }
@@ -55,6 +58,7 @@ export async function erasePerson(personId: string): Promise<void> {
     });
     await tx.authIdentity.deleteMany({ where: { personId } });
     await tx.personMfa.deleteMany({ where: { personId } });
+    await tx.personPasskey.deleteMany({ where: { personId } });
     await tx.consent.createMany({ data: CONSENT_PURPOSES.map((purpose) => ({ personId, purpose, granted: false, source: "erasure" })) });
     await emit(tx, "DataErasureRequested", { type: "Person", id: personId }, { personId });
   });

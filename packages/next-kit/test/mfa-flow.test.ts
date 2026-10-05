@@ -8,13 +8,14 @@ const h = vi.hoisted(() => ({
   getSession: vi.fn(),
   signOut: vi.fn(),
   beginMfaEnrollment: vi.fn(),
+  passkeyPolicy: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ cookies: async () => h.jar.store }));
 vi.mock("@cnote/identity", async (orig) => ({ ...(await orig<object>()), ...h }));
 vi.mock("@cnote/admin", () => ({ getStaff: async () => null }));
 
-import { beginMfaChallenge, completeMfaChallenge, discardMfaChallenge, getMfaEnrollmentInfo, getMfaPending, mfaPendingCookieName, mfaRequirement, MFA_PATH } from "../src/mfa-flow";
+import { afterSecondFactor, beginMfaChallenge, completeMfaChallenge, getMfaPendingAccount, discardMfaChallenge, getMfaEnrollmentInfo, getMfaPending, mfaPendingCookieName, mfaRequirement, MFA_PATH } from "../src/mfa-flow";
 
 const tokens = () => ({ accessToken: "AT", refreshToken: "RT-" + Math.random(), accessExpiresAt: new Date(), refreshExpiresAt: new Date(Date.now() + 1e6), personId: "person-" + Math.random().toString(36).slice(2) }) as never as import("@cnote/identity").AuthTokens;
 const created: string[] = [];
@@ -34,6 +35,7 @@ beforeEach(() => {
   h.getSession.mockReset().mockResolvedValue({ email: "a@b.c" });
   h.signOut.mockReset();
   h.beginMfaEnrollment.mockReset();
+  h.passkeyPolicy.mockReset().mockResolvedValue({ enabled: false, required: false, hasPasskey: false });
 });
 afterEach(async () => {
   vi.unstubAllEnvs();
@@ -102,7 +104,7 @@ describe("getMfaPending / completeMfaChallenge", () => {
   it("exposes no secrets", async () => {
     const { t } = await begin(tokens(), "/dash?a=1");
     const v = await getMfaPending();
-    expect(v).toEqual({ personId: t.personId, mode: "verify", next: "/dash?a=1" });
+    expect(v).toEqual({ personId: t.personId, mode: "verify", next: "/dash?a=1", hasPasskey: false, passkeyRequired: false });
     expect(JSON.stringify(v)).not.toContain("RT");
   });
   it("null without cookie, with unknown id, with oversized id", async () => {
@@ -168,5 +170,49 @@ describe("getMfaEnrollmentInfo", () => {
     expect(h.beginMfaEnrollment).toHaveBeenCalledWith(expect.any(String), "a@b.c");
     h.isMfaEnabled.mockResolvedValue(true);
     expect(await getMfaEnrollmentInfo()).toEqual({ done: true });
+  });
+});
+
+describe("passkeys", () => {
+  it("a person with a passkey is challenged even without TOTP; the view says so", async () => {
+    h.isMfaEnabled.mockResolvedValue(false);
+    h.passkeyPolicy.mockResolvedValue({ enabled: true, required: false, hasPasskey: true });
+    vi.stubEnv("CNOTE_AUTH_REALM", "seller");
+    expect(await mfaRequirement("p")).toBe("verify");
+    const { t } = await begin();
+    expect(await getMfaPending()).toMatchObject({ personId: t.personId, mode: "verify", hasPasskey: true, passkeyRequired: false });
+  });
+  it("getMfaPendingAccount returns the account label; null without a pending sign-in", async () => {
+    expect(await getMfaPendingAccount()).toBeNull();
+    const { t } = await begin();
+    expect(await getMfaPendingAccount()).toEqual({ personId: t.personId, account: "a@b.c", mode: "verify" });
+  });
+  it("afterSecondFactor releases when the policy is satisfied or off", async () => {
+    await begin();
+    h.passkeyPolicy.mockResolvedValue({ enabled: true, required: true, hasPasskey: true });
+    expect(await afterSecondFactor()).toEqual({ kind: "released", next: "/dash" });
+    expect(h.jar.sets.some((c) => c.value === "AT")).toBe(true);
+  });
+  it("afterSecondFactor under the policy without a passkey keeps the session parked in passkey_enroll mode with the same TTL", async () => {
+    await begin();
+    h.passkeyPolicy.mockResolvedValue({ enabled: true, required: true, hasPasskey: false });
+    expect(await afterSecondFactor()).toEqual({ kind: "upgrade" });
+    expect(h.jar.sets).toHaveLength(0); // no auth cookies yet
+    expect(await getMfaPending()).toMatchObject({ mode: "passkey_enroll", hasPasskey: false, passkeyRequired: true });
+    const id = h.jar.map.get("cnote_admin_mfa")!;
+    expect(await redis.ttl(`mfa:pending:${id}`)).toBeGreaterThan(250);
+    // still parked; once a passkey exists it can be released
+    h.passkeyPolicy.mockResolvedValue({ enabled: true, required: true, hasPasskey: true });
+    expect(await afterSecondFactor()).toEqual({ kind: "released", next: "/dash" });
+  });
+  it("afterSecondFactor is expired without a pending sign-in or when the record vanished mid-way", async () => {
+    expect(await afterSecondFactor()).toEqual({ kind: "expired" });
+    await begin();
+    const id = h.jar.map.get("cnote_admin_mfa")!;
+    h.passkeyPolicy.mockImplementation(async () => {
+      await redis.del(`mfa:pending:${id}`);
+      return { enabled: true, required: false, hasPasskey: true };
+    });
+    expect(await afterSecondFactor()).toEqual({ kind: "expired" });
   });
 });

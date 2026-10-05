@@ -188,6 +188,11 @@ export interface DomainEventPayloads {
   SubscriptionCancelled: { businessId: string; subscriptionId: string; planCode: string; billingInterval: "monthly" | "annual"; refundPaise: number; unusedMonths: number; effectiveAt: string; reason: string | null };
   /** The paid period ends soon and will NOT renew by itself: asks the owner to confirm a renewal (ADR-005). */
   SubscriptionRenewalDue: { businessId: string; subscriptionId: string; planCode: string; billingInterval: "monthly" | "annual"; periodEnd: string };
+  // passkeys (ADR-029/042, docs/design/admin-passkeys.md)
+  PasskeyRegistered: { personId: string; realm: string; passkeyId: string; aaguid: string; deviceType: string };
+  PasskeyRevoked: { personId: string; realm: string; passkeyId: string; reason: "user" | "reset" | "clone_suspected"; byStaffId?: string };
+  /** The authenticator's sign counter did not advance: the credential may have been cloned. It has been revoked. */
+  PasskeyCloneSuspected: { personId: string; realm: string; passkeyId: string; storedCount: number; receivedCount: number };
 }
 
 export type DomainEventType = keyof DomainEventPayloads;
@@ -331,6 +336,9 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   SubscriptionStarted: 1,
   SubscriptionCancelled: 2,
   SubscriptionRenewalDue: 1,
+  PasskeyRegistered: 1,
+  PasskeyRevoked: 1,
+  PasskeyCloneSuspected: 1,
 };
 
 export interface DomainEvent<T extends DomainEventType = DomainEventType> {

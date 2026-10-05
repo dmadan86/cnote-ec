@@ -31,6 +31,7 @@ export * from "./gst";
 export * from "./phone-login";
 export * from "./directory";
 export * from "./mfa";
+export * from "./passkeys";
 export * from "./retention";
 export * from "./otp-senders";
 export { findOrCreatePersonByVerifiedPhone } from "./verified-phone";
