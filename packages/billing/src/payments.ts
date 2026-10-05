@@ -558,6 +558,23 @@ async function deadLetter(refundId: string, lastError: string | null): Promise<v
   if (r) console.error(`[billing] ALERT: refund ${refundId} (${r.amountPaise} paise, order ${r.paymentOrderId}) is dead-lettered after ${r.attempts} attempts and needs manual action: ${lastError ?? ""}`);
 }
 
+/** Applies a provider-reported outcome to a refund row. Shared by the webhook and the poller, so whichever arrives first wins and the other is a no-op. */
+async function settleRefund(row: { id: string; paymentOrderId: string; status: string; providerRefundId: string | null; amountPaise: bigint; paymentOrder: { businessId: string } }, outcome: "processed" | "failed"): Promise<boolean> {
+  if (outcome === "failed") {
+    if (row.status === "pending" && row.providerRefundId) {
+      await deadLetter(row.id, "provider reported the refund as failed");
+      return true;
+    }
+    return false;
+  }
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.paymentRefund.updateMany({ where: { id: row.id, status: "pending", providerRefundId: { not: null } }, data: { status: "processed" } });
+    if (count === 0) return false;
+    await emit(tx, "RefundCompleted", { type: "payment_order", id: row.paymentOrderId }, { refundId: row.id, paymentOrderId: row.paymentOrderId, businessId: row.paymentOrder.businessId, amountPaise: Number(row.amountPaise) });
+    return true;
+  });
+}
+
 /** Provider webhook about a refund we sent (confirmation or failure). Unknown refunds are ignored. */
 async function applyRefundNotice(n: NonNullable<ParsedWebhook["refund"]>): Promise<void> {
   // Cashfree echoes our refund id without dashes.
@@ -568,15 +585,59 @@ async function applyRefundNotice(n: NonNullable<ParsedWebhook["refund"]>): Promi
   if (or.length === 0) return;
   const row = await prisma.paymentRefund.findFirst({ where: { OR: or }, include: { paymentOrder: true } });
   if (!row) return;
-  if (n.status === "failed") {
-    if (row.status === "pending" && row.providerRefundId) await deadLetter(row.id, "provider reported the refund as failed");
-    return;
-  }
-  await prisma.$transaction(async (tx) => {
-    const { count } = await tx.paymentRefund.updateMany({ where: { id: row.id, status: "pending", providerRefundId: { not: null } }, data: { status: "processed" } });
-    if (count === 0) return;
-    await emit(tx, "RefundCompleted", { type: "payment_order", id: row.paymentOrderId }, { refundId: row.id, paymentOrderId: row.paymentOrderId, businessId: row.paymentOrder.businessId, amountPaise: Number(row.amountPaise) });
+  await settleRefund(row, n.status);
+}
+
+// ---- refund polling (backs up webhooks) ---------------------------------------------------------------------------------
+// A refund the provider accepted stays "pending" until a webhook confirms it. Webhooks can be lost (endpoint down, misconfigured
+// secret, provider outage), which would leave the seller's refund "initiated" forever. The poll job asks the provider directly
+// for refunds still pending after REFUND_POLL_AFTER_MINUTES, with exponential backoff, and settles them through the same
+// code path as the webhook (compare-and-set on status), so a webhook racing the poller cannot double-complete.
+
+export const REFUND_POLL_MAX = 8;
+export const refundPollAfterMs = (env: NodeJS.ProcessEnv = process.env): number => {
+  const n = Number(env.REFUND_POLL_AFTER_MINUTES);
+  return (Number.isFinite(n) && n >= 1 ? Math.floor(n) : 30) * 60_000;
+};
+/** 30 min, 1 h, 2 h ... capped at 12 h; `polls` = polls made so far. */
+export const refundPollBackoffMs = (polls: number): number => Math.min(30 * 60_000 * 2 ** Math.max(0, polls - 1), 12 * 3_600_000);
+
+export async function pollPendingRefunds(now = new Date(), env: NodeJS.ProcessEnv = process.env): Promise<{ polled: number; completed: number; failed: number; stillPending: number; errors: number }> {
+  const out = { polled: 0, completed: 0, failed: 0, stillPending: 0, errors: 0 };
+  const due = await prisma.paymentRefund.findMany({
+    where: {
+      status: "pending", providerRefundId: { not: null }, pollAttempts: { lt: REFUND_POLL_MAX },
+      createdAt: { lte: new Date(now.getTime() - refundPollAfterMs(env)) }, OR: [{ nextPollAt: null }, { nextPollAt: { lte: now } }],
+    },
+    orderBy: { createdAt: "asc" }, take: 50,
   });
+  for (const d of due) {
+    // claim with a compare-and-set so two workers never poll (and back off) the same row
+    const claimed = await prisma.paymentRefund.updateMany({
+      where: { id: d.id, status: "pending", pollAttempts: d.pollAttempts },
+      data: { pollAttempts: { increment: 1 }, lastPolledAt: now, nextPollAt: new Date(now.getTime() + refundPollBackoffMs(d.pollAttempts + 1)) },
+    });
+    if (claimed.count === 0) continue;
+    out.polled++;
+    const order = await prisma.paymentOrder.findUnique({ where: { id: d.paymentOrderId } });
+    if (!order) continue;
+    try {
+      const state = await getProvider(order.provider as ProviderName, env).fetchRefund({
+        orderId: order.id, providerOrderId: order.providerOrderId, providerPaymentId: order.providerPaymentId, providerRefundId: d.providerRefundId!, refundId: d.id,
+      });
+      if (state.status === "pending") {
+        out.stillPending++;
+        if (d.pollAttempts + 1 >= REFUND_POLL_MAX) console.error(`[billing] ALERT: refund ${d.id} is still pending at the provider after ${REFUND_POLL_MAX} polls; check the provider dashboard`);
+        continue;
+      }
+      const fresh = await prisma.paymentRefund.findUnique({ where: { id: d.id }, include: { paymentOrder: true } });
+      if (fresh && (await settleRefund(fresh, state.status))) out[state.status === "processed" ? "completed" : "failed"]++;
+    } catch (e) {
+      out.errors++;
+      console.warn(`[billing] refund poll for ${d.id} failed (will retry with backoff): ${String(e instanceof Error ? e.message : e).slice(0, 200)}`);
+    }
+  }
+  return out;
 }
 
 export type RefundDisplayStatus = "completed" | "initiated" | "processing" | "attention";

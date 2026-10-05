@@ -245,6 +245,10 @@ model PaymentRefund {
   lastError        String?  @map("last_error")
   /// Cancellation refunds retry on their own; staff-initiated ones surface the error to the staff member instead
   autoRetry        Boolean  @default(false) @map("auto_retry")
+  /// Provider polls made for a refund the provider accepted but has not confirmed (billing.refund-poll; backoff, then stops and alerts)
+  pollAttempts     Int      @default(0) @map("poll_attempts")
+  nextPollAt       DateTime? @map("next_poll_at") @db.Timestamptz
+  lastPolledAt     DateTime? @map("last_polled_at") @db.Timestamptz
   creditNoteId     String?  @unique @map("credit_note_id") @db.Uuid
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
 
