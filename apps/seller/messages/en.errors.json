@@ -471,6 +471,21 @@
       "upSearches": "You can save up to {max} searches",
       "searchNotFound": "Saved search not found",
       "invalidFrequency": "Choose off, daily or weekly"
+    },
+    "samples": {
+      "notEnabled": "Sample requests are not available yet.",
+      "notOffered": "This supplier does not offer samples for this product.",
+      "ownProduct": "You cannot request a sample of your own product.",
+      "tierRequired": "This supplier only accepts sample requests from buyers verified at tier {tier} or above.",
+      "tooManyOpen": "You already have {max} open sample requests. Wait for one to finish before asking for another.",
+      "duplicate": "You already have an open sample request for this.",
+      "quantityTooHigh": "This supplier allows up to {max} units per sample request.",
+      "rateLimited": "You are requesting samples too fast. Try again tomorrow.",
+      "expired": "This request is past its response deadline and has expired.",
+      "invalidTransition": "That step is not available for a request in its current status.",
+      "reasonsRequired": "Choose at least one reason for rejecting the sample.",
+      "photoType": "Photos must be JPEG, PNG or WebP, up to 5 MB each.",
+      "tooManyPhotos": "Attach at most {max} photos."
     }
   }
 }

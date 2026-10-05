@@ -11,6 +11,7 @@ import { load } from "@/lib/safe";
 import { enquiry } from "@/lib/services";
 import { DispatchPhotosPanel } from "@/features/quality/dispatch-photos";
 import { EscrowPanel } from "@/features/escrow/escrow-panel";
+import { GoldenSample } from "@/features/samples/golden-sample";
 import { FulfilmentPanel } from "@/features/orders/fulfilment-panel";
 import { OrderActions } from "@/features/orders/order-actions";
 import { OrderStatusBadge } from "@/features/orders/status";
@@ -56,6 +57,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
           </dl>
         </CardBody>
       </Card>
+      <GoldenSample orderId={o.id} actor={actorOf(session)} />
       <EscrowPanel actor={actorOf(session)} orderId={o.id} />
       <OrderActions orderId={o.id} actions={o.actions} />
       <FulfilmentPanel actor={actorOf(session)} order={o} />

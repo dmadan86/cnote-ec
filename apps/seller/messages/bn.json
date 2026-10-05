@@ -35,7 +35,8 @@
       "prices": "দামের তথ্য",
       "credit": "ক্রেডিট",
       "agents": "কোটেশন এজেন্ট",
-      "questions": "প্রশ্ন"
+      "questions": "প্রশ্ন",
+      "samples": "নমুনা"
     },
     "questionsUnanswered": "{count} টি উত্তর বাকি"
   }

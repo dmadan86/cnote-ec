@@ -35,7 +35,8 @@
       "prices": "दर माहिती",
       "credit": "क्रेडिट",
       "agents": "कोटेशन एजंट",
-      "questions": "प्रश्न"
+      "questions": "प्रश्न",
+      "samples": "नमुने"
     },
     "questionsUnanswered": "{count} अनुत्तरित"
   }

@@ -35,7 +35,8 @@
       "prices": "ಬೆಲೆ ಒಳನೋಟ",
       "credit": "ಸಾಲ",
       "agents": "ಕೋಟ್ ಏಜೆಂಟ್",
-      "questions": "ಪ್ರಶ್ನೆಗಳು"
+      "questions": "ಪ್ರಶ್ನೆಗಳು",
+      "samples": "ಮಾದರಿಗಳು"
     },
     "questionsUnanswered": "{count} ಉತ್ತರಿಸಿಲ್ಲ"
   }

@@ -35,7 +35,8 @@
       "prices": "ભાવ માહિતી",
       "credit": "ક્રેડિટ",
       "agents": "ક્વોટેશન એજન્ટ",
-      "questions": "પ્રશ્નો"
+      "questions": "પ્રશ્નો",
+      "samples": "નમૂનાઓ"
     },
     "questionsUnanswered": "{count} બાકી જવાબ"
   }
