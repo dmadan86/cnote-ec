@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import * as ops from "../../ops";
-import { Category, Id, Listing, Me, SearchHit, TrustProfile } from "../../schemas";
+import { Category, FreightEstimate, Id, Listing, Me, SearchHit, TrustProfile } from "../../schemas";
 import { api, json, router } from "../helpers";
 
 export const catalogueRoutes = router();
@@ -85,4 +85,27 @@ catalogueRoutes.openapi(
     },
   }),
   async (c) => c.json(await ops.seller(c.req.valid("param").id), 200),
+);
+
+catalogueRoutes.openapi(
+  api({
+    scope: "catalogue:read", errors: [404, 422, 429],
+    cfg: {
+      method: "get", path: "/listings/{id}/freight-estimate", operationId: "estimateListingFreight", tags: ["Catalogue"], summary: "Estimate freight for a listing",
+      description:
+        "ESTIMATE ONLY: a low-high freight range (before GST), shipping mode, transit days and the assumptions used, from the seller's pincode to the delivery pincode. The final freight is always quoted by the seller; the platform does not book or own logistics.",
+      request: {
+        params: Id,
+        query: z.object({
+          quantity: z.coerce.number().int().min(1).max(1_000_000_000).openapi({ example: 500, description: "Units (the listing's price unit)." }),
+          pincode: z.string().regex(/^[1-9]\d{5}$/).openapi({ example: "400001", description: "6-digit delivery pincode." }),
+        }),
+      },
+      responses: { 200: json(FreightEstimate, "Freight estimate") },
+    },
+  }),
+  async (c) => {
+    const q = c.req.valid("query");
+    return c.json(await ops.listingFreightEstimate(c.get("principal"), c.req.valid("param").id, q.quantity, q.pincode), 200);
+  },
 );

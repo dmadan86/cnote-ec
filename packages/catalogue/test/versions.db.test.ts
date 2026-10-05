@@ -122,6 +122,18 @@ describe("version flow", () => {
     expect(await cat.getPublicListing(l.id)).toMatchObject({ priceTiers: [{ minQty: 10, pricePaise: 950 }], trade: {} });
   });
 
+  it("shipping weight + dimensions round-trip to the public listing and feed getSellerShippingFacts", async () => {
+    const l = await cat.createListing(trusted, input("Shippable widget", { trade: { unitWeightGrams: 750, unitLengthMm: 300, unitWidthMm: 200, unitHeightMm: 100 } }));
+    expect(l.trade).toMatchObject({ unitWeightGrams: 750, unitLengthMm: 300, unitWidthMm: 200, unitHeightMm: 100 });
+    const v = await cat.submitListingVersion(trusted, l.id, {});
+    expect(await cat.publishVersion(v.id)).toBe("published");
+    expect((await cat.getPublicListing(l.id))?.trade).toMatchObject({ unitWeightGrams: 750, unitLengthMm: 300 });
+    expect(await cat.getSellerShippingFacts(trusted)).toMatchObject({ unitWeightGrams: 750, unitWidthMm: 200 });
+    await expect(cat.createListing(trusted, input("Bad weight", { trade: { unitWeightGrams: 0 } }))).rejects.toMatchObject({ code: "validation" });
+    const none = await cat.getSellerShippingFacts("00000000-0000-4000-8000-000000000000");
+    expect(none).toBeNull();
+  });
+
   it("scheduled versions wait for publishAt; a newer submission withdraws the open one; withdraw works", async () => {
     const l = await cat.createListing(trusted, input("Scheduled widget"));
     const later = new Date(Date.now() + 3600_000);

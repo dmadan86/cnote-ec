@@ -1,0 +1,22 @@
+{
+  "freight": {
+    "shipLegend": "Shipping facts (for freight estimates)",
+    "shipHint": "Packed weight and outer size of ONE unit. Buyers see a freight estimate from these. Optional.",
+    "weightG": "Packed weight per unit (grams)",
+    "lengthCm": "Length (cm)",
+    "widthCm": "Width (cm)",
+    "heightCm": "Height (cm)",
+    "shipInvalid": "Enter the weight as whole grams and the size in cm as positive numbers.",
+    "suggest": "Suggest freight",
+    "suggesting": "Estimating...",
+    "suggestHint": "Fills the delivery charge from an estimate. You can change it before sending.",
+    "suggestDone": "Estimated freight {low} to {high} by {mode}, about {days} days. Filled {mid} (before GST). Change it if your real charge differs.",
+    "needQuantity": "Enter the quantity first.",
+    "needPincode": "The buyer did not give a delivery pincode, so freight cannot be estimated.",
+    "failed": "Could not estimate freight right now.",
+    "assumedWeight": "No packed weight on your listings, so 1 kg per unit was assumed.",
+    "modeParcel": "courier",
+    "modeLtl": "part truck",
+    "modeFtl": "full truck"
+  }
+}

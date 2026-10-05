@@ -31,6 +31,7 @@
     "@cnote/leadgen": "workspace:*",
     "@cnote/media": "workspace:*",
     "@cnote/metrics": "workspace:*",
+    "@cnote/logistics": "workspace:*",
     "@cnote/negotiation": "workspace:*",
     "@cnote/next-kit": "workspace:*",
     "@cnote/notifications": "workspace:*",

@@ -23,7 +23,7 @@ function merge(base: Json, over: Json): Json {
 export const KNOWN_NAMESPACES = [
   "landing", "auth", "onboarding", "dashboard", "listings", "leads", "orders", "billing", "verification", "settings", "reviews", "questions",
   "notifications", "storefront", "appeals", "disputes", "offers", "referrals", "ads", "ondc", "negotiation", "escrow", "quality",
-  "credit", "a2a", "prices", "authForms", "errors", "mfa", "states", "rfqLead", "billingAnnual", "consent",
+  "credit", "a2a", "prices", "authForms", "errors", "mfa", "states", "rfqLead", "billingAnnual", "consent", "freight",
 ];
 
 function discoverNamespaces(): string[] {

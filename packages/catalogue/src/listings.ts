@@ -152,6 +152,10 @@ function tradeColumns(t: TradeInfo | undefined): Prisma.ListingUncheckedUpdateIn
     supplyCapacityPerMonth: c.supplyCapacityPerMonth ?? null,
     paymentTerms: c.paymentTerms ?? null,
     certifications: c.certifications ?? [],
+    unitWeightGrams: c.unitWeightGrams ?? null,
+    unitLengthMm: c.unitLengthMm ?? null,
+    unitWidthMm: c.unitWidthMm ?? null,
+    unitHeightMm: c.unitHeightMm ?? null,
   };
 }
 

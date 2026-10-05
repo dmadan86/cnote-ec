@@ -109,6 +109,13 @@ function validateProductionFlags(env: Env, errors: string[], warnings: string[])
   const customDomains = ["cloudflare", "vercel", "aws"].includes((env.EDGE_PROVIDER ?? "mock").trim().toLowerCase()) || truthy(env.DOMAINS_HTTP_PROBE);
   need(customDomains, "custom domains (EDGE_PROVIDER / DOMAINS_HTTP_PROBE)", "DOMAIN_CHECK_SECRET");
 
+  // Freight estimator (docs/design/freight-estimator.md): a live carrier provider without credentials must not boot in production.
+  const freight = (env.FREIGHT_PROVIDER ?? "heuristic").trim().toLowerCase();
+  if (freight === "shiprocket") {
+    for (const k of ["SHIPROCKET_EMAIL", "SHIPROCKET_PASSWORD"]) if (!env[k]) errors.push(`${k} is not set: FREIGHT_PROVIDER=shiprocket cannot fetch rates without it`);
+  }
+  if (freight === "delhivery" && !env.DELHIVERY_API_TOKEN) errors.push("DELHIVERY_API_TOKEN is not set: FREIGHT_PROVIDER=delhivery cannot fetch rates without it");
+
   if (env.CSP_REPORT_ONLY === "1") {
     if (truthy(env.CSP_REPORT_ONLY_ACK)) warnings.push("CSP_REPORT_ONLY=1 (acknowledged): the CSP is not being enforced");
     else errors.push("CSP_REPORT_ONLY=1 leaves the CSP unenforced: finish the rollout, or set CSP_REPORT_ONLY_ACK=1 to acknowledge it");

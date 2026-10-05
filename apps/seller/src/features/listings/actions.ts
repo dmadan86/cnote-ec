@@ -107,7 +107,7 @@ export async function saveListingAction(_prev: SaveResult | null, fd: FormData):
     }
     const tierRows = parseTierRows(fd.getAll("tierMinQty").map(String), fd.getAll("tierPrice").map(String));
     for (const n of tierRows.badRows) issues.push(issue("tiers", t("actions.tierInvalid", { n })));
-    const { trade, invalid: tradeInvalid } = parseTradeFields({
+    const { trade, invalid: tradeInvalid, shippingInvalid } = parseTradeFields({
       leadTimeDays: str(fd, "leadTimeDays"),
       packaging: str(fd, "packaging"),
       sampleAvailable: str(fd, "sampleAvailable") === "on",
@@ -115,8 +115,13 @@ export async function saveListingAction(_prev: SaveResult | null, fd: FormData):
       supplyCapacityPerMonth: str(fd, "supplyCapacityPerMonth"),
       paymentTerms: str(fd, "paymentTerms"),
       certifications: str(fd, "certifications"),
+      unitWeightGrams: str(fd, "unitWeightGrams"),
+      lengthCm: str(fd, "lengthCm"),
+      widthCm: str(fd, "widthCm"),
+      heightCm: str(fd, "heightCm"),
     });
     if (tradeInvalid) issues.push(issue("trade", t("actions.tradeNumber")));
+    if (shippingInvalid) issues.push(issue("shipping", (await getTranslations("freight"))("shipInvalid")));
     if (issues.length) throw new z.ZodError(issues);
 
     const input: ListingInput = {

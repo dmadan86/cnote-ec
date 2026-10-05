@@ -1,11 +1,13 @@
 "use client";
-import { useActionState, useRef } from "react";
-import { useTranslations } from "next-intl";
+import { useActionState, useRef, useState, useTransition } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { DELIVERY_TERMS, PAYMENT_TERMS } from "./terms";
-import { Alert, Field, Input, Select, Textarea } from "@cnote/ui";
+import { Alert, Button, Field, Input, Select, Textarea } from "@cnote/ui";
 import { UNITS } from "@/lib/constants";
 import { FormAlert, SubmitButton, fieldError } from "@/features/shell/form-bits";
 import { hasFileEntries, submitFormAsAction } from "@cnote/next-kit/upload-client";
+import { intlTag } from "@/i18n/config";
+import { suggestFreightAction } from "./freight";
 import { reportDealAction, sendMessageAction, sendQuoteAction, type ConvResult } from "./actions";
 
 export function MessageForm({ conversationId }: { conversationId: string }) {
@@ -27,6 +29,45 @@ export function MessageForm({ conversationId }: { conversationId: string }) {
   );
 }
 
+/** "Suggest freight": estimates from the quantity typed above and fills the delivery charge input; the seller can overwrite it. */
+function SuggestFreight({ conversationId, formRef }: { conversationId: string; formRef: React.RefObject<HTMLFormElement | null> }) {
+  const t = useTranslations("freight");
+  const locale = useLocale();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const inr = (paise: number) => new Intl.NumberFormat(intlTag(locale), { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(paise / 100);
+  function suggest() {
+    const form = formRef.current;
+    if (!form) return;
+    const fd = new FormData();
+    fd.set("conversationId", conversationId);
+    fd.set("quantity", String(new FormData(form).get("quantity") ?? ""));
+    start(async () => {
+      const r = await suggestFreightAction(null, fd);
+      if (!r.ok) {
+        setMsg({ ok: false, text: r.error });
+        return;
+      }
+      const d = r.data;
+      const input = form.elements.namedItem("deliveryCharge") as HTMLInputElement | null;
+      if (input) input.value = (d.midPaise / 100).toFixed(2);
+      const days = d.transitDays.min === d.transitDays.max ? String(d.transitDays.min) : `${d.transitDays.min}-${d.transitDays.max}`;
+      const mode = t(d.mode === "parcel" ? "modeParcel" : d.mode === "ltl" ? "modeLtl" : "modeFtl");
+      const note = d.assumptions.includes("weight_default") ? ` ${t("assumedWeight")}` : "";
+      setMsg({ ok: true, text: `${t("suggestDone", { low: inr(d.lowPaise), high: inr(d.highPaise), mode, days, mid: inr(d.midPaise) })}${note}` });
+    });
+  }
+  return (
+    <div className="sm:col-span-2">
+      <Button type="button" variant="outline" size="md" onClick={suggest} disabled={pending} aria-describedby="q-suggest-hint">
+        {pending ? t("suggesting") : t("suggest")}
+      </Button>
+      <p id="q-suggest-hint" className="mt-1 text-xs text-muted">{t("suggestHint")}</p>
+      <p role="status" aria-live="polite" className={`mt-1 text-sm ${msg && !msg.ok ? "text-danger" : "text-ink"}`}>{msg?.text}</p>
+    </div>
+  );
+}
+
 export function QuoteForm({ conversationId }: { conversationId: string }) {
   const t = useTranslations("leads.conversation");
   const tr = useTranslations("rfqLead");
@@ -35,8 +76,9 @@ export function QuoteForm({ conversationId }: { conversationId: string }) {
     async (prev, fd) => (hasFileEntries(fd) ? submitFormAsAction<null>("/api/quotes", fd) : sendQuoteAction(prev, fd)),
     null,
   );
+  const formRef = useRef<HTMLFormElement>(null);
   return (
-    <form action={action} key={state?.ok ? "sent" : "draft"} className="space-y-4">
+    <form ref={formRef} action={action} key={state?.ok ? "sent" : "draft"} className="space-y-4">
       <input type="hidden" name="conversationId" value={conversationId} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t("price")} htmlFor="q-price" error={fieldError(state, "price")}>
@@ -78,6 +120,7 @@ export function QuoteForm({ conversationId }: { conversationId: string }) {
           <Field label={t("deliveryCharge")} htmlFor="q-dcharge" error={fieldError(state, "deliveryCharge")}>
             <Input id="q-dcharge" name="deliveryCharge" inputMode="decimal" className="h-11" />
           </Field>
+          <SuggestFreight conversationId={conversationId} formRef={formRef} />
           <Field label={t("deliveryNote")} htmlFor="q-dnote">
             <Input id="q-dnote" name="deliveryNote" maxLength={300} className="h-11" />
           </Field>

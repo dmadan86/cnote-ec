@@ -53,6 +53,8 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   // Phase 3 (ADR-019..022), each behind a flag. Credit sits above escrow + disputes (score inputs); a2a above negotiation.
   "@cnote/credit": ["@cnote/core", "@cnote/db", "@cnote/disputes", "@cnote/enquiry", "@cnote/escrow", "@cnote/identity"],
   "@cnote/a2a": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity", "@cnote/negotiation"],
+  // Freight ESTIMATOR (never booking): rate-card heuristic + Shiprocket/Delhivery adapters. PIN->state reuses the one India Post table in prices; live calls use security pinnedFetch.
+  "@cnote/logistics": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/prices", "@cnote/security"],
   "@cnote/prices": ["@cnote/billing", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/escrow", "@cnote/identity"],
   "@cnote/admin": ["@cnote/core", "@cnote/db", "@cnote/identity"],
   "@cnote/ai": ["@cnote/core", "@cnote/db"],

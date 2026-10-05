@@ -27,6 +27,10 @@ export const BASE_COLUMNS: Column[] = [
   { key: "language", header: "language", required: false, width: 10, hint: "Language of title and description: en, hi, kn, ta, te, mr, gu, bn. Default en." },
   { key: "image_files", header: "image_files", required: false, width: 30, hint: "ZIP uploads only: comma-separated image file names inside the images/ folder, e.g. box-1.jpg, box-2.jpg (max 8)." },
   { key: "image_urls", header: "image_urls", required: false, width: 30, hint: "Optional https:// image links, comma-separated. Kept as reference images; uploaded files (image_files) go through staff approval." },
+  { key: "unit_weight_g", header: "unit_weight_g", required: false, width: 14, hint: "Packed weight of ONE price unit in whole grams. Used for buyers' freight estimates." },
+  { key: "unit_length_cm", header: "unit_length_cm", required: false, width: 14, hint: "Outer pack length of one unit in cm (decimals allowed). Freight estimates use length x width x height." },
+  { key: "unit_width_cm", header: "unit_width_cm", required: false, width: 14, hint: "Outer pack width of one unit in cm." },
+  { key: "unit_height_cm", header: "unit_height_cm", required: false, width: 14, hint: "Outer pack height of one unit in cm." },
 ];
 
 /** Columns written after the editable ones on export only. Ignored on import. */

@@ -297,3 +297,34 @@ export const Me = z
     })),
   })
   .openapi("Me");
+
+const rangeSchema = z.object({ min: z.number().int(), max: z.number().int() });
+export const FreightEstimate = z
+  .object({
+    listingId: uuid(),
+    quantity: z.number().int(),
+    unit: z.string().nullable(),
+    unitPricePaise: z.number().int().nullable(),
+    goodsPaise: z.number().int().nullable(),
+    estimate: z.object({
+      mode: z.enum(["parcel", "ltl", "ftl"]).openapi({ description: "parcel = courier, ltl = part truck, ftl = full truck." }),
+      zone: z.enum(["local", "intra_state", "metro", "regional", "national", "special"]),
+      destinationState: z.string().nullable(),
+      actualWeightKg: z.number(),
+      volumetricWeightKg: z.number().nullable(),
+      chargeableWeightKg: z.number(),
+      vehicles: z.number().int(),
+      lowPaise: z.number().int().openapi({ description: "Low end of the freight range in paise, before GST." }),
+      highPaise: z.number().int().openapi({ description: "High end of the freight range in paise, before GST." }),
+      midPaise: z.number().int(),
+      gstLowPaise: z.number().int(),
+      gstHighPaise: z.number().int(),
+      gstRateBps: z.number().int(),
+      fuelSurchargeBps: z.number().int(),
+      transitDays: rangeSchema,
+      assumptions: z.array(z.string()).openapi({ description: "Machine codes for every assumption made (for example weight_default, dims_missing, origin_unknown)." }),
+      estimateOnly: z.literal(true).openapi({ description: "Always true: the final freight is quoted by the seller." }),
+    }),
+    landed: z.object({ low: z.record(z.string(), z.unknown()), high: z.record(z.string(), z.unknown()) }).nullable().openapi({ description: "Goods + freight + GST on freight (low and high). Product GST is not included." }),
+  })
+  .openapi("FreightEstimate");

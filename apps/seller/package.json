@@ -29,6 +29,7 @@
     "@cnote/escrow": "workspace:*",
     "@cnote/identity": "workspace:*",
     "@cnote/media": "workspace:*",
+    "@cnote/logistics": "workspace:*",
     "@cnote/negotiation": "workspace:*",
     "@cnote/next-kit": "workspace:*",
     "@cnote/notifications": "workspace:*",

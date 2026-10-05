@@ -1,6 +1,6 @@
 import { type Privilege, type StaffView, hasPrivilege } from "@cnote/admin";
 import { signOutAction } from "@cnote/next-kit";
-import { Bot, Banknote, LineChart, Camera, Gavel, Landmark, Layers, Network, Gift, Globe, Megaphone, MessageCircle, Tag, Ticket, Activity, BarChart3, Building2, CreditCard, FileClock, Filter, ImageIcon, KeyRound, LayoutDashboard, LayoutTemplate, ListChecks, LogOut, Mail, MessageSquareWarning, Scale, ScrollText, ShieldCheck, Store, UserCog, UserRound } from "lucide-react";
+import { Truck, Bot, Banknote, LineChart, Camera, Gavel, Landmark, Layers, Network, Gift, Globe, Megaphone, MessageCircle, Tag, Ticket, Activity, BarChart3, Building2, CreditCard, FileClock, Filter, ImageIcon, KeyRound, LayoutDashboard, LayoutTemplate, ListChecks, LogOut, Mail, MessageSquareWarning, Scale, ScrollText, ShieldCheck, Store, UserCog, UserRound } from "lucide-react";
 import { NavLink } from "./nav";
 
 const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Privilege }[] = [
@@ -33,6 +33,7 @@ const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Pri
   { href: "/quality", label: "Quality checks", icon: <Camera className="size-4" aria-hidden />, privilege: "quality.review" },
   { href: "/verticals", label: "Verticals", icon: <Layers className="size-4" aria-hidden />, privilege: "verticals.manage" },
   { href: "/prices", label: "Price benchmarks", icon: <LineChart className="size-4" aria-hidden />, privilege: "prices.manage" },
+  { href: "/freight", label: "Freight estimator", icon: <Truck className="size-4" aria-hidden />, privilege: "logistics.manage" },
   { href: "/agents", label: "Agents", icon: <Bot className="size-4" aria-hidden />, privilege: "agents.read" },
   { href: "/ondc", label: "ONDC", icon: <Network className="size-4" aria-hidden />, privilege: "ondc.manage" },
   { href: "/businesses", label: "Businesses", icon: <Building2 className="size-4" aria-hidden />, privilege: "businesses.read" },
