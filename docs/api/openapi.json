@@ -131,7 +131,12 @@
                   "type": "string",
                   "enum": [
                     "owner",
-                    "staff"
+                    "staff",
+                    "admin",
+                    "requester",
+                    "approver",
+                    "finance",
+                    "viewer"
                   ]
                 },
                 "isSeller": {
@@ -347,6 +352,31 @@
                     "type"
                   ]
                 }
+              },
+              "variantAxes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "options": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "label"
+                  ]
+                },
+                "description": "Variant axes (size, colour, grade ...) a listing in this category can use; absent = no variants."
               }
             },
             "required": [
@@ -496,6 +526,45 @@
           "aiGenerated": {
             "type": "boolean"
           },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "made_to_order",
+              "out_of_stock"
+            ],
+            "description": "Stock state. `in_stock` ships now, `made_to_order` ships after the lead time, `out_of_stock` cannot be ordered."
+          },
+          "availableQty": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Units on hand, if the seller tracks it."
+          },
+          "stockUpdatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-09-02T10:00:00.000Z",
+            "description": "When the seller last set the stock; null = never stated."
+          },
+          "variantAxes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VariantAxis"
+            },
+            "description": "Variant axes of the listing's category (empty = no variants)."
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Variant"
+            },
+            "description": "0..100 variants. `availability` above is the best of them (the listing is in stock while any variant is)."
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -523,9 +592,289 @@
           "language",
           "imageUrls",
           "aiGenerated",
+          "availability",
+          "availableQty",
+          "stockUpdatedAt",
+          "variantAxes",
+          "variants",
           "createdAt",
           "updatedAt"
         ]
+      },
+      "VariantAxis": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "size"
+          },
+          "label": {
+            "type": "string",
+            "example": "Size"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "label"
+        ]
+      },
+      "Variant": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "sku": {
+            "type": "string",
+            "example": "BOLT-M8-SS"
+          },
+          "axisValues": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "size": "M8",
+              "grade": "A2-70"
+            },
+            "description": "One value per variant axis of the category."
+          },
+          "pricePaise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Price override in paise; null = the listing's price."
+          },
+          "priceTiers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "minQty": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "pricePaise": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "minQty",
+                "pricePaise"
+              ]
+            },
+            "description": "Quantity tiers overriding the listing's; empty = inherit (or flat price when `pricePaise` is set)."
+          },
+          "moq": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "MOQ override; null = the listing's."
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "made_to_order",
+              "out_of_stock"
+            ],
+            "description": "Stock state. `in_stock` ships now, `made_to_order` ships after the lead time, `out_of_stock` cannot be ordered."
+          },
+          "availableQty": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "leadTimeDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Days to deliver; null = the listing's lead time."
+          },
+          "imageId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Listing image id this variant shows, if any."
+          },
+          "sortOrder": {
+            "type": "integer"
+          },
+          "stockUpdatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-09-02T10:00:00.000Z",
+            "description": "Seller keys only."
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "axisValues",
+          "pricePaise",
+          "priceTiers",
+          "moq",
+          "availability",
+          "availableQty",
+          "leadTimeDays",
+          "imageId",
+          "sortOrder"
+        ]
+      },
+      "Facets": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "key",
+                "count"
+              ]
+            }
+          },
+          "city": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "key",
+                "count"
+              ]
+            }
+          },
+          "state": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "key",
+                "count"
+              ]
+            }
+          },
+          "verificationTier": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "key",
+                "count"
+              ]
+            }
+          },
+          "price": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer"
+                },
+                "fromPaise": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "toPaise": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "key",
+                "count",
+                "fromPaise",
+                "toPaise"
+              ]
+            }
+          },
+          "variant": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "example": "size:m"
+                },
+                "count": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "key",
+                "count"
+              ]
+            },
+            "description": "Lower-cased `axis:value` pairs of listing variants, most common first."
+          }
+        },
+        "required": [
+          "category",
+          "city",
+          "state",
+          "verificationTier",
+          "price",
+          "variant"
+        ],
+        "description": "Facet counts (incl. `variant` buckets) when the backend provides them."
       },
       "FreightEstimate": {
         "type": "object",
@@ -831,6 +1180,45 @@
           "aiGenerated": {
             "type": "boolean"
           },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "made_to_order",
+              "out_of_stock"
+            ],
+            "description": "Stock state. `in_stock` ships now, `made_to_order` ships after the lead time, `out_of_stock` cannot be ordered."
+          },
+          "availableQty": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Units on hand, if the seller tracks it."
+          },
+          "stockUpdatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-09-02T10:00:00.000Z",
+            "description": "When the seller last set the stock; null = never stated."
+          },
+          "variantAxes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VariantAxis"
+            },
+            "description": "Variant axes of the listing's category (empty = no variants)."
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Variant"
+            },
+            "description": "0..100 variants. `availability` above is the best of them (the listing is in stock while any variant is)."
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -888,6 +1276,11 @@
           "language",
           "imageUrls",
           "aiGenerated",
+          "availability",
+          "availableQty",
+          "stockUpdatedAt",
+          "variantAxes",
+          "variants",
           "createdAt",
           "updatedAt",
           "status",
@@ -1090,6 +1483,185 @@
           }
         }
       },
+      "StockPatch": {
+        "type": "object",
+        "properties": {
+          "availability": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "made_to_order",
+              "out_of_stock"
+            ],
+            "description": "Stock state. `in_stock` ships now, `made_to_order` ships after the lead time, `out_of_stock` cannot be ordered."
+          },
+          "availableQty": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "leadTimeDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 730,
+            "description": "Required (here or already stored) for `made_to_order`."
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "sku": {
+                  "type": "string",
+                  "description": "Match a variant by sku when `id` is not given."
+                },
+                "availability": {
+                  "type": "string",
+                  "enum": [
+                    "in_stock",
+                    "made_to_order",
+                    "out_of_stock"
+                  ],
+                  "description": "Stock state. `in_stock` ships now, `made_to_order` ships after the lead time, `out_of_stock` cannot be ordered."
+                },
+                "availableQty": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "leadTimeDays": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 730
+                }
+              }
+            },
+            "maxItems": 100
+          }
+        },
+        "example": {
+          "availability": "made_to_order",
+          "leadTimeDays": 14
+        }
+      },
+      "VariantsPut": {
+        "type": "object",
+        "properties": {
+          "variants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VariantInput"
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "variants"
+        ]
+      },
+      "VariantInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Keeps an existing variant's identity; otherwise matched by `sku`."
+          },
+          "sku": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]{1,64}$"
+          },
+          "axisValues": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60
+            }
+          },
+          "pricePaise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "priceTiers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "minQty": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "pricePaise": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "minQty",
+                "pricePaise"
+              ]
+            },
+            "maxItems": 8
+          },
+          "moq": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "made_to_order",
+              "out_of_stock"
+            ],
+            "description": "Stock state. `in_stock` ships now, `made_to_order` ships after the lead time, `out_of_stock` cannot be ordered."
+          },
+          "availableQty": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "leadTimeDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 730
+          },
+          "imageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "sku",
+          "axisValues"
+        ]
+      },
       "Ok": {
         "type": "object",
         "properties": {
@@ -1230,7 +1802,8 @@
                   "matched",
                   "unmatched",
                   "closed",
-                  "rejected"
+                  "rejected",
+                  "pending_approval"
                 ]
               },
               "createdAt": {
@@ -1246,6 +1819,13 @@
               },
               "awaitingPick": {
                 "type": "boolean"
+              },
+              "lines": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/EnquiryLine"
+                },
+                "description": "Bill-of-materials lines (always at least one). Line 1 mirrors `quantity`/`quantityUnit`."
               }
             },
             "required": [
@@ -1263,7 +1843,8 @@
               "intentScore",
               "intentReasons",
               "status",
-              "createdAt"
+              "createdAt",
+              "lines"
             ]
           },
           "rank": {
@@ -1339,6 +1920,77 @@
           "respondBy",
           "buyer",
           "conversationId"
+        ]
+      },
+      "EnquiryLine": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "ordinal": {
+            "type": "integer",
+            "description": "1-based line number."
+          },
+          "itemName": {
+            "type": "string"
+          },
+          "spec": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "targetPricePaise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Target unit price in paise."
+          },
+          "category": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "slug",
+              "name"
+            ]
+          },
+          "hsn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "ordinal",
+          "itemName",
+          "spec",
+          "quantity",
+          "unit",
+          "targetPricePaise",
+          "category",
+          "hsn"
         ]
       },
       "CreditBalance": {
@@ -1637,7 +2289,8 @@
               "matched",
               "unmatched",
               "closed",
-              "rejected"
+              "rejected",
+              "pending_approval"
             ]
           },
           "createdAt": {
@@ -1653,6 +2306,13 @@
           },
           "awaitingPick": {
             "type": "boolean"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnquiryLine"
+            },
+            "description": "Bill-of-materials lines (always at least one). Line 1 mirrors `quantity`/`quantityUnit`."
           },
           "matches": {
             "type": "array",
@@ -1677,6 +2337,7 @@
           "intentReasons",
           "status",
           "createdAt",
+          "lines",
           "matches"
         ]
       },
@@ -1778,12 +2439,26 @@
           "title": {
             "type": "string",
             "minLength": 5,
-            "maxLength": 140
+            "maxLength": 140,
+            "description": "Required unless `lines` is given (then derived from the lines)."
           },
           "requirement": {
             "type": "string",
             "minLength": 10,
-            "maxLength": 4000
+            "maxLength": 4000,
+            "description": "Required unless `lines` is given."
+          },
+          "lines": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/EnquiryLineCreate"
+            },
+            "minItems": 1,
+            "maxItems": 50,
+            "description": "Multi-line RFQ (bill of materials), 1-50 lines. `quantity`, `quantityUnit` and `targetPricePaise` then mirror line 1 and are ignored if sent. Each line is matched, moderated and intent-scored with the rest of the RFQ."
           },
           "categorySlug": {
             "type": [
@@ -1847,10 +2522,6 @@
             "description": "Rank this listing's seller first if eligible."
           }
         },
-        "required": [
-          "title",
-          "requirement"
-        ],
         "example": {
           "title": "500 kg SS304 sheets",
           "requirement": "Need 500 kg of 2mm SS304 sheets, mill test certificate required, delivery to Pune.",
@@ -1862,6 +2533,60 @@
           "deliveryPincode": "411001",
           "language": "en"
         }
+      },
+      "EnquiryLineCreate": {
+        "type": "object",
+        "properties": {
+          "itemName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 140
+          },
+          "spec": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000
+          },
+          "quantity": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "targetPricePaise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "description": "Target unit price in paise."
+          },
+          "categorySlug": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100
+          },
+          "hsn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}(\\d{2}(\\d{2})?)?$",
+            "description": "HSN code, 4, 6 or 8 digits."
+          }
+        },
+        "required": [
+          "itemName",
+          "quantity",
+          "unit"
+        ]
       },
       "EnquiryPage": {
         "type": "object",
@@ -1883,6 +2608,219 @@
         "required": [
           "items",
           "nextCursor"
+        ]
+      },
+      "LineAwardResult": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "orderId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+                },
+                "quoteId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+                },
+                "matchId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+                },
+                "sellerBusinessId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+                },
+                "enquiryLineIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "totalPaise": {
+                  "type": "integer",
+                  "description": "Payable for the awarded lines, GST per line."
+                }
+              },
+              "required": [
+                "orderId",
+                "quoteId",
+                "matchId",
+                "sellerBusinessId",
+                "enquiryLineIds",
+                "totalPaise"
+              ]
+            }
+          }
+        },
+        "required": [
+          "results"
+        ]
+      },
+      "LineAwardCreate": {
+        "type": "object",
+        "properties": {
+          "awards": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "enquiryLineId": {
+                  "type": "string"
+                },
+                "quoteId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "enquiryLineId",
+                "quoteId"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 50,
+            "description": "One entry per requirement line: which supplier quote gets it. Lines may go to different suppliers; each supplier gets one order covering only its lines."
+          }
+        },
+        "required": [
+          "awards"
+        ]
+      },
+      "AwardedLinePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AwardedLine"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "AwardedLine": {
+        "type": "object",
+        "properties": {
+          "enquiryLineId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "quoteLineId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "quoteId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "orderId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "enquiryId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "sellerBusinessId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "ordinal": {
+            "type": "integer"
+          },
+          "itemName": {
+            "type": "string"
+          },
+          "spec": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hsn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "unitPricePaise": {
+            "type": "integer"
+          },
+          "gstRatePct": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "gstIncluded": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "leadTimeDays": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "lineSubtotalPaise": {
+            "type": "integer"
+          },
+          "lineGstPaise": {
+            "type": "integer"
+          },
+          "lineTotalPaise": {
+            "type": "integer"
+          },
+          "awardedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-05T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "enquiryLineId",
+          "quoteLineId",
+          "quoteId",
+          "orderId",
+          "enquiryId",
+          "sellerBusinessId",
+          "ordinal",
+          "itemName",
+          "spec",
+          "hsn",
+          "quantity",
+          "unit",
+          "unitPricePaise",
+          "gstRatePct",
+          "gstIncluded",
+          "leadTimeDays",
+          "lineSubtotalPaise",
+          "lineGstPaise",
+          "lineTotalPaise",
+          "awardedAt"
         ]
       },
       "Conversation": {
@@ -2050,6 +2988,40 @@
             "type": "string",
             "format": "date-time",
             "example": "2026-09-03T10:00:00.000Z"
+          },
+          "lineTotals": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "subtotalPaise": {
+                "type": "integer"
+              },
+              "gstPaise": {
+                "type": "integer"
+              },
+              "totalPaise": {
+                "type": "integer"
+              },
+              "quotedLineCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "subtotalPaise",
+              "gstPaise",
+              "totalPaise",
+              "quotedLineCount"
+            ],
+            "description": "Server-computed totals of a per-line quote (null on single-field quotes). `pricePaise`/`quantity`/`unit` then mirror the first priced line."
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuoteLine"
+            },
+            "description": "Per-line prices of a multi-line quote."
           }
         },
         "required": [
@@ -2061,7 +3033,90 @@
           "leadTimeDays",
           "notes",
           "validUntil",
-          "createdAt"
+          "createdAt",
+          "lineTotals"
+        ]
+      },
+      "QuoteLine": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "enquiryLineId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+          },
+          "ordinal": {
+            "type": "integer"
+          },
+          "unitPricePaise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Per unit; null when the supplier cannot supply the line."
+          },
+          "gstRatePct": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "leadTimeDays": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "cantSupply": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "The requirement line's quantity the amounts were computed for."
+          },
+          "lineSubtotalPaise": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "lineGstPaise": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "lineTotalPaise": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "enquiryLineId",
+          "ordinal",
+          "unitPricePaise",
+          "gstRatePct",
+          "leadTimeDays",
+          "cantSupply",
+          "notes",
+          "quantity",
+          "lineSubtotalPaise",
+          "lineGstPaise",
+          "lineTotalPaise"
         ]
       },
       "MessageCreate": {
@@ -2083,7 +3138,7 @@
           "pricePaise": {
             "type": "integer",
             "exclusiveMinimum": 0,
-            "description": "Unit price in paise."
+            "description": "Unit price in paise. Required unless `lines` is given (then mirrored from the first priced line)."
           },
           "quantity": {
             "type": "integer",
@@ -2115,13 +3170,27 @@
               "null"
             ],
             "description": "ISO date."
+          },
+          "gstIncluded": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Unit prices already include GST. Applies to every line."
+          },
+          "lines": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/QuoteLineCreate"
+            },
+            "minItems": 1,
+            "maxItems": 50,
+            "description": "Per-line prices for a multi-line RFQ (required when the enquiry has more than one line; partial quotes are fine). Totals are computed by the server."
           }
         },
-        "required": [
-          "pricePaise",
-          "quantity",
-          "unit"
-        ],
         "example": {
           "pricePaise": 20500,
           "quantity": 500,
@@ -2129,6 +3198,64 @@
           "leadTimeDays": 7,
           "notes": "MTC included",
           "validUntil": "2026-10-15"
+        }
+      },
+      "QuoteLineCreate": {
+        "type": "object",
+        "properties": {
+          "enquiryLineId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Requirement line id. Give this or `ordinal`."
+          },
+          "ordinal": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "description": "1-based requirement line number. Give this or `enquiryLineId`."
+          },
+          "unitPricePaise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "description": "Unit price in paise. Required unless `cantSupply`."
+          },
+          "gstRatePct": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 40
+          },
+          "leadTimeDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 730
+          },
+          "cantSupply": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The supplier cannot supply this line. Lines you leave out are treated as skipped (partial quote)."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300
+          }
         }
       },
       "DealReportCreate": {
@@ -3444,6 +4571,32 @@
             "required": false,
             "name": "limit",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "description": "`true` = only listings that are in stock now (made-to-order does not count). A filter only: it never changes ranking."
+            },
+            "required": false,
+            "description": "`true` = only listings that are in stock now (made-to-order does not count). A filter only: it never changes ranking.",
+            "name": "in_stock",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 400,
+              "example": "size:m,size:l,colour:red",
+              "description": "Variant filter as comma-separated `axis:value` pairs: OR within an axis, AND across axes, case-insensitive. Axes come from the category's `attributeSchema.variantAxes`."
+            },
+            "required": false,
+            "description": "Variant filter as comma-separated `axis:value` pairs: OR within an axis, AND across axes, case-insensitive. Axes come from the category's `attributeSchema.variantAxes`.",
+            "name": "variant",
+            "in": "query"
           }
         ],
         "responses": {
@@ -3459,6 +4612,9 @@
                       "items": {
                         "$ref": "#/components/schemas/SearchHit"
                       }
+                    },
+                    "facets": {
+                      "$ref": "#/components/schemas/Facets"
                     }
                   },
                   "required": [
@@ -3984,6 +5140,206 @@
         "responses": {
           "200": {
             "description": "Updated listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SellerListing"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/listings/{id}/stock": {
+      "patch": {
+        "operationId": "updateSellerListingStock",
+        "tags": [
+          "Seller listings"
+        ],
+        "summary": "Update stock and availability",
+        "description": "Sets `availability` (`in_stock` | `made_to_order` | `out_of_stock`), `availableQty` and `leadTimeDays` for the listing and/or per variant (`variants[]`, matched by `id` or `sku`). Stock is operational data: it takes effect on a live listing immediately and does NOT go through review. `made_to_order` needs a lead time. Buyers who saved a listing that comes back in stock are alerted. Requires a key bound to a seller business.\n\n**Required scope:** `listings:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "listings:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Listing with its new stock",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SellerListing"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/seller/listings/{id}/variants": {
+      "put": {
+        "operationId": "setSellerListingVariants",
+        "tags": [
+          "Seller listings"
+        ],
+        "summary": "Replace the listing's variants",
+        "description": "Replaces the complete variant set (0-100). Variants are matched to existing ones by `id`, else `sku`; variants not listed are deleted. Every variant sets a value for each variant axis of the category (see `variantAxes` on the category; categories without axes cannot have variants). Each variant may override price, quantity tiers, MOQ and stock. Structure changes are content: they reach buyers when the listing is next published and are moderated; stock fields take effect at once. Requires a key bound to a seller business.\n\n**Required scope:** `listings:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "listings:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VariantsPut"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Listing with its variants",
             "content": {
               "application/json": {
                 "schema": {
@@ -5365,6 +6721,194 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Enquiry"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/enquiries/{id}/awards": {
+      "post": {
+        "operationId": "awardEnquiryLines",
+        "tags": [
+          "Enquiries"
+        ],
+        "summary": "Award requirement lines to supplier quotes",
+        "description": "Per-line award for a multi-line RFQ: give different lines to different suppliers' latest quotes. Each supplier gets one off-platform order covering only its lines, valued at the server-computed line totals. A line can be awarded once, and a supplier that already has an order on this enquiry takes no more lines. Requires a key bound to a business.\n\n**Required scope:** `enquiries:write`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "enquiries:write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LineAwardCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "One order per awarded supplier",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineAwardResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the required scope, or the key is not bound to a business.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (or not visible to this key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state of the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `error.issues` lists the offending fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honour the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listEnquiryAwards",
+        "tags": [
+          "Enquiries"
+        ],
+        "summary": "List awarded lines",
+        "description": "Immutable snapshots of the lines awarded so far (item, spec, quantity, unit price, GST, supplier, order). Requires a key bound to a business.\n\n**Required scope:** `enquiries:read`",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scope": "enquiries:read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Awarded lines, ordered by line number",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AwardedLinePage"
                 }
               }
             }
