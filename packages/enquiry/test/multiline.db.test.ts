@@ -39,6 +39,7 @@ vi.mock("@cnote/identity", () => ({
   getTrustProfiles: async (ids: string[]) => new Map(ids.filter((i) => state.profiles.has(i)).map((i) => [i, state.profiles.get(i)])),
   hasConsent: async () => true,
   getPersonContact: async () => ({ phone: "+919999900000" }),
+  getMemberRole: async () => null, // fixtures are not team members: approvals/roles do not apply (docs/design/buyer-approvals.md)
 }));
 
 import {

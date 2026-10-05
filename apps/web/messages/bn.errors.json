@@ -351,7 +351,9 @@
       "videoKycNotStartedSession": "এই সেশনের জন্য ভিডিও KYC শুরু হয়নি।",
       "noteRequired": "একটি নোট লিখতে হবে।",
       "sessionAlreadyDecided": "এই সেশনের সিদ্ধান্ত আগেই হয়ে গেছে।",
-      "startEnrollmentFirst": "আগে নথিভুক্তি শুরু করুন।"
+      "startEnrollmentFirst": "আগে নথিভুক্তি শুরু করুন।",
+      "auditReviewNoteRequired": "পর্যালোচনার নোট আবশ্যক।",
+      "auditPartnerNoteRequired": "অংশীদারের জন্য নোট আবশ্যক।"
     },
     "leadgen": {
       "requestExpiredStartAgain": "এই অনুরোধের মেয়াদ শেষ হয়েছে। অনুগ্রহ করে আবার শুরু করুন।",

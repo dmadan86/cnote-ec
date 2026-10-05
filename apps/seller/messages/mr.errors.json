@@ -351,7 +351,9 @@
       "videoKycNotStartedSession": "या सत्रासाठी व्हिडिओ KYC सुरू झालेले नाही.",
       "noteRequired": "टीप आवश्यक आहे.",
       "sessionAlreadyDecided": "या सत्रावर आधीच निर्णय झाला आहे.",
-      "startEnrollmentFirst": "आधी नोंदणी सुरू करा."
+      "startEnrollmentFirst": "आधी नोंदणी सुरू करा.",
+      "auditReviewNoteRequired": "पुनरावलोकन टीप आवश्यक आहे.",
+      "auditPartnerNoteRequired": "भागीदारासाठी टीप आवश्यक आहे."
     },
     "leadgen": {
       "requestExpiredStartAgain": "या विनंतीची मुदत संपली आहे. कृपया पुन्हा सुरू करा.",

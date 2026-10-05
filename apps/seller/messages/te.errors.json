@@ -351,7 +351,9 @@
       "videoKycNotStartedSession": "ఈ సెషన్‌కు వీడియో KYC ప్రారంభం కాలేదు.",
       "noteRequired": "గమనిక తప్పనిసరి.",
       "sessionAlreadyDecided": "ఈ సెషన్‌పై ఇప్పటికే నిర్ణయం తీసుకోబడింది.",
-      "startEnrollmentFirst": "ముందుగా ఎన్‌రోల్‌మెంట్ ప్రారంభించండి."
+      "startEnrollmentFirst": "ముందుగా ఎన్‌రోల్‌మెంట్ ప్రారంభించండి.",
+      "auditReviewNoteRequired": "సమీక్ష గమనిక అవసరం.",
+      "auditPartnerNoteRequired": "భాగస్వామి కోసం గమనిక అవసరం."
     },
     "leadgen": {
       "requestExpiredStartAgain": "ఈ అభ్యర్థన గడువు ముగిసింది. దయచేసి మళ్లీ ప్రారంభించండి.",

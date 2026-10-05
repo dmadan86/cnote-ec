@@ -351,7 +351,9 @@
       "videoKycNotStartedSession": "இந்த அமர்வுக்கு வீடியோ KYC தொடங்கவில்லை.",
       "noteRequired": "ஒரு குறிப்பு அவசியம்.",
       "sessionAlreadyDecided": "இந்த அமர்வில் ஏற்கனவே முடிவு எடுக்கப்பட்டது.",
-      "startEnrollmentFirst": "முதலில் பதிவைத் தொடங்குங்கள்."
+      "startEnrollmentFirst": "முதலில் பதிவைத் தொடங்குங்கள்.",
+      "auditReviewNoteRequired": "மதிப்பாய்வுக் குறிப்பு தேவை.",
+      "auditPartnerNoteRequired": "கூட்டாளருக்கான குறிப்பு தேவை."
     },
     "leadgen": {
       "requestExpiredStartAgain": "இந்தக் கோரிக்கை காலாவதியாகிவிட்டது. தயவுசெய்து மீண்டும் தொடங்குங்கள்.",

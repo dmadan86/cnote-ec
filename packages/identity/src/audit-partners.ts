@@ -236,7 +236,7 @@ export async function readAuditPhoto(auditId: string, index: number): Promise<{ 
 export async function reviewAuditSubmission(auditId: string, d: { result: AuditResult; validUntil: Date; note: string }, staffId: string, now = new Date()): Promise<AuditView> {
   const a = await load(auditId);
   if (a.status !== "submitted") throw new DomainError("conflict", "This audit has no partner submission to review.");
-  if (!d.note.trim()) throw new DomainError("validation", "A review note is required.", undefined, "account.noteRequired");
+  if (!d.note.trim()) throw new DomainError("validation", "A review note is required.", undefined, "account.auditReviewNoteRequired");
   const sub = await getAuditSubmission(auditId);
   return recordAuditResult(auditId, {
     result: d.result, validUntil: d.validUntil, reviewNote: d.note,
@@ -248,7 +248,7 @@ export async function reviewAuditSubmission(auditId: string, d: { result: AuditR
 export async function requestAuditResubmission(auditId: string, note: string): Promise<AuditView> {
   const a = await load(auditId);
   if (a.status !== "submitted") throw new DomainError("conflict", "Only a submitted audit can be sent back.");
-  if (!note.trim()) throw new DomainError("validation", "A note for the partner is required.", undefined, "account.noteRequired");
+  if (!note.trim()) throw new DomainError("validation", "A note for the partner is required.", undefined, "account.auditPartnerNoteRequired");
   const keys = ((a.submission as { photos?: { key?: string }[] } | null)?.photos ?? []).map((p) => p.key).filter((k): k is string => !!k);
   const claimed = await prisma.verificationAudit.updateMany({ where: { id: auditId, status: "submitted" }, data: { status: "scheduled", submission: Prisma.DbNull, submittedAt: null, reviewNote: note.trim() } });
   if (claimed.count === 0) throw new DomainError("conflict", "This audit was already decided.");

@@ -348,7 +348,9 @@
       "videoKycNotStartedSession": "इस सत्र के लिए वीडियो KYC शुरू नहीं हुआ है।",
       "noteRequired": "टिप्पणी लिखना ज़रूरी है।",
       "sessionAlreadyDecided": "इस सत्र पर पहले ही निर्णय हो चुका है।",
-      "startEnrollmentFirst": "पहले नामांकन शुरू करें।"
+      "startEnrollmentFirst": "पहले नामांकन शुरू करें।",
+      "auditReviewNoteRequired": "समीक्षा टिप्पणी लिखना ज़रूरी है।",
+      "auditPartnerNoteRequired": "पार्टनर के लिए टिप्पणी लिखना ज़रूरी है।"
     },
     "leadgen": {
       "requestExpiredStartAgain": "यह अनुरोध समाप्त हो चुका है। कृपया फिर से शुरू करें।",

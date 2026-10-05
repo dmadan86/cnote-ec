@@ -351,7 +351,9 @@
       "videoKycNotStartedSession": "ಈ ಸೆಷನ್‌ಗೆ ವಿಡಿಯೋ KYC ಪ್ರಾರಂಭವಾಗಿಲ್ಲ.",
       "noteRequired": "ಟಿಪ್ಪಣಿ ಅಗತ್ಯ.",
       "sessionAlreadyDecided": "ಈ ಸೆಷನ್ ಬಗ್ಗೆ ಈಗಾಗಲೇ ನಿರ್ಧಾರ ತೆಗೆದುಕೊಳ್ಳಲಾಗಿದೆ.",
-      "startEnrollmentFirst": "ಮೊದಲು ನೋಂದಣಿಯನ್ನು ಪ್ರಾರಂಭಿಸಿ."
+      "startEnrollmentFirst": "ಮೊದಲು ನೋಂದಣಿಯನ್ನು ಪ್ರಾರಂಭಿಸಿ.",
+      "auditReviewNoteRequired": "ಪರಿಶೀಲನಾ ಟಿಪ್ಪಣಿ ಅಗತ್ಯ.",
+      "auditPartnerNoteRequired": "ಪಾಲುದಾರರಿಗೆ ಟಿಪ್ಪಣಿ ಅಗತ್ಯ."
     },
     "leadgen": {
       "requestExpiredStartAgain": "ಈ ವಿನಂತಿಯ ಅವಧಿ ಮುಗಿದಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಾರಂಭಿಸಿ.",
