@@ -324,7 +324,9 @@ export async function onOrderDeliveredTx(tx: Tx, orderId: string, deliveredAt: D
   const rows = await tx.supplierInvoice.findMany({ where: { orderId, status: "open", dueBasis: "invoice_date" } });
   for (const r of rows) {
     const written = r.agreementBasis === "written_agreement";
-    const dueDate = r.msmeCovered ? statutoryDueDate({ acceptance: day, agreedDays: written ? r.agreedDays : null, writtenAgreement: written }).dueDate : addDays(day, r.agreedDays ?? 0);
+    // agreedDays is only stored for a written agreement; a non-covered supplier's invoice is due on the PO version's terms.
+    const termsDays = r.agreedDays ?? (await tx.purchaseOrderVersion.findUnique({ where: { purchaseOrderId_version: { purchaseOrderId: r.purchaseOrderId, version: r.poVersion } }, select: { paymentTermsDays: true } }))?.paymentTermsDays ?? 0;
+    const dueDate = r.msmeCovered ? statutoryDueDate({ acceptance: day, agreedDays: written ? r.agreedDays : null, writtenAgreement: written }).dueDate : addDays(day, termsDays);
     await tx.supplierInvoice.update({ where: { id: r.id }, data: { dueBasis: "delivery", acceptanceDate: toDbDate(day), dueDate: toDbDate(dueDate) } });
   }
   return rows.length;
