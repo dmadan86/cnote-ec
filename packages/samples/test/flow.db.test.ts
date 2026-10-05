@@ -305,8 +305,14 @@ describe("DPDP: export, retention and erasure", () => {
     const v = await ask(d.buyer, { conversationId: d.conversationId, note: "Call before delivery" });
     const mine = (await exportPersonalData(d.buyer.personId, { businessIds: [d.buyer.businessId] })) as { sampleRequests: { items: { id: string; shipLine1: string; amountPaise: number }[] } };
     expect(mine.sampleRequests.items.find((r) => r.id === v.id)).toMatchObject({ shipLine1: "12 MG Road", amountPaise: 0 });
-    const theirs = (await exportPersonalData(d.seller.personId, { businessIds: [d.seller.businessId] })) as { sampleRequests: { items: { id: string }[] } };
+    const theirs = (await exportPersonalData(d.seller.personId, { businessIds: [d.seller.businessId] })) as { sampleRequests: { items: Record<string, unknown>[] } };
     expect(theirs.sampleRequests.items.map((r) => r.id)).toContain(v.id);
+    // seller-side export never carries the buyer's personal data, accepted or not
+    await acceptSample(d.seller, v.id);
+    const sellerRow = ((await exportPersonalData(d.seller.personId, { businessIds: [d.seller.businessId] })) as { sampleRequests: { items: Record<string, unknown>[] } }).sampleRequests.items.find((r) => r.id === v.id)!;
+    expect(sellerRow).toMatchObject({ shipName: null, shipPhone: null, shipLine1: null, shipLine2: null, shipCity: null, shipPincode: null, buyerNote: null });
+    expect(JSON.stringify(sellerRow)).not.toContain("MG Road");
+    expect(JSON.stringify(sellerRow)).not.toContain("Call before delivery");
     expect(JSON.stringify(mine)).not.toContain("samples/"); // no private keys
   });
 

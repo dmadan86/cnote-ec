@@ -10,11 +10,21 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
     orderBy: { createdAt: "asc" },
     take: EXPORT_TAKE,
     select: {
-      id: true, buyerBusinessId: true, sellerBusinessId: true, listingId: true, subject: true, quantity: true, unit: true, buyerNote: true, status: true,
+      id: true, buyerPersonId: true, buyerBusinessId: true, sellerBusinessId: true, listingId: true, subject: true, quantity: true, unit: true, buyerNote: true, status: true,
       shipName: true, shipPhone: true, shipLine1: true, shipLine2: true, shipCity: true, shipPincode: true,
       amountPaise: true, adjustableAgainstBulk: true, paymentNote: true, paymentReceivedAt: true, respondBy: true, respondedAt: true, declineReason: true, declineNote: true,
       courier: true, trackingRef: true, dispatchedAt: true, deliveredAt: true, evaluatedAt: true, evaluationReasons: true, evaluationNotes: true, createdAt: true,
     },
   });
-  return { sampleRequests: exportCollection(rows.map((r) => ({ ...r, amountPaise: Number(r.amountPaise) }))) };
+  // Seller-side rows (matched via the seller business, not as the buyer) must not hand the buyer's personal data to the exporter:
+  // ship-to details and the buyer's note are blanked, whether or not the request was accepted.
+  const items = rows.map(({ buyerPersonId, ...r }) => {
+    const mine = buyerPersonId === personId;
+    return {
+      ...r,
+      amountPaise: Number(r.amountPaise),
+      ...(mine ? {} : { shipName: null, shipPhone: null, shipLine1: null, shipLine2: null, shipCity: null, shipPincode: null, buyerNote: null }),
+    };
+  });
+  return { sampleRequests: exportCollection(items) };
 }
