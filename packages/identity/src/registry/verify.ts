@@ -195,6 +195,15 @@ export async function verifyRegistry(kind: RegistryKind, businessId: string, opt
 export const verifyUdyam = (businessId: string, opts?: { number?: string }) => verifyRegistry("udyam", businessId, opts);
 export const verifyMca = (businessId: string, opts?: { number?: string }) => verifyRegistry("mca", businessId, opts);
 
+export interface RegistryStatusView {
+  udyam: string | null; udyamVerifiedAt: string | null; cin: string | null; mcaVerifiedAt: string | null; mcaStatus: string | null;
+}
+/** What the seller portal shows: the declared numbers and when each was last verified (no provider snapshot). */
+export async function getRegistryStatus(businessId: string): Promise<RegistryStatusView | null> {
+  const b = await prisma.business.findUnique({ where: { id: businessId }, select: { udyam: true, udyamVerifiedAt: true, cin: true, mcaVerifiedAt: true, mcaStatus: true } });
+  return b ? { udyam: b.udyam, udyamVerifiedAt: b.udyamVerifiedAt?.toISOString() ?? null, cin: b.cin, mcaVerifiedAt: b.mcaVerifiedAt?.toISOString() ?? null, mcaStatus: b.mcaStatus } : null;
+}
+
 // ---------- manual review queue (admin: businesses.verify, audited) ----------
 export interface RegistryReviewItem { id: string; kind: RegistryKind; businessId: string; businessName: string; number: string | null; score: number | null; reasons: string[]; dispute: boolean; createdAt: string }
 export async function listPendingRegistryReviews(limit = 100): Promise<RegistryReviewItem[]> {

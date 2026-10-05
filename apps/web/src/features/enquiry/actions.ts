@@ -55,7 +55,7 @@ export async function postRfqAction(_prev: ActionResult<EnquiryView> | null, f: 
         preferredSellerId: str(f, "preferredSellerId"),
         language: s.preferredLanguage,
       },
-      { buyerPhoneVerified: s.phoneVerified, ip: clientIp(await headers()) },
+      { buyerPhoneVerified: s.phoneVerified, ip: clientIp(await headers()), userAgent: (await headers()).get("user-agent") },
     );
     await attributeEnquiryFromCookie({ enquiryId: enquiry.id, buyerBusinessId: s.business.id, listingId: str(f, "preferredListingId") });
     revalidatePath("/buyer/enquiries");

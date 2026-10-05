@@ -6,6 +6,6 @@ export {
   type UdyamProvider, type McaProvider, type UdyamRecord, type McaRecord, type UdyamStatus, type McaStatus, type RegistryLookupOpts, type MockUdyamProvider, type MockMcaProvider,
 } from "./providers";
 export {
-  verifyRegistry, verifyUdyam, verifyMca, evaluateRegistryChecks, isValidRegistryNumber, listPendingRegistryReviews, resolveRegistryReview, recheckRegistry, runRegistryRecheck, registryWorkerJobs, REGISTRY_RECHECK_DAYS,
+  verifyRegistry, getRegistryStatus, type RegistryStatusView, verifyUdyam, verifyMca, evaluateRegistryChecks, isValidRegistryNumber, listPendingRegistryReviews, resolveRegistryReview, recheckRegistry, runRegistryRecheck, registryWorkerJobs, REGISTRY_RECHECK_DAYS,
   type RegistryKind, type RegistryCheck, type RegistryCheckId, type RegistryOutcome, type RegistryReviewItem, type RegistryCheckInput,
 } from "./verify";

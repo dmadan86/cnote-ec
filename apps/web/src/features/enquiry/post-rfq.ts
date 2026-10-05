@@ -2,7 +2,9 @@ import "server-only";
 // "Post your requirement", shared by the text-only server action (actions.ts) and the multipart route handler (app/api/rfq/route.ts).
 import { createEnquiry, MAX_RFQ_ATTACHMENTS, MAX_RFQ_ATTACHMENT_BYTES, type AttachmentUpload, type EnquiryView } from "@cnote/enquiry";
 import { actorOf, type SessionWithBusiness } from "@cnote/next-kit";
+import { clientIp } from "@cnote/security/client-ip";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { attributeEnquiryFromCookie } from "@/features/ads/slots";
 
 /** Whole-request cap for the upload route: every allowed attachment at full size plus form fields and multipart framing. */
@@ -54,7 +56,8 @@ export async function postRfq(f: FormData, s: SessionWithBusiness, opts: { withF
       preferredSellerId: str(f, "preferredSellerId"),
       language: s.preferredLanguage,
     },
-    { buyerPhoneVerified: s.phoneVerified },
+    // ADR-002 fake-lead signals: server-side only (hashed /24, UA family, velocity). Nothing is set in the browser.
+    { buyerPhoneVerified: s.phoneVerified, ip: clientIp(await headers()), userAgent: (await headers()).get("user-agent") },
   );
   await attributeEnquiryFromCookie({ enquiryId: enquiry.id, buyerBusinessId: s.business.id, listingId: str(f, "preferredListingId") });
   revalidatePath("/buyer/enquiries");

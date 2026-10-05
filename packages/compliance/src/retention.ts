@@ -6,8 +6,8 @@
 // (`RETENTION_<KEY>_DAYS`) with the safe defaults below. Consent ledger rows and admin audit logs are never purged.
 import { prisma } from "@cnote/db";
 import * as catalogue from "@cnote/catalogue";
-import { purgeInactiveConversationMessages } from "@cnote/enquiry";
-import { purgeErasedPersonResiduals, purgeExpiredAuthSessions, purgeKycDocuments } from "@cnote/identity";
+import { purgeEnquirySignals, purgeInactiveConversationMessages } from "@cnote/enquiry";
+import { purgeAuditPhotos, purgeErasedPersonResiduals, purgeExpiredAuthSessions, purgeKycDocuments } from "@cnote/identity";
 import { purgeAbandonedCaptures } from "@cnote/leadgen";
 import { purgeReadNotifications } from "@cnote/notifications";
 import { purgeRejectedUgc } from "@cnote/reviews";
@@ -103,6 +103,19 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     description: "KYC document images 90 days after the session is decided (or expired); masked fields, verdicts and checks are kept as the verification record.",
     legalBasis: "DPDP s.8(7) storage limitation; ADR-003 verification evidence is retained in minimised form",
     run: (before, { dryRun }) => purgeKycDocuments(before, { dryRun }),
+  },
+  // trust_verif (ADR-002/003)
+  {
+    name: "identity.audit_photos_365d", module: "identity", envKey: "AUDIT_PHOTOS", defaultDays: 365, supportsDryRun: true,
+    description: "Geotagged site photos submitted by T3 audit partners, one year after the audit is decided; the checklist, summary, flags and result are kept as the audit record.",
+    legalBasis: "DPDP s.8(7) storage limitation; ADR-003 audit evidence retained in minimised form for the validity period plus a year",
+    run: (before, { dryRun }) => purgeAuditPhotos(before, { dryRun }),
+  },
+  {
+    name: "enquiry.fake_lead_signals_90d", module: "enquiry", envKey: "ENQUIRY_SIGNALS", defaultDays: 90, supportsDryRun: true,
+    description: "The keyed hash of the buyer's network prefix on fake-lead signals. The risk score, coarse user-agent family, velocity counts and ops label stay for precision/recall.",
+    legalBasis: "DPDP s.8(7) storage limitation; the hash is only needed for the 24-hour velocity window (ADR-002)",
+    run: (before, { dryRun }) => purgeEnquirySignals(before, { dryRun }),
   },
   {
     name: "disputes.evidence_after_resolution", module: "disputes", envKey: "DISPUTE_EVIDENCE", defaultDays: 1095, supportsDryRun: false,

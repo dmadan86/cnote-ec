@@ -5,7 +5,8 @@ import { createAuthProxy } from "@cnote/next-kit/proxy";
 import { createNonce, enforceMfaEnrolled, pathMatches, withNonceRequest, withSecurityHeaders } from "@cnote/next-kit/security";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/signin", "/forgot-password", "/reset-password", "/mfa", "/api/csp-report"];
+// /partner/audit + /api/partner-audit: external T3 audit partners authenticate with a single-use signed link, not a session.
+const PUBLIC_PATHS = ["/signin", "/forgot-password", "/reset-password", "/mfa", "/api/csp-report", "/partner/audit", "/api/partner-audit"];
 // Reachable with a session that has no MFA yet (so it can enrol) — everything else redirects to the enrolment page.
 const MFA_EXEMPT = [...PUBLIC_PATHS, "/api/auth", "/account/security", "/no-access"];
 // Statically generated pages cannot carry a CSP nonce; they get the static-mode policy. Everything else is dynamic.
@@ -27,7 +28,8 @@ export async function proxy(req: NextRequest) {
     }
   }
   res.headers.set("Cache-Control", "no-store");
-  return withSecurityHeaders(res, { app: "admin", nonce }, req.nextUrl.pathname);
+  // the partner page reads the device location to geotag site photos; no other admin page may
+  return withSecurityHeaders(res, { app: "admin", nonce, geolocation: pathMatches(pathname, ["/partner/audit"]) }, req.nextUrl.pathname);
 }
 
 export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };

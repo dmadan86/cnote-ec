@@ -102,6 +102,22 @@ function validateProductionFlags(env: Env, errors: string[], warnings: string[])
   need(truthy(env.ESCROW_ENABLED), "escrow (ESCROW_ENABLED)", "ESCROW_WEBHOOK_SECRET");
   need(truthy(env.CREDIT_ENABLED), "credit (CREDIT_ENABLED)", "CREDIT_WEBHOOK_SECRET");
   need(!!env.KYC_PROVIDER && env.KYC_PROVIDER.trim().toLowerCase() !== "mock", "the KYC provider", "KYC_WEBHOOK_SECRET");
+  if ((env.KYC_PROVIDER ?? "").trim().toLowerCase() === "idfy") need(true, "the IDfy KYC provider", "KYC_ACCOUNT_ID");
+
+  // trust_verif: Udyam / MCA registry verification (ADR-003) and the reachability IVR (ADR-002).
+  for (const kind of ["UDYAM", "MCA"] as const) {
+    const p = (env[`${kind}_PROVIDER`] ?? "").trim().toLowerCase();
+    if (p === "mock") errors.push(`${kind}_PROVIDER=mock is not allowed in production`);
+    else if (p === "surepass") need(true, `${kind}_PROVIDER=surepass`, "REGISTRY_PROVIDER_KEY");
+  }
+  const ivr = (env.REACHABILITY_IVR_PROVIDER ?? "off").trim().toLowerCase();
+  if (ivr === "mock") errors.push("REACHABILITY_IVR_PROVIDER=mock is not allowed in production");
+  if (ivr === "exotel" || ivr === "knowlarity") {
+    const key = ivr === "exotel" ? "REACHABILITY_URL_SECRET" : "REACHABILITY_WEBHOOK_SECRET";
+    need(true, `the ${ivr} reachability IVR`, key, "REACHABILITY_IVR_KEY", "REACHABILITY_IVR_SECRET");
+    if (env[key] && env[key]!.length < 32) errors.push(`${key} is weak (need 32+ random characters)`);
+    if (env.REACHABILITY_URL_SECRET && env.REACHABILITY_URL_SECRET === env.REACHABILITY_WEBHOOK_SECRET) errors.push("REACHABILITY_URL_SECRET must differ from REACHABILITY_WEBHOOK_SECRET");
+  }
   const whatsappOn = (env.WHATSAPP_PROVIDER ?? (env.WHATSAPP_ACCESS_TOKEN ? "meta_cloud" : "mock")).toLowerCase() === "meta_cloud";
   need(whatsappOn, "the WhatsApp channel", "WHATSAPP_APP_SECRET", "WHATSAPP_VERIFY_TOKEN");
 

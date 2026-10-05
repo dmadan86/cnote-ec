@@ -20,7 +20,7 @@ export default async function BusinessesPage({ searchParams }: PageProps<"/busin
   return (
     <>
       <PageHeader title="Businesses" description="Sellers ranked by trust. Verified tier and badge come from the identity module, never from plan." />
-      <p className="text-sm"><Link href="/businesses/gst-reviews" className="text-brand-700 hover:underline">GST review queue</Link></p>
+      <p className="text-sm"><Link href="/businesses/gst-reviews" className="text-brand-700 hover:underline">GST review queue</Link> · <Link href="/businesses/registry-reviews" className="text-brand-700 hover:underline">Udyam / MCA review queue</Link></p>
       <FilterBar label="Search businesses">
         <FilterField label="Name" width="xl"><FilterInput name="q" defaultValue={q} placeholder="Search name…" /></FilterField>
         <FilterField label="City" width="md"><FilterInput name="city" defaultValue={city} placeholder="City" /></FilterField>

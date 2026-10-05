@@ -256,6 +256,24 @@ describe("validateSecrets matrix", () => {
     expect(errs("api", prod({ PAYMENTS_PROVIDER: "razorpay", RAZORPAY_WEBHOOK_SECRET: "s" }))).toBe("");
     expect(errs("api", prod({ ESCROW_ENABLED: "false", CREDIT_ENABLED: "false", KYC_PROVIDER: "mock" }))).toBe("");
   });
+  it("production: registry, IDfy and reachability IVR configuration (trust_verif)", () => {
+    expect(errs("api", prod({ UDYAM_PROVIDER: "mock" }))).toMatch(/UDYAM_PROVIDER=mock is not allowed/);
+    expect(errs("api", prod({ MCA_PROVIDER: "mock" }))).toMatch(/MCA_PROVIDER=mock is not allowed/);
+    expect(errs("api", prod({ UDYAM_PROVIDER: "surepass" }))).toMatch(/REGISTRY_PROVIDER_KEY/);
+    expect(errs("api", prod({ UDYAM_PROVIDER: "surepass", MCA_PROVIDER: "surepass", REGISTRY_PROVIDER_KEY: "tok" }))).toBe("");
+    expect(errs("api", prod({ KYC_PROVIDER: "idfy", KYC_WEBHOOK_SECRET: "s" }))).toMatch(/KYC_ACCOUNT_ID/);
+    expect(errs("api", prod({ KYC_PROVIDER: "idfy", KYC_WEBHOOK_SECRET: "s", KYC_ACCOUNT_ID: "a" }))).toBe("");
+    expect(errs("api", prod({ REACHABILITY_IVR_PROVIDER: "mock" }))).toMatch(/REACHABILITY_IVR_PROVIDER=mock/);
+    expect(errs("api", prod({ REACHABILITY_IVR_PROVIDER: "exotel" }))).toMatch(/REACHABILITY_URL_SECRET/);
+    const strong = "u".repeat(32), other = "w".repeat(32);
+    const exotel = { REACHABILITY_IVR_PROVIDER: "exotel", REACHABILITY_IVR_KEY: "k", REACHABILITY_IVR_SECRET: "s" };
+    expect(errs("api", prod({ ...exotel, REACHABILITY_URL_SECRET: "short" }))).toMatch(/weak/);
+    expect(errs("api", prod({ ...exotel, REACHABILITY_URL_SECRET: strong, REACHABILITY_WEBHOOK_SECRET: strong }))).toMatch(/must differ/);
+    expect(errs("api", prod({ ...exotel, REACHABILITY_URL_SECRET: strong, REACHABILITY_WEBHOOK_SECRET: other }))).toBe("");
+    expect(errs("api", prod({ ...exotel, REACHABILITY_IVR_PROVIDER: "knowlarity" }))).toMatch(/REACHABILITY_WEBHOOK_SECRET/);
+    expect(errs("api", prod({ ...exotel, REACHABILITY_IVR_PROVIDER: "knowlarity", REACHABILITY_WEBHOOK_SECRET: other }))).toBe("");
+    expect(errs("api", prod({ REACHABILITY_IVR_PROVIDER: "off" }))).toBe("");
+  });
   it("production rejects a weak REVALIDATE_SECRET and requires DOMAIN_CHECK_SECRET with custom domains", () => {
     expect(errs("web", prod({ REVALIDATE_SECRET: "short" }))).toMatch(/REVALIDATE_SECRET/);
     expect(errs("web", prod({ REVALIDATE_SECRET: "x".repeat(32) }))).toBe("");

@@ -11,6 +11,7 @@ const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Pri
   { href: "/listings", label: "Listing versions", icon: <FileClock className="size-4" aria-hidden />, privilege: "listings.moderate" },
   { href: "/kyc", label: "KYC review", icon: <ShieldCheck className="size-4" aria-hidden />, privilege: "kyc.review" },
   { href: "/audits", label: "Audits (T3)", icon: <ScrollText className="size-4" aria-hidden />, privilege: "audits.manage" },
+  { href: "/fraud-labels", label: "Fake-lead labels", icon: <MessageSquareWarning className="size-4" aria-hidden />, privilege: "enquiries.review" },
   { href: "/images", label: "Images", icon: <ImageIcon className="size-4" aria-hidden />, privilege: "images.moderate" },
   { href: "/templates", label: "Templates", icon: <Mail className="size-4" aria-hidden />, privilege: "templates.read" },
   { href: "/promotions", label: "Promotions", icon: <Megaphone className="size-4" aria-hidden />, privilege: "promotions.read" },
