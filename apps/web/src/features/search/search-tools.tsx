@@ -243,7 +243,7 @@ export function SearchTools({ inputId }: { inputId: string }) {
             </div>
           </div>
         ) : null}
-        <p role="status" aria-live="polite" className={cn("text-sm text-muted", status && "mt-2")}>{status}</p>
+        <p id="search-tools-status" role="status" aria-live="polite" className={cn("text-sm text-muted", status && "mt-2")}>{status}</p>
       </div>
     </>
   );

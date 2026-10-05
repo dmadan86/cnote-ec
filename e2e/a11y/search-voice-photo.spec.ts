@@ -71,7 +71,7 @@ for (const locale of ["en", "hi"] as const) {
       await page.getByRole("button", { name: t.agree }).click();
       // listening is conveyed by text in the polite live region AND by the pressed state, never by colour alone
       await expect(page.getByRole("button", { name: t.voice })).toHaveAttribute("aria-pressed", "true");
-      await expect(page.getByRole("status")).not.toBeEmpty();
+      await expect(page.locator("#search-tools-status")).not.toBeEmpty();
       await expectNoBlockingViolations(page, info);
     });
 
@@ -105,7 +105,7 @@ test("recording then stopping fills the search box and announces what was heard 
   await expect(page.getByRole("button", { name: COPY.en.voice })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: COPY.en.voice }).click(); // tap again = stop
   await expect(page.locator("#search-q")).toHaveValue("cotton fabric");
-  await expect(page.getByRole("status")).toContainText("cotton fabric");
+  await expect(page.locator("#search-tools-status")).toContainText("cotton fabric");
   // the choice is remembered: the second recording starts without the notice
   await page.getByRole("button", { name: COPY.en.voice }).click();
   await expect(page.getByRole("button", { name: COPY.en.agree })).toHaveCount(0);
@@ -122,7 +122,7 @@ test("a denied microphone explains itself in text and leaves typing available", 
   await page.goto("/search?q=box");
   await settle(page);
   await page.getByRole("button", { name: COPY.en.voice }).click();
-  await expect(page.getByRole("status")).toContainText(/Microphone access is blocked/);
+  await expect(page.locator("#search-tools-status")).toContainText(/Microphone access is blocked/);
   await expect(page.locator("#search-q")).toBeEditable();
 });
 
