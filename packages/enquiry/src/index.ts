@@ -32,3 +32,11 @@ export * from "./purchase-orders";
 export * from "./supplier-invoices";
 export { getEInvoiceVerifier, setEInvoiceVerifier, mockEInvoiceVerifier, qrSvgDataUri, decodeSignedQr, type EInvoiceVerifier, type EInvoiceCheckInput, type EInvoiceCheckResult, type EInvoiceCheckStatus } from "./einvoice";
 export { purgePurchaseOrderDocuments } from "./po-retention";
+
+// Goods receipt notes, three-way match and returns (docs/design/grn-returns.md)
+export * from "./grn-core";
+export * from "./match-core";
+export * from "./goods-receipts";
+export * from "./match";
+export * from "./returns";
+export { purgeGoodsReceiptPhotos } from "./grn-retention";

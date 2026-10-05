@@ -131,7 +131,7 @@ export interface DomainEventPayloads {
   EscrowFrozen:           { escrowId: string; orderId: string; disputeId: string };
   EscrowUnfrozen:         { escrowId: string; orderId: string; disputeId: string };
   EscrowReleased:         { escrowId: string; orderId: string; sellerBusinessId: string; amountPaise: number; feePaise: number; cause: "buyer_accepted" | "auto_release" | "dispute_resolution" | "staff" };
-  EscrowRefunded:         { escrowId: string; orderId: string; buyerBusinessId: string; amountPaise: number; cause: "cancelled" | "dispute_resolution" | "funding_expired" | "staff" };
+  EscrowRefunded:         { escrowId: string; orderId: string; buyerBusinessId: string; amountPaise: number; cause: "cancelled" | "dispute_resolution" | "funding_expired" | "staff" | "return_credit" };
   PayoutSettled:          { payoutId: string; escrowId: string; sellerBusinessId: string; amountPaise: number; partnerRef: string; latencyMs: number };
   /** seller proceeds assigned to an NBFC were paid to the lender first (ADR-019 invoice financing) */
   EscrowLenderRepaid:     { payoutId: string; escrowId: string; assignmentId: string; amountPaise: number; partnerRef: string };
@@ -199,6 +199,19 @@ export interface DomainEventPayloads {
   SupplierInvoiceDueReminder: { supplierInvoiceId: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; invoiceNumber: string; stage: "t7" | "t1" | "overdue"; dueDate: string; outstandingPaise: number; daysOverdue: number };
   SupplierInvoiceVoided: { supplierInvoiceId: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; invoiceNumber: string; reason: string; system: boolean };
   BusinessMsmeDeclared: { businessId: string; category: "micro" | "small" | "medium" | null; udyamOnFile: boolean };
+  // goods receipt notes, three-way match and returns (docs/design/grn-returns.md)
+  /** Buyer recorded a receipt against a PO. `deliveryConfirmed` = this receipt's accepted units confirmed delivery (day of acceptance, s.43B(h)); false when delivery was already confirmed. */
+  GoodsReceiptRecorded: { goodsReceiptId: string; number: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; receivedOn: string; acceptedUnits: number; rejectedUnits: number; deliveryConfirmed: boolean };
+  /** Buyer paid an invoice whose three-way match was blocking, with a logged reason (the reason text stays in invoice_match_overrides). */
+  InvoiceMatchOverridden: { supplierInvoiceId: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; invoiceNumber: string; matchStatus: "mismatch" | "pending_grn" };
+  GoodsReturnRequested: { goodsReturnId: string; number: string; goodsReceiptId: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; units: number; estimatedPaise: number; reasonCode: string };
+  GoodsReturnDecided: { goodsReturnId: string; number: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; decision: "approved" | "rejected" };
+  GoodsReturnCancelled: { goodsReturnId: string; number: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string };
+  GoodsReturnShipped: { goodsReturnId: string; number: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; hasTrackingRef: boolean };
+  GoodsReturnReceived: { goodsReturnId: string; number: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string };
+  /** Seller credit note for a return: `totalPaise` reduces the invoice payable; escrow refunds up to that amount from held funds. */
+  ReturnCreditNoteRecorded: { creditNoteId: string; goodsReturnId: string; returnNumber: string; supplierInvoiceId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; creditNoteNumber: string; totalPaise: number; outstandingPaise: number; refundDuePaise: number; hasIrn: boolean };
+  GoodsReturnDisputeLinked: { goodsReturnId: string; number: string; disputeId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string };
 }
 
 export type DomainEventType = keyof DomainEventPayloads;
@@ -352,6 +365,16 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   SupplierInvoiceDueReminder: 1,
   SupplierInvoiceVoided: 1,
   BusinessMsmeDeclared: 1,
+  // goods receipts / three-way match / returns
+  GoodsReceiptRecorded: 1,
+  InvoiceMatchOverridden: 1,
+  GoodsReturnRequested: 1,
+  GoodsReturnDecided: 1,
+  GoodsReturnCancelled: 1,
+  GoodsReturnShipped: 1,
+  GoodsReturnReceived: 1,
+  ReturnCreditNoteRecorded: 1,
+  GoodsReturnDisputeLinked: 1,
 };
 
 export interface DomainEvent<T extends DomainEventType = DomainEventType> {

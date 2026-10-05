@@ -407,6 +407,28 @@ export async function onOrderStatusChanged(p: { orderId: string; to: string }): 
   });
 }
 
+/**
+ * The seller recorded a credit note for a return (docs/design/grn-returns.md): refund up to the credited amount from the funds still held,
+ * to the buyer. Idempotent per credit note (escrow_return_refunds). While a dispute freezes the escrow nothing moves and an ops issue is
+ * opened instead; once funds are released the credit only reduces the invoice payable (money is settled off-platform).
+ */
+export async function onReturnCreditNote(p: { creditNoteId: string; orderId: string; totalPaise: number }): Promise<void> {
+  const found = await prisma.escrowAgreement.findUnique({ where: { orderId: p.orderId }, select: { id: true, status: true } });
+  if (!found || !isHolding(found.status as EscrowStatus)) return;
+  await prisma.$transaction(async (tx) => {
+    const e = await lockEscrow(tx, found.id);
+    if (!isHolding(e.status as EscrowStatus)) return;
+    if (await tx.escrowReturnRefund.findUnique({ where: { creditNoteId: p.creditNoteId } })) return;
+    if (e.frozen) {
+      await openIssue(tx, { dedupeKey: `return_credit_frozen:${p.creditNoteId}`, kind: "return_credit_frozen", escrowId: e.id, expectedPaise: p.totalPaise, detail: "A return credit note was recorded while a dispute froze the escrow; decide the refund with the dispute." });
+      return;
+    }
+    const refund = Math.max(0, Math.min(p.totalPaise, heldOf(e)));
+    await tx.escrowReturnRefund.create({ data: { creditNoteId: p.creditNoteId, escrowId: e.id, amountPaise: BigInt(refund) } });
+    if (refund > 0) await settleTx(tx, e, { releasePaise: 0, refundPaise: refund, refundCause: "return_credit", source: "system" });
+  });
+}
+
 /** Dispute opened on an order with an escrow: freeze (overlay) so nothing auto-releases. Idempotent per dispute. */
 export async function onDisputeOpened(p: { disputeId: string; orderId: string }): Promise<void> {
   const found = await prisma.escrowAgreement.findUnique({ where: { orderId: p.orderId }, select: { id: true, status: true } });

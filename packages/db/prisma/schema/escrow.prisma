@@ -118,6 +118,18 @@ model EscrowFreeze {
   @@map("escrow_freezes")
 }
 
+/// Partial refunds of held funds caused by a seller credit note for a return (docs/design/grn-returns.md). One row per credit
+/// note makes the event handler idempotent.
+model EscrowReturnRefund {
+  creditNoteId String   @id @map("credit_note_id") @db.Uuid
+  escrowId     String   @map("escrow_id") @db.Uuid
+  amountPaise  BigInt   @map("amount_paise")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([escrowId])
+  @@map("escrow_return_refunds")
+}
+
 /// Money leaving the nodal account: seller payouts after release, buyer refunds.
 model EscrowPayout {
   id          String    @id @default(uuid()) @db.Uuid

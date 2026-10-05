@@ -7,6 +7,7 @@ import { BADGE_THRESHOLD } from "@cnote/identity";
 import { defineTemplates, type TemplateDefinition } from "@cnote/templates";
 import { cleanName, envInt, fan, HREF, inr, kind, membersOf, RECIPIENT_NAME, v } from "./kind-helpers";
 import { ALERT_KINDS } from "./kinds-alerts";
+import { GRN_KINDS } from "./kinds-grn";
 import { PAYABLE_KINDS } from "./kinds-payables";
 import { PHASE23_KINDS } from "./kinds-phase23";
 import type { NotificationCategory, NotificationKind } from "./types";
@@ -513,6 +514,7 @@ export const KINDS: NotificationKind[] = [
   ...PHASE23_KINDS,
   ...ALERT_KINDS,
   ...PAYABLE_KINDS,
+  ...GRN_KINDS,
 ];
 
 const KEY_INDEX = new Map(KINDS.map((k) => [k.key, k]));

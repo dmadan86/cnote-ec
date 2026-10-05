@@ -6,7 +6,7 @@
 // (`RETENTION_<KEY>_DAYS`) with the safe defaults below. Consent ledger rows and admin audit logs are never purged.
 import { prisma } from "@cnote/db";
 import * as catalogue from "@cnote/catalogue";
-import { purgeInactiveConversationMessages, purgePurchaseOrderDocuments } from "@cnote/enquiry";
+import { purgeGoodsReceiptPhotos, purgeInactiveConversationMessages, purgePurchaseOrderDocuments } from "@cnote/enquiry";
 import { purgeErasedPersonResiduals, purgeExpiredAuthSessions, purgeKycDocuments } from "@cnote/identity";
 import { purgeAbandonedCaptures } from "@cnote/leadgen";
 import { purgeReadNotifications } from "@cnote/notifications";
@@ -176,6 +176,13 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     description: "Closed purchase orders (cancelled, or on a completed or cancelled order) and settled supplier invoices: delivery contact name/phone are blanked and the stored PDF / uploaded invoice copies are deleted. Numbers, amounts, versions, e-invoice references and payment records are kept.",
     legalBasis: "DPDP s.8(7); the monetary record stays for GST s.36 / Income Tax Act record keeping, so only the personal data and document files go after 7 years",
     run: (before, { dryRun }) => purgePurchaseOrderDocuments(before, { dryRun }),
+  },
+  // goods receipt notes (docs/design/grn-returns.md)
+  {
+    name: "enquiry.grn_photos_7y", module: "enquiry", envKey: "GRN_PHOTOS", defaultDays: 2555, supportsDryRun: true,
+    description: "Goods receipt notes on completed or cancelled orders: delivery / damage photos are deleted and the receiver's name is erased. Quantities, reason codes, numbers and dates are kept.",
+    legalBasis: "DPDP s.8(7); the quantity record stays for GST / Income Tax record keeping, so only the personal data and photos go after 7 years",
+    run: (before, { dryRun }) => purgeGoodsReceiptPhotos(before, { dryRun }),
   },
 ];
 

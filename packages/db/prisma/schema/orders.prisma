@@ -257,6 +257,8 @@ model SupplierInvoice {
   acceptanceDate     DateTime @map("acceptance_date") @db.Date
   dueDate            DateTime? @map("due_date") @db.Date
   paidPaise          BigInt   @default(0) @map("paid_paise")
+  /// credit notes recorded against this invoice (returns, docs/design/grn-returns.md); outstanding = total - credited - paid
+  creditedPaise      BigInt   @default(0) @map("credited_paise")
   paidAt             DateTime? @map("paid_at") @db.Timestamptz
   recordedByPersonId String   @map("recorded_by_person_id") @db.Uuid
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -264,6 +266,9 @@ model SupplierInvoice {
   purchaseOrder      PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
   payments           SupplierInvoicePayment[]
   reminders          SupplierInvoiceReminder[]
+  lines              SupplierInvoiceLine[]
+  matchOverrides     InvoiceMatchOverride[]
+  creditNotes        ReturnCreditNote[]
 
   @@unique([sellerBusinessId, financialYear, invoiceNumber])
   @@index([purchaseOrderId])
@@ -298,4 +303,234 @@ model SupplierInvoiceReminder {
 
   @@id([invoiceId, stage])
   @@map("supplier_invoice_reminders")
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Goods receipt notes (GRN), three-way match and returns (docs/design/grn-returns.md). Owned by @cnote/enquiry.
+// Quantities are whole units (same as PurchaseOrderLine.quantity); money is BigInt paise; dates without a time are @db.Date.
+// ---------------------------------------------------------------------------------------------------------------------------
+
+/// Gap-free numbering per buyer business, document kind ("grn" | "rma") and Indian financial year. The row lock is held until the
+/// creating transaction ends, so a rollback releases the number.
+model DocumentSequence {
+  buyerBusinessId String @map("buyer_business_id") @db.Uuid
+  kind            String
+  financialYear   String @map("financial_year")
+  lastNumber      Int    @default(0) @map("last_number")
+
+  @@id([buyerBusinessId, kind, financialYear])
+  @@map("document_sequences")
+}
+
+/// One receipt of goods against a PO, recorded by the buyer. Never edited after insert (a correction is a new GRN or a return).
+model GoodsReceipt {
+  id                String   @id @default(uuid()) @db.Uuid
+  purchaseOrderId   String   @map("purchase_order_id") @db.Uuid
+  orderId           String   @map("order_id") @db.Uuid
+  buyerBusinessId   String   @map("buyer_business_id") @db.Uuid
+  sellerBusinessId  String   @map("seller_business_id") @db.Uuid
+  /// e.g. "GRN/26-27/000004", gap-free per buyer business and financial year
+  number            String
+  financialYear     String   @map("financial_year")
+  receivedOn        DateTime @map("received_on") @db.Date
+  receiverName      String   @map("receiver_name")
+  /// supplier delivery challan / LR number, optional
+  deliveryNoteRef   String?  @map("delivery_note_ref")
+  note              String?
+  /// this receipt's accepted quantity made the buyer's delivery confirmation (day of acceptance for s.43B(h))
+  confirmedDelivery Boolean  @default(false) @map("confirmed_delivery")
+  createdByPersonId String   @map("created_by_person_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  lines             GoodsReceiptLine[]
+  photos            GoodsReceiptPhoto[]
+  returns           GoodsReturn[]
+
+  @@unique([buyerBusinessId, number])
+  @@index([purchaseOrderId, createdAt])
+  @@index([buyerBusinessId, createdAt])
+  @@index([sellerBusinessId, createdAt])
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptLine {
+  id            String   @id @default(uuid()) @db.Uuid
+  receiptId     String   @map("receipt_id") @db.Uuid
+  /// PurchaseOrderLine.lineNo (stable across PO versions)
+  poLineNo      Int      @map("po_line_no")
+  description   String
+  unit          String
+  receivedQty   Int      @map("received_qty")
+  acceptedQty   Int      @map("accepted_qty")
+  rejectedQty   Int      @map("rejected_qty")
+  /// damaged | short | wrong_spec | quality_fail (required when rejectedQty > 0)
+  rejectReason  String?  @map("reject_reason")
+  rejectNote    String?  @map("reject_note")
+  /// PO unit price excluding GST at the time of receipt (value of returns / credit estimates)
+  unitPricePaise BigInt  @map("unit_price_paise")
+  receipt       GoodsReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  returnLines   GoodsReturnLine[]
+
+  @@unique([receiptId, poLineNo])
+  @@map("goods_receipt_lines")
+}
+
+/// Photos of the delivery / damage (private bucket under `grn/<receiptId>/...`, only served to the two parties).
+model GoodsReceiptPhoto {
+  id        String   @id @default(uuid()) @db.Uuid
+  receiptId String   @map("receipt_id") @db.Uuid
+  poLineNo  Int?     @map("po_line_no")
+  key       String
+  fileName  String   @map("file_name")
+  mimeType  String   @map("mime_type")
+  sizeBytes Int      @map("size_bytes")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  receipt   GoodsReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  @@index([receiptId, createdAt])
+  @@map("goods_receipt_photos")
+}
+
+/// Optional line detail of a supplier invoice (the invoice header stays amount based). Enables per-line three-way match.
+model SupplierInvoiceLine {
+  id             String   @id @default(uuid()) @db.Uuid
+  invoiceId      String   @map("invoice_id") @db.Uuid
+  lineNo         Int      @map("line_no")
+  /// PurchaseOrderLine.lineNo this line bills
+  poLineNo       Int      @map("po_line_no")
+  quantity       Int
+  /// price per unit excluding GST
+  unitPricePaise BigInt   @map("unit_price_paise")
+  taxablePaise   BigInt   @map("taxable_paise")
+  invoice        SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([invoiceId, lineNo])
+  @@index([invoiceId, poLineNo])
+  @@map("supplier_invoice_lines")
+}
+
+/// Per buyer business: three-way match tolerances (basis points) and whether an invoice with no goods receipt yet blocks
+/// "mark paid". No row = platform defaults (env).
+model BuyerMatchSettings {
+  buyerBusinessId   String   @id @map("buyer_business_id") @db.Uuid
+  qtyToleranceBps   Int      @map("qty_tolerance_bps")
+  priceToleranceBps Int      @map("price_tolerance_bps")
+  blockPendingGrn   Boolean  @default(false) @map("block_pending_grn")
+  updatedByPersonId String   @map("updated_by_person_id") @db.Uuid
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("buyer_match_settings")
+}
+
+/// Append-only: the buyer paid an invoice whose three-way match was a mismatch, with a reason. Never updated or deleted by the app.
+model InvoiceMatchOverride {
+  id          String   @id @default(uuid()) @db.Uuid
+  invoiceId   String   @map("invoice_id") @db.Uuid
+  /// hash of the per-line match numbers at override time; a payment is allowed while the current mismatch has the same fingerprint
+  fingerprint String
+  reason      String
+  /// snapshot of what was overridden ({ status, lines: [{ poLineNo, status, ... }] })
+  summary     Json
+  byPersonId  String   @map("by_person_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  invoice     SupplierInvoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId, createdAt])
+  @@map("invoice_match_overrides")
+}
+
+enum GoodsReturnStatus {
+  requested // raised by the buyer, waiting for the seller
+  approved
+  rejected // seller declined (the buyer may open a dispute)
+  cancelled // withdrawn by the buyer while requested
+  shipped // buyer recorded the return shipment
+  received // seller confirmed the goods are back
+  credited // seller recorded a credit note (terminal)
+
+  @@map("goods_return_status")
+}
+
+/// Return merchandise authorisation raised by the buyer from a goods receipt.
+model GoodsReturn {
+  id                  String            @id @default(uuid()) @db.Uuid
+  /// e.g. "RMA/26-27/000002", gap-free per buyer business and financial year
+  number              String
+  financialYear       String            @map("financial_year")
+  receiptId           String            @map("receipt_id") @db.Uuid
+  purchaseOrderId     String            @map("purchase_order_id") @db.Uuid
+  orderId             String            @map("order_id") @db.Uuid
+  buyerBusinessId     String            @map("buyer_business_id") @db.Uuid
+  sellerBusinessId    String            @map("seller_business_id") @db.Uuid
+  status              GoodsReturnStatus @default(requested)
+  /// damaged | short | wrong_spec | quality_fail | not_as_ordered | other
+  reasonCode          String            @map("reason_code")
+  reasonNote          String?           @map("reason_note")
+  /// estimated credit (taxable value of the returned units at PO prices)
+  estimatedPaise      BigInt            @map("estimated_paise")
+  requestedByPersonId String            @map("requested_by_person_id") @db.Uuid
+  decidedAt           DateTime?         @map("decided_at") @db.Timestamptz
+  decidedByPersonId   String?           @map("decided_by_person_id") @db.Uuid
+  decisionNote        String?           @map("decision_note")
+  shipCourier         String?           @map("ship_courier")
+  shipTrackingRef     String?           @map("ship_tracking_ref")
+  shippedAt           DateTime?         @map("shipped_at") @db.Timestamptz
+  receivedBackAt      DateTime?         @map("received_back_at") @db.Timestamptz
+  creditedAt          DateTime?         @map("credited_at") @db.Timestamptz
+  /// dispute opened from a rejected return (@cnote/disputes owns the dispute; this is only the link)
+  disputeId           String?           @map("dispute_id") @db.Uuid
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  receipt             GoodsReceipt      @relation(fields: [receiptId], references: [id])
+  lines               GoodsReturnLine[]
+  creditNote          ReturnCreditNote?
+
+  @@unique([buyerBusinessId, number])
+  @@index([buyerBusinessId, status, createdAt])
+  @@index([sellerBusinessId, status, createdAt])
+  @@index([receiptId])
+  @@map("goods_returns")
+}
+
+model GoodsReturnLine {
+  id             String   @id @default(uuid()) @db.Uuid
+  returnId       String   @map("return_id") @db.Uuid
+  receiptLineId  String   @map("receipt_line_id") @db.Uuid
+  poLineNo       Int      @map("po_line_no")
+  description    String
+  unit           String
+  quantity       Int
+  /// "rejected" (units the buyer rejected at receipt) | "accepted" (accepted units returned later)
+  source         String
+  unitPricePaise BigInt   @map("unit_price_paise")
+  goodsReturn    GoodsReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  receiptLine    GoodsReceiptLine @relation(fields: [receiptLineId], references: [id])
+
+  @@index([returnId])
+  @@index([receiptLineId])
+  @@map("goods_return_lines")
+}
+
+/// The seller's credit note for a return (one per return). Reduces the payable of the invoice it is recorded against.
+model ReturnCreditNote {
+  id                 String   @id @default(uuid()) @db.Uuid
+  returnId           String   @unique @map("return_id") @db.Uuid
+  invoiceId          String   @map("invoice_id") @db.Uuid
+  orderId            String   @map("order_id") @db.Uuid
+  buyerBusinessId    String   @map("buyer_business_id") @db.Uuid
+  sellerBusinessId   String   @map("seller_business_id") @db.Uuid
+  number             String
+  financialYear      String   @map("financial_year")
+  noteDate           DateTime @map("note_date") @db.Date
+  taxablePaise       BigInt   @map("taxable_paise")
+  gstPaise           BigInt   @map("gst_paise")
+  totalPaise         BigInt   @map("total_paise")
+  irn                String?  @unique
+  recordedByPersonId String   @map("recorded_by_person_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  goodsReturn        GoodsReturn @relation(fields: [returnId], references: [id])
+  invoice            SupplierInvoice @relation(fields: [invoiceId], references: [id])
+
+  @@unique([sellerBusinessId, financialYear, number])
+  @@index([invoiceId])
+  @@map("return_credit_notes")
 }
