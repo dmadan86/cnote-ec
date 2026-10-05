@@ -53,6 +53,8 @@ export function buildOpenApi(version = "1.0.0") {
                 priceMinPaise: { type: "integer", minimum: 0 }, priceMaxPaise: { type: "integer", minimum: 0 },
                 maxMoq: { type: "integer", minimum: 1, description: "Listings with no stated MOQ always qualify" },
                 hasPrice: { type: "boolean", description: "Exclude price-on-request listings" },
+                inStockOnly: { type: "boolean", description: "Only listings that are in stock (made-to-order does not count). A filter, never a ranking signal." },
+                variantOptions: { type: "object", additionalProperties: { type: "array", items: { type: "string", maxLength: 60 }, maxItems: 20 }, description: "Variant axis -> chosen values, e.g. { \"size\": [\"M\", \"L\"], \"colour\": [\"red\"] }. OR within an axis, AND across axes, case-insensitive; at most 6 axes." },
               },
             },
             sort: { type: "string", enum: ["relevance", "price_asc", "price_desc", "newest", "trust"], default: "relevance", description: "Organic sort. Never influenced by plan or ad spend." },

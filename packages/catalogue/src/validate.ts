@@ -2,6 +2,7 @@ import { DomainError } from "@cnote/core";
 import { z } from "zod";
 import type { CategoryView, ListingInput } from "./index";
 import { priceTierSchema, tradeInfoSchema, MAX_TIERS } from "./tiers";
+import { availabilitySchema, MAX_AVAILABLE_QTY } from "./availability";
 
 export const LANGS = ["en", "hi", "kn", "ta", "te", "mr", "gu", "bn"] as const;
 
@@ -19,6 +20,8 @@ const base = {
   hsn: z.string().regex(/^\d{2,8}$/, "HSN must be 2-8 digits").nullable(),
   priceTiers: z.array(priceTierSchema).max(MAX_TIERS).optional(),
   trade: tradeInfoSchema.optional(),
+  availability: availabilitySchema.optional(),
+  availableQty: z.number().int().min(0).max(MAX_AVAILABLE_QTY).nullable().optional(),
   language: z.enum(LANGS),
   imageUrls: z.array(z.string().min(1).max(2000)).max(10),
   /** seller's own product code (bulk upsert key); unique per seller */
@@ -77,7 +80,12 @@ export function validatePublishable(l: Pick<ListingInput, "title" | "description
 }
 
 /** Text used for both moderation and embedding: what a buyer would match on. */
-export function canonicalText(l: { title: string; description: string; attributes: Record<string, string | number> }, categoryName: string): string {
+export function canonicalText(
+  l: { title: string; description: string; attributes: Record<string, string | number>; variants?: { sku: string; axisValues: Record<string, string> }[] },
+  categoryName: string,
+): string {
   const attrs = Object.entries(l.attributes).map(([k, v]) => `${k}: ${v}`).join(", ");
-  return [l.title, categoryName, attrs, l.description].filter(Boolean).join("\n");
+  // variant SKUs and axis values are seller-typed text, so moderation (and the embedding) must see them too
+  const variants = (l.variants ?? []).slice(0, 100).map((v) => `${v.sku} ${Object.values(v.axisValues).join(" ")}`.trim()).join("; ");
+  return [l.title, categoryName, attrs, l.description, variants && `Variants: ${variants}`].filter(Boolean).join("\n");
 }

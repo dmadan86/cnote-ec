@@ -42,6 +42,8 @@ export interface SearchFacets {
   state: FacetBucket[];
   verificationTier: FacetBucket[];
   price: PriceBucket[];
+  /** keys are lower-cased "axis:value" pairs of listing variants (docs/design/variants-stock.md) */
+  variant: FacetBucket[];
 }
 
 export interface SearchIndexResult {
@@ -67,6 +69,10 @@ export interface IndexDoc {
   badgeActive: boolean;
   pricePaise: number | null;
   moq: number | null;
+  /** effective availability: in_stock | made_to_order | out_of_stock. A filter ("in stock only"), never a ranking input. */
+  availability?: string;
+  /** lower-cased "axis:value" pairs of the listing's variants */
+  variantValues?: string[];
   embedding?: number[];
   updatedAt: string;
   /** External version (monotonic, ms). Defaults to the time the doc was built. Stale writes are ignored. */

@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import * as ops from "../../ops";
-import { Balance, Id, Lead, ListingCreate, ListingPatch, Ok, SellerListing, pageOf, pageQuery } from "../../schemas";
+import { Balance, Id, Lead, ListingCreate, ListingPatch, Ok, SellerListing, StockPatch, VariantsPut, pageOf, pageQuery } from "../../schemas";
 import { api, body, json, router } from "../helpers";
 
 export const sellerRoutes = router();
@@ -49,6 +49,34 @@ sellerRoutes.openapi(
     },
   }),
   async (c) => c.json(await ops.patchListing(c.get("principal"), c.req.valid("param").id, c.req.valid("json")), 200),
+);
+
+sellerRoutes.openapi(
+  api({
+    scope: "listings:write", errors: [404, 422],
+    cfg: {
+      method: "patch", path: "/seller/listings/{id}/stock", operationId: "updateSellerListingStock", tags: ["Seller listings"], summary: "Update stock and availability",
+      description:
+        `Sets \`availability\` (\`in_stock\` | \`made_to_order\` | \`out_of_stock\`), \`availableQty\` and \`leadTimeDays\` for the listing and/or per variant (\`variants[]\`, matched by \`id\` or \`sku\`). Stock is operational data: it takes effect on a live listing immediately and does NOT go through review. \`made_to_order\` needs a lead time. Buyers who saved a listing that comes back in stock are alerted. ${sellerNote}`,
+      request: { params: Id, body: body(StockPatch) },
+      responses: { 200: json(SellerListing, "Listing with its new stock") },
+    },
+  }),
+  async (c) => c.json(await ops.patchStock(c.get("principal"), c.req.valid("param").id, c.req.valid("json")), 200),
+);
+
+sellerRoutes.openapi(
+  api({
+    scope: "listings:write", errors: [404, 422],
+    cfg: {
+      method: "put", path: "/seller/listings/{id}/variants", operationId: "setSellerListingVariants", tags: ["Seller listings"], summary: "Replace the listing's variants",
+      description:
+        `Replaces the complete variant set (0-100). Variants are matched to existing ones by \`id\`, else \`sku\`; variants not listed are deleted. Every variant sets a value for each variant axis of the category (see \`variantAxes\` on the category; categories without axes cannot have variants). Each variant may override price, quantity tiers, MOQ and stock. Structure changes are content: they reach buyers when the listing is next published and are moderated; stock fields take effect at once. ${sellerNote}`,
+      request: { params: Id, body: body(VariantsPut) },
+      responses: { 200: json(SellerListing, "Listing with its variants") },
+    },
+  }),
+  async (c) => c.json(await ops.putVariants(c.get("principal"), c.req.valid("param").id, c.req.valid("json").variants), 200),
 );
 
 sellerRoutes.openapi(

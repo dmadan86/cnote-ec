@@ -1,5 +1,5 @@
 // OpenSearch request builders (pure). Hybrid = BM25 request + kNN request, fused client-side (see fusion.ts).
-import { MAX_TIER, PRICE_RANGES, type FacetDimension, type IndexFilters } from "../filters";
+import { MAX_TIER, MAX_VARIANT_FACET_BUCKETS, PRICE_RANGES, type FacetDimension, type IndexFilters } from "../filters";
 import type { SearchIndexQuery } from "./types";
 
 export { PRICE_RANGES };
@@ -25,6 +25,7 @@ const DIM_CLAUSES: Record<FacetDimension, (f: IndexFilters) => object[]> = {
   tier: (f) => (f.minTier ? [{ terms: { verificationTier: Array.from({ length: MAX_TIER - f.minTier! + 1 }, (_, i) => String(f.minTier! + i)) } }] : []),
   state: (f) => (f.states ? [{ terms: { state: f.states } }] : []),
   city: (f) => (f.cities ? [{ terms: { city: f.cities } }] : []),
+  variant: (f) => Object.entries(f.variantOptions ?? {}).map(([axis, values]) => ({ terms: { variantValues: values.map((v) => `${axis}:${v}`) } })),
   price: (f) => [
     ...(f.hasPrice ? [{ exists: { field: "pricePaise" } }] : []),
     ...(f.priceMinPaise !== undefined || f.priceMaxPaise !== undefined
@@ -32,6 +33,8 @@ const DIM_CLAUSES: Record<FacetDimension, (f: IndexFilters) => object[]> = {
       : []),
   ],
 };
+/** "In stock only" is a plain filter, not a facet dimension, so it is never skipped. */
+const stockClause = (f: IndexFilters): object[] => (f.inStockOnly ? [{ term: { availability: "in_stock" } }] : []);
 /** MOQ is not a facet, so it never gets skipped: a listing with no stated MOQ qualifies for any "at most N" limit. */
 const moqClause = (f: IndexFilters): object[] =>
   f.maxMoq !== undefined ? [{ bool: { should: [{ range: { moq: { lte: f.maxMoq } } }, { bool: { must_not: [{ exists: { field: "moq" } }] } }], minimum_should_match: 1 } }] : [];
@@ -39,7 +42,7 @@ const moqClause = (f: IndexFilters): object[] =>
 /** Filter clauses for the given filters, leaving out one facet dimension when `skip` is set. */
 export function filterClauses(f: IndexFilters | undefined, skip?: FacetDimension): object[] {
   if (!f) return [];
-  return [...(Object.keys(DIM_CLAUSES) as FacetDimension[]).filter((d) => d !== skip).flatMap((d) => DIM_CLAUSES[d](f)), ...moqClause(f)];
+  return [...(Object.keys(DIM_CLAUSES) as FacetDimension[]).filter((d) => d !== skip).flatMap((d) => DIM_CLAUSES[d](f)), ...moqClause(f), ...stockClause(f)];
 }
 
 const asFilter = (clauses: object[]) => (clauses.length === 1 ? clauses[0]! : { bool: { filter: clauses } });
@@ -99,6 +102,7 @@ export function buildAggs(f?: IndexFilters) {
     city: wrap("city", { terms: { field: "city", size: 20 } }),
     state: wrap("state", { terms: { field: "state", size: 40 } }),
     verificationTier: wrap("tier", { terms: { field: "verificationTier", size: 5 } }),
+    variant: wrap("variant", { terms: { field: "variantValues", size: MAX_VARIANT_FACET_BUCKETS } }),
     price: wrap("price", { range: { field: "pricePaise", ranges: PRICE_RANGES.map((r) => ({ key: r.key, ...("from" in r ? { from: r.from } : {}), ...("to" in r ? { to: r.to } : {}) })) } }),
   };
 }

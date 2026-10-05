@@ -11,6 +11,7 @@ import type { ChecklistSection, VerticalInput, VerticalView } from "./types";
 export const PLAYBOOK_TEMPLATE: Record<ChecklistSection, string[]> = {
   schema: [
     "Define the category attribute schema (fields, units, select options) in the catalogue",
+    "Define variant axes (size, colour, grade ...) in the category schema where buyers choose between SKUs of one product",
     "Map HSN codes and price units for the vertical",
     "Set the per-category lead cap (default 3)",
     "Review the schema with 5 real sellers for gaps",

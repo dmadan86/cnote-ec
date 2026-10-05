@@ -252,7 +252,8 @@
       "filesDeletedAfterDays": "Files are deleted after {retentionDays} days",
       "nothingDownloadJob": "Nothing to download for this job",
       "fileNoLongerAvailable": "The file is no longer available",
-      "unknownCategory": "Unknown category \"{categorySlug}\""
+      "unknownCategory": "Unknown category \"{categorySlug}\"",
+      "skuNotFound": "SKU \"{sku}\" does not exist"
     },
     "catalogue": {
       "notImage": "Not your image",
@@ -275,7 +276,8 @@
       "voiceNoteNotFound": "Voice note not found",
       "notVoiceNote": "Not your voice note",
       "recordingAlreadyBeenDeleted": "The recording has already been deleted",
-      "recordingNoLongerAvailable": "The recording is no longer available"
+      "recordingNoLongerAvailable": "The recording is no longer available",
+      "noVariants": "This listing has no variants"
     },
     "compliance": {
       "signAppeal": "Sign in to appeal",

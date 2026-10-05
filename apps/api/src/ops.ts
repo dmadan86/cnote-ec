@@ -4,8 +4,8 @@
 import { getActiveSubscription, getBalance } from "@cnote/billing";
 import * as bulk from "@cnote/bulk";
 import {
-  archiveListing, createListing, getCategoryBySlug, getListing, listCategories, listSellerListings, publishListing, updateListing,
-  type CategoryView, type ListingInput, type ListingView,
+  archiveListing, createListing, getCategoryBySlug, getListing, listCategories, listSellerListings, publishListing, setListingVariants, updateListing, updateListingStock,
+  type CategoryView, type ListingInput, type ListingView, type StockUpdate, type VariantInput,
 } from "@cnote/catalogue";
 import { DomainError, rateLimit } from "@cnote/core";
 import { estimateForListing } from "@cnote/logistics";
@@ -43,13 +43,21 @@ function actor(p: P): { personId: string; businessId: string } {
 }
 
 // --- mappers: add currency, keep seller-only fields out of public payloads ---
+/** Stock + variants are always present on the wire (defaults for rows from before the feature). */
+const stockOut = (l: ListingView) => ({
+  availability: l.availability ?? ("in_stock" as const),
+  availableQty: l.availableQty ?? null,
+  stockUpdatedAt: l.stockUpdatedAt ?? null,
+  variantAxes: l.variantAxes ?? [],
+  variants: l.variants ?? [],
+});
 export function publicListing(l: ListingView) {
   const { status: _s, moderationStatus: _m, moderationReason: _r, images: _i, ...rest } = l;
-  return { ...rest, currency: CURRENCY };
+  return { ...rest, ...stockOut(l), currency: CURRENCY };
 }
 export function sellerListing(l: ListingView) {
   const { images: _i, ...rest } = l;
-  return { ...rest, currency: CURRENCY };
+  return { ...rest, ...stockOut(l), currency: CURRENCY };
 }
 const enquiryOut = (e: EnquiryView) => ({ ...e, currency: CURRENCY });
 const leadOut = (l: LeadView) => ({ ...l, enquiry: { ...l.enquiry, currency: CURRENCY } });
@@ -67,9 +75,24 @@ export async function category(slug: string) {
   if (!c || c.prohibited) throw new DomainError("not_found", "Category not found");
   return visibleCategory(c);
 }
-export async function search(input: { q: string; category?: string; limit?: number }) {
-  const { hits } = await searchListings({ q: input.q, categorySlug: input.category, limit: input.limit });
-  return { items: hits.map((h) => ({ listing: publicListing(h.listing), seller: h.seller, score: h.score, sponsored: false as const })) };
+/** "size:m,size:l,colour:red" -> { size: ["m","l"], colour: ["red"] } (OR within an axis, AND across axes). Malformed pairs are ignored. */
+export function parseVariantFilter(raw: string | undefined): Record<string, string[]> | undefined {
+  if (!raw) return undefined;
+  const out: Record<string, string[]> = {};
+  for (const part of raw.split(",")) {
+    const i = part.indexOf(":");
+    const axis = part.slice(0, i).trim().toLowerCase();
+    const value = part.slice(i + 1).trim();
+    if (i <= 0 || !value || !/^[a-z][a-z0-9_]{0,29}$/.test(axis)) continue;
+    (out[axis] ??= []).push(value);
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+export async function search(input: { q: string; category?: string; limit?: number; inStock?: boolean; variant?: string }) {
+  const variantOptions = parseVariantFilter(input.variant);
+  const filters = { ...(input.inStock ? { inStockOnly: true } : {}), ...(variantOptions ? { variantOptions } : {}) };
+  const { hits, facets } = await searchListings({ q: input.q, categorySlug: input.category, limit: input.limit, ...(Object.keys(filters).length ? { filters } : {}) });
+  return { items: hits.map((h) => ({ listing: publicListing(h.listing), seller: h.seller, score: h.score, sponsored: false as const })), ...(facets ? { facets } : {}) };
 }
 export async function listing(id: string) {
   const l = await getListing(id);
@@ -122,6 +145,15 @@ export async function patchListing(p: P, id: string, input: Partial<Omit<Listing
   const { categorySlug: _s, categoryId: _c, ...rest } = input;
   const categoryId = await resolveCategoryId(input);
   return sellerListing(await updateListing(a.businessId, id, { ...rest, ...(categoryId ? { categoryId } : {}) }));
+}
+/** Stock fast path (no review): listing-level and/or per-variant availability, quantity and lead time. */
+export async function patchStock(p: P, id: string, update: StockUpdate) {
+  return sellerListing(await updateListingStock(actor(p).businessId, id, update));
+}
+/** Replaces the listing's variant set. Structure is reviewed like any content change once the listing is (re)published. */
+export async function putVariants(p: P, id: string, variants: VariantInput[]) {
+  await setListingVariants(actor(p).businessId, id, variants);
+  return sellerListing((await getListing(id))!);
 }
 export async function publish(p: P, id: string) {
   return sellerListing(await publishListing(actor(p).businessId, id));

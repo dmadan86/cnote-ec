@@ -53,6 +53,27 @@
     "copyFailed": "Could not copy the link. Copy it from the address bar instead.",
     "shareText": "Have a look at {title}",
     "report": "Report this listing",
-    "stickyBar": "Quick actions"
+    "stickyBar": "Quick actions",
+    "availability": {
+      "in_stock": "In stock",
+      "made_to_order": "Made to order",
+      "out_of_stock": "Out of stock",
+      "madeToOrderLead": "Made to order, {days, plural, one {# day} other {# days}} lead time",
+      "qty": "{qty} available",
+      "updated": "Stock updated {date}",
+      "outNote": "Currently out of stock. You can still request a quote; the supplier will confirm when it is available."
+    },
+    "variants": {
+      "title": "Choose options",
+      "choose": "Choose {axes} to see the exact price and availability.",
+      "reset": "Reset choices",
+      "sku": "SKU {sku}",
+      "changesOthers": "also changes other choices",
+      "pricesVary": "Price and minimum order depend on the option you choose.",
+      "minOrder": "Minimum order: {value}",
+      "announce": "Selected {name}. {availability}. {price}.",
+      "priceOnRequest": "Price on request",
+      "requirementLine": "Variant: {label} (SKU {sku})"
+    }
   }
 }

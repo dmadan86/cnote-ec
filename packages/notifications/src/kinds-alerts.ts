@@ -33,10 +33,12 @@ function alertKind(o: {
       // an unsubscribe takes effect at once, even for alerts already queued
       if (p.alertType !== "saved_search") {
         const s = await getAlertSettings(p.personId);
-        const on = p.alertType === "price_drop" ? s.priceDrop : p.alertType === "back_in_stock" ? s.backInStock : s.followedDigest;
+        // "listing is live again" shares the back-in-stock opt-in (and its one-click unsubscribe)
+        const on = p.alertType === "price_drop" ? s.priceDrop : p.alertType === "back_in_stock" || p.alertType === "listing_relisted" ? s.backInStock : s.followedDigest;
         if (!on) return [];
       }
-      return [{ personId: p.personId, vars: { ...o.vars(p), unsubscribeUrl: alertUnsubscribeUrl(p.personId, p.alertType as AlertType) }, href: p.href }];
+      const unsubType: AlertType = p.alertType === "listing_relisted" ? "back_in_stock" : (p.alertType as AlertType);
+      return [{ personId: p.personId, vars: { ...o.vars(p), unsubscribeUrl: alertUnsubscribeUrl(p.personId, unsubType) }, href: p.href }];
     },
   });
 }
@@ -52,10 +54,17 @@ export const ALERT_KINDS: NotificationKind[] = [
     vars: (p) => ({ label: title(p), fromPrice: p.fromPricePaise === null ? "" : inr(p.fromPricePaise), toPrice: p.toPricePaise === null ? "" : inr(p.toPricePaise) }),
   }),
   alertKind({
-    key: "alert.back_in_stock", name: "Saved item available again", description: "A saved product was published again (opt-in).", type: "back_in_stock",
+    key: "alert.back_in_stock", name: "Saved item back in stock", description: "A saved product that was out of stock can be ordered again, in stock or made to order (opt-in).", type: "back_in_stock",
     variables: [v("label", "Product title", "Corrugated box 5-ply")],
-    subject: "Back in stock: {{label}}", body: "{{label}}, which you saved, is available again.",
-    hi: ["फिर उपलब्ध: {{label}}", "आपके सहेजे गए {{label}} दोबारा उपलब्ध है।"],
+    subject: "Back in stock: {{label}}", body: "{{label}}, which you saved, is back in stock.",
+    hi: ["फिर स्टॉक में: {{label}}", "आपके सहेजे गए {{label}} का स्टॉक फिर उपलब्ध है।"],
+    vars: (p) => ({ label: title(p) }),
+  }),
+  alertKind({
+    key: "alert.listing_relisted", name: "Saved item live again", description: "A saved product that the seller had taken down is live again (opt-in; shares the back-in-stock switch).", type: "listing_relisted",
+    variables: [v("label", "Product title", "Corrugated box 5-ply")],
+    subject: "Live again: {{label}}", body: "{{label}}, which you saved, is listed again.",
+    hi: ["फिर लिस्ट हुआ: {{label}}", "आपके सहेजे गए {{label}} को दोबारा लिस्ट किया गया है।"],
     vars: (p) => ({ label: title(p) }),
   }),
   alertKind({

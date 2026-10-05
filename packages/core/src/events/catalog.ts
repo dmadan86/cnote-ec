@@ -25,6 +25,9 @@ export interface DomainEventPayloads {
   /** The published price (or unit) of a live listing changed (emitted with the publish, in the same transaction). Null = "price on request". Drives wishlist price-drop alerts. */
   ListingPriceChanged: { listingId: string; sellerBusinessId: string; fromPricePaise: number | null; toPricePaise: number | null; fromPriceUnit: string | null; priceUnit: string | null };
   ListingImageProcessed: { imageId: string; listingId: string; variants: number };
+  // variants-stock (docs/design/variants-stock.md)
+  /** The listing's EFFECTIVE availability (best of its variants, or its own when it has none) changed. Operational data: emitted by the stock fast path and by a publish that carries a different stock state, never by a content edit. Drives the wishlist back-in-stock alert (out_of_stock -> in_stock | made_to_order). `variantId` is the variant that caused the change, null for a listing-level change. */
+  ListingAvailabilityChanged: { listingId: string; sellerBusinessId: string; fromAvailability: "in_stock" | "made_to_order" | "out_of_stock"; toAvailability: "in_stock" | "made_to_order" | "out_of_stock"; availableQty: number | null; variantId: string | null };
   ListingImageModerated: { imageId: string; listingId: string; sellerBusinessId: string; status: "approved" | "rejected"; moderatedBy: string };
   // enquiry & matching
   /** v2 adds the RFQ depth fields (all optional, absent on v1 rows): attachment count (files are never in the event), preferred minimum seller tier and the quote expiry. */
@@ -59,8 +62,9 @@ export interface DomainEventPayloads {
   WishlistItemRemoved: { wishlistId: string; personId: string; listingId: string };
   // buyer retention (docs/design/buyer-retention.md): following a supplier never affects ranking
   SupplierFollowChanged: { personId: string; businessId: string; following: boolean };
-  /** One opted-in alert for one buyer, ready to be delivered by @cnote/notifications. `label` is a listing title or saved-search name; `count` the number of listings. */
-  BuyerAlertTriggered: { personId: string; alertType: "price_drop" | "back_in_stock" | "followed_digest" | "saved_search"; subjectId: string | null; label: string; count: number; fromPricePaise: number | null; toPricePaise: number | null; href: string };
+  /** One opted-in alert for one buyer, ready to be delivered by @cnote/notifications. `label` is a listing title or saved-search name; `count` the number of listings.
+   *  v2 (variants-stock): `alertType` gains "listing_relisted" ("a saved listing is live again", formerly mislabelled back_in_stock); "back_in_stock" now means a real availability transition and carries the new `availability`. v1 rows have neither. */
+  BuyerAlertTriggered: { personId: string; alertType: "price_drop" | "back_in_stock" | "listing_relisted" | "followed_digest" | "saved_search"; availability?: "in_stock" | "made_to_order"; subjectId: string | null; label: string; count: number; fromPricePaise: number | null; toPricePaise: number | null; href: string };
   // storefronts (seller mini-sites)
   StorefrontPublished: { storefrontId: string; sellerBusinessId: string; slug: string; versionId: string };
   StorefrontVersionReviewed: { storefrontId: string; sellerBusinessId: string; versionId: string; status: "published" | "rejected"; reviewedBy: string };
@@ -235,6 +239,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   ListingVersionPublished: 1,
   ListingUnpublished: 1,
   ListingPriceChanged: 1,
+  ListingAvailabilityChanged: 1,
   EnquiryCreated: 2,
   EnquiryScored: 1,
   LeadMatched: 1,
@@ -259,7 +264,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   WishlistItemAdded: 1,
   WishlistItemRemoved: 1,
   SupplierFollowChanged: 1,
-  BuyerAlertTriggered: 1,
+  BuyerAlertTriggered: 2,
   StorefrontPublished: 1,
   StorefrontVersionReviewed: 1,
   StorefrontSuspended: 1,

@@ -255,7 +255,8 @@
       "filesDeletedAfterDays": "ફાઇલો {retentionDays} દિવસ પછી કાઢી નાખવામાં આવે છે",
       "nothingDownloadJob": "આ જોબ માટે ડાઉનલોડ કરવા જેવું કંઈ નથી",
       "fileNoLongerAvailable": "ફાઇલ હવે ઉપલબ્ધ નથી",
-      "unknownCategory": "અજાણી શ્રેણી \"{categorySlug}\""
+      "unknownCategory": "અજાણી શ્રેણી \"{categorySlug}\"",
+      "skuNotFound": "SKU \"{sku}\" અસ્તિત્વમાં નથી"
     },
     "catalogue": {
       "notImage": "આ તમારી છબી નથી",
@@ -278,7 +279,8 @@
       "voiceNoteNotFound": "વૉઇસ નોટ મળી નથી",
       "notVoiceNote": "આ તમારી વૉઇસ નોટ નથી",
       "recordingAlreadyBeenDeleted": "રેકોર્ડિંગ પહેલેથી કાઢી નાખવામાં આવ્યું છે",
-      "recordingNoLongerAvailable": "રેકોર્ડિંગ હવે ઉપલબ્ધ નથી"
+      "recordingNoLongerAvailable": "રેકોર્ડિંગ હવે ઉપલબ્ધ નથી",
+      "noVariants": "આ લિસ્ટિંગમાં કોઈ વેરિએન્ટ નથી"
     },
     "compliance": {
       "signAppeal": "અપીલ કરવા માટે સાઇન ઇન કરો",

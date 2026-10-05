@@ -13,8 +13,11 @@ import { getCategoryById } from "./categories";
 import { toPublicImage } from "./image-variants";
 import { isUuid, type LiveImage } from "./mappers";
 import { parsePriceTiers, tradeOfRow } from "./tiers";
+import { buildLiveStock, type LiveStock, type WorkingStock } from "./live-stock";
+import { reprojectStock } from "./stock";
 import { parseSnapshot, type VersionSnapshot } from "./versions";
 import { canonicalText } from "./validate";
+import { isAvailability } from "./availability";
 
 const PUBLISHER = "publisher";
 const BATCH = 100;
@@ -39,6 +42,8 @@ export interface Projection {
   snap: VersionSnapshot;
   category: { id: string; slug: string; name: string };
   images: LiveImage[];
+  /** stock + variants as projected (snapshot structure, CURRENT stock; see live-stock.ts) */
+  stock?: LiveStock;
   seller: SellerSnap;
   aiGenerated: boolean;
   embedding: number[];
@@ -70,6 +75,16 @@ async function embedSnapshot(snap: VersionSnapshot): Promise<{ embedding: number
   return { embedding, version };
 }
 
+const publicImageIds = (images: LiveImage[]): Set<string> => new Set(images.flatMap((i) => (i.id ? [i.id] : [])));
+
+/** Current stock of the working copy, read through `client` (a transaction holding the listing lock when it must be race-free). */
+async function readWorkingStock(client: Pick<typeof prisma, "listing" | "listingVariant">, listingId: string): Promise<WorkingStock> {
+  // sequential on purpose: `client` may be a transaction, which serialises one query at a time
+  const l = await client.listing.findUniqueOrThrow({ where: { id: listingId }, select: { availability: true, availableQty: true, stockUpdatedAt: true } });
+  const variants = await client.listingVariant.findMany({ where: { listingId }, select: { id: true, availability: true, availableQty: true, leadTimeDays: true, stockUpdatedAt: true } });
+  return { ...l, variants };
+}
+
 /** Writes one projection to LIVE. Monotonic (never replaces a newer version) and safe to repeat. */
 export async function writeLive(p: Projection): Promise<void> {
   const attrs = JSON.stringify(p.snap.attributes);
@@ -77,18 +92,23 @@ export async function writeLive(p: Projection): Promise<void> {
   const price = p.snap.pricePaise === null ? null : BigInt(p.snap.pricePaise);
   const tiers = JSON.stringify(p.snap.priceTiers ?? []);
   const trade = JSON.stringify(p.snap.trade ?? {});
+  const stock = p.stock ?? buildLiveStock(p.snap, null, new Set(p.images.flatMap((i) => (i.id ? [i.id] : []))));
+  const variants = JSON.stringify(stock.variants);
+  const variantAxes = JSON.stringify(stock.variantAxes);
   await liveDb.$transaction(async (tx) => {
     await tx.liveCategory.upsert({ where: { id: p.category.id }, create: p.category, update: { slug: p.category.slug, name: p.category.name } });
     await tx.$executeRaw`
       INSERT INTO live_listings (
         id, version_id, version, seller_business_id, category_id, category_slug, category_name, title, description, attributes,
         price_paise, price_unit, moq, moq_unit, hsn, price_tiers, trade, language, ai_generated, images,
+        availability, available_qty, stock_updated_at, variant_axes, variants, variant_values,
         seller_name, seller_city, seller_state, seller_tier, seller_trust_score, seller_badge_active,
         embedding, embedding_version, first_published_at, published_at, updated_at)
       VALUES (
         ${p.listingId}::uuid, ${p.versionId}::uuid, ${p.version}, ${p.sellerBusinessId}::uuid, ${p.category.id}::uuid, ${p.category.slug}, ${p.category.name},
         ${p.snap.title}, ${p.snap.description}, ${attrs}::jsonb,
         ${price}, ${p.snap.priceUnit}, ${p.snap.moq}, ${p.snap.moqUnit}, ${p.snap.hsn}, ${tiers}::jsonb, ${trade}::jsonb, ${p.snap.language}, ${p.aiGenerated}, ${images}::jsonb,
+        ${stock.availability}, ${stock.availableQty}, ${stock.stockUpdatedAt}, ${variantAxes}::jsonb, ${variants}::jsonb, ${stock.variantValues}::text[],
         ${p.seller.name}, ${p.seller.city}, ${p.seller.state}, ${p.seller.tier}, ${p.seller.trustScore}, ${p.seller.badgeActive},
         ${toVectorLiteral(p.embedding)}::vector, ${p.embeddingVersion}, ${p.publishedAt}, ${p.publishedAt}, now())
       ON CONFLICT (id) DO UPDATE SET
@@ -97,6 +117,8 @@ export async function writeLive(p: Projection): Promise<void> {
         title = EXCLUDED.title, description = EXCLUDED.description, attributes = EXCLUDED.attributes,
         price_paise = EXCLUDED.price_paise, price_unit = EXCLUDED.price_unit, moq = EXCLUDED.moq, moq_unit = EXCLUDED.moq_unit,
         hsn = EXCLUDED.hsn, price_tiers = EXCLUDED.price_tiers, trade = EXCLUDED.trade, language = EXCLUDED.language, ai_generated = EXCLUDED.ai_generated, images = EXCLUDED.images,
+        availability = EXCLUDED.availability, available_qty = EXCLUDED.available_qty, stock_updated_at = EXCLUDED.stock_updated_at,
+        variant_axes = EXCLUDED.variant_axes, variants = EXCLUDED.variants, variant_values = EXCLUDED.variant_values,
         seller_name = EXCLUDED.seller_name, seller_city = EXCLUDED.seller_city, seller_state = EXCLUDED.seller_state,
         seller_tier = EXCLUDED.seller_tier, seller_trust_score = EXCLUDED.seller_trust_score, seller_badge_active = EXCLUDED.seller_badge_active,
         embedding = EXCLUDED.embedding, embedding_version = EXCLUDED.embedding_version, published_at = EXCLUDED.published_at, updated_at = now()
@@ -120,7 +142,14 @@ async function buildProjection(versionId: string, publishedAt: Date): Promise<Pr
   const snap = parseSnapshot(v.snapshot);
   const category = await getCategoryById(snap.categoryId);
   if (!category) throw new DomainError("validation", "Category no longer exists", undefined, "catalogue.categoryNoLongerExists");
-  const [images, seller, emb] = await Promise.all([projectImages(v.listingId, snap), sellerSnap(v.listing.sellerBusinessId), embedSnapshot({ ...snap, categoryName: category.name })]);
+  const [images, seller, emb, variantRows] = await Promise.all([
+    projectImages(v.listingId, snap),
+    sellerSnap(v.listing.sellerBusinessId),
+    embedSnapshot({ ...snap, categoryName: category.name }),
+    prisma.listingVariant.findMany({ where: { listingId: v.listingId }, select: { id: true, availability: true, availableQty: true, leadTimeDays: true, stockUpdatedAt: true } }),
+  ]);
+  const working: WorkingStock = { availability: v.listing.availability, availableQty: v.listing.availableQty, stockUpdatedAt: v.listing.stockUpdatedAt, variants: variantRows };
+  const stock = buildLiveStock(snap, working, publicImageIds(images));
   return {
     listingId: v.listingId,
     versionId: v.id,
@@ -129,6 +158,7 @@ async function buildProjection(versionId: string, publishedAt: Date): Promise<Pr
     snap: { ...snap, categoryName: category.name },
     category: { id: category.id, slug: category.slug, name: category.name },
     images,
+    stock,
     seller,
     aiGenerated: v.listing.aiGenerated,
     embedding: emb.embedding,
@@ -166,6 +196,11 @@ export async function publishVersion(versionId: string, now = new Date()): Promi
     if (!locked.length) return "in_progress" as const;
     const fresh = await tx.listing.findUniqueOrThrow({ where: { id: v.listingId }, select: { status: true, liveVersionId: true } });
     if (fresh.status === "archived") return "skipped" as const;
+    // serialise with the stock fast path: lock the listing, then take the stock as it is NOW (a toggle that committed while this
+    // projection was being built must not be overwritten with the older value)
+    await tx.$queryRaw`SELECT id FROM listings WHERE id = ${v.listingId}::uuid FOR UPDATE`;
+    proj.stock = buildLiveStock(proj.snap, await readWorkingStock(tx, v.listingId), publicImageIds(proj.images));
+    const priorLive = await liveDb.liveListing.findUnique({ where: { id: v.listingId }, select: { availability: true } });
     await writeLive(proj); // LIVE commit first: if the authoring commit below fails, a retry re-projects the same version
     const previous = fresh.liveVersionId && fresh.liveVersionId !== v.id ? fresh.liveVersionId : null;
     if (previous) await tx.listingVersion.update({ where: { id: previous }, data: { status: "superseded" } });
@@ -183,6 +218,10 @@ export async function publishVersion(versionId: string, now = new Date()): Promi
         fromPriceUnit: priorPrice.priceUnit,
         priceUnit: proj.snap.priceUnit,
       });
+    }
+    // a publish that carries a different effective stock state (e.g. the last variant came back) is an availability change too
+    if (priorLive && proj.stock && priorLive.availability !== proj.stock.availability && isAvailability(priorLive.availability)) {
+      await emit(tx, "ListingAvailabilityChanged", { type: "listing", id: v.listingId }, { ...base, fromAvailability: priorLive.availability, toAvailability: proj.stock.availability, availableQty: proj.stock.availableQty, variantId: null });
     }
     await emit(tx, "ListingVersionPublished", { type: "listing", id: v.listingId }, { ...base, versionId: v.id, version: v.version, previousVersionId: previous });
     if (!fresh.liveVersionId) await emit(tx, "ListingPublished", { type: "listing", id: v.listingId }, { ...base, categoryId: proj.category.id });
@@ -305,6 +344,8 @@ export async function reconcileLive(): Promise<{ removed: number; restored: numb
   }
   for (const sellerId of new Set(liveRows.map((r) => r.sellerBusinessId))) refreshed += await reprojectSeller(sellerId);
   for (const r of liveRows) if (await reprojectImages(r.id)) refreshed++;
+  // stock is operational and written outside the version flow: converge LIVE on the working copy (heals a crash between the two writes)
+  for (const r of liveRows) if (await reprojectStock(r.id)) refreshed++;
   return { removed, restored, refreshed };
 }
 
@@ -346,6 +387,10 @@ export async function backfillLiveListings(opts: { listingIds?: string[] } = {})
         hsn: l.hsn,
         priceTiers: parsePriceTiers(l.priceTiers),
         trade: tradeOfRow(l),
+        availability: l.availability,
+        availableQty: l.availableQty,
+        variantAxes: [],
+        variants: [],
         language: l.language,
         imageIds: l.images.map((i) => i.id),
         imageUrls: l.imageUrls,

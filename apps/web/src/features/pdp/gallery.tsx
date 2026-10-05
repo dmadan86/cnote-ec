@@ -6,9 +6,12 @@ import { ChevronLeft, ChevronRight, Maximize2, Minus, Plus, RotateCcw, X } from 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useTranslations } from "next-intl";
 import { ProductImage } from "@/features/search/product-image";
+import { useVariantSelection } from "./variant-context";
 import { clampPan, clampScale, nextIndex, pinchScale, ZOOM_MAX, ZOOM_STEP } from "./zoom";
 
 export interface GalleryImage {
+  /** ListingImage id (LIVE views), so a chosen variant can bring its own image to the front */
+  id?: string | null;
   src: string;
   blur: string | null;
   alt: string;
@@ -24,6 +27,14 @@ export function Gallery({ images, title }: { images: GalleryImage[]; title: stri
   const dialogRef = useRef<HTMLDialogElement>(null);
   const total = images.length;
   const current = images[active];
+  const variantImageId = useVariantSelection().selected?.imageId ?? null;
+  // a newly chosen variant brings its own image to the front (state adjusted during render, not in an effect)
+  const [shownVariantImage, setShownVariantImage] = useState<string | null>(null);
+  if (variantImageId !== shownVariantImage) {
+    setShownVariantImage(variantImageId);
+    const i = variantImageId ? images.findIndex((x) => x.id === variantImageId) : -1;
+    if (i >= 0) setActive(i);
+  }
 
   const open = (i: number) => {
     setLightbox(i);

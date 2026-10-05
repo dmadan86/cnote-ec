@@ -31,7 +31,29 @@ export const BASE_COLUMNS: Column[] = [
   { key: "unit_length_cm", header: "unit_length_cm", required: false, width: 14, hint: "Outer pack length of one unit in cm (decimals allowed). Freight estimates use length x width x height." },
   { key: "unit_width_cm", header: "unit_width_cm", required: false, width: 14, hint: "Outer pack width of one unit in cm." },
   { key: "unit_height_cm", header: "unit_height_cm", required: false, width: 14, hint: "Outer pack height of one unit in cm." },
+  { key: "availability", header: "availability", required: false, width: 14, hint: "Stock state: in_stock, made_to_order or out_of_stock (also accepts 'in stock', 'made to order', 'out of stock'). made_to_order needs lead_time_days. On a product that is already live this takes effect immediately, without review." },
+  { key: "available_qty", header: "available_qty", required: false, width: 12, hint: "Units on hand, a whole number (0 or more). Optional. 0 is only allowed with out_of_stock; leave empty if you do not track it." },
+  { key: "lead_time_days", header: "lead_time_days", required: false, width: 12, hint: "Days to deliver, a whole number 0-730. Required for made_to_order. On a variant row it overrides the product's lead time." },
+  { key: "variant_sku", header: "variant_sku", required: false, width: 20, hint: "Leave empty on a product row. To add a VARIANT (size, colour ...), add a row below the product with the product's sku in the sku column, your variant code here, a value in every variant:<axis> column, and optionally price_rupees, moq, availability, available_qty, lead_time_days (they then apply to the variant). Other columns on a variant row are ignored. The variant rows of a product replace all its variants (max 100)." },
 ];
+
+export const VARIANT_PREFIX = "variant:";
+/** Columns that carry a value on a variant row (everything else on that row is ignored). */
+export const VARIANT_ROW_KEYS: ReadonlySet<string> = new Set(["sku", "variant_sku", "price_rupees", "moq", "availability", "available_qty", "lead_time_days"]);
+
+type Axis = NonNullable<CategoryView["attributeSchema"]["variantAxes"]>[number];
+
+export function variantColumn(a: Axis): Column {
+  const hint = `Variant axis ${a.label}${a.options?.length ? `, one of: ${a.options.join(", ")}` : ", free text"} - only on variant rows (variant_sku filled)`;
+  return { key: `${VARIANT_PREFIX}${a.key}`, header: `${VARIANT_PREFIX}${a.key} (${a.label})`, required: false, width: 16, hint };
+}
+
+/** One column per variant axis across the given categories (union by key, first definition wins). */
+export function variantColumns(categories: Pick<CategoryView, "attributeSchema">[]): Column[] {
+  const seen = new Map<string, Axis>();
+  for (const c of categories) for (const a of c.attributeSchema.variantAxes ?? []) if (!seen.has(a.key)) seen.set(a.key, a);
+  return [...seen.values()].map(variantColumn);
+}
 
 /** Columns written after the editable ones on export only. Ignored on import. */
 export const READONLY_COLUMNS = [
@@ -57,7 +79,17 @@ export function attributeColumns(categories: Pick<CategoryView, "attributeSchema
   return [...seen.values()].map(attrColumn);
 }
 
-export const columnsFor = (categories: Pick<CategoryView, "attributeSchema">[]): Column[] => [...BASE_COLUMNS, ...attributeColumns(categories)];
+export const columnsFor = (categories: Pick<CategoryView, "attributeSchema">[]): Column[] => [...BASE_COLUMNS, ...attributeColumns(categories), ...variantColumns(categories)];
+
+const AVAILABILITY_ALIASES: Record<string, "in_stock" | "made_to_order" | "out_of_stock"> = {
+  in_stock: "in_stock", instock: "in_stock", available: "in_stock", yes: "in_stock",
+  made_to_order: "made_to_order", madetoorder: "made_to_order", mto: "made_to_order", make_to_order: "made_to_order", on_order: "made_to_order",
+  out_of_stock: "out_of_stock", outofstock: "out_of_stock", sold_out: "out_of_stock", unavailable: "out_of_stock", no: "out_of_stock",
+};
+/** "In stock" / "made-to-order" / "OUT OF STOCK" -> canonical value, or null when not recognised. */
+export function parseAvailability(raw: string): "in_stock" | "made_to_order" | "out_of_stock" | null {
+  return AVAILABILITY_ALIASES[raw.trim().toLowerCase().replace(/[\s-]+/g, "_")] ?? null;
+}
 
 /**
  * Header text -> normalised key. Case/space-insensitive; drops "*" and "(...)" annotations, so
@@ -65,6 +97,10 @@ export const columnsFor = (categories: Pick<CategoryView, "attributeSchema">[]):
  */
 export function normalizeHeader(raw: string): string {
   let h = raw.replace(/^﻿/, "").replace(/\([^)]*\)/g, "").replace(/\*/g, "").trim().toLowerCase();
+  if (h.startsWith("variant")) {
+    const m = /^variant\s*:\s*(.+)$/.exec(h);
+    if (m) return `${VARIANT_PREFIX}${m[1]!.trim().replace(/\s+/g, "_")}`;
+  }
   if (h.startsWith("attr")) {
     const m = /^attr\s*:\s*(.+)$/.exec(h);
     if (m) return `attr:${m[1]!.trim().replace(/\s+/g, "_")}`;

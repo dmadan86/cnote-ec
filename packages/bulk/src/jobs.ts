@@ -135,8 +135,16 @@ async function validateAgainstCatalogue(job: Pick<JobRow, "sellerBusinessId" | "
     catalogue.listCategories(),
     catalogue.findSellerListingsBySkus(job.sellerBusinessId, [...new Set(rows.map((r) => r.cells.sku ?? "").filter(Boolean))]),
   ]);
+  // variant rows of an existing listing without a product row in the file need that listing's category (its variant axes)
+  const productSkus = new Set(rows.filter((r) => !r.cells.variant_sku).map((r) => r.cells.sku ?? ""));
+  const existingCategoryBySku = new Map<string, string>();
+  for (const sku of new Set(rows.filter((r) => r.cells.variant_sku).map((r) => r.cells.sku ?? ""))) {
+    if (productSkus.has(sku) || !existing.has(sku)) continue;
+    const l = await catalogue.findSellerListingBySku(job.sellerBusinessId, sku);
+    if (l) existingCategoryBySku.set(sku, l.category.id);
+  }
   return validateRows(rows, {
-    categories, existing, mode: o.mode, submitForReview: !!o.submitForReview, isZip: parsed.format === "zip", zipImages: parsed.images.map((i) => i.path), fileKeys: parsed.keys,
+    categories, existing, existingCategoryBySku, mode: o.mode, submitForReview: !!o.submitForReview, isZip: parsed.format === "zip", zipImages: parsed.images.map((i) => i.path), fileKeys: parsed.keys,
   });
 }
 
@@ -235,6 +243,29 @@ async function saveCheckpoint(jobId: string, row: number, o: Outcome): Promise<v
   }
 }
 
+/**
+ * Replaces the listing's variant set with the file's. A variant that already exists (same SKU) keeps its id, its quantity tiers and its image,
+ * and any stock cell left blank keeps the stored value; new variants start in stock.
+ */
+async function applyVariants(bid: string, listingId: string, variants: NonNullable<ImportRow["variants"]>): Promise<void> {
+  const current = new Map((await catalogue.listingVariantsForSeller(bid, listingId)).map((v) => [v.sku, v]));
+  await catalogue.setListingVariants(bid, listingId, variants.map((v): catalogue.VariantInput => {
+    const old = current.get(v.sku);
+    return {
+      ...(old ? { id: old.id } : {}),
+      sku: v.sku,
+      axisValues: v.axisValues,
+      pricePaise: v.pricePaise ?? null,
+      priceTiers: old?.priceTiers ?? [],
+      moq: v.moq ?? null,
+      availability: v.availability ?? old?.availability ?? "in_stock",
+      availableQty: v.availableQty !== undefined ? v.availableQty : (v.availability === "out_of_stock" ? null : (old?.availableQty ?? null)),
+      leadTimeDays: v.leadTimeDays !== undefined ? v.leadTimeDays : (old?.leadTimeDays ?? null),
+      imageId: old?.imageId ?? null,
+    };
+  }));
+}
+
 const baseName = (p: string) => p.split("/").pop() ?? p;
 
 async function processRow(job: JobRow, opts: ImportOptions, r: ImportRow, images: Map<string, Uint8Array>, entryOf: Map<string, string>): Promise<Outcome> {
@@ -244,7 +275,11 @@ async function processRow(job: JobRow, opts: ImportOptions, r: ImportRow, images
   let kind: "c" | "u";
   try {
     const ex = await catalogue.findSellerListingBySku(bid, r.sku);
-    if (ex) {
+    if (r.variantsOnly) {
+      if (!ex) throw new DomainError("not_found", `SKU "${r.sku}" does not exist`, undefined, "bulk.skuNotFound", { sku: r.sku });
+      listingId = ex.id;
+      kind = "u";
+    } else if (ex) {
       if (opts.mode === "create") throw new DomainError("conflict", `SKU "${r.sku}" already exists`, undefined, "bulk.skuAlreadyExists", { sku: r.sku });
       const patch: Partial<catalogue.ListingInput> = { title: r.title, categoryId: r.categoryId, attributes: { ...ex.attributes, ...r.attributes } };
       if (r.description !== undefined) patch.description = r.description;
@@ -257,12 +292,24 @@ async function processRow(job: JobRow, opts: ImportOptions, r: ImportRow, images
       if (r.shipping) patch.trade = { ...ex.trade, ...r.shipping }; // updateListing replaces the whole trade block, so keep the rest
       if (r.imageUrls.length) patch.imageUrls = r.imageUrls;
       listingId = (await catalogue.updateListing(bid, ex.id, patch)).id;
+      // stock is operational: it goes through the fast path (no review) and reaches a live listing at once
+      if (r.availability !== undefined || r.availableQty !== undefined || r.leadTimeDays !== undefined) {
+        await catalogue.updateListingStock(bid, ex.id, {
+          ...(r.availability !== undefined ? { availability: r.availability } : {}),
+          ...(r.availableQty !== undefined ? { availableQty: r.availableQty } : {}),
+          ...(r.leadTimeDays !== undefined ? { leadTimeDays: r.leadTimeDays } : {}),
+        });
+      }
       kind = "u";
     } else {
       const created = await catalogue.createListing(bid, {
         sku: r.sku, categoryId: r.categoryId, title: r.title, description: r.description ?? "", attributes: r.attributes, pricePaise: r.pricePaise ?? null, priceUnit: r.priceUnit ?? null,
         moq: r.moq ?? null, moqUnit: r.moqUnit ?? null, hsn: r.hsn ?? null, language: r.language ?? "en", imageUrls: r.imageUrls,
-        ...(r.shipping ? { trade: r.shipping } : {}),
+        ...(r.availability !== undefined ? { availability: r.availability } : {}),
+        ...(r.availableQty !== undefined ? { availableQty: r.availableQty } : {}),
+        ...(r.shipping || r.leadTimeDays !== undefined
+          ? { trade: { ...(r.shipping ?? {}), ...(r.leadTimeDays !== undefined ? { leadTimeDays: r.leadTimeDays } : {}) } }
+          : {}),
       });
       listingId = created.id;
       kind = "c";
@@ -270,6 +317,15 @@ async function processRow(job: JobRow, opts: ImportOptions, r: ImportRow, images
   } catch (e) {
     if (!(e instanceof DomainError)) console.error("[bulk] row failed", job.id, r.row, e);
     return { o: "e", images: 0, errs: [{ row: r.row, column: "", message: errMsg(e) }] };
+  }
+
+  if (r.variants) {
+    try {
+      await applyVariants(bid, listingId, r.variants);
+    } catch (e) {
+      const row = r.variants[0]?.row ?? r.row;
+      errs.push({ row, column: "", message: `Variants not saved: ${errMsg(e)}` });
+    }
   }
 
   let imageCount = 0;
@@ -491,6 +547,7 @@ export async function buildExport(sellerBusinessId: string, opts: { format: "xls
       images.set(sku, files);
     }
     const values: Record<string, Cell> = {
+      availability: l.ownAvailability ?? l.availability ?? "in_stock", available_qty: l.availableQty, lead_time_days: l.trade?.leadTimeDays ?? null,
       sku, title: l.title, category: l.category.slug, description: l.description, price_rupees: l.pricePaise === null ? "" : l.pricePaise / 100, price_unit: l.priceUnit, moq: l.moq,
       moq_unit: l.moqUnit, hsn: l.hsn, language: l.language, image_files: files.map((f) => f.name).join(", "), image_urls: l.imageUrls.filter((u) => u.startsWith("https://")).join(", "),
       unit_weight_g: l.trade?.unitWeightGrams ?? "", unit_length_cm: l.trade?.unitLengthMm ? l.trade.unitLengthMm / 10 : "",
@@ -501,6 +558,14 @@ export async function buildExport(sellerBusinessId: string, opts: { format: "xls
       ...columns.map((c) => values[c.key] ?? ""),
       l.status, ov?.pending ? ov.pending.status : ov?.live ? "live" : l.moderationStatus, ov?.live?.version ?? "",
     ]);
+    // one row per variant, directly below its product: sku = the product's, variant_sku filled (re-importable as is)
+    for (const v of l.variants ?? []) {
+      const vv: Record<string, Cell> = {
+        sku, variant_sku: v.sku, price_rupees: v.pricePaise === null ? "" : v.pricePaise / 100, moq: v.moq, availability: v.availability, available_qty: v.availableQty, lead_time_days: v.leadTimeDays,
+      };
+      for (const [k, val] of Object.entries(v.axisValues)) vv[`variant:${k}`] = val;
+      lines.push([...columns.map((c) => vv[c.key] ?? ""), "", "", ""]);
+    }
   }
 
   let sheet: Uint8Array;

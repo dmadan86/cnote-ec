@@ -7,9 +7,9 @@ import "./types";
 export { LIMITS, type BulkActor, type BulkJobView, type BulkJobStatusName, type FileFormat, type ImportMode, type ImportOptions, type RawRow, type RowError } from "./types";
 export { buildImportTemplate, buildStarterKit, placeholderPng, type TemplateOptions } from "./template";
 export { detectFormat, parseImportFile, parseCsvBytes, parseXlsxBytes, parseZipBytes, type ParsedImport, type ParsedImage } from "./parse";
-export { validateRows, rupeesToPaise, resolveImage, type ImportRow, type ValidationContext, type ValidationResult } from "./validate";
+export { validateRows, rupeesToPaise, resolveImage, type ImportVariant, type ImportRow, type ValidationContext, type ValidationResult } from "./validate";
 export { buildErrorReport } from "./report";
-export { columnsFor, normalizeHeader, isExampleSku, BASE_COLUMNS, UNITS, LANGUAGES, type Column } from "./columns";
+export { columnsFor, variantColumns, parseAvailability, normalizeHeader, isExampleSku, BASE_COLUMNS, UNITS, LANGUAGES, type Column } from "./columns";
 export {
   createImportJob, confirmImportJob, cancelJob, getJob, listJobs, createExportJob, getDownload, purgeExpiredJobs, buildExport,
   validateImportJob, runImportJob, runExportJob, type BulkDownload,

@@ -8,6 +8,8 @@ import { load } from "@/lib/safe";
 import { catalogue } from "@/lib/services";
 import { ListingStatusBadges } from "@/features/listings/status-badges";
 import { versionSummary } from "@/features/listings/version-utils";
+import { ListingStockBadges } from "@/features/listings/stock-badges";
+import { StockToggle } from "@/features/listings/stock-toggle";
 import { ListingRowActions } from "@/features/listings/row-actions";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -74,6 +76,12 @@ export default async function ListingsPage() {
                     </div>
                   </div>
                   <ListingStatusBadges listing={l} summary={summaries.get(l.id)} />
+                  {l.status !== "archived" ? (
+                    <div className="flex flex-wrap items-start gap-x-4 gap-y-2" data-testid="stock-row">
+                      <ListingStockBadges listing={l} />
+                      <StockToggle listingId={l.id} title={l.title} availability={l.ownAvailability ?? "in_stock"} leadTimeDays={l.trade?.leadTimeDays ?? null} variantCount={l.variants?.length ?? 0} />
+                    </div>
+                  ) : null}
                   {l.moderationStatus === "rejected" && l.moderationReason ? <p className="text-sm text-danger">{l.moderationReason}</p> : null}
                   <div className="flex flex-wrap items-start gap-2">
                     {l.status !== "archived" ? (

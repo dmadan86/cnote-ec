@@ -7,9 +7,11 @@ import { prisma, type Prisma } from "@cnote/db";
 import { getTrustProfiles } from "@cnote/identity";
 import { bustListingCaches } from "./cache";
 import { getCategoryById } from "./categories";
-import { isUuid, listingInclude, type ListingRow } from "./mappers";
+import { isUuid, listingInclude, toSellerVariants, type ListingRow } from "./mappers";
 import { compactTrade, parsePriceTiers, parseTrade, tradeOfRow, type PriceTier, type TradeInfo } from "./tiers";
 import { canonicalText, coerceAttributes, validateAttributes, validatePublishable } from "./validate";
+import { effectiveAvailability, isAvailability, validateStock, type Availability } from "./availability";
+import { categoryAxes, describeVariant, normaliseVariants, parseAxes, parseVariants, type VariantAxis, type VariantView } from "./variants";
 import type { ListingView } from "./index";
 
 export type VersionStatus = "submitted" | "in_review" | "approved" | "published" | "superseded" | "rejected" | "withdrawn";
@@ -66,6 +68,12 @@ export interface VersionSnapshot {
   priceTiers?: PriceTier[];
   trade?: TradeInfo;
   language: string;
+  /** stock at submit time (fallback only: the publisher overlays the CURRENT stock, see overlayStock in live.ts) */
+  availability?: Availability;
+  availableQty?: number | null;
+  /** variant axes of the category, frozen at submit ({key,label}) and the variants (docs/design/variants-stock.md); absent on older versions */
+  variantAxes?: VariantAxis[];
+  variants?: VariantView[];
   /** approved, non-deleted images at submit time, in display order */
   imageIds: string[];
   /** placeholder urls from the working copy (used only when no uploaded image is approved) */
@@ -115,7 +123,16 @@ const attrsOf = (v: unknown): Record<string, string | number> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, string | number>) : {};
 
 export function snapshotOf(l: ListingRow, categoryName: string, attributes = attrsOf(l.attributes)): VersionSnapshot {
+  const approvedImages = new Set(l.images.map((i) => i.id));
+  const variants: VariantView[] = toSellerVariants(l.variants).map((v) => ({
+    id: v.id, sku: v.sku, axisValues: v.axisValues, pricePaise: v.pricePaise, priceTiers: v.priceTiers, moq: v.moq, availability: v.availability,
+    availableQty: v.availableQty, leadTimeDays: v.leadTimeDays, imageId: v.imageId && approvedImages.has(v.imageId) ? v.imageId : null, sortOrder: v.sortOrder,
+  }));
   return {
+    availability: l.availability ?? "in_stock",
+    availableQty: l.availableQty ?? null,
+    variantAxes: variants.length ? categoryAxes(l.category.attributeSchema as { variantAxes?: unknown } | null).map(({ key, label }) => ({ key, label })) : [],
+    variants,
     title: l.title,
     description: l.description,
     categoryId: l.categoryId,
@@ -161,6 +178,34 @@ const TRADE_FIELDS: [keyof TradeInfo, string][] = [
 ];
 const summarise = (v: unknown): string | number | null => (v == null ? null : Array.isArray(v) ? v.join(", ") : typeof v === "boolean" ? (v ? "yes" : "no") : (v as string | number));
 
+const effectiveAvailabilityOf = (s: Pick<VersionSnapshot, "availability" | "variants">): Availability => effectiveAvailability(s.availability ?? "in_stock", s.variants ?? []);
+
+/** The reviewed part of a variant: stock (availability, quantity, lead time) is operational and deliberately left out. */
+const variantStructure = (v: VariantView) => JSON.stringify({ sku: v.sku, a: v.axisValues, p: v.pricePaise, t: v.priceTiers, m: v.moq, i: v.imageId });
+
+/** One entry per added / removed / changed variant (matched by id), so a reviewer sees exactly which SKUs moved. Stock-only edits produce nothing. */
+function diffVariants(before: VariantView[], after: VariantView[], axes: VariantAxis[]): FieldChange[] {
+  const out: FieldChange[] = [];
+  const prev = new Map(before.map((v) => [v.id, v]));
+  const next = new Map(after.map((v) => [v.id, v]));
+  for (const v of after) {
+    const old = prev.get(v.id);
+    if (!old) out.push({ field: `variants.${v.sku}`, label: "Variant added", before: null, after: describeVariant(v, axes) });
+    else if (variantStructure(old) !== variantStructure(v)) out.push({ field: `variants.${v.sku}`, label: `Variant ${v.sku}`, before: variantTerms(old, axes), after: variantTerms(v, axes) });
+  }
+  for (const v of before) if (!next.has(v.id)) out.push({ field: `variants.${v.sku}`, label: "Variant removed", before: describeVariant(v, axes), after: null });
+  return out;
+}
+
+function variantTerms(v: VariantView, axes: VariantAxis[]): string {
+  const bits = [describeVariant(v, axes)];
+  if (v.pricePaise !== null) bits.push(`price ${v.pricePaise} paise`);
+  if (v.priceTiers.length) bits.push(`${v.priceTiers.length} tier${v.priceTiers.length === 1 ? "" : "s"}`);
+  if (v.moq !== null) bits.push(`MOQ ${v.moq}`);
+  if (v.imageId) bits.push("image");
+  return bits.join(", ");
+}
+
 /** Field-level diff (what a reviewer / the history UI shows). `before = null` means no earlier version. */
 export function diffSnapshots(before: VersionSnapshot | null, after: VersionSnapshot): FieldChange[] {
   const out: FieldChange[] = [];
@@ -189,6 +234,7 @@ export function diffSnapshots(before: VersionSnapshot | null, after: VersionSnap
     const y = JSON.stringify(ta[k] ?? null);
     if (x !== y) out.push({ field: `trade.${k}`, label, before: summarise(tb[k]), after: summarise(ta[k]) });
   }
+  out.push(...diffVariants(b?.variants ?? [], after.variants ?? [], after.variantAxes ?? b?.variantAxes ?? []));
   const bi = b?.imageIds ?? [];
   if (JSON.stringify(bi) !== JSON.stringify(after.imageIds)) {
     const added = after.imageIds.filter((i) => !bi.includes(i)).length;
@@ -222,6 +268,10 @@ function coerceSnapshot(raw: unknown): VersionSnapshot {
     priceTiers: parsePriceTiers(s.priceTiers),
     trade: parseTrade(s.trade),
     language: s.language ?? "en",
+    availability: isAvailability(s.availability) ? s.availability : "in_stock",
+    availableQty: s.availableQty ?? null,
+    variantAxes: parseAxes(s.variantAxes),
+    variants: parseVariants(s.variants),
     imageIds: Array.isArray(s.imageIds) ? s.imageIds : [],
     imageUrls: Array.isArray(s.imageUrls) ? s.imageUrls : [],
   };
@@ -284,6 +334,13 @@ function parsePublishAt(v: SubmitOptions["publishAt"]): Date | null {
   return d.getTime() <= Date.now() ? null : d;
 }
 
+/** Publish-time checks for stock and variants: variants fit the category's axes (it may have changed since they were saved) and stock states are consistent. */
+export function stockAndVariantProblems(cur: ListingRow, category: { attributeSchema: { variantAxes?: unknown } }): string[] {
+  const variants = toSellerVariants(cur.variants);
+  if (!variants.length) return validateStock({ availability: cur.availability, availableQty: cur.availableQty, leadTimeDays: cur.leadTimeDays }, "Stock");
+  return normaliseVariants(categoryAxes(category.attributeSchema), variants, { listingMoq: cur.moq, listingLeadTimeDays: cur.leadTimeDays }).errors;
+}
+
 interface Screening {
   outcome: "allow" | "review" | "block";
   verdict: string;
@@ -318,7 +375,7 @@ export async function submitListingVersion(sellerBusinessId: string, listingId: 
   const category = await getCategoryById(cur.categoryId);
   if (!category) throw new DomainError("validation", "Unknown category", undefined, "ads.unknownCategory");
   const attributes = coerceAttributes(category.attributeSchema, attrsOf(cur.attributes));
-  const problems = [...validatePublishable(cur), ...validateAttributes(category.attributeSchema, attributes)];
+  const problems = [...validatePublishable(cur), ...validateAttributes(category.attributeSchema, attributes), ...stockAndVariantProblems(cur, category)];
   if (problems.length) throw new DomainError("validation", problems.join("; "), problems);
 
   const snap = snapshotOf(cur, category.name, attributes);
@@ -471,6 +528,11 @@ async function buildPreview(v: VersionRow): Promise<PreviewView> {
     hsn: snap.hsn,
     priceTiers: snap.priceTiers ?? [],
     trade: snap.trade ?? {},
+    availability: effectiveAvailabilityOf(snap),
+    availableQty: snap.availableQty ?? null,
+    variantAxes: snap.variantAxes ?? [],
+    variants: snap.variants ?? [],
+    imageIds: snap.imageIds,
     language: snap.language,
     imageUrls: snap.imageIds.length ? snap.imageIds.map((id) => `/media/listing-images/${id}`) : snap.imageUrls,
     aiGenerated: listing.aiGenerated,

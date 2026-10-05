@@ -36,6 +36,7 @@ export const Category = z
         key: z.string(), label: z.string(), type: z.enum(["text", "number", "select"]),
         required: z.boolean().optional(), unit: z.string().optional(), options: z.array(z.string()).optional(),
       })),
+      variantAxes: z.array(z.object({ key: z.string(), label: z.string(), options: z.array(z.string()).optional() })).optional().openapi({ description: "Variant axes (size, colour, grade ...) a listing in this category can use; absent = no variants." }),
     }).openapi({ description: "Attributes a listing in this category may/must carry." }),
   })
   .openapi("Category");
@@ -54,6 +55,37 @@ export const TrustProfile = z
   })
   .openapi("TrustProfile");
 
+export const Availability = z.enum(["in_stock", "made_to_order", "out_of_stock"]).openapi({ description: "Stock state. `in_stock` ships now, `made_to_order` ships after the lead time, `out_of_stock` cannot be ordered." });
+
+export const VariantAxis = z
+  .object({ key: z.string().openapi({ example: "size" }), label: z.string().openapi({ example: "Size" }), options: z.array(z.string()).optional() })
+  .openapi("VariantAxis");
+const QuantityTier = z.object({ minQty: z.number().int().min(1), pricePaise: z.number().int().min(0) });
+export const Variant = z
+  .object({
+    id: uuid(),
+    sku: z.string().openapi({ example: "BOLT-M8-SS" }),
+    axisValues: z.record(z.string(), z.string()).openapi({ example: { size: "M8", grade: "A2-70" }, description: "One value per variant axis of the category." }),
+    pricePaise: z.number().int().nullable().openapi({ description: "Price override in paise; null = the listing's price." }),
+    priceTiers: z.array(QuantityTier).openapi({ description: "Quantity tiers overriding the listing's; empty = inherit (or flat price when `pricePaise` is set)." }),
+    moq: z.number().int().nullable().openapi({ description: "MOQ override; null = the listing's." }),
+    availability: Availability,
+    availableQty: z.number().int().nullable(),
+    leadTimeDays: z.number().int().nullable().openapi({ description: "Days to deliver; null = the listing's lead time." }),
+    imageId: z.string().nullable().openapi({ description: "Listing image id this variant shows, if any." }),
+    sortOrder: z.number().int(),
+    stockUpdatedAt: iso("2026-09-02T10:00:00.000Z").nullable().optional().openapi({ description: "Seller keys only." }),
+  })
+  .openapi("Variant");
+
+const stockFields = {
+  availability: Availability,
+  availableQty: z.number().int().nullable().openapi({ description: "Units on hand, if the seller tracks it." }),
+  stockUpdatedAt: iso("2026-09-02T10:00:00.000Z").nullable().openapi({ description: "When the seller last set the stock; null = never stated." }),
+  variantAxes: z.array(VariantAxis).openapi({ description: "Variant axes of the listing's category (empty = no variants)." }),
+  variants: z.array(Variant).openapi({ description: "0..100 variants. `availability` above is the best of them (the listing is in stock while any variant is)." }),
+};
+
 const listingBase = {
   id: uuid(),
   sellerBusinessId: uuid(),
@@ -70,6 +102,7 @@ const listingBase = {
   language: z.string(),
   imageUrls: z.array(z.string()),
   aiGenerated: z.boolean(),
+  ...stockFields,
   createdAt: iso("2026-09-01T10:00:00.000Z"),
   updatedAt: iso("2026-09-02T10:00:00.000Z"),
 };
@@ -83,6 +116,53 @@ export const SellerListing = z
     sku: z.string().nullable().optional().openapi({ description: "Your own product code, if set." }),
   })
   .openapi("SellerListing");
+
+export const StockPatch = z
+  .object({
+    availability: Availability.optional(),
+    availableQty: z.number().int().min(0).nullable().optional(),
+    leadTimeDays: z.number().int().min(0).max(730).nullable().optional().openapi({ description: "Required (here or already stored) for `made_to_order`." }),
+    variants: z
+      .array(
+        z.object({
+          id: z.string().optional(),
+          sku: z.string().optional().openapi({ description: "Match a variant by sku when `id` is not given." }),
+          availability: Availability.optional(),
+          availableQty: z.number().int().min(0).nullable().optional(),
+          leadTimeDays: z.number().int().min(0).max(730).nullable().optional(),
+        }),
+      )
+      .max(100)
+      .optional(),
+  })
+  .openapi("StockPatch", { example: { availability: "made_to_order", leadTimeDays: 14 } });
+
+export const VariantInput = z
+  .object({
+    id: z.string().optional().openapi({ description: "Keeps an existing variant's identity; otherwise matched by `sku`." }),
+    sku: z.string().regex(/^[A-Za-z0-9._-]{1,64}$/),
+    axisValues: z.record(z.string(), z.string().min(1).max(60)),
+    pricePaise: z.number().int().min(0).nullable().optional(),
+    priceTiers: z.array(QuantityTier).max(8).optional(),
+    moq: z.number().int().min(1).nullable().optional(),
+    availability: Availability.optional(),
+    availableQty: z.number().int().min(0).nullable().optional(),
+    leadTimeDays: z.number().int().min(0).max(730).nullable().optional(),
+    imageId: z.string().nullable().optional(),
+  })
+  .openapi("VariantInput");
+export const VariantsPut = z.object({ variants: z.array(VariantInput).max(100) }).openapi("VariantsPut");
+
+export const Facets = z
+  .object({
+    category: z.array(z.object({ key: z.string(), count: z.number().int() })),
+    city: z.array(z.object({ key: z.string(), count: z.number().int() })),
+    state: z.array(z.object({ key: z.string(), count: z.number().int() })),
+    verificationTier: z.array(z.object({ key: z.string(), count: z.number().int() })),
+    price: z.array(z.object({ key: z.string(), count: z.number().int(), fromPaise: z.number().nullable(), toPaise: z.number().nullable() })),
+    variant: z.array(z.object({ key: z.string().openapi({ example: "size:m" }), count: z.number().int() })).openapi({ description: "Lower-cased `axis:value` pairs of listing variants, most common first." }),
+  })
+  .openapi("Facets");
 
 export const SearchHit = z
   .object({

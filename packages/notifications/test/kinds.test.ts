@@ -121,7 +121,7 @@ describe("kinds registry", () => {
     expect(defs).toHaveLength(KINDS.length);
     expect(defs.filter((d) => !d.key.startsWith("alert.") && !d.key.startsWith("developer.") && !d.key.startsWith("account.")).every((d) => d.category === "transactional")).toBe(true);
     expect(defs.filter((d) => (d.key.startsWith("developer.") || d.key.startsWith("account."))).every((d) => d.category === "security" && d.channels.includes("email"))).toBe(true);
-    expect(defs.filter((d) => d.key.startsWith("alert.")).map((d) => d.category)).toEqual(["alert", "alert", "alert", "alert"]); // opt-in alerts: unsubscribe footer, no marketing consent
+    expect(defs.filter((d) => d.key.startsWith("alert.")).map((d) => d.category)).toEqual(["alert", "alert", "alert", "alert", "alert"]); // opt-in alerts: unsubscribe footer, no marketing consent
     registerNotificationTemplates();
     registerNotificationTemplates();
     expect(h.defined.length).toBeLessThanOrEqual(1);

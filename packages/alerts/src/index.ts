@@ -10,6 +10,6 @@ export { createSavedSearch, listSavedSearches, setSearchFrequency, deleteSavedSe
 export { getAlertSettings, setAlertSetting, unsubscribeByToken } from "./settings";
 export { alertUnsubscribeUrl, signUnsubscribeToken, verifyUnsubscribeToken } from "./token";
 export { runSavedSearchDigests, runFollowedDigests } from "./digests";
-export { onListingPriceChanged, onListingPublished } from "./listing-alerts";
+export { onListingPriceChanged, onListingPublished, onListingAvailabilityChanged } from "./listing-alerts";
 export { exportAlertsData, exportPersonalData, eraseAlertsData, purgeOldDispatches } from "./privacy";
 export { worker } from "./worker";

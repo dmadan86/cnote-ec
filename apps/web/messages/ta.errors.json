@@ -255,7 +255,8 @@
       "filesDeletedAfterDays": "கோப்புகள் {retentionDays} நாட்களுக்குப் பிறகு நீக்கப்படும்",
       "nothingDownloadJob": "இந்தப் பணிக்குப் பதிவிறக்க எதுவும் இல்லை",
       "fileNoLongerAvailable": "கோப்பு இனி கிடைக்காது",
-      "unknownCategory": "தெரியாத வகை \"{categorySlug}\""
+      "unknownCategory": "தெரியாத வகை \"{categorySlug}\"",
+      "skuNotFound": "SKU \"{sku}\" இல்லை"
     },
     "catalogue": {
       "notImage": "இது உங்கள் படம் அல்ல",
@@ -278,7 +279,8 @@
       "voiceNoteNotFound": "குரல் குறிப்பு கிடைக்கவில்லை",
       "notVoiceNote": "இது உங்கள் குரல் குறிப்பு அல்ல",
       "recordingAlreadyBeenDeleted": "பதிவு ஏற்கனவே நீக்கப்பட்டுவிட்டது",
-      "recordingNoLongerAvailable": "பதிவு இனி கிடைக்காது"
+      "recordingNoLongerAvailable": "பதிவு இனி கிடைக்காது",
+      "noVariants": "இந்த பட்டியலில் மாறுபாடுகள் இல்லை"
     },
     "compliance": {
       "signAppeal": "மேல்முறையீடு செய்ய உள்நுழையுங்கள்",
