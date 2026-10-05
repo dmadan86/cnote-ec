@@ -12,6 +12,7 @@ import {
   addDays, computePo, formatPoNumber, fromDbDate, isIntraState, isIsoDate, istDate, MAX_PAYMENT_TERMS_DAYS, paymentTermsToDays, toDbDate,
   type PoLine, type PoLineInput, type PoTotals,
 } from "./po-core";
+import { qrSvgDataUri } from "./einvoice";
 import { renderPurchaseOrderPdf, type AddressSnapshot, type PartySnapshot } from "./po-pdf";
 import { assertPurchaseOrdersEnabled, toInvoiceView, voidOpenInvoicesForOrderTx, type SupplierInvoiceView } from "./supplier-invoices";
 import type { Actor } from "./types";
@@ -108,7 +109,7 @@ async function buildView(po: PoFull, role: "buyer" | "seller", now: Date): Promi
   const buyer = cur.buyer as unknown as PartySnapshot;
   const seller = cur.seller as unknown as PartySnapshot;
   const msme = (await identity.getPartyProfiles([po.sellerBusinessId])).get(po.sellerBusinessId)?.msme;
-  const invoices = po.invoices.map((i) => toInvoiceView(i, now)).sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+  const invoices = (await Promise.all(po.invoices.map(async (i) => toInvoiceView(i, now, i.irn && i.signedQr ? await qrSvgDataUri(i.signedQr) : undefined)))).sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
   const live = invoices.filter((i) => i.status !== "void");
   const invoiced = live.reduce((s, i) => s + i.totalPaise, 0);
   const paid = live.reduce((s, i) => s + i.paidPaise, 0);

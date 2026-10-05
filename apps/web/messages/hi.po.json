@@ -18,14 +18,16 @@
       "cancelled": "रद्द"
     },
     "version": "संस्करण {n}",
-    "ack": { "pending": "विक्रेता के जवाब की प्रतीक्षा", "accepted": "स्वीकृत", "rejected": "अस्वीकृत" },
+    "ack": {
+      "pending": "विक्रेता के जवाब की प्रतीक्षा",
+      "accepted": "स्वीकृत",
+      "rejected": "अस्वीकृत"
+    },
     "ackReason": "विक्रेता का कारण: {reason}",
     "cancelledReason": "रद्द: {reason}",
     "partiesTitle": "पक्ष और डिलीवरी",
     "you": "आप (खरीदार)",
     "seller": "विक्रेता",
-    "gstin": "GSTIN {gstin}",
-    "gstinMasked": "GSTIN {gstin}",
     "gstinNone": "GSTIN उपलब्ध नहीं",
     "deliverTo": "डिलीवरी का पता",
     "paymentTerms": "भुगतान शर्तें",
@@ -34,16 +36,34 @@
     "notSet": "तय नहीं",
     "placeOfSupply": "आपूर्ति का स्थान",
     "placeOfSupplyValue": "राज्य कोड {code}, {tax}",
-    "taxCgst": "CGST + SGST",
-    "taxIgst": "IGST",
     "notes": "टिप्पणियाँ",
     "linesTitle": "सामान",
     "linesCaption": "इस क्रय आदेश का सामान",
-    "col": { "item": "सामान", "hsn": "HSN", "qty": "मात्रा", "rate": "दर", "taxable": "करयोग्य मूल्य", "gst": "GST", "total": "कुल" },
+    "col": {
+      "item": "सामान",
+      "hsn": "HSN",
+      "qty": "मात्रा",
+      "rate": "दर",
+      "taxable": "करयोग्य मूल्य",
+      "gst": "GST",
+      "total": "कुल"
+    },
     "priceIncludesGst": "कीमत में GST शामिल है",
-    "totals": { "taxable": "करयोग्य मूल्य", "cgst": "CGST", "sgst": "SGST", "igst": "IGST", "total": "कुल" },
+    "totals": {
+      "taxable": "करयोग्य मूल्य",
+      "cgst": "CGST",
+      "sgst": "SGST",
+      "igst": "IGST",
+      "total": "कुल"
+    },
     "amountsTitle": "क्रय आदेश बनाम इनवॉइस",
-    "amounts": { "po": "क्रय आदेश का मूल्य", "invoiced": "विक्रेता द्वारा इनवॉइस किया गया", "paid": "आपने चुकाया", "toInvoice": "अभी इनवॉइस नहीं हुआ", "outstanding": "चुकाना बाकी" },
+    "amounts": {
+      "po": "क्रय आदेश का मूल्य",
+      "invoiced": "विक्रेता द्वारा इनवॉइस किया गया",
+      "paid": "आपने चुकाया",
+      "toInvoice": "अभी इनवॉइस नहीं हुआ",
+      "outstanding": "चुकाना बाकी"
+    },
     "pdf": "PDF डाउनलोड करें (संस्करण {n})",
     "versionsTitle": "संस्करण",
     "versionRow": "संस्करण {n}: {total}, {terms}",
@@ -134,7 +154,12 @@
       "dueSoon": "7 दिन में देय",
       "msmeOpen": "सूक्ष्म और लघु विक्रेताओं के",
       "tabsLabel": "इनवॉइस फ़िल्टर करें",
-      "tab": { "open": "बकाया", "overdue": "देरी वाले", "paid": "चुकाए गए", "all": "सभी" },
+      "tab": {
+        "open": "बकाया",
+        "overdue": "देरी वाले",
+        "paid": "चुकाए गए",
+        "all": "सभी"
+      },
       "empty": "यहाँ कोई इनवॉइस नहीं",
       "emptyDescription": "जब कोई विक्रेता आपके क्रय आदेश के विरुद्ध इनवॉइस दर्ज करेगा, वह भुगतान की अंतिम तारीख के साथ यहाँ दिखेगा।",
       "seller": "विक्रेता",

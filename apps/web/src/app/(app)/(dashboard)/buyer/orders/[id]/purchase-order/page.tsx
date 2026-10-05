@@ -58,7 +58,7 @@ export default async function BuyerPurchaseOrderPage(props: { params: Promise<{ 
 
   const cur = po.versions[0]!;
   const payInvoices = po.invoices;
-  const tax = po.intraState ? t("taxCgst") : t("taxIgst");
+  const tax = po.intraState ? "CGST + SGST" : "IGST";
   return (
     <Container className="max-w-3xl py-8">
       {back}
@@ -86,8 +86,8 @@ export default async function BuyerPurchaseOrderPage(props: { params: Promise<{ 
           <CardBody className="flex flex-col gap-4">
             <CardTitle>{t("partiesTitle")}</CardTitle>
             <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-              <Row k={t("you")} v={<>{po.buyer.legalName ?? po.buyer.name}<br /><span className="font-mono text-xs">{po.buyer.gstin ? t("gstin", { gstin: po.buyer.gstin }) : t("gstinNone")}</span></>} />
-              <Row k={t("seller")} v={<>{po.seller.legalName ?? po.seller.name}<br /><span className="font-mono text-xs">{po.seller.gstinMasked ? t("gstinMasked", { gstin: po.seller.gstinMasked }) : t("gstinNone")}</span></>} />
+              <Row k={t("you")} v={<>{po.buyer.legalName ?? po.buyer.name}<br /><span className="font-mono text-xs">{po.buyer.gstin ? `GSTIN ${po.buyer.gstin}` : t("gstinNone")}</span></>} />
+              <Row k={t("seller")} v={<>{po.seller.legalName ?? po.seller.name}<br /><span className="font-mono text-xs">{po.seller.gstinMasked ? `GSTIN ${po.seller.gstinMasked}` : t("gstinNone")}</span></>} />
               <Row k={t("deliverTo")} v={<>{po.deliveryAddress.line1}{po.deliveryAddress.line2 ? `, ${po.deliveryAddress.line2}` : ""}<br />{po.deliveryAddress.city}, {po.deliveryAddress.state} {po.deliveryAddress.pincode}</>} />
               <Row k={t("placeOfSupply")} v={t("placeOfSupplyValue", { code: po.placeOfSupply, tax })} />
               <Row k={t("paymentTerms")} v={t("paymentTermsValue", { days: po.paymentTermsDays })} />

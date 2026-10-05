@@ -138,7 +138,8 @@ export interface RecordInvoiceInput {
 const blank = (v: string | null | undefined): string | null => (v && v.trim() !== "" ? v.trim() : null);
 function parseInstant(v: string | null, field: string, msg: string): Date | null {
   if (v === null) return null;
-  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(v) ? `${v}T00:00:00+05:30` : v);
+  // Date-only and zone-less date-times (HTML date / datetime-local inputs) are Indian time.
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(v) ? `${v}T00:00:00+05:30` : /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(v) ? `${v}+05:30` : v);
   if (Number.isNaN(d.getTime())) throw new DomainError("validation", msg, { [field]: msg });
   return d;
 }
