@@ -25,6 +25,12 @@ Windows are env-configurable (`RETENTION_<KEY>_DAYS`); the values below are the 
 - **Erased persons' rows**: tombstoned, not deleted, for referential integrity (`erasePerson`).
 - **Financial records** (credit ledger, future orders): retained per tax and accounting law.
 
+## Processed in memory, never stored (no retention window needed)
+
+- **Buyer voice search audio** (`POST /api/search/voice`, ADR-004/010): the recording is read into memory, sent to the speech provider (`ASR_PROVIDER`) through `@cnote/ai` `transcribe`, and dropped when the request ends. Nothing is written to disk, object storage or a table by the route; the browser releases the microphone immediately after recording and holds the clip only in a `Blob` until it is posted. The AI decision log keeps only a hash of the audio, its size and the redacted transcript text (same as every `transcribe` call). The buyer is shown a notice and must agree before the first recording (stored as the strictly necessary `cnote_voice_consent_v1` flag). Because no recording is retained there is no purge policy and no `exportPersonalData` source for it. If search audio is ever kept (for example to improve recognition), it needs its own purpose-scoped consent, a policy in this table and an export source.
+- **Buyer photo search image** (`POST /api/search/image`): validated, re-encoded in memory (EXIF/GPS/ICC dropped) and discarded after the vision call; only the derived keywords are returned. Same rule: storing it would need explicit consent plus a policy here.
+- **Search queries and staff judgements**: staff relevance judgements (`search_judgements`) contain staff-typed queries only, no buyer data, and are kept as evaluation evidence.
+
 ## Open items
 
 - DPDP Rules 2025 (Third Schedule) prescribe a sector-specific retention floor for large e-commerce entities. Verify whether the platform crosses the user thresholds before shortening any window below that floor, and give the data principal at least 48 hours' notice before erasure where the Rules require it.
