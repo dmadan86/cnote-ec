@@ -1,0 +1,22 @@
+{
+  "name": "@cnote/logistics",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@cnote/catalogue": "workspace:*",
+    "@cnote/core": "workspace:*",
+    "@cnote/db": "workspace:*",
+    "@cnote/identity": "workspace:*",
+    "@cnote/prices": "workspace:*",
+    "@cnote/security": "workspace:*",
+    "zod": "^4.6.5"
+  }
+}

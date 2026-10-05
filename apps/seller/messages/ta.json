@@ -17,6 +17,7 @@
       "leads": "லீட்கள்",
       "listings": "பட்டியல்கள்",
       "orders": "ஆர்டர்கள்",
+      "contracts": "ஒப்பந்தங்கள்",
       "disputes": "தகராறுகள்",
       "reviews": "மதிப்புரைகள்",
       "storefront": "கடை பக்கம்",
@@ -36,7 +37,8 @@
       "credit": "கடன்",
       "agents": "விலைப்புள்ளி முகவர்",
       "questions": "கேள்விகள்",
-      "samples": "மாதிரிகள்"
+      "samples": "மாதிரிகள்",
+      "returns": "திருப்பி அனுப்புதல்கள்"
     },
     "questionsUnanswered": "{count} பதிலளிக்கப்படவில்லை"
   }

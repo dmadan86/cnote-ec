@@ -11,6 +11,8 @@ import { logEvent } from "@/lib/metrics";
 import { run } from "@/lib/run";
 import { identity } from "@/lib/services";
 
+export type RegistryResult = ActionResult<{ decision: "passed" | "review" | "failed" | "unavailable"; reason?: string; status?: string }>;
+
 export type GstResult = ActionResult<{ passed: boolean; tier: number; reason?: string }>;
 
 /** ADR-003 T1: GSTIN checksum here, then GSTN provider lookup in identity. Udyam optional. */
@@ -34,5 +36,35 @@ export async function verifyGstinAction(_prev: GstResult | null, fd: FormData): 
     revalidatePath("/dashboard");
     if (mode === "onboarding") redirect("/onboarding");
   }
+  return result;
+}
+
+const CIN = /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
+
+/** ADR-003 T1 supplementary evidence: Udyam registration check against the registry (owner only). */
+export async function verifyUdyamAction(_prev: RegistryResult | null, fd: FormData): Promise<RegistryResult> {
+  const session = await requireSeller("/verification");
+  const t = await getTranslations("verification.registry");
+  const result = await run(async () => {
+    const number = z.string().refine((v) => UDYAM_PATTERN.test(v), t("errUdyam")).parse(str(fd, "number").toUpperCase().replace(/\s+/g, ""));
+    const o = await identity.verifyUdyam(session.business.id, { number });
+    logEvent("seller.udyam_verification", { businessId: session.business.id, decision: o.decision });
+    return { decision: o.decision, reason: o.reasons[0] };
+  });
+  if (result.ok) { revalidatePath("/verification"); revalidatePath("/dashboard"); }
+  return result;
+}
+
+/** ADR-003 T1 supplementary evidence: MCA company record (CIN) check. */
+export async function verifyMcaAction(_prev: RegistryResult | null, fd: FormData): Promise<RegistryResult> {
+  const session = await requireSeller("/verification");
+  const t = await getTranslations("verification.registry");
+  const result = await run(async () => {
+    const number = z.string().refine((v) => CIN.test(v), t("errCin")).parse(str(fd, "number").toUpperCase().replace(/\s+/g, ""));
+    const o = await identity.verifyMca(session.business.id, { number });
+    logEvent("seller.mca_verification", { businessId: session.business.id, decision: o.decision });
+    return { decision: o.decision, reason: o.reasons[0], status: (o.record as { status?: string } | null)?.status };
+  });
+  if (result.ok) { revalidatePath("/verification"); revalidatePath("/dashboard"); }
   return result;
 }

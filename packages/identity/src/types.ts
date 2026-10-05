@@ -1,8 +1,12 @@
 import type { Realm } from "./constants";
-export type ConsentPurpose = "matching" | "marketing" | "voice_retention" | "counterparty_sharing" | "credit_underwriting" | "analytics_cookies" | "marketing_cookies" | "functional_cookies";
-export const CONSENT_PURPOSES: readonly ConsentPurpose[] = ["matching", "marketing", "voice_retention", "counterparty_sharing", "credit_underwriting", "analytics_cookies", "marketing_cookies", "functional_cookies"];
+export type ConsentPurpose = "matching" | "marketing" | "voice_retention" | "counterparty_sharing" | "credit_underwriting" | "analytics_cookies" | "marketing_cookies" | "functional_cookies" | "seller_analytics_cookies" | "seller_marketing_cookies";
+export const CONSENT_PURPOSES: readonly ConsentPurpose[] = ["matching", "marketing", "voice_retention", "counterparty_sharing", "credit_underwriting", "analytics_cookies", "marketing_cookies", "functional_cookies", "seller_analytics_cookies", "seller_marketing_cookies"];
 /** Cookie-banner choices mirrored into the ledger for signed-in people (written by the buyer web's POST /api/consent, not by account forms). */
 export const COOKIE_CONSENT_PURPOSES = ["analytics_cookies", "marketing_cookies", "functional_cookies"] as const satisfies readonly ConsentPurpose[];
+/** The seller app's cookie-banner choices mirrored into the ledger (written by the seller's POST /api/consent). Separate purposes: onboarding timing and referral attribution are not the buyer web's analytics/marketing. */
+export const SELLER_COOKIE_CONSENT_PURPOSES = ["seller_analytics_cookies", "seller_marketing_cookies"] as const satisfies readonly ConsentPurpose[];
+/** Every cookie-banner purpose: none of them belongs on an account/settings form. */
+export const ALL_COOKIE_CONSENT_PURPOSES: readonly ConsentPurpose[] = [...COOKIE_CONSENT_PURPOSES, ...SELLER_COOKIE_CONSENT_PURPOSES];
 
 export interface SessionBusiness {
   id: string;

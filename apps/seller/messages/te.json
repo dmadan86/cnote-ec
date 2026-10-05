@@ -17,6 +17,7 @@
       "leads": "లీడ్‌లు",
       "listings": "లిస్టింగ్‌లు",
       "orders": "ఆర్డర్‌లు",
+      "contracts": "ఒప్పందాలు",
       "disputes": "వివాదాలు",
       "reviews": "సమీక్షలు",
       "storefront": "స్టోర్‌ఫ్రంట్",
@@ -36,7 +37,8 @@
       "credit": "క్రెడిట్",
       "agents": "కొటేషన్ ఏజెంట్",
       "questions": "ప్రశ్నలు",
-      "samples": "నమూనాలు"
+      "samples": "నమూనాలు",
+      "returns": "రిటర్న్‌లు"
     },
     "questionsUnanswered": "{count} సమాధానం ఇవ్వలేదు"
   }

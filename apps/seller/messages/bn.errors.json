@@ -255,7 +255,8 @@
       "filesDeletedAfterDays": "ফাইল {retentionDays} দিন পরে মুছে ফেলা হয়",
       "nothingDownloadJob": "এই জবের জন্য ডাউনলোড করার মতো কিছু নেই",
       "fileNoLongerAvailable": "ফাইলটি আর পাওয়া যাচ্ছে না",
-      "unknownCategory": "অজানা বিভাগ \"{categorySlug}\""
+      "unknownCategory": "অজানা বিভাগ \"{categorySlug}\"",
+      "skuNotFound": "SKU \"{sku}\" বিদ্যমান নেই"
     },
     "catalogue": {
       "notImage": "এটি আপনার ছবি নয়",
@@ -278,7 +279,8 @@
       "voiceNoteNotFound": "ভয়েস নোট পাওয়া যায়নি",
       "notVoiceNote": "এটি আপনার ভয়েস নোট নয়",
       "recordingAlreadyBeenDeleted": "রেকর্ডিংটি আগেই মুছে ফেলা হয়েছে",
-      "recordingNoLongerAvailable": "রেকর্ডিংটি আর পাওয়া যাচ্ছে না"
+      "recordingNoLongerAvailable": "রেকর্ডিংটি আর পাওয়া যাচ্ছে না",
+      "noVariants": "এই লিস্টিংয়ে কোনো ভ্যারিয়েন্ট নেই"
     },
     "compliance": {
       "signAppeal": "আপিল করতে সাইন ইন করুন",
@@ -349,7 +351,9 @@
       "videoKycNotStartedSession": "এই সেশনের জন্য ভিডিও KYC শুরু হয়নি।",
       "noteRequired": "একটি নোট লিখতে হবে।",
       "sessionAlreadyDecided": "এই সেশনের সিদ্ধান্ত আগেই হয়ে গেছে।",
-      "startEnrollmentFirst": "আগে নথিভুক্তি শুরু করুন।"
+      "startEnrollmentFirst": "আগে নথিভুক্তি শুরু করুন।",
+      "auditReviewNoteRequired": "পর্যালোচনার নোট আবশ্যক।",
+      "auditPartnerNoteRequired": "অংশীদারের জন্য নোট আবশ্যক।"
     },
     "leadgen": {
       "requestExpiredStartAgain": "এই অনুরোধের মেয়াদ শেষ হয়েছে। অনুগ্রহ করে আবার শুরু করুন।",

@@ -24,6 +24,7 @@
     "@cnote/enquiry": "workspace:*",
     "@cnote/escrow": "workspace:*",
     "@cnote/identity": "workspace:*",
+    "@cnote/logistics": "workspace:*",
     "@cnote/negotiation": "workspace:*",
     "@cnote/observability": "workspace:*",
     "@cnote/ondc": "workspace:*",

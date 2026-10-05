@@ -135,6 +135,7 @@ export function LeadCard({ lead, balance }: { lead: LeadView; balance: number | 
   const locale = isLocale(loc) ? loc : "en";
   const e = lead.enquiry;
   const tr = useTranslations("rfqLead");
+  const tl = useTranslations("rfqLines");
   const st = STATUS[lead.status];
   const rupees = (p: number) => `₹${(p / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
   const budget = [e.budgetMinPaise ? rupees(e.budgetMinPaise) : null, e.budgetMaxPaise ? rupees(e.budgetMaxPaise) : null].filter(Boolean).join(" – ");
@@ -211,6 +212,19 @@ export function LeadCard({ lead, balance }: { lead: LeadView; balance: number | 
                 </li>
               ))}
             </ul>
+          </div>
+        ) : null}
+        {e.lines.length > 1 ? (
+          <div className="text-sm" data-testid="lead-lines">
+            <p className="text-xs text-muted">{tl("itemsHeading", { count: e.lines.length })}</p>
+            <ol className="mt-1 space-y-1">
+              {e.lines.map((l) => (
+                <li key={l.id} className="text-ink">
+                  <span className="font-medium">{tl("lineLabel", { n: l.ordinal, item: l.itemName })}</span>
+                  <span className="text-muted"> · {tl("lineQty", { qty: l.quantity, unit: l.unit })}{l.hsn ? ` · ${tl("hsn", { hsn: l.hsn })}` : ""}{l.spec ? ` · ${l.spec}` : ""}</span>
+                </li>
+              ))}
+            </ol>
           </div>
         ) : null}
         <p className="line-clamp-3 text-sm text-muted">{e.requirement}</p>

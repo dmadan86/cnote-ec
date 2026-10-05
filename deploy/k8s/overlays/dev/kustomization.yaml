@@ -29,6 +29,8 @@ patches:
       - {op: replace, path: /data/OTP_DEV_ECHO, value: "true"}
       # dev overlay only: startup validation rejects the OTP echo in production unless acknowledged. Never in staging/prod overlays.
       - {op: add, path: /data/ALLOW_OTP_ECHO_IN_PRODUCTION, value: "1"}
+      # dev overlay only: no ClamAV in the dev cluster, uploads use the mock scanner (EICAR only). Never in staging/prod overlays.
+      - {op: add, path: /data/ATTACHMENT_SCAN_WAIVER, value: "1"}
       - {op: replace, path: /data/SENTRY_ENVIRONMENT, value: dev}
       - {op: replace, path: /data/APP_URL, value: https://dev.example.com}
       - {op: replace, path: /data/ADMIN_APP_URL, value: https://admin.dev.example.com}

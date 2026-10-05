@@ -17,6 +17,7 @@
       "leads": "লিড",
       "listings": "লিস্টিং",
       "orders": "অর্ডার",
+      "contracts": "চুক্তি",
       "disputes": "বিরোধ",
       "reviews": "রিভিউ",
       "storefront": "স্টোরফ্রন্ট",
@@ -36,7 +37,8 @@
       "credit": "ক্রেডিট",
       "agents": "কোটেশন এজেন্ট",
       "questions": "প্রশ্ন",
-      "samples": "নমুনা"
+      "samples": "নমুনা",
+      "returns": "রিটার্ন"
     },
     "questionsUnanswered": "{count} টি উত্তর বাকি"
   }

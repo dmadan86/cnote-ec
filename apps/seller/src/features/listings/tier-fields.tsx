@@ -108,3 +108,31 @@ export function TradeFields({ trade, state }: { trade: TradeInfo; state: SaveRes
     </fieldset>
   );
 }
+
+/** Optional shipping facts per unit for the freight estimator; names match parseTradeFields' inputs (weight in grams, size in cm). */
+export function ShippingFields({ trade, state }: { trade: TradeInfo; state: SaveResult | null }) {
+  const t = useTranslations("freight");
+  const err = fieldError(state, "shipping");
+  const cm = (mm: number | null | undefined) => (mm ? String(mm / 10) : "");
+  return (
+    <fieldset className="space-y-4 rounded-card border border-line bg-surface p-4">
+      <legend className="px-1 text-sm font-semibold text-ink">{t("shipLegend")}</legend>
+      <p className="text-xs text-muted">{t("shipHint")}</p>
+      <div className="grid gap-4 sm:grid-cols-4">
+        <Field label={t("weightG")} htmlFor="unitWeightGrams">
+          <Input id="unitWeightGrams" name="unitWeightGrams" inputMode="numeric" defaultValue={trade.unitWeightGrams ?? ""} className="h-11" />
+        </Field>
+        <Field label={t("lengthCm")} htmlFor="lengthCm">
+          <Input id="lengthCm" name="lengthCm" inputMode="decimal" defaultValue={cm(trade.unitLengthMm)} className="h-11" />
+        </Field>
+        <Field label={t("widthCm")} htmlFor="widthCm">
+          <Input id="widthCm" name="widthCm" inputMode="decimal" defaultValue={cm(trade.unitWidthMm)} className="h-11" />
+        </Field>
+        <Field label={t("heightCm")} htmlFor="heightCm">
+          <Input id="heightCm" name="heightCm" inputMode="decimal" defaultValue={cm(trade.unitHeightMm)} className="h-11" />
+        </Field>
+      </div>
+      {err ? <p role="alert" className="text-sm text-danger">{err}</p> : null}
+    </fieldset>
+  );
+}

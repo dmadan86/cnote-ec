@@ -2,7 +2,8 @@
 // Side-by-side quote comparison (ADR-002 transparency: "Sent to N suppliers; you are seeing quotes from M").
 // Desktop: one table row per supplier. Mobile: stacked cards in a swipeable (scroll-snap) strip. Both read the same rows,
 // so sort, "best" marks and shortlist state always agree. "Best" is a word plus a star, never colour alone.
-import type { ComparisonRow, QuoteComparison } from "@cnote/enquiry";
+import type { ComparisonRow, DecideQuoteResult, QuoteComparison } from "@cnote/enquiry";
+import type { QuoteLandedRow } from "@cnote/logistics";
 import type { ActionResult } from "@cnote/next-kit";
 import { Badge, Button, Money, TrustBadge, buttonClasses, cn } from "@cnote/ui";
 import { useLocale, useTranslations } from "next-intl";
@@ -11,6 +12,7 @@ import { useActionState, useId, useMemo, useRef, useState } from "react";
 import { formatDate, isLocale } from "@/i18n/config";
 import { quoteDecisionAction, shortlistQuoteAction } from "./actions";
 import { bestByColumn, SORT_KEYS, sortRows, type BestColumn, type SortKey } from "./compare-logic";
+import { LineMatrix } from "./line-matrix";
 import { trustLabels } from "./trust-labels";
 
 type T = ReturnType<typeof useTranslations>;
@@ -29,16 +31,24 @@ function Best({ show, column, t }: { show: boolean; column: string; t: T }) {
 }
 
 function QuoteActions({ row, enquiryId, t }: { row: ComparisonRow; enquiryId: string; t: T }) {
-  const [dec, decide, deciding] = useActionState<ActionResult | null, FormData>(quoteDecisionAction, null);
+  const ta = useTranslations("approvals");
+  const [dec, decide, deciding] = useActionState<ActionResult<DecideQuoteResult> | null, FormData>(quoteDecisionAction, null);
+  const awaiting = row.approval?.status === "pending" || (dec?.ok && dec.data.status === "pending_approval");
+  const requestId = row.approval?.requestId ?? (dec?.ok ? dec.data.requestId : null);
   const [sl, shortlist, shortlisting] = useActionState<ActionResult | null, FormData>(shortlistQuoteAction, null);
   const msg = (dec && !dec.ok ? dec.error : null) ?? (sl && !sl.ok ? sl.error : null);
-  const done = dec?.ok ? (row.decision === "won" ? t("acceptedToast") : t("declinedToast")) : null;
+  const done = dec?.ok ? (dec.data.status === "pending_approval" ? ta("badge.sentForApproval") : row.decision === "won" ? t("acceptedToast") : t("declinedToast")) : null;
   const seller = row.sellerName;
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
         {row.decision === "won" ? (
           <Badge tone="success">{t("accepted")}</Badge>
+        ) : awaiting ? (
+          <Badge tone="warning">
+            {ta("badge.awaiting")}
+            {requestId ? <Link href={`/buyer/approvals/${requestId}`} className="ms-1 underline">{ta("badge.view")}<span className="sr-only"> ({seller})</span></Link> : null}
+          </Badge>
         ) : (
           <form action={decide}>
             <input type="hidden" name="enquiryId" value={enquiryId} />
@@ -111,9 +121,31 @@ function Notes({ row, t, unit }: { row: ComparisonRow; t: T; unit: string }) {
   );
 }
 
-export function QuoteCompare({ comparison }: { comparison: QuoteComparison }) {
+/** Landed cost (goods + GST + freight) with the reason for every assumption in words, never colour alone. */
+function LandedCell({ l, tf }: { l: QuoteLandedRow | undefined; tf: T }) {
+  if (!l) return <span className="text-muted">{tf("cmpNone")}</span>;
+  const inr = (p: number) => `₹${(p / 100).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  const notes: string[] = [];
+  if (l.freightSource === "quoted") notes.push(tf("cmpQuoted"));
+  else if (l.freightSource === "estimated" && l.estimate) notes.push(tf("cmpEstimated", { low: inr(l.estimate.lowPaise), high: inr(l.estimate.highPaise) }));
+  else notes.push(tf("cmpNone"));
+  if (l.goodsGstAssumed) notes.push(tf("cmpGstAssumed"));
+  if (l.gstUnknown) notes.push(tf("cmpGstUnknown"));
+  return (
+    <div data-testid="landed-cell">
+      <p className="font-semibold text-ink">{l.lowPaise === l.highPaise ? inr(l.lowPaise) : tf("cmpRange", { low: inr(l.lowPaise), high: inr(l.highPaise) })}</p>
+      <ul className="mt-1 list-none space-y-0.5 text-xs text-muted">
+        {notes.map((n) => (<li key={n}>{n}</li>))}
+      </ul>
+    </div>
+  );
+}
+
+export function QuoteCompare({ comparison, landed }: { comparison: QuoteComparison; landed?: Record<string, QuoteLandedRow> }) {
   const t = useTranslations("rfq2.compare");
+  const tf = useTranslations("freight");
   const tc = useTranslations("cards");
+  const tl = useTranslations("rfqLines.matrix");
   const locale = useLocale();
   const loc = isLocale(locale) ? locale : "en";
   const labels = trustLabels(tc);
@@ -194,6 +226,7 @@ export function QuoteCompare({ comparison }: { comparison: QuoteComparison }) {
                         <th scope="col" className="px-3 py-2 font-semibold">{t("rank")}</th>
                         <th scope="col" className="px-3 py-2 font-semibold">{t("unitPrice")}</th>
                         <th scope="col" className="px-3 py-2 font-semibold">{totalHead(shown[0])}</th>
+                        {landed ? <th scope="col" className="px-3 py-2 font-semibold">{tf("cmpHead")}</th> : null}
                         <th scope="col" className="px-3 py-2 font-semibold">{t("leadTime")}</th>
                         <th scope="col" className="px-3 py-2 font-semibold">{t("validity")}</th>
                         <th scope="col" className="px-3 py-2 font-semibold">{t("payment")}</th>
@@ -218,7 +251,7 @@ export function QuoteCompare({ comparison }: { comparison: QuoteComparison }) {
                             <Best show={isBest("rank", r)} column={col.rank} t={t} />
                           </td>
                           <td className="px-3 py-3">
-                            <Money paise={r.quote.pricePaise} unit={r.quote.unit} />
+                            {r.coverage ? <span>{tl("perLineQuote", { quoted: r.coverage.quoted, of: r.coverage.of })}</span> : <Money paise={r.quote.pricePaise} unit={r.quote.unit} />}
                             <Best show={isBest("price", r)} column={col.price} t={t} />
                             {r.quote.deliveryChargePaise ? <p className="text-xs text-muted">{t("delivery", { amount: `₹${(r.quote.deliveryChargePaise / 100).toLocaleString("en-IN")}` })}</p> : null}
                           </td>
@@ -226,6 +259,7 @@ export function QuoteCompare({ comparison }: { comparison: QuoteComparison }) {
                             <Money paise={r.totalPaise} />
                             <Best show={isBest("total", r)} column={col.total} t={t} />
                           </td>
+                          {landed ? <td className="max-w-56 px-3 py-3"><LandedCell l={landed[r.matchId]} tf={tf} /></td> : null}
                           <td className="px-3 py-3">
                             {days(r.quote.leadTimeDays)}
                             <Best show={isBest("leadTime", r)} column={col.leadTime} t={t} />
@@ -265,9 +299,10 @@ export function QuoteCompare({ comparison }: { comparison: QuoteComparison }) {
                         <dt className="text-muted">{t("rank")}</dt>
                         <dd>{t("rankOf", { rank: r.rank, of: r.of })}<Best show={isBest("rank", r)} column={col.rank} t={t} /></dd>
                         <dt className="text-muted">{t("unitPrice")}</dt>
-                        <dd><Money paise={r.quote.pricePaise} unit={r.quote.unit} /><Best show={isBest("price", r)} column={col.price} t={t} /></dd>
+                        <dd>{r.coverage ? <span>{tl("perLineQuote", { quoted: r.coverage.quoted, of: r.coverage.of })}</span> : <Money paise={r.quote.pricePaise} unit={r.quote.unit} />}<Best show={isBest("price", r)} column={col.price} t={t} /></dd>
                         <dt className="text-muted">{totalHead(r)}</dt>
                         <dd><Money paise={r.totalPaise} /><Best show={isBest("total", r)} column={col.total} t={t} /></dd>
+                        {landed ? (<><dt className="text-muted">{tf("cmpHead")}</dt><dd><LandedCell l={landed[r.matchId]} tf={tf} /></dd></>) : null}
                         <dt className="text-muted">{t("leadTime")}</dt>
                         <dd>{days(r.quote.leadTimeDays)}<Best show={isBest("leadTime", r)} column={col.leadTime} t={t} /></dd>
                         <dt className="text-muted">{t("validity")}</dt>
@@ -290,7 +325,8 @@ export function QuoteCompare({ comparison }: { comparison: QuoteComparison }) {
                   </div>
                 ) : null}
               </div>
-              <p className="text-xs text-muted">{t("totalNote")} {t("acceptNote")}</p>
+              <p className="text-xs text-muted">{t("totalNote")} {t("acceptNote")}{landed ? ` ${tf("cmpNote")}` : ""}</p>
+              {comparison.lines.length > 1 && comparison.rows.some((r) => r.quote.lines?.length) ? <LineMatrix comparison={comparison} /> : null}
             </>
           ) : null}
         </>

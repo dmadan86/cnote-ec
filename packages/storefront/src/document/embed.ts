@@ -6,7 +6,7 @@
 import { z } from "zod";
 
 /** Origins an embed iframe may use. The buyer web's CSP `frame-src` must allow exactly these (see packages/security csp.ts and its test). */
-export const EMBED_FRAME_ORIGINS = ["https://www.youtube-nocookie.com", "https://www.openstreetmap.org"] as const;
+export const EMBED_FRAME_ORIGINS = ["https://www.youtube-nocookie.com", "https://www.openstreetmap.org", "https://player.vimeo.com"] as const;
 
 /**
  * Feature flag `STOREFRONT_EMBEDS_ENABLED` (default OFF). The embed block is seller-facing and its content (a video id, coordinates)
@@ -21,10 +21,11 @@ export const embedsEnabled = (env: Record<string, string | undefined> = typeof p
 export const documentHasEmbeds = (doc: { pages: { sections: { type: string }[] }[] }): boolean => doc.pages.some((p) => p.sections.some((s) => s.type === "embed"));
 
 export type EmbedCategory = "marketing" | "functional";
-export type EmbedKind = "youtube" | "map";
+export type EmbedKind = "youtube" | "vimeo" | "map";
 
 export const embedSourceSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("youtube"), videoId: z.string().regex(/^[A-Za-z0-9_-]{11}$/, "Use an 11-character YouTube video id.") }),
+  z.strictObject({ kind: z.literal("vimeo"), videoId: z.string().regex(/^\d{6,12}$/, "Use the numeric Vimeo video id (6 to 12 digits).") }),
   z.strictObject({
     kind: z.literal("map"),
     lat: z.number().min(-90).max(90),
@@ -57,6 +58,16 @@ export function embedSpec(source: EmbedSource): EmbedSpec {
       category: "marketing",
       src: `https://www.youtube-nocookie.com/embed/${source.videoId}?rel=0`,
       href: `https://www.youtube.com/watch?v=${source.videoId}`,
+    };
+  }
+  if (source.kind === "vimeo") {
+    return {
+      kind: "vimeo",
+      provider: "Vimeo",
+      category: "marketing",
+      // dnt=1 asks Vimeo not to track the viewer (no session stats cookies); the consent gate still applies first.
+      src: `https://player.vimeo.com/video/${source.videoId}?dnt=1`,
+      href: `https://vimeo.com/${source.videoId}`,
     };
   }
   // A viewport of about three tiles wide around the point, in OpenStreetMap's bbox form (west,south,east,north).
@@ -97,4 +108,50 @@ export function youtubeIdFromInput(input: string): string | null {
     if (!id && m) id = m[1]!;
   }
   return id && YT_ID.test(id) ? id : null;
+}
+
+const VIMEO_ID = /^\d{6,12}$/;
+
+/** The numeric Vimeo id from a bare id or a vimeo.com / player.vimeo.com URL (unlisted `/<id>/<hash>` links keep only the id and stay unlisted: they are not supported). */
+export function vimeoIdFromInput(input: string): string | null {
+  const raw = input.trim();
+  if (VIMEO_ID.test(raw)) return raw;
+  let url: URL;
+  try {
+    url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+  } catch {
+    return null;
+  }
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (host !== "vimeo.com" && host !== "player.vimeo.com") return null;
+  const m = /^\/(?:video\/)?(\d{6,12})(?:\/|$)/.exec(url.pathname);
+  if (!m) return null;
+  // an unlisted video's link carries a hash segment (/<id>/<hash>): the public player cannot play it without that hash, so refuse it
+  if (/^\/(?:video\/)?\d+\/[A-Za-z0-9]+/.test(url.pathname)) return null;
+  return m[1]!;
+}
+
+/** A third-party video the platform has to moderate before it is shown (maps carry only the block title, which is screened with the other text). */
+export interface RemoteEmbedRef {
+  provider: "youtube" | "vimeo";
+  mediaId: string;
+}
+
+/** The moderated reference of an embed source, or null for a map. */
+export function remoteEmbedRef(source: EmbedSource): RemoteEmbedRef | null {
+  return source.kind === "map" ? null : { provider: source.kind, mediaId: source.videoId };
+}
+
+/** Stable key shared by the review table and the renderer. */
+export const embedKey = (r: RemoteEmbedRef): string => `${r.provider}:${r.mediaId}`;
+
+/** Every remote video embedded anywhere in the document, de-duplicated. */
+export function documentRemoteEmbeds(doc: { pages: { sections: readonly { type: string }[] }[] }): RemoteEmbedRef[] {
+  const seen = new Map<string, RemoteEmbedRef>();
+  for (const p of doc.pages) for (const s of p.sections) {
+    if (s.type !== "embed") continue;
+    const r = remoteEmbedRef((s as unknown as { source: EmbedSource }).source);
+    if (r) seen.set(embedKey(r), r);
+  }
+  return [...seen.values()];
 }

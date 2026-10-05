@@ -22,6 +22,7 @@ export const PRICE_RANGES = [
 ] as const;
 
 const MAX_LIST = 10;
+export const MAX_VARIANT_AXES_FILTER = 6;
 const slugList = z.array(z.string().trim().min(1).max(100)).max(MAX_LIST);
 const place = z.array(z.string().trim().min(1).max(80)).max(MAX_LIST);
 const paise = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
@@ -42,6 +43,10 @@ export const filtersSchema = z.object({
   maxMoq: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).optional(),
   /** Exclude "price on request" listings. */
   hasPrice: z.boolean().optional(),
+  /** Only listings that are in stock today (made-to-order does not count). A filter, never a ranking signal. */
+  inStockOnly: z.boolean().optional(),
+  /** Variant axis -> chosen values (e.g. { size: ["M", "L"], colour: ["red"] }): OR within an axis, AND across axes; case-insensitive. */
+  variantOptions: z.record(z.string().trim().min(1).max(30), z.array(z.string().trim().min(1).max(60)).max(20)).refine((r) => Object.keys(r).length <= MAX_VARIANT_AXES_FILTER).optional(),
 });
 export type SearchFilters = z.infer<typeof filtersSchema>;
 
@@ -55,6 +60,9 @@ export interface IndexFilters {
   priceMaxPaise?: number;
   maxMoq?: number;
   hasPrice?: boolean;
+  inStockOnly?: boolean;
+  /** axis -> lower-cased values */
+  variantOptions?: Record<string, string[]>;
 }
 
 const uniq = (xs: string[] | undefined, lower: boolean): string[] | undefined => {
@@ -80,6 +88,13 @@ export function normaliseFilters(f: SearchFilters | undefined): SearchFilters {
   if (max !== undefined) out.priceMaxPaise = max;
   if (f.maxMoq !== undefined) out.maxMoq = f.maxMoq;
   if (f.hasPrice) out.hasPrice = true;
+  if (f.inStockOnly) out.inStockOnly = true;
+  const variantOptions: Record<string, string[]> = {};
+  for (const axis of Object.keys(f.variantOptions ?? {}).map((a) => a.trim().toLowerCase()).filter(Boolean).sort()) {
+    const values = uniq(Object.entries(f.variantOptions ?? {}).filter(([k]) => k.trim().toLowerCase() === axis).flatMap(([, v]) => v), true);
+    if (values) variantOptions[axis] = values;
+  }
+  if (Object.keys(variantOptions).length) out.variantOptions = variantOptions;
   return out;
 }
 
@@ -94,9 +109,13 @@ export interface FilterRow {
   city: string | null;
   pricePaise: number | null;
   moq: number | null;
+  /** effective availability is in_stock */
+  inStock?: boolean;
+  /** lower-cased "axis:value" pairs of the listing's variants */
+  variantValues?: string[];
 }
 
-export type FacetDimension = "category" | "tier" | "state" | "city" | "price";
+export type FacetDimension = "category" | "tier" | "state" | "city" | "price" | "variant";
 
 const lc = (s: string | null) => (s ?? "").trim().toLowerCase();
 
@@ -113,6 +132,11 @@ export function matchesFilters(row: FilterRow, f: IndexFilters, skip?: FacetDime
     if (f.priceMaxPaise !== undefined && (p == null || p > f.priceMaxPaise)) return false;
   }
   if (f.maxMoq !== undefined && row.moq != null && row.moq > f.maxMoq) return false;
+  if (f.inStockOnly && !row.inStock) return false;
+  if (skip !== "variant" && f.variantOptions) {
+    const have = new Set(row.variantValues ?? []);
+    for (const [axis, values] of Object.entries(f.variantOptions)) if (!values.some((v) => have.has(`${axis}:${v}`))) return false;
+  }
   return true;
 }
 
@@ -130,6 +154,8 @@ export interface FacetCounts {
   state: FacetBucketLite[];
   verificationTier: FacetBucketLite[];
   price: PriceBucketLite[];
+  /** keys are lower-cased "axis:value" pairs; counts ignore the variant filters themselves (see computeFacets) */
+  variant: FacetBucketLite[];
 }
 
 export function priceBucketKey(paise: number): string {
@@ -153,6 +179,24 @@ function tally(rows: FilterRow[], f: IndexFilters, dim: FacetDimension, keyOf: (
   return [...m].map(([key, count]) => ({ key, count })).sort(byCount);
 }
 
+export const MAX_VARIANT_FACET_BUCKETS = 60;
+
+/** Lower-cased, sorted "axis:value" keys of a listing's variants (the same keys the live row stores in `variant_values`). */
+export function variantKeysOf(variants: readonly { axisValues: Record<string, string> }[] | undefined): string[] {
+  const set = new Set<string>();
+  for (const v of variants ?? []) for (const [k, val] of Object.entries(v.axisValues)) set.add(`${k}:${val}`.toLowerCase());
+  return [...set].sort();
+}
+
+function tallyMany(rows: FilterRow[], f: IndexFilters, dim: FacetDimension, keysOf: (r: FilterRow) => string[]): FacetBucketLite[] {
+  const m = new Map<string, number>();
+  for (const r of rows) {
+    if (!matchesFilters(r, f, dim)) continue;
+    for (const k of new Set(keysOf(r))) m.set(k, (m.get(k) ?? 0) + 1);
+  }
+  return [...m].map(([key, count]) => ({ key, count })).sort(byCount);
+}
+
 /**
  * Disjunctive ("multi-select") facet counts: each dimension is counted with every OTHER filter applied but not its own, so
  * selecting a tier still shows what the other tiers would give. Used by the Postgres backend over its match pool; the
@@ -170,6 +214,7 @@ export function computeFacets(rows: FilterRow[], f: IndexFilters): FacetCounts {
     city: tally(rows, f, "city", (r) => lc(r.city) || null),
     state: tally(rows, f, "state", (r) => lc(r.state) || null),
     verificationTier: tally(rows, f, "tier", (r) => String(Math.min(MAX_TIER, Math.max(0, r.tier ?? 0)))).sort((a, b) => Number(b.key) - Number(a.key)),
+    variant: tallyMany(rows, f, "variant", (r) => r.variantValues ?? []).slice(0, MAX_VARIANT_FACET_BUCKETS),
     price: PRICE_RANGES.map((r) => ({ key: r.key, fromPaise: "from" in r ? r.from : null, toPaise: "to" in r ? r.to : null, count: priceCounts.get(r.key) ?? 0 })),
   };
 }

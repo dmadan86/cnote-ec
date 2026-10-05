@@ -121,7 +121,7 @@ describe("migration is registered", () => {
     const rows = await prisma.$queryRaw<{ t: string }[]>`
       SELECT c.relname AS t FROM pg_trigger g JOIN pg_class c ON c.oid = g.tgrelid WHERE g.tgname = 'cnote_append_only' AND NOT g.tgisinternal`;
     expect(rows.map((r) => r.t).sort()).toEqual(
-      ["ad_wallet_ledger", "admin_audit_log", "consents", "cookie_consent_receipts", "credit_ledger", "domain_events", "ledger_journals", "ledger_lines"].sort(),
+      ["ad_wallet_ledger", "admin_audit_log", "approval_decisions", "consents", "cookie_consent_receipts", "credit_ledger", "domain_events", "ledger_journals", "ledger_lines"].sort(),
     );
   });
 });

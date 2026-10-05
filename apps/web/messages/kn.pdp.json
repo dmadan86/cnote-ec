@@ -53,6 +53,27 @@
     "copyFailed": "ಲಿಂಕ್ ನಕಲಿಸಲು ಆಗಲಿಲ್ಲ. ವಿಳಾಸ ಪಟ್ಟಿಯಿಂದ ನಕಲಿಸಿ.",
     "shareText": "{title} ನೋಡಿ",
     "report": "ಈ ಪಟ್ಟಿಯನ್ನು ವರದಿ ಮಾಡಿ",
-    "stickyBar": "ತ್ವರಿತ ಕ್ರಿಯೆಗಳು"
+    "stickyBar": "ತ್ವರಿತ ಕ್ರಿಯೆಗಳು",
+    "availability": {
+      "in_stock": "ಸ್ಟಾಕ್‌ನಲ್ಲಿ ಲಭ್ಯ",
+      "made_to_order": "ಆರ್ಡರ್ ಮೇಲೆ ತಯಾರಿ",
+      "out_of_stock": "ಸ್ಟಾಕ್‌ನಲ್ಲಿ ಇಲ್ಲ",
+      "madeToOrderLead": "ಆರ್ಡರ್ ಮೇಲೆ ತಯಾರಿ, ಪೂರೈಕೆಗೆ {days, plural, one {# ದಿನ} other {# ದಿನಗಳು}}",
+      "qty": "{qty} ಲಭ್ಯ",
+      "updated": "ಸ್ಟಾಕ್ ನವೀಕರಣ: {date}",
+      "outNote": "ಸದ್ಯ ಸ್ಟಾಕ್‌ನಲ್ಲಿ ಇಲ್ಲ. ಆದರೂ ನೀವು ಕೋಟ್ ಕೇಳಬಹುದು; ಲಭ್ಯವಾದಾಗ ಪೂರೈಕೆದಾರರು ತಿಳಿಸುತ್ತಾರೆ."
+    },
+    "variants": {
+      "title": "ಆಯ್ಕೆಗಳನ್ನು ಆರಿಸಿ",
+      "choose": "ನಿಖರ ಬೆಲೆ ಮತ್ತು ಲಭ್ಯತೆ ನೋಡಲು {axes} ಆರಿಸಿ.",
+      "reset": "ಆಯ್ಕೆ ಮರುಹೊಂದಿಸಿ",
+      "sku": "SKU {sku}",
+      "changesOthers": "ಇತರ ಆಯ್ಕೆಗಳೂ ಬದಲಾಗುತ್ತವೆ",
+      "pricesVary": "ಬೆಲೆ ಮತ್ತು ಕನಿಷ್ಠ ಆರ್ಡರ್ ನೀವು ಆರಿಸುವ ಆಯ್ಕೆಯನ್ನು ಅವಲಂಬಿಸಿದೆ.",
+      "minOrder": "ಕನಿಷ್ಠ ಆರ್ಡರ್: {value}",
+      "announce": "ಆಯ್ಕೆ: {name}. {availability}. {price}.",
+      "priceOnRequest": "ಬೆಲೆ ಕೇಳಿ",
+      "requirementLine": "ವೆರಿಯಂಟ್: {label} (SKU {sku})"
+    }
   }
 }

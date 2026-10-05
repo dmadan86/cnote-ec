@@ -1,5 +1,5 @@
-import { mfaStatus } from "@cnote/identity";
-import { MfaSettings } from "@cnote/next-kit/client";
+import { mfaStatus, passkeysEnabled } from "@cnote/identity";
+import { MfaSettings, PasskeySettings } from "@cnote/next-kit/client";
 import { Alert, PageHeader } from "@cnote/ui";
 import { requireStaff } from "@/lib/auth";
 
@@ -13,6 +13,7 @@ export default async function SecurityPage({ searchParams }: PageProps<"/account
       <PageHeader title="Security" description="Two-factor authentication protects the back office even if your password leaks." />
       {sp.setup && !status.enabled ? <Alert tone="warning">Set up two-factor authentication to continue. Back-office access requires it.</Alert> : null}
       <MfaSettings enabled={status.enabled} recoveryCodesLeft={status.recoveryCodesLeft} required />
+      {passkeysEnabled("admin") && status.enabled ? <PasskeySettings /> : null}
     </div>
   );
 }

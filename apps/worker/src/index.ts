@@ -50,6 +50,7 @@ import { cacheWorker, searchIndexer } from "@cnote/search";
 import { seedDefaultTemplates } from "@cnote/templates";
 import { worker as wishlist } from "@cnote/wishlist";
 import { worker as alerts } from "@cnote/alerts";
+import { worker as approvals } from "@cnote/approvals";
 import { hostname } from "node:os";
 
 assertRequiredSecrets("worker");
@@ -60,7 +61,7 @@ Sentry.init(sentryOptions("worker", "nodejs"));
 // identity can't import catalogue (cycle); the composition root supplies the GST HSN-alignment source.
 setListingHsnSource(getSellerListingHsns);
 
-const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, alerts, notifications, developer, email, cacheWorker, searchIndexer, leadgen, domains, storefront, bulk, metrics, compliance, whatsapp, promotions, ads, verticals, quality, ondc, escrow, negotiation, disputes, prices, credit, a2a, analytics, samples];
+const modules: ModuleWorker[] = [identity, catalogue, billing, enquiry, ai, reviews, wishlist, alerts, notifications, developer, email, cacheWorker, searchIndexer, leadgen, domains, storefront, bulk, metrics, compliance, whatsapp, promotions, ads, verticals, quality, ondc, escrow, negotiation, disputes, prices, credit, a2a, analytics, approvals, samples];
 // Seller-cohort facts group sellers by state (identity owns it; analytics reads it through this resolver).
 // Phase 2/3 notifications: events name an order/application/negotiation, not the parties (see docs/design/notifications-phase23.md).
 setPartyResolvers({ orderParties: getOrderParties, ondcOrderSeller: getOndcOrderSeller, creditApplicationBusiness: getCreditApplicationBusiness, negotiationParties: getNegotiationParties });

@@ -22,4 +22,6 @@ export const SCOPE_DOCS: Record<Scope, string> = {
   "billing:read": "Read your lead-credit balance (seller).",
   "samples:read": "Read sample requests you made (buyer) or received (seller).",
   "samples:write": "Request, cancel, answer, dispatch and evaluate samples, request a bulk quote from an approved sample.",
+  "contracts:read": "Read your rate contracts and their consumption (buyer and seller keys bound to a business).",
+  "contracts:write": "Place call-off orders against your active rate contracts at the contract prices (buyer keys). Creating, changing and accepting contracts needs the app.",
 };

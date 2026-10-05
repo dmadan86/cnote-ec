@@ -1,6 +1,6 @@
 import type { ModuleWorker } from "@cnote/core";
 import { runFollowedDigests, runSavedSearchDigests } from "./digests";
-import { onListingPriceChanged, onListingPublished } from "./listing-alerts";
+import { onListingAvailabilityChanged, onListingPriceChanged, onListingPublished } from "./listing-alerts";
 import { eraseAlertsData } from "./privacy";
 
 const HOUR_MS = 3_600_000;
@@ -9,6 +9,7 @@ export const worker: ModuleWorker = {
   name: "alerts",
   handlers: {
     ListingPriceChanged: async (e) => void (await onListingPriceChanged(e)),
+    ListingAvailabilityChanged: async (e) => void (await onListingAvailabilityChanged(e)),
     ListingPublished: async (e) => void (await onListingPublished(e)),
     DataErasureRequested: async (e) => eraseAlertsData(e.payload.personId),
   },

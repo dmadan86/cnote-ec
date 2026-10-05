@@ -8,14 +8,15 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { DomainError } from "@cnote/core";
 import { REASONING_MODEL, VISION_TIMEOUT_MS, createAnthropicClient, type MessagesClient } from "./anthropic";
-import { runLogged } from "./decisions";
+import { runLogged, startShadowRun } from "./decisions";
+import { shadowSettings } from "./registry";
 import { HEURISTIC_MODEL } from "./heuristic/intent";
 import { redactDeep } from "./redact";
 import { aiTransport, remoteDocumentExtractor, remoteFallbackEnabled, sharedAiServiceClient } from "./remote";
 import type { AiResult, Subject, VisionImage } from "./index";
 import type { ProviderResult } from "./types";
 
-export const DOCUMENT_TYPES = ["gst_certificate", "pan_card", "bank_proof", "address_proof", "udyam_certificate"] as const;
+export const DOCUMENT_TYPES = ["gst_certificate", "pan_card", "bank_proof", "address_proof", "udyam_certificate", "shop_establishment"] as const;
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 
 export const DOCUMENT_MIMES = ["image/jpeg", "image/png", "image/webp"] as const;
@@ -98,11 +99,11 @@ const clean = (v: string | null, re?: RegExp, upper = false): string | undefined
 };
 
 export class AnthropicDocumentExtractor implements DocumentExtractor {
-  constructor(private client: MessagesClient = createAnthropicClient()) {}
+  constructor(private client: MessagesClient = createAnthropicClient(), private model: string = REASONING_MODEL) {}
   async extract(input: ExtractDocumentInput): Promise<ProviderResult<ExtractDocumentOutput>> {
     const res = await this.client.messages.create(
       {
-        model: REASONING_MODEL,
+        model: this.model,
         max_tokens: 1024,
         system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
         messages: [{
@@ -128,14 +129,14 @@ export class AnthropicDocumentExtractor implements DocumentExtractor {
     set("aadhaarLast4", clean(o.aadhaarLast4?.replace(/\D/g, "").slice(-4) ?? null, /^\d{4}$/));
     return {
       output: { fields, forgerySignals: o.forgerySignals.map((s) => s.trim()).filter(Boolean).slice(0, 10) },
-      confidence: clamp01(o.confidence), provider: "anthropic", modelId: REASONING_MODEL, promptVersion: DOCUMENT_PROMPT_VERSION,
+      confidence: clamp01(o.confidence), provider: "anthropic", modelId: this.model, promptVersion: DOCUMENT_PROMPT_VERSION,
     };
   }
 }
 
 /** Anthropic with a heuristic fallback on ANY failure (ADR-008): the fallback's low confidence routes to a human. */
-export function anthropicDocumentExtractor(client?: MessagesClient, fallback = true): DocumentExtractor {
-  const primary = new AnthropicDocumentExtractor(client);
+export function anthropicDocumentExtractor(client?: MessagesClient, fallback = true, model?: string): DocumentExtractor {
+  const primary = new AnthropicDocumentExtractor(client, model);
   return {
     extract: async (i) => {
       try {
@@ -161,6 +162,19 @@ export function getDocumentExtractor(): DocumentExtractor {
 }
 export function setDocumentExtractorForTests(e: DocumentExtractor | null) { override = e; cached = null; }
 
+let shadowOverride: DocumentExtractor | null = null;
+let cachedShadow: { key: string; ex: DocumentExtractor } | null = null;
+/** ADR-008 shadow mode: the candidate document reader (no heuristic fallback, so a failing candidate shows as an error row). Null when off. */
+export function getShadowDocumentExtractor(): DocumentExtractor | null {
+  if (shadowOverride) return shadowOverride;
+  const s = shadowSettings();
+  if (!s) return null;
+  const key = JSON.stringify(s);
+  if (cachedShadow?.key !== key) cachedShadow = { key, ex: s.provider === "anthropic" ? anthropicDocumentExtractor(undefined, false, s.models.reasoning) : { extract: async (i) => extractDocumentHeuristic(i) } };
+  return cachedShadow.ex;
+}
+export function setShadowDocumentExtractorForTests(e: DocumentExtractor | null) { shadowOverride = e; cachedShadow = null; }
+
 /** Audit shape: hash + size + type only, never pixels. */
 export function documentAudit(input: ExtractDocumentInput) {
   return { docType: input.docType, mimeType: input.image.mimeType, bytes: input.image.bytes.length, sha256: createHash("sha256").update(input.image.bytes).digest("hex") };
@@ -173,9 +187,13 @@ export function documentAudit(input: ExtractDocumentInput) {
  */
 export async function extractDocument(input: ExtractDocumentInput, subject: Subject): Promise<AiResult<ExtractDocumentOutput>> {
   assertDocumentInput(input);
-  return runLogged(
+  const auditOutput = (o: ExtractDocumentOutput) => redactDeep({ fields: { ...o.fields, name: o.fields.name ? "[name]" : undefined, address: o.fields.address ? "[address]" : undefined }, forgerySignals: o.forgerySignals });
+  const res = await runLogged(
     "extract_document", subject, documentAudit(input), () => getDocumentExtractor().extract(input),
     (o) => (o.forgerySignals.length ? `Possible tampering: ${redactDeep(o.forgerySignals).join("; ")}` : null),
-    (o) => redactDeep({ fields: { ...o.fields, name: o.fields.name ? "[name]" : undefined, address: o.fields.address ? "[address]" : undefined }, forgerySignals: o.forgerySignals }),
+    auditOutput,
   );
+  const candidate = getShadowDocumentExtractor();
+  if (candidate) startShadowRun("extract_document", subject, documentAudit(input), res.decisionId, () => candidate.extract(input), auditOutput);
+  return res;
 }

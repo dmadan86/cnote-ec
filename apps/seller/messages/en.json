@@ -17,6 +17,7 @@
       "leads": "Leads",
       "listings": "Listings",
       "orders": "Orders",
+      "contracts": "Contracts",
       "disputes": "Disputes",
       "reviews": "Reviews",
       "storefront": "Storefront",
@@ -36,7 +37,8 @@
       "credit": "Credit",
       "agents": "Quoting agent",
       "questions": "Questions",
-      "samples": "Samples"
+      "samples": "Samples",
+      "returns": "Returns"
     },
     "questionsUnanswered": "{count} unanswered"
   }

@@ -2,9 +2,12 @@ import type { Prisma } from "@cnote/db";
 import type { LiveListing } from "@cnote/live-db";
 import type { CategoryView, ListingView } from "./index";
 import { parsePriceTiers, parseTrade, tradeOfRow } from "./tiers";
+import { effectiveAvailability, isAvailability, type Availability } from "./availability";
+import { categoryAxes, parseAxes, parseVariants, type SellerVariantView } from "./variants";
 
 export const listingInclude = {
-  category: { select: { id: true, slug: true, name: true } },
+  category: { select: { id: true, slug: true, name: true, attributeSchema: true } },
+  variants: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
   // Buyers only ever see approved, non-deleted images (staff approval is mandatory).
   images: { where: { status: "approved", deletedAt: null }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } },
 } satisfies Prisma.ListingInclude;
@@ -27,11 +30,37 @@ export function toCategoryView(c: Prisma.CategoryGetPayload<object>): CategoryVi
   };
 }
 
+/** Working-copy variant rows as seller variant views. */
+export function toSellerVariants(rows: ListingRow["variants"]): SellerVariantView[] {
+  return (rows ?? []).map((v) => ({
+    id: v.id,
+    sku: v.sku,
+    axisValues: (v.axisValues && typeof v.axisValues === "object" && !Array.isArray(v.axisValues) ? v.axisValues : {}) as Record<string, string>,
+    pricePaise: v.pricePaise === null ? null : Number(v.pricePaise),
+    priceTiers: parsePriceTiers(v.priceTiers),
+    moq: v.moq,
+    availability: v.availability,
+    availableQty: v.availableQty,
+    leadTimeDays: v.leadTimeDays,
+    imageId: v.imageId,
+    sortOrder: v.sortOrder,
+    stockUpdatedAt: v.stockUpdatedAt?.toISOString() ?? null,
+  }));
+}
+
 export function toListingView(l: ListingRow): ListingView {
+  const variants = toSellerVariants(l.variants);
+  const own: Availability = l.availability ?? "in_stock";
   return {
     id: l.id,
     sellerBusinessId: l.sellerBusinessId,
-    category: l.category,
+    category: { id: l.category.id, slug: l.category.slug, name: l.category.name },
+    availability: effectiveAvailability(own, variants),
+    ownAvailability: own,
+    availableQty: l.availableQty ?? null,
+    stockUpdatedAt: l.stockUpdatedAt?.toISOString() ?? null,
+    variantAxes: categoryAxes(l.category.attributeSchema as { variantAxes?: unknown } | null),
+    variants,
     title: l.title,
     description: l.description,
     attributes: (l.attributes ?? {}) as Record<string, string | number>,
@@ -87,6 +116,12 @@ export function liveToListingView(l: LiveListing): ListingView {
     language: l.language,
     imageUrls: images.map((i) => i.src),
     imageBlurs: images.map((i) => i.blurDataUrl ?? null),
+    imageIds: images.map((i) => i.id ?? null),
+    availability: (isAvailability(l.availability) ? l.availability : "in_stock") as Availability,
+    availableQty: l.availableQty,
+    stockUpdatedAt: l.stockUpdatedAt?.toISOString() ?? null,
+    variantAxes: parseAxes(l.variantAxes),
+    variants: parseVariants(l.variants),
     aiGenerated: l.aiGenerated,
     status: "published",
     moderationStatus: "approved",

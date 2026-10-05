@@ -17,6 +17,16 @@ enum ListingStatus {
   @@map("listing_status")
 }
 
+/// Stock state of a listing or variant (docs/design/variants-stock.md). Operational data: changing it is NOT a content
+/// change, so it never goes through moderation; it is projected to LIVE directly.
+enum Availability {
+  in_stock
+  made_to_order
+  out_of_stock
+
+  @@map("availability_status")
+}
+
 model Category {
   id              String  @id @default(uuid()) @db.Uuid
   slug            String  @unique
@@ -68,8 +78,19 @@ model Listing {
   supplyCapacityPerMonth Int?       @map("supply_capacity_per_month")
   paymentTerms     String?          @map("payment_terms")
   certifications   String[]         @default([])
+  /// Shipping facts PER PRICE UNIT (freight estimator, docs/design/freight-estimator.md): packed weight in grams and
+  /// outer carton/pack dimensions in millimetres. All optional; the estimator falls back to assumptions when absent.
+  unitWeightGrams  Int?             @map("unit_weight_grams")
+  unitLengthMm     Int?             @map("unit_length_mm")
+  unitWidthMm      Int?             @map("unit_width_mm")
+  unitHeightMm     Int?             @map("unit_height_mm")
   /// seller's own product code; the stable key for bulk upsert (unique per seller)
   sku              String?
+  /// Stock state (listing-level; when variants exist the buyer sees the best of the variants). made_to_order needs leadTimeDays.
+  availability     Availability     @default(in_stock)
+  /// optional units on hand (priceUnit); informational, never decremented by the platform (Phase 1: no inventory)
+  availableQty     Int?             @map("available_qty")
+  stockUpdatedAt   DateTime?        @map("stock_updated_at") @db.Timestamptz
   language         String           @default("en")
   imageUrls        String[]         @default([]) @map("image_urls")
   aiGenerated      Boolean          @default(false) @map("ai_generated")
@@ -90,6 +111,7 @@ model Listing {
   seller   Business         @relation(fields: [sellerBusinessId], references: [id])
   category Category         @relation(fields: [categoryId], references: [id])
   images   ListingImage[]
+  variants ListingVariant[]
   versions ListingVersion[] @relation("ListingVersions")
   priceHistory   ListingPriceHistory[]
   adGroupListings AdGroupListing[]
@@ -102,6 +124,38 @@ model Listing {
   @@index([categoryId, status])
   @@index([searchTsv], map: "listings_search_tsv_idx", type: Gin)
   @@map("listings")
+}
+
+/// A purchasable variant of a listing (size, colour, grade ...). Axes come from the category's attributeSchema.variantAxes
+/// (data, not code). Structure (sku, axisValues, price override, tiers, MOQ, image) is versioned in the listing snapshot and
+/// moderated; stock (availability, availableQty, leadTimeDays, stockUpdatedAt) is operational and edited without review.
+model ListingVariant {
+  id             String       @id @default(uuid()) @db.Uuid
+  listingId      String       @map("listing_id") @db.Uuid
+  /// seller's variant code, unique within the listing (the bulk upsert key for variants)
+  sku            String
+  /// { [axisKey]: value } with every key defined by the category
+  axisValues     Json         @map("axis_values")
+  pricePaise     BigInt?      @map("price_paise")
+  /// quantity slabs overriding the listing's (same model as Listing.priceTiers)
+  priceTiers     Json         @default("[]") @map("price_tiers")
+  moq            Int?
+  availability   Availability @default(in_stock)
+  availableQty   Int?         @map("available_qty")
+  /// days to deliver; falls back to the listing's lead time
+  leadTimeDays   Int?         @map("lead_time_days")
+  stockUpdatedAt DateTime?    @map("stock_updated_at") @db.Timestamptz
+  /// optional ListingImage id (approved images only reach buyers)
+  imageId        String?      @map("image_id") @db.Uuid
+  sortOrder      Int          @default(0) @map("sort_order")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, sku])
+  @@index([listingId, sortOrder])
+  @@map("listing_variants")
 }
 
 /// Seller-uploaded product image. Never public until a staff member with "images.moderate"

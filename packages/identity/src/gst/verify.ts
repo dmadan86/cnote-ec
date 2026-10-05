@@ -141,8 +141,10 @@ type Tx = Prisma.TransactionClient;
 
 /** Highest tier a business keeps once its GST-derived verification (and the Udyam format check riding on it) is removed. */
 async function tierWithoutGst(tx: Tx, businessId: string): Promise<number> {
-  const rows = await tx.verificationRecord.findMany({ where: { businessId, status: "passed" }, select: { tier: true, kind: true, provider: true } });
-  return rows.filter((r) => r.kind !== "gstin" && !(r.kind === "udyam" && r.provider === "format-check")).reduce((m, r) => Math.max(m, r.tier), 0);
+  const rows = await tx.verificationRecord.findMany({ where: { businessId, status: "passed" }, select: { tier: true, kind: true, provider: true, details: true } });
+  // Udyam / MCA registry passes are supplementary unless they granted T1 themselves (UDYAM_GRANTS_T1, no GSTIN).
+  const supplementary = (r: (typeof rows)[number]) => (r.kind === "udyam" || r.kind === "mca") && (r.details as { grantedT1?: boolean } | null)?.grantedT1 !== true;
+  return rows.filter((r) => r.kind !== "gstin" && !(r.kind === "udyam" && r.provider === "format-check") && !supplementary(r)).reduce((m, r) => Math.max(m, r.tier), 0);
 }
 
 /**

@@ -3,7 +3,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
-import { rupeesToPaise } from "@cnote/core";
+import { DomainError, rupeesToPaise } from "@cnote/core";
 import { actorOf, type SessionWithBusiness } from "@cnote/next-kit";
 import { numOrNull, str } from "@/lib/form-data";
 import { logEvent } from "@/lib/metrics";
@@ -12,11 +12,35 @@ import { enquiry } from "@/lib/services";
 /** Whole-request cap for the upload route: every allowed attachment at full size plus form fields and multipart framing. */
 export const QUOTE_UPLOAD_MAX_BYTES = enquiry.MAX_QUOTE_ATTACHMENTS * enquiry.MAX_QUOTE_ATTACHMENT_BYTES + 512 * 1024;
 
-const quoteSchema = (t: Awaited<ReturnType<typeof getTranslations>>) =>
+/** Per-line fields of a multi-line quote: `lp_<n>` price (rupees), `lg_<n>` GST %, `ll_<n>` lead days, `lc_<n>` can't supply, `ln_<n>` note (n = line number). */
+function readLines(fd: FormData, tl: Awaited<ReturnType<typeof getTranslations>>) {
+  const out: enquiry.QuoteLineInput[] = [];
+  for (let n = 1; n <= enquiry.MAX_ENQUIRY_LINES; n++) {
+    const cant = fd.get(`lc_${n}`) === "on";
+    const price = numOrNull(fd, `lp_${n}`);
+    if (!cant && price === null) continue; // empty = this line is skipped (partial quote)
+    if (!cant && !(typeof price === "number" && Number.isFinite(price) && price > 0)) throw new DomainError("validation", tl("errPrice", { n }));
+    const gst = numOrNull(fd, `lg_${n}`);
+    const lead = numOrNull(fd, `ll_${n}`);
+    out.push({
+      ordinal: n,
+      cantSupply: cant,
+      unitPricePaise: cant ? null : rupeesToPaise(price!),
+      gstRatePct: gst === null || !Number.isInteger(gst) ? null : gst,
+      leadTimeDays: lead === null || !Number.isInteger(lead) ? null : lead,
+      notes: str(fd, `ln_${n}`) || null,
+    });
+  }
+  if (!out.some((l) => !l.cantSupply)) throw new DomainError("validation", tl("errNeedOne"));
+  return out;
+}
+
+const quoteSchema = (t: Awaited<ReturnType<typeof getTranslations>>, multi = false) =>
   z.object({
-    price: z.number(t("enterPrice")).positive(t("pricePositive")),
-    quantity: z.number(t("enterQuantity")).positive(t("quantityPositive")),
-    unit: z.string().min(1, t("chooseUnit")),
+    // a per-line quote has no single price/quantity/unit: the server mirrors the first priced line
+    price: multi ? z.number().optional() : z.number(t("enterPrice")).positive(t("pricePositive")),
+    quantity: multi ? z.number().optional() : z.number(t("enterQuantity")).positive(t("quantityPositive")),
+    unit: multi ? z.string().optional() : z.string().min(1, t("chooseUnit")),
     leadTimeDays: z.number().int(t("wholeDays")).min(0).nullable().refine((v) => v === null || Number.isFinite(v), t("enterWholeDays")),
     validUntil: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, t("chooseDate")),
     notes: z.string().max(1000, t("notesMax")),
@@ -45,7 +69,9 @@ export async function sendQuote(fd: FormData, session: SessionWithBusiness, opts
   const t = await getTranslations("leads.conversation.errors");
   const attachments = await files(fd, "attachments");
   if (attachments.length && !opts.withFiles) throw new Error("Attachments must be uploaded through the upload endpoint, not a plain form post.");
-  const q = quoteSchema(t).parse({
+  const multi = str(fd, "multiLine") === "1";
+  const lines = multi ? readLines(fd, await getTranslations("rfqLines")) : null;
+  const q = quoteSchema(t, multi).parse({
     price: numOrNull(fd, "price") ?? undefined,
     quantity: numOrNull(fd, "quantity") ?? undefined,
     unit: str(fd, "unit"),
@@ -61,14 +87,12 @@ export async function sendQuote(fd: FormData, session: SessionWithBusiness, opts
     gstIncluded: str(fd, "gstIncluded") === "included" ? true : str(fd, "gstIncluded") === "extra" ? false : null,
   });
   await enquiry.sendQuote(actorOf(session), z.string().min(1).parse(conversationId), {
-    pricePaise: rupeesToPaise(q.price),
-    quantity: q.quantity,
-    unit: q.unit,
+    ...(lines ? { lines } : { pricePaise: rupeesToPaise(q.price!), quantity: q.quantity!, unit: q.unit! }),
     leadTimeDays: q.leadTimeDays,
     notes: q.notes || null,
     validUntil: q.validUntil ? new Date(`${q.validUntil}T23:59:59+05:30`).toISOString() : null,
     moq: q.moq,
-    moqUnit: q.moq != null ? q.unit : null,
+    moqUnit: q.moq != null ? (q.unit ?? null) : null,
     deliveryTerms: q.deliveryTerms,
     deliveryNote: q.deliveryNote || null,
     deliveryChargePaise: q.deliveryCharge != null ? rupeesToPaise(q.deliveryCharge) : null,

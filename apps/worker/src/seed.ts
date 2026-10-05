@@ -82,7 +82,9 @@ async function hashPassword(password: string): Promise<string> {
 /* --------------------------------------------------------------- categories */
 
 type Field = { key: string; label: string; type: "text" | "number" | "select"; required?: boolean; unit?: string; options?: string[] };
-interface Cat { key: string; slug: string; name: string; icon: string; fields: Field[]; prohibited?: boolean }
+/** Variant axes (size, colour ...) are category DATA (docs/design/variants-stock.md): listings in a category without axes cannot have variants. */
+type Axis = { key: string; label: string; options?: string[] };
+interface Cat { key: string; slug: string; name: string; icon: string; fields: Field[]; prohibited?: boolean; axes?: Axis[] }
 
 const CATS: Cat[] = [
   { key: "pkg", slug: "packaging-printing", name: "Packaging & Printing", icon: "package", fields: [
@@ -91,25 +93,25 @@ const CATS: Cat[] = [
     { key: "dimensions", label: "Dimensions", type: "text" },
     { key: "gsm", label: "GSM", type: "number" },
     { key: "printing", label: "Printing", type: "select", options: ["Plain", "1 colour", "Multi-colour", "Offset"] },
-  ] },
+  ], axes: [{ key: "size", label: "Size" }, { key: "ply", label: "Ply", options: ["3 ply", "5 ply", "7 ply"] }] },
   { key: "app", slug: "apparel-textiles", name: "Apparel & Textiles", icon: "shirt", fields: [
     { key: "fabric", label: "Fabric", type: "text", required: true },
     { key: "gsm", label: "GSM", type: "number" },
     { key: "size_range", label: "Size range", type: "text" },
     { key: "color", label: "Colour", type: "text" },
     { key: "width", label: "Width", type: "text" },
-  ] },
+  ], axes: [{ key: "size", label: "Size", options: ["XS", "S", "M", "L", "XL", "XXL"] }, { key: "colour", label: "Colour" }] },
   { key: "off", slug: "office-stationery", name: "Office & Stationery", icon: "pencil-ruler", fields: [
     { key: "material", label: "Material", type: "text" },
     { key: "pack_size", label: "Pack size", type: "text" },
     { key: "color", label: "Colour", type: "text" },
-  ] },
+  ], axes: [{ key: "colour", label: "Colour" }, { key: "pack", label: "Pack size" }] },
   { key: "home", slug: "home-kitchen", name: "Home & Kitchen", icon: "cooking-pot", fields: [
     { key: "material", label: "Material", type: "text", required: true },
     { key: "capacity", label: "Capacity", type: "text" },
     { key: "finish", label: "Finish", type: "text" },
     { key: "color", label: "Colour", type: "text" },
-  ] },
+  ], axes: [{ key: "capacity", label: "Capacity" }, { key: "colour", label: "Colour" }] },
   { key: "ele", slug: "electronics-accessories", name: "Electronics & Accessories", icon: "headphones", fields: [
     { key: "power", label: "Power / voltage", type: "text" },
     { key: "connectivity", label: "Connectivity", type: "text" },
@@ -376,7 +378,7 @@ async function seedCategories(): Promise<Map<string, string>> {
   if (typeof upsertCategories === "function") {
     try {
       await (upsertCategories as (rows: unknown[]) => Promise<unknown>)(
-        all.map((c, i) => ({ slug: c.slug, name: c.name, icon: c.icon, leadCap: 3, prohibited: !!c.prohibited, attributeSchema: { fields: c.fields }, sortOrder: i })),
+        all.map((c, i) => ({ slug: c.slug, name: c.name, icon: c.icon, leadCap: 3, prohibited: !!c.prohibited, attributeSchema: { fields: c.fields, ...(c.axes ? { variantAxes: c.axes } : {}) }, sortOrder: i })),
       );
     } catch (e) {
       console.warn("  catalogue.upsertCategories failed, falling back to prisma:", (e as Error).message);
@@ -384,7 +386,7 @@ async function seedCategories(): Promise<Map<string, string>> {
   }
   const ids = new Map<string, string>();
   for (const [i, c] of all.entries()) {
-    const data = { name: c.name, icon: c.icon, leadCap: 3, prohibited: !!c.prohibited, attributeSchema: { fields: c.fields }, sortOrder: i };
+    const data = { name: c.name, icon: c.icon, leadCap: 3, prohibited: !!c.prohibited, attributeSchema: { fields: c.fields, ...(c.axes ? { variantAxes: c.axes } : {}) }, sortOrder: i };
     const row = await prisma.category.upsert({ where: { slug: c.slug }, update: data, create: { slug: c.slug, ...data } });
     ids.set(c.key, row.id);
   }
@@ -478,7 +480,7 @@ function priceFor(base: number, instance: number, r: () => number): number {
 
 /** Dev-only demo data: every other template gets quantity slabs and trade info so the product page shows them. */
 function tradeDemo(ti: number, t: Tpl, pricePaise: number, k: number) {
-  const none = { priceTiers: [] as { minQty: number; pricePaise: number }[], leadTimeDays: null as number | null, packaging: null as string | null, sampleAvailable: false, samplePricePaise: null as bigint | null, supplyCapacityPerMonth: null as number | null, paymentTerms: null as string | null, certifications: [] as string[] };
+  const none = { priceTiers: [] as { minQty: number; pricePaise: number }[], leadTimeDays: null as number | null, packaging: null as string | null, sampleAvailable: false, samplePricePaise: null as bigint | null, supplyCapacityPerMonth: null as number | null, paymentTerms: null as string | null, certifications: [] as string[], unitWeightGrams: null as number | null, unitLengthMm: null as number | null, unitWidthMm: null as number | null, unitHeightMm: null as number | null };
   if (ti % 2 !== 0) return none;
   const at = (mult: number, pct: number) => ({ minQty: t.moq * mult, pricePaise: Math.max(1, Math.round((pricePaise * pct) / 100)) });
   return {
@@ -491,6 +493,11 @@ function tradeDemo(ti: number, t: Tpl, pricePaise: number, k: number) {
     supplyCapacityPerMonth: t.moq * 100,
     paymentTerms: "50% advance, balance before dispatch. Net 30 for repeat buyers.",
     certifications: ti % 4 === 0 ? ["ISO 9001:2015", "BIS"] : ["MSME registered"],
+    // shipping facts for the freight estimator demo
+    unitWeightGrams: 250 + (ti % 5) * 250,
+    unitLengthMm: 150 + (ti % 3) * 50,
+    unitWidthMm: 100 + (ti % 3) * 50,
+    unitHeightMm: 80 + (ti % 4) * 20,
   };
 }
 

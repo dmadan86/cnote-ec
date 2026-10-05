@@ -8,6 +8,8 @@ import { userInputEnvelope } from "./envelope";
 import { z } from "zod";
 import { prisma, type Prisma } from "@cnote/db";
 import { createAnthropicClient, REASONING_MODEL, TIMEOUT_MS, type MessagesClient } from "./anthropic";
+import { startShadowRun } from "./decisions";
+import { shadowSettings } from "./registry";
 import { redactDeep, redactPii } from "./redact";
 import { aiTransport, remoteFallbackEnabled, remoteQuoteProviders, sharedAiServiceClient } from "./remote";
 import type { AiResult } from "./index";
@@ -252,10 +254,10 @@ const NormaliseSchema = z.object({
 });
 const CounterSchema = z.object({ pricePaise: z.number(), leadTimeDays: z.number().nullable(), note: z.string(), rationale: z.string(), confidence: z.number() });
 
-async function callJson<S extends z.ZodType>(client: MessagesClient, system: string, payload: unknown, schema: S): Promise<z.infer<S>> {
+async function callJson<S extends z.ZodType>(client: MessagesClient, system: string, payload: unknown, schema: S, model: string = REASONING_MODEL): Promise<z.infer<S>> {
   const res = await client.messages.create(
     {
-      model: REASONING_MODEL,
+      model,
       max_tokens: 1024,
       system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: userInputEnvelope(payload) }],
@@ -270,9 +272,9 @@ async function callJson<S extends z.ZodType>(client: MessagesClient, system: str
   return schema.parse(JSON.parse(block.text));
 }
 
-export function anthropicQuoteProviders(client: MessagesClient = createAnthropicClient(), fallback = true): QuoteProviders {
+export function anthropicQuoteProviders(client: MessagesClient = createAnthropicClient(), fallback = true, model: string = REASONING_MODEL): QuoteProviders {
   const h = heuristicQuoteProviders;
-  const meta = (promptVersion: string) => ({ provider: "anthropic", modelId: REASONING_MODEL, promptVersion });
+  const meta = (promptVersion: string) => ({ provider: "anthropic", modelId: model, promptVersion });
   const wrap = <I, O>(p: (i: I) => Promise<ProviderResult<O>>, f: (i: I) => Promise<ProviderResult<O>>) =>
     fallback
       ? async (i: I): Promise<ProviderResult<O>> => {
@@ -285,7 +287,7 @@ export function anthropicQuoteProviders(client: MessagesClient = createAnthropic
   return {
     drafter: {
       draft: wrap(async (i: DraftQuoteInput) => {
-        const { confidence, ...out } = await callJson(client, DRAFT_SYSTEM, redactDeep(i), DraftSchema);
+        const { confidence, ...out } = await callJson(client, DRAFT_SYSTEM, redactDeep(i), DraftSchema, model);
         return {
           output: {
             ...out,
@@ -298,7 +300,7 @@ export function anthropicQuoteProviders(client: MessagesClient = createAnthropic
     },
     normaliser: {
       normalise: wrap(async (i: NormaliseQuotesInput) => {
-        const out = await callJson(client, NORMALISE_SYSTEM, redactDeep(i), NormaliseSchema);
+        const out = await callJson(client, NORMALISE_SYSTEM, redactDeep(i), NormaliseSchema, model);
         const ids = new Set(i.quotes.map((q) => q.quoteId));
         // only accept ids we asked about; anything the model did not cover falls back to "unknown"
         const byId = new Map(out.terms.filter((t) => ids.has(t.quoteId)).map((t) => [t.quoteId, t]));
@@ -313,7 +315,7 @@ export function anthropicQuoteProviders(client: MessagesClient = createAnthropic
     },
     countering: {
       propose: wrap(async (i: ProposeCounterInput) => {
-        const { confidence, ...out } = await callJson(client, COUNTER_SYSTEM, redactDeep(i), CounterSchema);
+        const { confidence, ...out } = await callJson(client, COUNTER_SYSTEM, redactDeep(i), CounterSchema, model);
         return { output: { ...out, pricePaise: int(out.pricePaise), leadTimeDays: out.leadTimeDays == null ? null : int(out.leadTimeDays) }, confidence: clamp01(confidence), ...meta(QUOTE_PROMPT_VERSIONS.counter) };
       }, (i) => h.countering.propose(i)),
     },
@@ -333,9 +335,24 @@ export function getQuoteProviders(): QuoteProviders {
 /** Test hook: inject providers (null restores env-based selection). */
 export function setQuoteProvidersForTests(p: QuoteProviders | null) { override = p; cached = null; }
 
+let shadowOverride: QuoteProviders | null = null;
+let cachedShadow: { key: string; providers: QuoteProviders } | null = null;
+/** ADR-008 shadow mode: candidate quote providers (no heuristic fallback). Null when off. */
+export function getShadowQuoteProviders(): QuoteProviders | null {
+  if (shadowOverride) return shadowOverride;
+  const s = shadowSettings();
+  if (!s) return null;
+  const key = JSON.stringify(s);
+  if (cachedShadow?.key !== key) cachedShadow = { key, providers: s.provider === "anthropic" ? anthropicQuoteProviders(createAnthropicClient(), false, s.models.reasoning) : heuristicQuoteProviders };
+  return cachedShadow.providers;
+}
+export function setShadowQuoteProvidersForTests(p: QuoteProviders | null) { shadowOverride = p; cachedShadow = null; }
+
 // ---------------------------------------------------------------- decision logging + public capabilities
 async function runQuoteLogged<T extends object>(
   capability: QuoteCapability, subject: QuoteSubject, inputRedacted: unknown, run: () => Promise<ProviderResult<T>>,
+  /** ADR-008 shadow mode: re-runs the capability on the candidate providers, logged shadow=true, never user-visible */
+  shadow?: (p: QuoteProviders) => Promise<ProviderResult<T>>,
 ): Promise<AiResult<T>> {
   const started = performance.now();
   const r = await run();
@@ -350,21 +367,23 @@ async function runQuoteLogged<T extends object>(
     },
     select: { id: true },
   });
+  const candidate = shadow ? getShadowQuoteProviders() : null;
+  if (shadow && candidate) startShadowRun(capability, subject, inputRedacted, row.id, () => shadow(candidate));
   return { ...r.output, decisionId: row.id, confidence: r.confidence, needsReview };
 }
 
 /** Seller assist: draft a quote from the RFQ + price book + history. A proposal only; the seller approves it. */
 export async function draftQuote(input: DraftQuoteInput, subject: QuoteSubject): Promise<AiResult<DraftQuoteOutput>> {
-  return runQuoteLogged("draft_quote", subject, redactDeep(input), () => getQuoteProviders().drafter.draft(input));
+  return runQuoteLogged("draft_quote", subject, redactDeep(input), () => getQuoteProviders().drafter.draft(input), (p) => p.drafter.draft(input));
 }
 
 /** Buyer assist: extract freight / GST / payment terms from quote notes so quotes can be compared like for like. */
 export async function normaliseQuotes(input: NormaliseQuotesInput, subject: QuoteSubject): Promise<AiResult<NormaliseQuotesOutput>> {
   const audit = { quotes: input.quotes.map((q) => ({ ...q, notes: q.notes ? redactPii(q.notes) : null })) };
-  return runQuoteLogged("normalise_quotes", subject, audit, () => getQuoteProviders().normaliser.normalise(input));
+  return runQuoteLogged("normalise_quotes", subject, audit, () => getQuoteProviders().normaliser.normalise(input), (p) => p.normaliser.normalise(input));
 }
 
 /** Buyer assist: propose one counter within the buyer's bounds. The caller MUST re-check bounds; the buyer sends it explicitly. */
 export async function proposeCounter(input: ProposeCounterInput, subject: QuoteSubject): Promise<AiResult<ProposeCounterOutput>> {
-  return runQuoteLogged("propose_counter", subject, redactDeep(input), () => getQuoteProviders().countering.propose(input));
+  return runQuoteLogged("propose_counter", subject, redactDeep(input), () => getQuoteProviders().countering.propose(input), (p) => p.countering.propose(input));
 }

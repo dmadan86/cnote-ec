@@ -7,6 +7,8 @@ import { versionHandlers, versionJobs } from "./worker";
 import { processListingImage } from "./image-variants";
 import { transcribeVoiceNote } from "./voice";
 import type { PriceTier, TradeInfo } from "./tiers";
+import type { Availability } from "./availability";
+import type { SellerVariantView, VariantAxis, VariantView } from "./variants";
 
 export interface CategoryView {
   id: string;
@@ -15,7 +17,11 @@ export interface CategoryView {
   icon: string | null;
   leadCap: number;
   prohibited: boolean;
-  attributeSchema: { fields: { key: string; label: string; type: "text" | "number" | "select"; required?: boolean; unit?: string; options?: string[] }[] };
+  attributeSchema: {
+    fields: { key: string; label: string; type: "text" | "number" | "select"; required?: boolean; unit?: string; options?: string[] }[];
+    /** Variant axes for listings in this category (size, colour, grade ...): data, not code (docs/design/variants-stock.md). Absent = no variants. */
+    variantAxes?: VariantAxis[];
+  };
   parentId: string | null;
 }
 
@@ -39,8 +45,20 @@ export interface ListingView {
   imageUrls: string[];
   /** Tiny blur-up data URLs parallel to `imageUrls` (null when an image has none). Only populated on views served from LIVE. */
   imageBlurs?: (string | null)[];
+  /** ListingImage ids parallel to `imageUrls` (null for placeholder urls); lets a variant's `imageId` pick its image. LIVE views only. */
+  imageIds?: (string | null)[];
   /** Seller's own product code (working copy only; not projected to LIVE). */
   sku?: string | null;
+  /** Stock state (docs/design/variants-stock.md). With variants this is the best of them; `ownAvailability` is the listing's own flag (seller views). */
+  availability?: Availability;
+  availableQty?: number | null;
+  /** When the seller last set the stock (ISO); null = never stated. */
+  stockUpdatedAt?: string | null;
+  /** The listing's own availability, independent of its variants (working copy only). */
+  ownAvailability?: Availability;
+  /** Axes frozen at publish (LIVE) / read from the category (working copy), and the variants (0..100). */
+  variantAxes?: VariantAxis[];
+  variants?: (VariantView | SellerVariantView)[];
   /** Seller/admin contexts only (see getListingForSeller); never populated by getListing. */
   images?: ListingImageView[];
   aiGenerated: boolean;
@@ -72,6 +90,9 @@ export interface ListingInput {
   imageUrls: string[];
   /** optional seller product code; unique per seller (DomainError "conflict" on duplicate) */
   sku?: string | null;
+  /** optional stock state; made_to_order needs `trade.leadTimeDays`. On an existing listing this takes the stock fast path (no review). */
+  availability?: Availability;
+  availableQty?: number | null;
 }
 
 export { validatePriceTiers, MAX_TIERS, type PriceTier, type TradeInfo } from "./tiers";
@@ -92,6 +113,14 @@ export {
   type PublicListingImage, type StoredVariant, type ProcessResult,
 } from "./image-variants";
 export { reindexEmbeddings, reindexStaleEmbeddings } from "./reindex";
+export {
+  AVAILABILITIES, availabilitySchema, isAvailability, bestAvailability, effectiveAvailability, isOrderable, isBackInStock, validateStock, MAX_AVAILABLE_QTY, MAX_LEAD_TIME_DAYS, type Availability,
+} from "./availability";
+export {
+  MAX_VARIANTS, MAX_AXES, categoryAxes, variantAxisSchema, variantInputSchema, normaliseVariants, parseVariants, parseAxes, variantValueKeys, splitVariantKey, effectiveVariantTerms, describeVariant,
+  type VariantAxis, type VariantInput, type VariantView, type SellerVariantView, type NormalisedVariant,
+} from "./variants";
+export { setListingVariants, updateListingStock, reprojectStock, listingVariantsForSeller, type StockUpdate } from "./stock";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const worker: ModuleWorker = {

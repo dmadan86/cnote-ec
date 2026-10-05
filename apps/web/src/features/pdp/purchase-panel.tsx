@@ -5,6 +5,9 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Field, Input, Money } from "@cnote/ui";
 import { UnlockButton } from "@/features/leadgen/unlock-buttons";
+import { StockStatus } from "./stock-status";
+import { useVariantSelection } from "./variant-context";
+import { variantName, variantTerms } from "./variants";
 import { activeSlabIndex, buildSlabs, estimateTotalPaise, formatPaise, parseQty, unitPriceFor, type Tier } from "./tiers";
 
 export interface PurchasePanelProps {
@@ -20,6 +23,8 @@ export interface PurchasePanelProps {
   moqUnit: string | null;
   /** existing `product.*` strings, passed down because that namespace is not shipped to the client */
   labels: { priceOnRequest: string; minOrder: string | null; indicative: string; getBestPrice: string; requestQuote: string };
+  /** the listing's lead time in days (trade info), a made-to-order variant without its own lead time uses it */
+  leadTimeDays?: number | null;
   /** offer panel, rendered between the estimate and the buttons */
   offer?: ReactNode;
   /** save / compare islands */
@@ -28,12 +33,32 @@ export interface PurchasePanelProps {
 
 const nf = new Intl.NumberFormat("en-IN");
 
-export function PurchasePanel(p: PurchasePanelProps) {
+export function PurchasePanel(props: PurchasePanelProps) {
   const t = useTranslations("pdp");
   const uid = useId();
+  const { selected, variants, axes } = useVariantSelection();
+  // The chosen variant's own price / tiers / MOQ replace the listing's; with no variant chosen the listing's terms stand.
+  const terms = variantTerms({ pricePaise: props.basePaise, priceTiers: props.tiers, moq: props.moq, leadTimeDays: props.leadTimeDays ?? null }, selected);
+  const moqChanged = terms.moq !== props.moq;
+  const p: PurchasePanelProps = {
+    ...props,
+    basePaise: terms.pricePaise,
+    tiers: terms.priceTiers,
+    moq: terms.moq,
+    moqText: moqChanged ? (terms.moq == null ? null : `${nf.format(terms.moq)}${(props.moqUnit ?? props.unit) ? ` ${props.moqUnit ?? props.unit}` : ""}`) : props.moqText,
+    labels: { ...props.labels, minOrder: moqChanged ? (terms.moq == null ? null : t("variants.minOrder", { value: `${nf.format(terms.moq)}${(props.moqUnit ?? props.unit) ? ` ${props.moqUnit ?? props.unit}` : ""}` })) : props.labels.minOrder },
+  };
   const slabs = buildSlabs(p.tiers, p.basePaise, p.moq);
   const hasPrice = p.basePaise != null || slabs.length > 0;
   const [raw, setRaw] = useState(String(p.moq ?? 1));
+  const selectedSku = selected?.sku ?? null;
+  // choosing another variant restarts the quantity at that variant's minimum order
+  const lastSku = useRef<string | null>(null);
+  useEffect(() => {
+    if (lastSku.current === selectedSku) return;
+    lastSku.current = selectedSku;
+    setRaw(String(terms.moq ?? 1));
+  }, [selectedSku, terms.moq]);
   const parsed = parseQty(raw);
   // An unusable quantity falls back to the MOQ for the numbers shown; the field reports the problem.
   const qty = parsed ?? p.moq ?? 1;
@@ -54,7 +79,7 @@ export function PurchasePanel(p: PurchasePanelProps) {
     return () => io.disconnect();
   }, []);
 
-  const prefill = { quantity: parsed, unit: p.moqUnit ?? p.unit, pricePaise: unitPaise };
+  const prefill = { quantity: parsed, unit: p.moqUnit ?? p.unit, pricePaise: unitPaise, variantSku: selected?.sku ?? null, variantLabel: selected ? variantName(selected, axes) : null };
   const buttons = (cls: string, size: "lg", suffix: string) => (
     <>
       <UnlockButton key={`best${suffix}`} trigger="pdp_best_price" unlock="enquiry" listingId={p.listingId} listingTitle={p.listingTitle} label={p.labels.getBestPrice} size={size} className={cls} />
@@ -70,6 +95,10 @@ export function PurchasePanel(p: PurchasePanelProps) {
         </div>
         {p.labels.minOrder ? <p className="mt-1 text-sm text-muted">{p.labels.minOrder}</p> : null}
         <p className="mt-1 text-xs text-muted">{p.labels.indicative}</p>
+        {variants.length && !selected ? <p className="mt-1 text-xs text-muted">{t("variants.pricesVary")}</p> : null}
+        <div className="mt-3">
+          <StockStatus listingLeadTimeDays={props.leadTimeDays ?? null} />
+        </div>
       </div>
 
       {slabs.length ? (

@@ -21,6 +21,10 @@ export interface TrustSignals {
   samplesApproved?: number;
   /** Sample requests that expired unanswered (48h SLA missed). */
   samplesExpired?: number;
+  /** Udyam / MCA registry checks that currently stand verified (0-2), ADR-003 T1. */
+  registryVerified?: number;
+  /** The MCA record is no longer Active (struck off, liquidation): a penalty until re-verified. */
+  registryFlag?: boolean;
   inactiveDays: number;
 }
 
@@ -42,6 +46,9 @@ export const REFUND_MIN_SAMPLE = 5;
 export const SAMPLE_MIN_EVALUATED = 5;
 export const SAMPLE_MAX_PTS = 5;
 export const SAMPLE_EXPIRY_MAX_PENALTY = 5;
+// Registry evidence (ADR-003): each verified Udyam / MCA record adds a little; a struck-off company costs more than both give.
+export const REGISTRY_POINTS = 3;
+export const REGISTRY_FLAG_PENALTY = 10;
 
 export function computeTrustScore(s: TrustSignals): { score: number; badgeActive: boolean } {
   const tierPts = TIER_POINTS[Math.min(Math.max(Math.trunc(s.tier), 0), 3)]!;
@@ -63,6 +70,7 @@ export function computeTrustScore(s: TrustSignals): { score: number; badgeActive
     : 0;
   const sampleExpiryPts = -Math.min(SAMPLE_EXPIRY_MAX_PENALTY, s.samplesExpired ?? 0);
   const decay = -Math.min(15, Math.max(0, Math.floor((s.inactiveDays - 30) / 10) + (s.inactiveDays > 30 ? 1 : 0)));
-  const score = Math.round(Math.min(100, Math.max(0, tierPts + responsePts + dealPts + disputePts + moderationPts + offerPts + refundPts + samplePts + sampleExpiryPts + decay)));
+  const registryPts = Math.min(2, Math.max(0, s.registryVerified ?? 0)) * REGISTRY_POINTS - (s.registryFlag ? REGISTRY_FLAG_PENALTY : 0);
+  const score = Math.round(Math.min(100, Math.max(0, tierPts + responsePts + dealPts + disputePts + moderationPts + offerPts + refundPts + samplePts + sampleExpiryPts + registryPts + decay)));
   return { score, badgeActive: s.tier >= 1 && score >= BADGE_THRESHOLD };
 }

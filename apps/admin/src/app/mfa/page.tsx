@@ -1,5 +1,5 @@
 import { getMfaEnrollmentInfo, getMfaPending } from "@cnote/next-kit";
-import { MfaChallengeForm, MfaEnrollForm } from "@cnote/next-kit/client";
+import { MfaChallengeForm, MfaEnrollForm, PasskeyEnrollPanel } from "@cnote/next-kit/client";
 import { redirect } from "next/navigation";
 
 export const metadata = { title: "Two-factor authentication" };
@@ -8,11 +8,12 @@ export const metadata = { title: "Two-factor authentication" };
 export default async function MfaPage() {
   const pending = await getMfaPending();
   if (!pending) redirect("/signin");
+  if (pending.mode === "passkey_enroll") return <PasskeyEnrollPanel />;
   if (pending.mode === "enroll") {
     const info = await getMfaEnrollmentInfo();
     if (!info) redirect("/signin");
     if (info.done) return <MfaEnrollForm manualKey="" otpauthUri="" done />;
     return <MfaEnrollForm manualKey={info.manualKey} otpauthUri={info.otpauthUri} />;
   }
-  return <MfaChallengeForm />;
+  return <MfaChallengeForm passkey={pending.hasPasskey} passkeyRequired={pending.passkeyRequired} />;
 }

@@ -144,7 +144,11 @@ export function sharedSecret(encPrivateKey: string, registryEncPublicKey: string
 export function decryptChallenge(challenge: string, encPrivateKey: string, registryEncPublicKey: string): string {
   try {
     const d = createDecipheriv("aes-256-ecb", sharedSecret(encPrivateKey, registryEncPublicKey), null);
-    return Buffer.concat([d.update(b64(challenge)), d.final()]).toString("utf8");
+    const plain = Buffer.concat([d.update(b64(challenge)), d.final()]);
+    // A wrong key still yields valid PKCS#7 padding about 1 time in 256; registry challenges are printable ASCII,
+    // so anything else is a failed decryption, not a challenge.
+    if (plain.length === 0 || plain.some((b) => b < 0x20 || b > 0x7e)) throw new Error("not a challenge");
+    return plain.toString("utf8");
   } catch {
     throw new OndcCryptoError("challenge could not be decrypted");
   }

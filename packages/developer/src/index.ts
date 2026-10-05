@@ -8,6 +8,6 @@ export { EXPIRY_OPTIONS, EXPIRY_LABELS, expiryToDate, type ExpiryOption } from "
 export type { ApiKeyView, ApiPrincipal, UsageDay } from "./types";
 export { createApiKey, listApiKeys, revokeApiKey, revokeApiKeyAsStaff, revokeAllApiKeysForPerson, MAX_ACTIVE_KEYS } from "./keys";
 export { verifyApiKey } from "./verify";
-export { recordApiError, getKeyUsage, flushApiKeyUsage } from "./usage";
+export { recordApiError, getKeyUsage, flushApiKeyUsage, hasApiKeyActivitySince } from "./usage";
 export { listApiKeysForStaff, type StaffApiKeyView } from "./staff";
 export { worker } from "./worker";

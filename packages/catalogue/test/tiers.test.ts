@@ -39,10 +39,10 @@ describe("parsing + trade info", () => {
     expect(compactTrade({ sampleAvailable: true, sampleMaxQty: 5, sampleDispatchDays: 0, sampleMinBuyerTier: 0 })).toEqual({ sampleAvailable: true, sampleMaxQty: 5, sampleDispatchDays: 0 });
     expect(parseTrade({ sampleAvailable: true, sampleMinBuyerTier: 2, sampleMaxQty: 9 })).toEqual({ sampleAvailable: true, sampleMinBuyerTier: 2, sampleMaxQty: 9 });
     expect(parseTrade({ sampleAvailable: true, sampleMinBuyerTier: 7 })).toEqual({}); // out of range: the whole object is rejected
-    expect(tradeOfRow({ leadTimeDays: null, packaging: null, sampleAvailable: true, samplePricePaise: null, sampleMaxQty: 4, sampleDispatchDays: 3, sampleMinBuyerTier: 1, supplyCapacityPerMonth: null, paymentTerms: null, certifications: [] })).toEqual({ sampleAvailable: true, sampleMaxQty: 4, sampleDispatchDays: 3, sampleMinBuyerTier: 1 });
+    expect(tradeOfRow({ leadTimeDays: null, packaging: null, sampleAvailable: true, samplePricePaise: null, sampleMaxQty: 4, sampleDispatchDays: 3, sampleMinBuyerTier: 1, supplyCapacityPerMonth: null, paymentTerms: null, certifications: [], unitWeightGrams: null, unitLengthMm: null, unitWidthMm: null, unitHeightMm: null })).toEqual({ sampleAvailable: true, sampleMaxQty: 4, sampleDispatchDays: 3, sampleMinBuyerTier: 1 });
   });
   it("tradeOfRow converts paise bigint to a number", () => {
-    expect(tradeOfRow({ leadTimeDays: 7, packaging: null, sampleAvailable: true, samplePricePaise: 25000n, supplyCapacityPerMonth: null, paymentTerms: null, certifications: [] })).toEqual({ leadTimeDays: 7, sampleAvailable: true, samplePricePaise: 25000 });
+    expect(tradeOfRow({ leadTimeDays: 7, packaging: null, sampleAvailable: true, samplePricePaise: 25000n, supplyCapacityPerMonth: null, paymentTerms: null, certifications: [], unitWeightGrams: 500, unitLengthMm: null, unitWidthMm: null, unitHeightMm: null })).toEqual({ leadTimeDays: 7, sampleAvailable: true, samplePricePaise: 25000, unitWeightGrams: 500 });
   });
   it("input schema validates tiers/trade shape", () => {
     const base = { categoryId: crypto.randomUUID(), title: "x", description: "", attributes: {}, pricePaise: 1, priceUnit: "pcs", moq: 1, moqUnit: "pcs", hsn: null, language: "en", imageUrls: [] };

@@ -4,12 +4,14 @@ import { getCategoryBySlug, getPublicListingsByIds, listCategories } from "@cnot
 import { cachedTagged, cacheTags } from "@cnote/core";
 import { getTrustProfiles } from "@cnote/identity";
 import { z } from "zod";
-import { filtersSchema, hasActiveFilters, isSearchSort, matchesFilters, normaliseFilters, sortOrganic, type IndexFilters, type OrganicItem, type SearchFilters, type SearchSort } from "./filters";
+import { filtersSchema, hasActiveFilters, isSearchSort, matchesFilters, normaliseFilters, sortOrganic, variantKeysOf, type IndexFilters, type OrganicItem, type SearchFilters, type SearchSort } from "./filters";
 import { fusionWeights, INDIC_LEXICAL_WEIGHT, organicScore, rrfFuse, toCandidates } from "./fusion";
 import { getSearchIndex, type SearchFacets } from "./index-port";
 import { normaliseQuery } from "./normalise";
 import { blendVectors, ORIGINAL_BLEND, planSemantic } from "./semantic";
-import { expandQuery } from "./translit/variants";
+import { MAX_SYNONYM_VARIANTS, mergeVariants, synonymVariants } from "./synonyms/groups";
+import { activeSynonymsOrEmpty, type SynonymSet } from "./synonyms/store";
+import { expandQuery, MAX_VARIANTS } from "./translit/variants";
 import { remoteSearch, searchFallbackEnabled, searchTransport, sharedSearchServiceClient } from "./remote";
 import type { SearchHit } from "./index";
 
@@ -53,7 +55,10 @@ export async function searchListingsLocal(opts: SearchOpts): Promise<SearchResul
   const categorySlug = parsed.categorySlug ?? filters.categories?.[0];
   const nq = normaliseQuery(q);
   const translit = translitEnabled();
-  const key = `search:q:v6:${createHash("sha1").update(JSON.stringify([getSearchIndex().backend, nq, filters, sort, limit, cursor ?? null, translit, semanticBlend(), latinBlend(), indicLexicalWeight()])).digest("hex")}`;
+  // Staff-curated synonyms (admin console, versioned). Their version is part of the cache key, so publishing a new
+  // dictionary changes every affected key at once (no tag purge needed).
+  const syn = synonymsEnabled() ? await activeSynonymsOrEmpty() : NO_SYNONYMS;
+  const key = `search:q:v6:${createHash("sha1").update(JSON.stringify([getSearchIndex().backend, nq, filters, sort, limit, cursor ?? null, translit, syn.version, semanticBlend(), latinBlend(), indicLexicalWeight()])).digest("hex")}`;
   // Cached per NORMALISED query (so "boxes for cosmetics in India" and "boxes cosmetics" share one entry): 2 min fresh +
   // 10 min stale-while-revalidate. Entries are tagged with every listing/seller they contain, so a moderation/archive/trust
   // event purges exactly the results that show it (hard); new publications refresh the `search` tag softly.
@@ -62,7 +67,7 @@ export async function searchListingsLocal(opts: SearchOpts): Promise<SearchResul
     key,
     (v: Page) => [cacheTags.search, ...(filters.categories ?? []).map((c) => cacheTags.category(c)), ...v.hits.flatMap((h) => [cacheTags.listing(h.listing.id), cacheTags.seller(h.seller.businessId)])],
     120,
-    () => run(nq, filters, sort, limit, cursor, translit),
+    () => run(nq, filters, sort, limit, cursor, translit, syn),
     { staleSeconds: 600, softTags: [cacheTags.search] },
   );
   return { hits: page.hits, tookMs: Date.now() - started, ...(page.nextCursor ? { nextCursor: page.nextCursor } : {}), ...(page.facets ? { facets: page.facets } : {}) };
@@ -70,6 +75,10 @@ export async function searchListingsLocal(opts: SearchOpts): Promise<SearchResul
 
 /** SEARCH_TRANSLIT=off is a kill switch (and the eval baseline): cross-script variants are skipped, everything else is identical. */
 export const translitEnabled = () => process.env.SEARCH_TRANSLIT !== "off";
+
+/** SEARCH_SYNONYMS=off ignores the staff-curated dictionary (kill switch); the built-in lexicon is governed by SEARCH_TRANSLIT. */
+export const synonymsEnabled = () => process.env.SEARCH_SYNONYMS !== "off";
+const NO_SYNONYMS: SynonymSet = { version: 0, groups: [] };
 
 /** Selected category slugs -> ids including every descendant (a parent matches its subcategories). Unknown slugs are dropped. */
 async function resolveCategories(slugs: string[]): Promise<{ ids: string[]; name: string } | null> {
@@ -92,7 +101,7 @@ async function resolveCategories(slugs: string[]): Promise<{ ids: string[]; name
   return ids.size ? { ids: [...ids].sort(), name } : null;
 }
 
-async function run(nq: ReturnType<typeof normaliseQuery>, filters: SearchFilters, sort: SearchSort, limit: number, cursor: string | undefined, translit: boolean): Promise<Page> {
+async function run(nq: ReturnType<typeof normaliseQuery>, filters: SearchFilters, sort: SearchSort, limit: number, cursor: string | undefined, translit: boolean, syn: SynonymSet = NO_SYNONYMS): Promise<Page> {
   const empty: Page = { hits: [], nextCursor: null };
   const index: IndexFilters = {};
   let categoryName = "";
@@ -109,12 +118,15 @@ async function run(nq: ReturnType<typeof normaliseQuery>, filters: SearchFilters
   if (filters.priceMaxPaise !== undefined) index.priceMaxPaise = filters.priceMaxPaise;
   if (filters.maxMoq !== undefined) index.maxMoq = filters.maxMoq;
   if (filters.hasPrice) index.hasPrice = true;
+  if (filters.inStockOnly) index.inStockOnly = true;
+  if (filters.variantOptions) index.variantOptions = filters.variantOptions;
   const text = nq.text || categoryName; // pure category browse falls back to the category's own text
   if (!text) return empty;
 
   // Cross-script recall (ADR-004): transliteration + lexicon variants join the lexical query; for Indic/mixed-script queries
   // the best Latin variant also drives the embedding (the hashing embedder only understands Latin), see semantic.ts.
-  const variants = translit ? expandQuery(text) : [];
+  // Curated synonyms lead (staff-judged beats heuristic), then the built-in transliteration/lexicon variants.
+  const variants = mergeVariants(synonymVariants(text, syn.groups), translit ? expandQuery(text) : [], MAX_VARIANTS + MAX_SYNONYM_VARIANTS);
   let embedding: number[] | undefined;
   try {
     const plan = planSemantic(text, variants, semanticBlend(), latinBlend());
@@ -148,7 +160,7 @@ async function run(nq: ReturnType<typeof normaliseQuery>, filters: SearchFilters
     if (!listing) return [];
     // Backstop for stale index data (OpenSearch docs lag the live row): re-check the filters against the live listing and the
     // seller profile. A no-op when the index already filtered correctly.
-    if (hasActiveFilters(recheck) && !matchesFilters({ categoryId: "", tier: s.seller.verificationTier, state: s.seller.state, city: s.seller.city, pricePaise: listing.pricePaise ?? null, moq: listing.moq ?? null }, recheck)) return [];
+    if (hasActiveFilters(recheck) && !matchesFilters({ categoryId: "", tier: s.seller.verificationTier, state: s.seller.state, city: s.seller.city, pricePaise: listing.pricePaise ?? null, moq: listing.moq ?? null, inStock: (listing.availability ?? "in_stock") === "in_stock", variantValues: variantKeysOf(listing.variants) }, recheck)) return [];
     const item: OrganicItem & { listing: typeof listing; seller: typeof s.seller } = {
       id: s.id,
       score: s.score,

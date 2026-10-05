@@ -6,7 +6,7 @@ export type { Realm, RealmPolicy } from "./constants";
 export type {
   ConsentPurpose, SessionBusiness, Session, TrustProfile, AuthContext, AuthTokens, CreateBusinessInput,
 } from "./types";
-export { CONSENT_PURPOSES, COOKIE_CONSENT_PURPOSES } from "./types";
+export { ALL_COOKIE_CONSENT_PURPOSES, CONSENT_PURPOSES, COOKIE_CONSENT_PURPOSES, SELLER_COOKIE_CONSENT_PURPOSES } from "./types";
 
 export { signUpWithPassword, signInWithPassword, requestPasswordReset, resetPassword, type SignUpInput } from "./auth";
 export { googleAuthorizationUrl, completeGoogleSignIn, isGoogleConfigured } from "./google";
@@ -31,9 +31,21 @@ export * from "./gst";
 export * from "./phone-login";
 export * from "./directory";
 export * from "./mfa";
+export * from "./passkeys";
 export * from "./retention";
 export * from "./otp-senders";
 export { findOrCreatePersonByVerifiedPhone } from "./verified-phone";
 export * from "./kyc";
 export * from "./audits";
+export * from "./audit-partners";
 export * from "./addresses";
+export { getLastActiveAt, isInactivityEligible, listInactiveAccounts, findPersonIdByEmail, getOwnContacts, describePersonForStaff, type InactiveAccount } from "./inactivity";
+export { touchLastActive } from "./sessions";
+export * from "./registry";
+
+// Buyer team roles, invitations and owner transfer (docs/design/buyer-approvals.md).
+export * from "./team";
+export { exportTeamData, purgeOldInvites } from "./team-privacy";
+
+// MSME declaration + party profiles for purchase orders / supplier invoices (docs/design/purchase-orders.md)
+export * from "./msme";

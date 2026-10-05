@@ -6,6 +6,9 @@
 //    rendered per request (Next only stamps the nonce during dynamic rendering).
 //  - static mode (no nonce): script-src 'self' 'unsafe-inline'. For statically generated / ISR pages, which
 //    cannot carry a per-request nonce. Every other directive is identical.
+//  - hash mode (no nonce, `scriptHashes` given): script-src 'self' 'sha256-…'. NO 'unsafe-inline'. Only correct for a page whose
+//    complete set of inline scripts is known, i.e. the hashes were computed from that page's final HTML (scripts/csp-hashes.ts).
+//    Browsers ignore 'unsafe-inline' as soon as a hash is present, so a hash list that misses one inline script blocks it.
 
 export type SecurityApp = "web" | "seller" | "admin" | "studio" | "api";
 
@@ -40,6 +43,12 @@ export interface CspOptions {
    * a page can never frame any other origin.
    */
   embeds?: boolean;
+  /**
+   * Hash mode for static pages: CSP hash sources (`'sha256-<base64>'`, also sha384/sha512) of EVERY inline <script> of the page.
+   * Replaces `'unsafe-inline'` in script-src. Ignored in nonce mode unless given explicitly (then hashes are added next to the nonce).
+   * Generate them from the built HTML with `pnpm csp:hashes`; never hand-write them.
+   */
+  scriptHashes?: string[];
   /** Nonce <style> elements and keep 'unsafe-inline' only for style attributes (CSP_STRICT_STYLES=1). Needs nonce mode. */
   strictStyles?: boolean;
   /** Override process.env (tests, edge runtimes). */
@@ -55,7 +64,11 @@ const GOOGLE_ACCOUNTS = "https://accounts.google.com";
  * youtube-nocookie.com host, OpenStreetMap). Mirrors EMBED_FRAME_ORIGINS in @cnote/storefront (apps/web/test/consent-gate.test.ts
  * asserts they stay equal; security may not depend on storefront).
  */
-export const EMBED_FRAME_ORIGINS = ["https://www.youtube-nocookie.com", "https://www.openstreetmap.org"] as const;
+export const EMBED_FRAME_ORIGINS = ["https://www.youtube-nocookie.com", "https://www.openstreetmap.org", "https://player.vimeo.com"] as const;
+
+/** A CSP hash source: 'sha256-…' / 'sha384-…' / 'sha512-…' with a base64 digest of the right length. */
+const HASH_RE = /^'sha(256-[A-Za-z0-9+/]{43}=|384-[A-Za-z0-9+/]{64}|512-[A-Za-z0-9+/]{86}==)'$/;
+export const isCspHash = (s: string): boolean => HASH_RE.test(s);
 
 const truthy = (v: string | undefined) => v === "1" || v === "true";
 
@@ -98,9 +111,13 @@ export function buildCsp(opts: CspOptions): string {
   if (nonce && !/^[A-Za-z0-9+/_=-]+$/.test(nonce)) throw new Error("Invalid CSP nonce");
 
   const scriptHosts = uniq([clarity && CLARITY_SCRIPT, turnstile && TURNSTILE_ORIGIN, ...(allow.scripts ?? [])]);
+  const hashes = opts.scriptHashes ?? [];
+  for (const h of hashes) if (!isCspHash(h)) throw new Error(`Invalid CSP script hash: ${JSON.stringify(h)}`);
+  // hash mode: hashes replace 'unsafe-inline' (an empty list is NOT hash mode: a page with no inline script is not a real page)
   const scriptSrc = uniq([
     "'self'",
-    nonce ? `'nonce-${nonce}'` : "'unsafe-inline'",
+    nonce ? `'nonce-${nonce}'` : hashes.length ? null : "'unsafe-inline'",
+    ...hashes,
     nonce && "'strict-dynamic'",
     dev && "'unsafe-eval'",
     ...scriptHosts,

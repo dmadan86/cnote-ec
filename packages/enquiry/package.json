@@ -12,12 +12,19 @@
   },
   "dependencies": {
     "@cnote/ai": "workspace:*",
+    "@cnote/approvals": "workspace:*",
     "@cnote/billing": "workspace:*",
     "@cnote/catalogue": "workspace:*",
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",
     "@cnote/identity": "workspace:*",
     "@cnote/media": "workspace:*",
+    "@cnote/security": "workspace:*",
+    "pdf-lib": "^1.17.1",
+    "qrcode": "^1.5.4",
     "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.6"
   }
 }

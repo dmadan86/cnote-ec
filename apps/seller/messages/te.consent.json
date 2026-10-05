@@ -1,7 +1,7 @@
 {
   "consent": {
     "aria": "కుకీ నోటీసు",
-    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie.",
+    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie. <link>కుకీ విధానం</link>",
     "acceptAll": "అన్నింటినీ అంగీకరించు",
     "rejectAll": "అన్నింటినీ తిరస్కరించు",
     "customise": "ఎంచుకోండి",
@@ -53,7 +53,23 @@
       "onboardingSkip": "Remembers an onboarding step you chose to skip.",
       "onboardingStart": "Records when you created your business, to measure how long onboarding takes.",
       "onboardingFirstListing": "Remembers that you submitted your first listing, so onboarding can show you the result.",
-      "referral": "Remembers the referral code from the link you followed until you create your business."
-    }
+      "referral": "Remembers the referral code from the link you followed until you create your business.",
+      "consentSync": "ఈ సందర్శనకు మాత్రమే, మీ కుకీ ఎంపికను మీ ఖాతాతో సరిపోల్చినట్లు గుర్తుంచుకుంటుంది."
+    },
+    "policyTitle": "కుకీ విధానం",
+    "policyDescription": "{site} ఏ కుకీలను, అలాంటి నిల్వను ఎందుకు, ఎంతకాలం ఉపయోగిస్తుంది, మీ ఎంపికను ఎలా మార్చాలి.",
+    "versionLine": "విధాన వెర్షన్ {version}, చివరిసారి నవీకరించింది {date}.",
+    "whatTitle": "కుకీలు అంటే ఏమిటి?",
+    "whatBody": "కుకీలు అంటే వెబ్‌సైట్ మీ బ్రౌజర్‌లో సేవ్ చేసే చిన్న టెక్స్ట్ ఫైళ్లు. మేము అలాంటి బ్రౌజర్ నిల్వను (లోకల్, సెషన్ స్టోరేజ్) కూడా ఉపయోగిస్తాము. కొన్ని తప్పనిసరి; మిగతావి మీరు అంగీకరిస్తేనే ఉపయోగిస్తాము.",
+    "categoriesTitle": "వర్గాలు",
+    "categoriesBody": "వీటిని మూడు వర్గాలుగా విభజిస్తాము. తప్పనిసరివి ఎల్లప్పుడూ ఆన్‌లో ఉంటాయి. అనలిటిక్స్, మార్కెటింగ్ మీరు అంగీకరించే వరకు ఆఫ్‌లో ఉంటాయి; వాటిని తిరస్కరించినా {site}లో మీరు చేయగలిగే పనులకు ఏ ఆటంకం ఉండదు.",
+    "tableTitle": "మేము ఉపయోగించే కుకీలు మరియు నిల్వ",
+    "changeTitle": "మీ ఎంపికను మార్చండి లేదా ఉపసంహరించుకోండి",
+    "changeBody": "మీ ఎంపికను ఎప్పుడైనా మార్చవచ్చు; సమ్మతి ఇవ్వడమంత సులభంగా ఉపసంహరించుకోవచ్చు. మీరు ఉపసంహరించుకుంటే, ఆ వినియోగాన్ని ఆపి, సంబంధిత కుకీలను, నిల్వను తొలగిస్తాము.",
+    "gpcTitle": "గ్లోబల్ ప్రైవసీ కంట్రోల్",
+    "gpcBody": "మీ బ్రౌజర్ గ్లోబల్ ప్రైవసీ కంట్రోల్ సిగ్నల్ పంపితే, మార్కెటింగ్‌ను డిఫాల్ట్‌గా ఆఫ్‌లో ఉన్నట్లు పరిగణిస్తాము. కావాలంటే ప్రాధాన్యతలలో మీరే దాన్ని ఆన్ చేసుకోవచ్చు.",
+    "grievanceTitle": "ప్రశ్నలు లేదా ఫిర్యాదులు",
+    "grievanceBody": "కుకీలు లేదా మీ వ్యక్తిగత డేటా వినియోగం గురించి ప్రశ్న లేదా ఫిర్యాదు ఉంటే మా ఫిర్యాదుల అధికారిని సంప్రదించండి.",
+    "grievanceLink": "ఫిర్యాదుల పరిష్కారం"
   }
 }

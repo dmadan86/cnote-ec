@@ -76,6 +76,10 @@
         "address_proof": {
           "label": "Address proof",
           "tips": "Optional. Electricity bill or rent agreement page showing the business address."
+        },
+        "shop_establishment": {
+          "label": "Shop establishment licence",
+          "tips": "Optional. Shops and Establishments registration showing the business name, address and registration date."
         }
       },
       "optional": "(optional)",
@@ -122,7 +126,28 @@
       "expiredOn": "Your last audit lapsed on {date}. Contact support to renew.",
       "expiredBody": "Your last audit lapsed. Contact support to renew.",
       "failed": "Not passed",
-      "failedBody": "Contact support to discuss next steps."
+      "failedBody": "Contact support to discuss next steps.",
+      "submitted": "{partner} has submitted the site audit. Our team is reviewing it.",
+      "reaudit": "A fresh audit is due before {date} to keep your Tier 3 badge."
+    },
+    "registry": {
+      "title": "Registry checks",
+      "intro": "Optional. We check your Udyam registration and company record against the official registries. Each verified record adds to your trust score.",
+      "udyamLabel": "Udyam registration number",
+      "udyamHint": "Format UDYAM-XX-00-0000000, from your Udyam certificate.",
+      "cinLabel": "CIN (companies and LLPs)",
+      "cinHint": "21 characters, from your certificate of incorporation.",
+      "verify": "Verify",
+      "pending": "Checking…",
+      "verifiedOn": "Verified on {date}",
+      "notVerified": "Not verified yet",
+      "passed": "Verified. This adds to your trust score.",
+      "review": "We could not fully match your details to the registry. Our team will review them; there is nothing more to do.",
+      "failed": "Could not verify: {reason}",
+      "unavailable": "The registry is unavailable right now. Please try again shortly.",
+      "errUdyam": "Enter a valid Udyam number like UDYAM-MH-26-0001234.",
+      "errCin": "Enter a valid 21-character CIN.",
+      "inactive": "The MCA records show your company as {status}. Your trust score is reduced until this is resolved."
     }
   }
 }

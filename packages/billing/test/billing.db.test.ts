@@ -245,7 +245,7 @@ describe("worker module", () => {
   it("registers BusinessCreated handler and the scheduled jobs", async () => {
     expect(worker.name).toBe("billing");
     expect(Object.keys(worker.handlers ?? {})).toEqual(["BusinessCreated"]);
-    expect(worker.jobs!.map((j) => j.name)).toEqual(["billing.end-subscriptions", "billing.annual-credits", "billing.renewal-reminders", "billing.refund-retry", "billing.expire-credits"]);
+    expect(worker.jobs!.map((j) => j.name)).toEqual(["billing.end-subscriptions", "billing.annual-credits", "billing.renewal-reminders", "billing.refund-retry", "billing.refund-poll", "billing.expire-credits"]);
     await worker.handlers!.BusinessCreated!({ payload: { businessId: b } } as never);
     expect(await getBalance(b)).toBe(10);
     for (const j of worker.jobs!) await j.run();

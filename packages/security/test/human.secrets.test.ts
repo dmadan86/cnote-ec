@@ -146,7 +146,7 @@ describe("validateSecrets matrix", () => {
   const BI = Buffer.alloc(32, 9).toString("base64");
   const prod = (over: Record<string, string | undefined> = {}) => ({
     NODE_ENV: "production", DATABASE_URL: "postgres://x/db?sslmode=require", REDIS_URL: "rediss://x", JWT_SECRET_WEB: STRONG, JWT_SECRET_SELLER: STRONG2, JWT_SECRET_ADMIN: STRONG3,
-    FIELD_ENCRYPTION_KEYS: KEYS, BLIND_INDEX_KEY: BI, TURNSTILE_SECRET: "t", NEXT_PUBLIC_TURNSTILE_SITE_KEY: "s", ...over,
+    FIELD_ENCRYPTION_KEYS: KEYS, BLIND_INDEX_KEY: BI, TURNSTILE_SECRET: "t", NEXT_PUBLIC_TURNSTILE_SITE_KEY: "s", ATTACHMENT_SCANNER: "clamav", CLAMAV_HOST: "clamav.internal", ...over,
   });
   const apps: SecretsApp[] = ["web", "seller", "admin", "studio", "api", "worker"];
   const errs = (app: SecretsApp, env: Record<string, string | undefined>) => validateSecrets(app, env).errors.join("\n");
@@ -241,6 +241,24 @@ describe("validateSecrets matrix", () => {
     expect(e2e.warnings.join()).toMatch(/OTP_DEV_ECHO/);
     expect(errs("api", { ...prod({ OTP_DEV_ECHO: "true" }), NODE_ENV: "development" })).toBe("");
   });
+  it("production refuses uploads without a malware scanner unless uploads are off or the risk is waived", () => {
+    for (const app of ["web", "seller"] as const) {
+      expect(errs(app, prod({ ATTACHMENT_SCANNER: undefined, CLAMAV_HOST: undefined })), app).toMatch(/malware scanner/);
+      expect(errs(app, prod({ ATTACHMENT_SCANNER: "mock" })), app).toMatch(/malware scanner/);
+      expect(errs(app, prod({ ATTACHMENT_SCANNER: "off" })), app).toMatch(/ATTACHMENT_SCAN_WAIVER/);
+    }
+    expect(errs("web", prod({ CLAMAV_HOST: undefined }))).toMatch(/CLAMAV_HOST is not set/);
+    expect(errs("web", prod({ CLAMAV_HOST: "  " }))).toMatch(/CLAMAV_HOST is not set/);
+    // uploads off: no scanner needed
+    for (const off of ["false", "0", "no", "off"]) expect(errs("web", prod({ ATTACHMENT_SCANNER: undefined, CLAMAV_HOST: undefined, RFQ_ATTACHMENTS_ENABLED: off }))).toBe("");
+    // explicit waiver downgrades to a loud warning
+    const waived = validateSecrets("web", prod({ ATTACHMENT_SCANNER: "mock", ATTACHMENT_SCAN_WAIVER: "1" }));
+    expect(waived.errors).toEqual([]);
+    expect(waived.warnings.join()).toMatch(/NOT virus-scanned/);
+    // apps that take no uploads are not affected; non-production never errors
+    for (const app of ["admin", "studio", "worker", "api"] as const) expect(errs(app, prod({ ATTACHMENT_SCANNER: undefined, CLAMAV_HOST: undefined }))).toBe("");
+    expect(errs("web", { ...prod({ ATTACHMENT_SCANNER: undefined, CLAMAV_HOST: undefined }), NODE_ENV: "development" })).toBe("");
+  });
   it("production requires the webhook secret of every ENABLED provider", () => {
     const cases: [Record<string, string>, RegExp][] = [
       [{ PAYMENTS_PROVIDER: "razorpay" }, /RAZORPAY_WEBHOOK_SECRET/],
@@ -256,11 +274,37 @@ describe("validateSecrets matrix", () => {
     expect(errs("api", prod({ PAYMENTS_PROVIDER: "razorpay", RAZORPAY_WEBHOOK_SECRET: "s" }))).toBe("");
     expect(errs("api", prod({ ESCROW_ENABLED: "false", CREDIT_ENABLED: "false", KYC_PROVIDER: "mock" }))).toBe("");
   });
+  it("production: registry, IDfy and reachability IVR configuration (trust_verif)", () => {
+    expect(errs("api", prod({ UDYAM_PROVIDER: "mock" }))).toMatch(/UDYAM_PROVIDER=mock is not allowed/);
+    expect(errs("api", prod({ MCA_PROVIDER: "mock" }))).toMatch(/MCA_PROVIDER=mock is not allowed/);
+    expect(errs("api", prod({ UDYAM_PROVIDER: "surepass" }))).toMatch(/REGISTRY_PROVIDER_KEY/);
+    expect(errs("api", prod({ UDYAM_PROVIDER: "surepass", MCA_PROVIDER: "surepass", REGISTRY_PROVIDER_KEY: "tok" }))).toBe("");
+    expect(errs("api", prod({ KYC_PROVIDER: "idfy", KYC_WEBHOOK_SECRET: "s" }))).toMatch(/KYC_ACCOUNT_ID/);
+    expect(errs("api", prod({ KYC_PROVIDER: "idfy", KYC_WEBHOOK_SECRET: "s", KYC_ACCOUNT_ID: "a" }))).toBe("");
+    expect(errs("api", prod({ REACHABILITY_IVR_PROVIDER: "mock" }))).toMatch(/REACHABILITY_IVR_PROVIDER=mock/);
+    expect(errs("api", prod({ REACHABILITY_IVR_PROVIDER: "exotel" }))).toMatch(/REACHABILITY_URL_SECRET/);
+    const strong = "u".repeat(32), other = "w".repeat(32);
+    const exotel = { REACHABILITY_IVR_PROVIDER: "exotel", REACHABILITY_IVR_KEY: "k", REACHABILITY_IVR_SECRET: "s" };
+    expect(errs("api", prod({ ...exotel, REACHABILITY_URL_SECRET: "short" }))).toMatch(/weak/);
+    expect(errs("api", prod({ ...exotel, REACHABILITY_URL_SECRET: strong, REACHABILITY_WEBHOOK_SECRET: strong }))).toMatch(/must differ/);
+    expect(errs("api", prod({ ...exotel, REACHABILITY_URL_SECRET: strong, REACHABILITY_WEBHOOK_SECRET: other }))).toBe("");
+    expect(errs("api", prod({ ...exotel, REACHABILITY_IVR_PROVIDER: "knowlarity" }))).toMatch(/REACHABILITY_WEBHOOK_SECRET/);
+    expect(errs("api", prod({ ...exotel, REACHABILITY_IVR_PROVIDER: "knowlarity", REACHABILITY_WEBHOOK_SECRET: other }))).toBe("");
+    expect(errs("api", prod({ REACHABILITY_IVR_PROVIDER: "off" }))).toBe("");
+  });
   it("production rejects a weak REVALIDATE_SECRET and requires DOMAIN_CHECK_SECRET with custom domains", () => {
     expect(errs("web", prod({ REVALIDATE_SECRET: "short" }))).toMatch(/REVALIDATE_SECRET/);
     expect(errs("web", prod({ REVALIDATE_SECRET: "x".repeat(32) }))).toBe("");
     expect(errs("web", prod({ EDGE_PROVIDER: "cloudflare" }))).toMatch(/DOMAIN_CHECK_SECRET/);
     expect(errs("web", prod({ EDGE_PROVIDER: "cloudflare", DOMAIN_CHECK_SECRET: "d" }))).toBe("");
+  });
+  it("production requires carrier credentials for a live FREIGHT_PROVIDER", () => {
+    expect(errs("web", prod({ FREIGHT_PROVIDER: "shiprocket" }))).toMatch(/SHIPROCKET_EMAIL/);
+    expect(errs("web", prod({ FREIGHT_PROVIDER: "shiprocket", SHIPROCKET_EMAIL: "a@b.c" }))).toMatch(/SHIPROCKET_PASSWORD/);
+    expect(errs("web", prod({ FREIGHT_PROVIDER: "shiprocket", SHIPROCKET_EMAIL: "a@b.c", SHIPROCKET_PASSWORD: "p" }))).toBe("");
+    expect(errs("web", prod({ FREIGHT_PROVIDER: "delhivery" }))).toMatch(/DELHIVERY_API_TOKEN/);
+    expect(errs("web", prod({ FREIGHT_PROVIDER: "delhivery", DELHIVERY_API_TOKEN: "t" }))).toBe("");
+    expect(errs("web", prod({ FREIGHT_PROVIDER: "heuristic" }))).toBe("");
   });
   it("production requires TLS to Postgres and Redis unless loopback or explicitly waived", () => {
     expect(errs("api", prod({ DATABASE_URL: "postgres://u:p@db.internal/cnote" }))).toMatch(/DATABASE_URL has no TLS/);

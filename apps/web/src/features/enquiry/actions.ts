@@ -1,12 +1,14 @@
 "use server";
 // Buyer-side server actions. Each re-checks the session: server actions are reachable by direct POST.
-import { pickSellers, createEnquiry, decideQuote, reportDeal, sendMessage, setQuoteShortlisted, type AttachmentUpload, type EnquiryView } from "@cnote/enquiry";
+import { awardLines, pickSellers, createEnquiry, decideQuote, reportDeal, sendMessage, setQuoteShortlisted, type AttachmentUpload, type DecideQuoteResult, type EnquiryView } from "@cnote/enquiry";
+import { localizeApprovalError } from "@/features/approvals/localize";
 import { actorOf, requireBusiness, type ActionResult } from "@cnote/next-kit";
 import { clientIp } from "@cnote/security/client-ip";
 import { headers } from "next/headers";
 import { runLocalized } from "@/i18n/errors";
 import { revalidatePath } from "next/cache";
 import { attributeEnquiryFromCookie } from "@/features/ads/slots";
+import { linesFromForm } from "./bom";
 
 const str = (f: FormData, k: string) => {
   const v = f.get(k);
@@ -38,6 +40,7 @@ export async function postRfqAction(_prev: ActionResult<EnquiryView> | null, f: 
       {
         title: str(f, "title") ?? "",
         requirement: str(f, "requirement") ?? "",
+        lines: linesFromForm(f),
         categorySlug: str(f, "categorySlug"),
         quantity: num(f, "quantity"),
         quantityUnit: str(f, "quantityUnit"),
@@ -55,7 +58,7 @@ export async function postRfqAction(_prev: ActionResult<EnquiryView> | null, f: 
         preferredSellerId: str(f, "preferredSellerId"),
         language: s.preferredLanguage,
       },
-      { buyerPhoneVerified: s.phoneVerified, ip: clientIp(await headers()) },
+      { buyerPhoneVerified: s.phoneVerified, ip: clientIp(await headers()), userAgent: (await headers()).get("user-agent") },
     );
     await attributeEnquiryFromCookie({ enquiryId: enquiry.id, buyerBusinessId: s.business.id, listingId: str(f, "preferredListingId") });
     revalidatePath("/buyer/enquiries");
@@ -93,15 +96,17 @@ export async function reportDealAction(_prev: ActionResult | null, f: FormData):
 }
 
 /** Quote comparison actions (buyer). The deal value is computed server-side from the stored quote. */
-export async function quoteDecisionAction(_prev: ActionResult | null, f: FormData): Promise<ActionResult> {
+export async function quoteDecisionAction(_prev: ActionResult<DecideQuoteResult> | null, f: FormData): Promise<ActionResult<DecideQuoteResult>> {
   const enquiryId = str(f, "enquiryId") ?? "";
   const s = await requireBusiness(`/buyer/enquiries/${enquiryId}`);
   const decision = str(f, "decision");
-  return runLocalized(async () => {
+  const r = await runLocalized(async () => {
     if (decision !== "accept" && decision !== "decline") throw new Error("invalid decision");
-    await decideQuote(actorOf(s), str(f, "quoteId") ?? "", decision);
+    const res = await decideQuote(actorOf(s), str(f, "quoteId") ?? "", decision);
     revalidatePath(`/buyer/enquiries/${enquiryId}`);
+    return res;
   });
+  return localizeApprovalError(r); // approval/role errors are localised from the `approvals` catalogue
 }
 
 export async function shortlistQuoteAction(_prev: ActionResult | null, f: FormData): Promise<ActionResult> {
@@ -110,5 +115,20 @@ export async function shortlistQuoteAction(_prev: ActionResult | null, f: FormDa
   return runLocalized(async () => {
     await setQuoteShortlisted(actorOf(s), str(f, "quoteId") ?? "", f.get("shortlisted") === "true");
     revalidatePath(`/buyer/enquiries/${enquiryId}`);
+  });
+}
+
+/** Per-line award (rfq-multiline): `award` fields are "<enquiryLineId>:<quoteId>". Amounts come from the stored, server-computed line totals. */
+export async function awardLinesAction(_prev: ActionResult<{ orders: number }> | null, f: FormData): Promise<ActionResult<{ orders: number }>> {
+  const enquiryId = str(f, "enquiryId") ?? "";
+  const s = await requireBusiness(`/buyer/enquiries/${enquiryId}`);
+  return runLocalized(async () => {
+    const awards = f.getAll("award").flatMap((v) => {
+      const [enquiryLineId, quoteId] = String(v).split(":");
+      return enquiryLineId && quoteId ? [{ enquiryLineId, quoteId }] : [];
+    });
+    const { results } = await awardLines(actorOf(s), enquiryId, awards);
+    revalidatePath(`/buyer/enquiries/${enquiryId}`);
+    return { orders: results.length };
   });
 }

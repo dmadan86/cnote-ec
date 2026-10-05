@@ -52,7 +52,7 @@ describe("voice note keys", () => {
 
 describe("invoice and KYC keys", () => {
   it("are private-only; invoices map to application/pdf", () => {
-    for (const k of ["invoices/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10.pdf", "kyc/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/pan.jpg", "disputes/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/e1.jpg", "quality/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/p1.jpg", "rfq/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/a1.pdf"]) {
+    for (const k of ["invoices/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10.pdf", "kyc/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/pan.jpg", "disputes/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/e1.jpg", "quality/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/p1.jpg", "rfq/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/a1.pdf", "grn/0b6b1f0e-5f1a-4c55-9a35-3c1a4b0a9d10/p1.jpg"]) {
       expect(isValidMediaKey(k, "private")).toBe(true);
       expect(isValidMediaKey(k, "public")).toBe(false);
     }

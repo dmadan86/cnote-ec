@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { LanguageSwitcher } from "@/i18n/language-switcher";
-import { CookieSettingsLink } from "@/features/consent/settings-link";
+import { CookieLinks } from "@/features/consent/settings-link";
 import { Logo } from "@/features/shell/logo";
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -27,7 +27,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
         <div className="mx-auto w-full max-w-md">{children}</div>
       </main>
       <footer className="px-4 pb-4 text-center sm:px-8">
-        <CookieSettingsLink />
+        <CookieLinks />
       </footer>
     </div>
   );

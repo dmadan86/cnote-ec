@@ -2,6 +2,7 @@
 import { DomainError } from "@cnote/core";
 import { prisma, type Enquiry, type Match } from "@cnote/db";
 import { requirementAttachments } from "./attachments";
+import { linesByEnquiry } from "./lines";
 import { leadCapFor, offerMatches, rankedCandidates } from "./matching";
 import { categories, enquiryBase, lockRow, matchView, profiles } from "./support";
 import type { Actor, CandidateView, EnquiryView } from "./types";
@@ -12,14 +13,15 @@ async function toViews(rows: Row[]): Promise<EnquiryView[]> {
   const cats = await categories();
   const profs = await profiles(rows.flatMap((r) => r.matches.map((m) => m.sellerBusinessId)));
   const ids = rows.map((r) => r.id);
-  const [files, quoteRows] = await Promise.all([
+  const [files, lineMap, quoteRows] = await Promise.all([
     requirementAttachments(ids),
+    linesByEnquiry(ids),
     ids.length ? prisma.quote.findMany({ where: { conversation: { match: { enquiryId: { in: ids } } } }, select: { conversation: { select: { match: { select: { enquiryId: true } } } } } }) : [],
   ]);
   const quoteCounts = new Map<string, number>();
   for (const q of quoteRows) quoteCounts.set(q.conversation.match.enquiryId, (quoteCounts.get(q.conversation.match.enquiryId) ?? 0) + 1);
   return rows.map((e) => ({
-    ...enquiryBase(e, cats.find((c) => c.id === e.categoryId) ?? null, files.get(e.id) ?? []),
+    ...enquiryBase(e, cats.find((c) => c.id === e.categoryId) ?? null, files.get(e.id) ?? [], lineMap.get(e.id) ?? []),
     quoteCount: quoteCounts.get(e.id) ?? 0,
     matches: [...e.matches]
       .sort((a, b) => a.rank - b.rank)

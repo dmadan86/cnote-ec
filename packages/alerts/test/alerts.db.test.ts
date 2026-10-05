@@ -7,7 +7,7 @@ const h = vi.hoisted(() => ({
   matches: [] as string[],
   searchFails: false,
   sellerListings: new Map<string, { id: string; title: string; createdAt: string; category: { id: string; slug: string }; pricePaise: number | null; priceUnit: string | null; seller?: { name: string } }[]>(),
-  publicListings: new Map<string, { id: string; title: string; category: { id: string; slug: string } }>(),
+  publicListings: new Map<string, { id: string; title: string; category: { id: string; slug: string }; availability?: string }>(),
   savers: new Map<string, { personId: string; savedPricePaise: number | null }[]>(),
   savedIds: [] as string[],
 }));
@@ -32,7 +32,7 @@ vi.mock("@cnote/wishlist", () => ({
 
 import {
   alertUnsubscribeUrl, createSavedSearch, deleteSavedSearch, eraseAlertsData, exportAlertsData, followSupplier, getAlertSettings, isFollowing, listFollowedSuppliers, listSavedSearches,
-  onListingPriceChanged, onListingPublished, purgeOldDispatches, runFollowedDigests, runSavedSearchDigests, setAlertSetting, setSearchFrequency, unfollowSupplier, unsubscribeByToken,
+  onListingAvailabilityChanged, onListingPriceChanged, onListingPublished, purgeOldDispatches, runFollowedDigests, runSavedSearchDigests, setAlertSetting, setSearchFrequency, unfollowSupplier, unsubscribeByToken,
   countFollowers, signUnsubscribeToken, verifyUnsubscribeToken, worker,
 } from "../src";
 
@@ -234,9 +234,9 @@ describe("followed-supplier digest job", () => {
 });
 
 describe("price-drop and back-in-stock alerts", () => {
-  const listing = (title = "Box") => {
+  const listing = (title = "Box", availability = "in_stock") => {
     const id = randomUUID();
-    h.publicListings.set(id, { id, title, category: { id: "c", slug: "c" } });
+    h.publicListings.set(id, { id, title, category: { id: "c", slug: "c" }, availability });
     return id;
   };
 
@@ -270,7 +270,7 @@ describe("price-drop and back-in-stock alerts", () => {
     expect(await events(p)).toEqual([]);
   });
 
-  it("back in stock reaches opted-in savers only", async () => {
+  it("a listing that is live again is its own alert kind, not a stock claim, and shares the back-in-stock opt-in", async () => {
     const yes = newPerson(), no = newPerson();
     const l = listing("Yarn");
     h.savers.set(l, [{ personId: yes, savedPricePaise: null }, { personId: no, savedPricePaise: null }]);
@@ -278,8 +278,44 @@ describe("price-drop and back-in-stock alerts", () => {
     const e = evt({ listingId: l, sellerBusinessId: randomUUID(), categoryId: "c" }, 5151515);
     expect(await onListingPublished(e)).toBe(1);
     expect(await onListingPublished(e)).toBe(0);
-    expect(await events(yes)).toEqual([expect.objectContaining({ alertType: "back_in_stock", label: "Yarn", fromPricePaise: null })]);
+    const got = await events(yes);
+    expect(got).toEqual([expect.objectContaining({ alertType: "listing_relisted", label: "Yarn", fromPricePaise: null })]);
+    expect(got[0]).not.toHaveProperty("availability");
     expect(await events(no)).toEqual([]);
+  });
+
+  it("back in stock fires only on a real out_of_stock -> in_stock | made_to_order transition", async () => {
+    const yes = newPerson(), no = newPerson();
+    const l = listing("Steel rod");
+    h.savers.set(l, [{ personId: yes, savedPricePaise: null }, { personId: no, savedPricePaise: null }]);
+    await setAlertSetting(yes, "back_in_stock", true);
+    const change = (fromAvailability: string, toAvailability: string, id: number) => evt({ listingId: l, sellerBusinessId: randomUUID(), fromAvailability, toAvailability, availableQty: null, variantId: null }, id);
+    for (const [from, to, id] of [["in_stock", "out_of_stock", 1], ["in_stock", "made_to_order", 2], ["made_to_order", "in_stock", 3], ["out_of_stock", "out_of_stock", 4]] as const) {
+      expect(await onListingAvailabilityChanged(change(from, to, 7000 + id))).toBe(0);
+    }
+    expect(await events(yes)).toEqual([]);
+    const back = change("out_of_stock", "in_stock", 7100);
+    expect(await onListingAvailabilityChanged(back)).toBe(1);
+    expect(await onListingAvailabilityChanged(back)).toBe(0); // redelivery
+    expect(await onListingAvailabilityChanged(change("out_of_stock", "made_to_order", 7101))).toBe(1);
+    expect(await events(yes)).toEqual([
+      expect.objectContaining({ alertType: "back_in_stock", label: "Steel rod", availability: "in_stock", href: `/p/${l}` }),
+      expect.objectContaining({ alertType: "back_in_stock", availability: "made_to_order" }),
+    ]);
+    expect(await events(no)).toEqual([]);
+  });
+
+  it("skips a back-in-stock for a listing that is not public, or flipped out again meanwhile", async () => {
+    const p = newPerson();
+    await setAlertSetting(p, "back_in_stock", true);
+    const gone = randomUUID();
+    const flipped = listing("Flipped", "out_of_stock");
+    h.savers.set(gone, [{ personId: p, savedPricePaise: null }]);
+    h.savers.set(flipped, [{ personId: p, savedPricePaise: null }]);
+    const e = (listingId: string, id: number) => evt({ listingId, sellerBusinessId: randomUUID(), fromAvailability: "out_of_stock", toAvailability: "in_stock", availableQty: null, variantId: null }, id);
+    expect(await onListingAvailabilityChanged(e(gone, 7200))).toBe(0);
+    expect(await onListingAvailabilityChanged(e(flipped, 7201))).toBe(0);
+    expect(await events(p)).toEqual([]);
   });
 
   it("wires the handlers on the module worker", async () => {
@@ -288,7 +324,8 @@ describe("price-drop and back-in-stock alerts", () => {
     const l = listing("Wired");
     h.savers.set(l, [{ personId: p, savedPricePaise: null }]);
     await worker.handlers.ListingPublished!(evt({ listingId: l, sellerBusinessId: randomUUID(), categoryId: "c" }, 6161616) as never);
-    expect(await events(p)).toHaveLength(1);
+    await worker.handlers.ListingAvailabilityChanged!(evt({ listingId: l, sellerBusinessId: randomUUID(), fromAvailability: "out_of_stock", toAvailability: "in_stock", availableQty: null, variantId: null }, 6161617) as never);
+    expect((await events(p)).map((x) => x.alertType)).toEqual(["listing_relisted", "back_in_stock"]);
     expect(worker.jobs.map((j) => j.name)).toEqual(["alerts.saved-search-digests", "alerts.followed-digests"]);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     await Promise.all(worker.jobs.map((j) => j.run()));

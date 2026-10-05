@@ -1,19 +1,27 @@
-import Link from "next/link";
+"use client";
 import { buttonClasses, Container } from "@cnote/ui";
+import { HtmlLang } from "@/i18n/html-shell";
+import { useFatalView } from "@/i18n/fatal-locale";
 
+/**
+ * Root 404: any URL no route matches (for example /hi/typo). It is prerendered once for every URL, so the language is taken
+ * from the browser URL after hydration (see fatal-locale.ts) and <html lang> is corrected with it.
+ */
 export default function NotFound() {
+  const { locale, copy, home, search } = useFatalView();
   return (
     <Container className="py-20 text-center">
-      <p className="text-sm font-semibold text-brand-700">404</p>
-      <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-ink">We could not find that page</h1>
-      <p className="mx-auto mt-3 max-w-md text-muted">The link may be old or the product may no longer be listed.</p>
+      <HtmlLang locale={locale} />
+      <p className="text-sm font-semibold text-brand-700">{copy.notFoundCode}</p>
+      <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-ink">{copy.notFoundTitle}</h1>
+      <p className="mx-auto mt-3 max-w-md text-muted">{copy.notFoundText}</p>
       <div className="mt-6 flex justify-center gap-3">
-        <Link href="/" className={buttonClasses("primary", "lg")}>
-          Go to home
-        </Link>
-        <Link href="/search" className={buttonClasses("outline", "lg")}>
-          Search products
-        </Link>
+        <a href={home} className={buttonClasses("primary", "lg")}>
+          {copy.goHome}
+        </a>
+        <a href={search} className={buttonClasses("outline", "lg")}>
+          {copy.searchProducts}
+        </a>
       </div>
     </Container>
   );

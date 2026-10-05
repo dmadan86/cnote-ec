@@ -7,6 +7,8 @@ import { useActionState, useState, useSyncExternalStore } from "react";
 import { PINCODE_COOKIE } from "@/features/shell/site";
 import { hasFileEntries, submitFormAsAction } from "@cnote/next-kit/upload-client";
 import { postRfqAction } from "./actions";
+import { BomEditor } from "./bom-editor";
+import type { BomRow } from "./bom";
 import { RfqResult } from "./rfq-result";
 import { trustLabels } from "./trust-labels";
 
@@ -109,6 +111,8 @@ export interface RfqFormProps {
     sameSupplier?: { id: string; name: string };
     /** Raised from an approved sample: it is linked to the new requirement as its quality reference (docs/design/samples.md). */
     sampleId?: string;
+    /** Lines of an earlier multi-line requirement ("Request again"): opens the form in bill-of-materials mode. */
+    lines?: Partial<BomRow>[];
   };
 }
 
@@ -118,6 +122,8 @@ export function RfqForm({ categories, defaults }: RfqFormProps) {
   const t2 = useTranslations("rfq2");
   const tr = useTranslations("retention");
   const tc = useTranslations("cards");
+  const tl = useTranslations("rfqLines");
+  const [multi, setMulti] = useState(!!defaults?.lines && defaults.lines.length > 1);
   const tierLabels = trustLabels(tc).tiers;
   // "Deliver to" pincode (cnote_pincode, non-httpOnly) prefills the delivery pincode; once the buyer types, their value wins.
   const cookiePin = useSyncExternalStore(noopSubscribe, readPincodeCookie, () => null);
@@ -164,6 +170,22 @@ export function RfqForm({ categories, defaults }: RfqFormProps) {
         </Select>
       </Field>
 
+      <fieldset className="flex flex-col gap-3">
+        <legend className="text-sm font-medium text-ink">{tl("modeLegend")}</legend>
+        <div className="flex flex-wrap gap-3">
+          {([false, true] as const).map((m) => (
+            <label key={String(m)} className="flex min-h-11 items-center gap-2 rounded-lg border border-line bg-surface px-3 text-sm">
+              <input type="radio" name="itemsMode" value={m ? "many" : "one"} checked={multi === m} onChange={() => setMulti(m)} className="size-4 accent-brand-600" />
+              <span className="font-medium text-ink">{m ? tl("modeMany") : tl("modeOne")}</span>
+            </label>
+          ))}
+        </div>
+        <p className="text-xs text-muted">{multi ? tl("modeManyHint") : tl("modeOneHint")}</p>
+      </fieldset>
+
+      {multi ? (
+        <BomEditor categories={categories} initialRows={defaults?.lines ?? (defaults?.quantity ? [{ itemName: defaults.title ?? "", quantity: String(defaults.quantity), unit: rfqUnit(defaults.unit) }] : undefined)} fieldErrors={err("lines")} />
+      ) : (
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label={t("quantity")} htmlFor="quantity" error={err("quantity")}>
           <Input id="quantity" name="quantity" type="number" inputMode="numeric" min={1} step={1} defaultValue={defaults?.quantity} />
@@ -179,6 +201,7 @@ export function RfqForm({ categories, defaults }: RfqFormProps) {
           <Input id="targetPrice" name="targetPrice" type="number" inputMode="decimal" min={0} step="0.01" defaultValue={defaults?.targetPriceRupees} />
         </Field>
       </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label={t("deliveryCity")} htmlFor="deliveryCity" error={err("deliveryCity")}>

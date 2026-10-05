@@ -11,6 +11,7 @@ import { v1 } from "./routes/v1";
 import { creditWebhook } from "./routes/webhooks/credit";
 import { escrowWebhook } from "./routes/webhooks/escrow";
 import { kycWebhook } from "./routes/webhooks/kyc";
+import { reachabilityWebhook } from "./routes/webhooks/reachability";
 import { ondcRoutes } from "./routes/ondc";
 import { paymentsWebhook } from "./routes/webhooks/payments";
 import { whatsappWebhook } from "./routes/webhooks/whatsapp";
@@ -82,6 +83,7 @@ export function createApp(deps: { health?: HealthCheck; onServerError?: (err: un
   // Provider webhooks: signature-authenticated, outside /v1 and the OpenAPI document.
   app.route("/webhooks/whatsapp", whatsappWebhook);
   app.route("/webhooks/kyc", kycWebhook);
+  app.route("/webhooks/reachability", reachabilityWebhook);
   app.route("/webhooks/payments", paymentsWebhook);
   app.route("/webhooks/escrow", escrowWebhook);
   app.route("/webhooks/credit", creditWebhook);

@@ -5,6 +5,10 @@ import { DomainError, emit } from "@cnote/core";
 import { prisma, type Order, type OrderStatus, type Tx } from "@cnote/db";
 import { profiles } from "./support";
 import { availableFulfilmentStages, type FulfilmentStage } from "./fulfilment";
+import { onOrderCancelledTx } from "./purchase-orders";
+import { istDate } from "./po-core";
+import { onOrderCancelledReleaseCallOffTx } from "./rate-contracts";
+import { onOrderDeliveredTx } from "./supplier-invoices";
 import type { Actor } from "./types";
 
 export type OrderRole = "buyer" | "seller";
@@ -128,6 +132,11 @@ async function toViews(rows: Order[], actor: Actor): Promise<OrderView[]> {
     profiles(rows.flatMap((r) => [r.buyerBusinessId, r.sellerBusinessId])),
   ]);
   const titles = new Map(enquiries.map((e) => [e.id, e.title]));
+  // call-off orders have no enquiry: name them after their rate contract
+  const callOffs = await prisma.rateContractCallOff.findMany({
+    where: { orderId: { in: rows.filter((r) => !r.enquiryId).map((r) => r.id) } }, select: { orderId: true, callOffNo: true, contract: { select: { number: true } } },
+  });
+  const callOffTitle = new Map(callOffs.map((c) => [c.orderId, `Call-off ${c.callOffNo} on ${c.contract.number}`]));
   return rows.map((o) => {
     const role = roleOf(o, actor) as OrderRole;
     const other = role === "buyer" ? o.sellerBusinessId : o.buyerBusinessId;
@@ -135,7 +144,7 @@ async function toViews(rows: Order[], actor: Actor): Promise<OrderView[]> {
       id: o.id,
       matchId: o.matchId,
       enquiryId: o.enquiryId,
-      enquiryTitle: (o.enquiryId ? titles.get(o.enquiryId) : null) ?? (o.settlement === "ondc" ? "ONDC order" : "Requirement"),
+      enquiryTitle: (o.enquiryId ? titles.get(o.enquiryId) : null) ?? callOffTitle.get(o.id) ?? (o.settlement === "ondc" ? "ONDC order" : "Requirement"),
       externalRef: o.externalRef,
       quoteId: o.quoteId,
       role,
@@ -172,6 +181,8 @@ export interface RecordOrderInput {
   pricePaise?: number | null;
   /** Explicit total (e.g. the value reported with a "won" deal); computed from price x quantity otherwise. */
   totalPaise?: number | null;
+  /** Per-line order (rfq-multiline): the quote's single price/quantity are not the order's, so quantity/unit/price stay null; the lines live in EnquiryLineAward. */
+  lineItems?: boolean;
 }
 
 /** Bigint-safe total: per-unit paise x whole units. */
@@ -211,9 +222,9 @@ export async function recordOrderTx(tx: Tx, matchId: string, input: RecordOrderI
     quote = await tx.quote.findFirst({ where: { conversationId: match.conversation.id }, orderBy: { createdAt: "desc" } });
   }
 
-  const quantity = input.quantity ?? quote?.quantity ?? null;
-  const unit = input.unit ?? quote?.unit ?? null;
-  const pricePaise = input.pricePaise != null ? BigInt(input.pricePaise) : (quote?.pricePaise ?? null);
+  const quantity = input.lineItems ? null : (input.quantity ?? quote?.quantity ?? null);
+  const unit = input.lineItems ? null : (input.unit ?? quote?.unit ?? null);
+  const pricePaise = input.lineItems ? null : input.pricePaise != null ? BigInt(input.pricePaise) : (quote?.pricePaise ?? null);
   const totalPaise = input.totalPaise != null ? BigInt(input.totalPaise) : computeTotalPaise(pricePaise, quantity);
 
   const order = await tx.order.create({
@@ -331,17 +342,51 @@ async function loadLocked(tx: Tx, actor: Actor, orderId: string): Promise<{ orde
   return { order, role };
 }
 
-async function persist(tx: Tx, order: Order, next: OrderState): Promise<Order> {
+async function persist(tx: Tx, order: Order, next: OrderState, actorBusinessId: string = order.buyerBusinessId): Promise<Order> {
+  const now = new Date();
+  const deliveredNow = next.status === "delivered" && order.status !== "delivered";
   const updated = await tx.order.update({
     where: { id: order.id },
-    data: { status: next.status, buyerConfirmedAt: next.buyerConfirmedAt, sellerConfirmedAt: next.sellerConfirmedAt },
+    data: { status: next.status, buyerConfirmedAt: next.buyerConfirmedAt, sellerConfirmedAt: next.sellerConfirmedAt, ...(deliveredNow ? { deliveredAt: now } : {}) },
   });
   if (updated.status !== order.status) {
     await emit(tx, "OrderStatusChanged", { type: "order", id: order.id }, {
       orderId: order.id, buyerBusinessId: order.buyerBusinessId, sellerBusinessId: order.sellerBusinessId, from: order.status, to: updated.status,
     });
+    // Purchase orders / supplier invoices follow the order (docs/design/purchase-orders.md): delivery fixes the MSME acceptance date,
+    // cancellation cancels the PO and withdraws unpaid invoices.
+    if (deliveredNow) await onOrderDeliveredTx(tx, order.id, now);
+    if (updated.status === "cancelled") {
+      await onOrderCancelledTx(tx, order.id, actorBusinessId);
+      await onOrderCancelledReleaseCallOffTx(tx, order.id, now); // rate contracts: the call-off's quantities go back to the contract
+    }
   }
   return updated;
+}
+
+/**
+ * The buyer's first goods receipt with accepted units IS the delivery confirmation (docs/design/grn-returns.md): a dispatched order moves
+ * to `delivered` and `deliveredAt` (the MSMED s.15 / IT Act s.43B(h) day of acceptance) is stamped with the received date. Idempotent and
+ * never double counted: when delivery was already confirmed (manually, or by an earlier receipt) nothing changes and false is returned.
+ * Runs inside the receipt's transaction.
+ */
+export async function acceptDeliveryOnReceiptTx(tx: Tx, orderId: string, receivedOn: string, now: Date): Promise<boolean> {
+  await tx.$queryRaw`SELECT id FROM orders WHERE id = ${orderId}::uuid FOR UPDATE`;
+  const order = await tx.order.findUnique({ where: { id: orderId } });
+  if (!order || order.deliveredAt) return false;
+  const at = receivedOn >= istDate(now) ? now : new Date(`${receivedOn}T12:00:00+05:30`);
+  if (order.status === "dispatched") {
+    await tx.order.update({ where: { id: orderId }, data: { status: "delivered", deliveredAt: at } });
+    await emit(tx, "OrderStatusChanged", { type: "order", id: orderId }, {
+      orderId, buyerBusinessId: order.buyerBusinessId, sellerBusinessId: order.sellerBusinessId, from: "dispatched", to: "delivered",
+    });
+  } else if (order.status === "delivered" || order.status === "completed") {
+    await tx.order.update({ where: { id: orderId }, data: { deliveredAt: at } });
+  } else {
+    return false;
+  }
+  await onOrderDeliveredTx(tx, orderId, at);
+  return true;
 }
 
 /** Records the actor's side of the two-party confirmation; both sides confirmed => status `confirmed`. */
@@ -358,7 +403,7 @@ export async function confirmOrder(actor: Actor, orderId: string): Promise<Order
 export async function transitionOrder(actor: Actor, orderId: string, to: OrderMove): Promise<OrderView> {
   const updated = await prisma.$transaction(async (tx) => {
     const { order, role } = await loadLocked(tx, actor, orderId);
-    return persist(tx, order, applyMove(order, role, to));
+    return persist(tx, order, applyMove(order, role, to), actor.businessId);
   });
   return (await toViews([updated], actor))[0]!;
 }

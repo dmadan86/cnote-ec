@@ -17,6 +17,7 @@
       "leads": "ಲೀಡ್‌ಗಳು",
       "listings": "ಪಟ್ಟಿಗಳು",
       "orders": "ಆರ್ಡರ್‌ಗಳು",
+      "contracts": "ಒಪ್ಪಂದಗಳು",
       "disputes": "ವಿವಾದಗಳು",
       "reviews": "ವಿಮರ್ಶೆಗಳು",
       "storefront": "ಅಂಗಡಿ ಪುಟ",
@@ -36,7 +37,8 @@
       "credit": "ಸಾಲ",
       "agents": "ಕೋಟ್ ಏಜೆಂಟ್",
       "questions": "ಪ್ರಶ್ನೆಗಳು",
-      "samples": "ಮಾದರಿಗಳು"
+      "samples": "ಮಾದರಿಗಳು",
+      "returns": "ವಾಪಸಾತಿಗಳು"
     },
     "questionsUnanswered": "{count} ಉತ್ತರಿಸಿಲ್ಲ"
   }

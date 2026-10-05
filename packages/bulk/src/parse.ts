@@ -57,7 +57,7 @@ export function detectFormat(bytes: Uint8Array, filename: string): FileFormat {
   return fail("Unsupported file. Upload a .csv, .xlsx or .zip file");
 }
 
-function decodeText(bytes: Uint8Array): string {
+export function decodeText(bytes: Uint8Array): string {
   if (bytes[0] === 0xff && bytes[1] === 0xfe) return new TextDecoder("utf-16le").decode(bytes.subarray(2));
   if (bytes[0] === 0xfe && bytes[1] === 0xff) fail("UTF-16 big-endian files are not supported; save as CSV UTF-8");
   try {
@@ -129,7 +129,7 @@ export function parseCsvBytes(bytes: Uint8Array): Omit<ParsedImport, "images" | 
   return fromMatrix(matrix, "csv");
 }
 
-function cellText(v: ExcelJS.CellValue): string {
+export function cellText(v: ExcelJS.CellValue): string {
   if (v === null || v === undefined) return "";
   if (typeof v === "string") return v;
   if (typeof v === "number" || typeof v === "boolean") return String(v);

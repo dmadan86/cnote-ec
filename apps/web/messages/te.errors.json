@@ -255,7 +255,8 @@
       "filesDeletedAfterDays": "ఫైళ్లు {retentionDays} రోజుల తర్వాత తొలగించబడతాయి",
       "nothingDownloadJob": "ఈ జాబ్‌కు డౌన్‌లోడ్ చేయడానికి ఏమీ లేదు",
       "fileNoLongerAvailable": "ఫైల్ ఇకపై అందుబాటులో లేదు",
-      "unknownCategory": "తెలియని వర్గం \"{categorySlug}\""
+      "unknownCategory": "తెలియని వర్గం \"{categorySlug}\"",
+      "skuNotFound": "SKU \"{sku}\" లేదు"
     },
     "catalogue": {
       "notImage": "ఇది మీ చిత్రం కాదు",
@@ -278,7 +279,8 @@
       "voiceNoteNotFound": "వాయిస్ నోట్ కనుగొనబడలేదు",
       "notVoiceNote": "ఇది మీ వాయిస్ నోట్ కాదు",
       "recordingAlreadyBeenDeleted": "రికార్డింగ్ ఇప్పటికే తొలగించబడింది",
-      "recordingNoLongerAvailable": "రికార్డింగ్ ఇకపై అందుబాటులో లేదు"
+      "recordingNoLongerAvailable": "రికార్డింగ్ ఇకపై అందుబాటులో లేదు",
+      "noVariants": "ఈ లిస్టింగ్‌లో వేరియంట్లు లేవు"
     },
     "compliance": {
       "signAppeal": "అప్పీల్ చేయడానికి సైన్ ఇన్ చేయండి",
@@ -349,7 +351,9 @@
       "videoKycNotStartedSession": "ఈ సెషన్‌కు వీడియో KYC ప్రారంభం కాలేదు.",
       "noteRequired": "గమనిక తప్పనిసరి.",
       "sessionAlreadyDecided": "ఈ సెషన్‌పై ఇప్పటికే నిర్ణయం తీసుకోబడింది.",
-      "startEnrollmentFirst": "ముందుగా ఎన్‌రోల్‌మెంట్ ప్రారంభించండి."
+      "startEnrollmentFirst": "ముందుగా ఎన్‌రోల్‌మెంట్ ప్రారంభించండి.",
+      "auditReviewNoteRequired": "సమీక్ష గమనిక అవసరం.",
+      "auditPartnerNoteRequired": "భాగస్వామి కోసం గమనిక అవసరం."
     },
     "leadgen": {
       "requestExpiredStartAgain": "ఈ అభ్యర్థన గడువు ముగిసింది. దయచేసి మళ్లీ ప్రారంభించండి.",

@@ -7,6 +7,7 @@ export * from "./document";
 export * from "./slug";
 export * from "./service";
 export * from "./templates";
+export * from "./embeds";
 export { loadRenderData, listApprovedSellerImages, type SellerImage } from "./data";
 export { storefrontTag, getStorefrontCanonical, purgeStorefront } from "./cache";
 export { PREVIEW_TTL_SECONDS } from "./preview";

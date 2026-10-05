@@ -7,6 +7,7 @@
 // Bounded and streamed: every module caps its collections (EXPORT_ROW_CAP, flagged `truncated`), and the response is written section by
 // section as JSON with a total byte budget, so one account can never make the server buffer an unbounded document.
 import { exportAlertsData } from "@cnote/alerts";
+import { exportPersonalData as approvalsExport } from "@cnote/approvals";
 import { exportPersonalData as catalogueExport } from "@cnote/catalogue";
 import { EXPORT_TAKE, exportCollection, type PersonalExport, type PersonalExporter } from "@cnote/core";
 import { prisma } from "@cnote/db";
@@ -18,6 +19,7 @@ import { exportPersonalData as notificationsExport } from "@cnote/notifications"
 import { exportPersonalData as reviewsExport } from "@cnote/reviews";
 import { exportPersonalData as samplesExport } from "@cnote/samples";
 import { exportPersonalData as wishlistExport } from "@cnote/wishlist";
+import { exportNomineeData } from "./nominee";
 
 export interface ExportSource {
   /** unique, stable: the JSON key of the section (unless `flatten`) */
@@ -36,13 +38,19 @@ export async function exportCookieConsentReceipts(personId: string): Promise<Per
     take: EXPORT_TAKE,
     select: { app: true, policyVersion: true, analytics: true, marketing: true, functional: true, gpc: true, action: true, locale: true, createdAt: true },
   });
-  return { cookieConsentReceipts: exportCollection(rows) };
+  const notices = await prisma.inactivityErasureNotice.findMany({
+    where: { personId },
+    orderBy: { noticedAt: "asc" },
+    take: EXPORT_TAKE,
+    select: { noticedAt: true, eraseAfter: true, status: true, resolution: true, resolvedAt: true },
+  });
+  return { cookieConsentReceipts: exportCollection(rows), inactivityErasureNotices: exportCollection(notices), ...(await exportNomineeData(personId)) };
 }
 
 export const EXPORT_SOURCES: readonly ExportSource[] = [
   { module: "identity", flatten: true, description: "Profile, businesses, delivery addresses, consent ledger, login sessions and identities", export: (id) => identityExport(id) },
   { module: "alerts", flatten: true, description: "Followed suppliers, saved searches, alert opt-ins", export: (id) => exportAlertsData(id) },
-  { module: "enquiry", description: "Requirements, messages, quotes, orders, deal reports and attachment metadata", export: enquiryExport },
+  { module: "enquiry", description: "Requirements, messages, quotes, orders, deal reports, attachment metadata (incl. scan results and blocked uploads)", export: enquiryExport },
   { module: "reviews", description: "Reviews, comments, product Q&A and reactions", export: (id) => reviewsExport(id) },
   { module: "wishlist", description: "Saved-product lists", export: (id) => wishlistExport(id) },
   { module: "notifications", description: "In-app notifications and channel preferences", export: (id) => notificationsExport(id) },
@@ -50,7 +58,8 @@ export const EXPORT_SOURCES: readonly ExportSource[] = [
   { module: "leadgen", description: "Lead-capture funnel rows", export: (id) => leadgenExport(id) },
   { module: "disputes", description: "Disputes, evidence statements, messages and appeals", export: disputesExport },
   { module: "samples", description: "Sample requests: ship-to details, notes, dispatch and evaluation", export: samplesExport },
-  { module: "compliance", description: "Cookie-consent receipts", export: (id) => exportCookieConsentReceipts(id) },
+  { module: "compliance", description: "Cookie-consent receipts, inactivity-erasure notices, nominees (decrypted for you) and requests made about your account", export: (id) => exportCookieConsentReceipts(id) },
+  { module: "approvals", description: "Approval requests you raised, decisions you made, delegations, spend limits and spend records", export: (id) => approvalsExport(id) },
 ];
 
 /** JSON.stringify replacer: money is BigInt paise (stringified, exact), everything else is plain data. */

@@ -11,6 +11,9 @@ enum ConsentPurpose {
   analytics_cookies
   marketing_cookies
   functional_cookies
+  /// the SELLER app's cookie-banner choices (onboarding timing, referral attribution), kept apart from the buyer web's purposes
+  seller_analytics_cookies
+  seller_marketing_cookies
 
   @@map("consent_purpose")
 }
@@ -22,6 +25,7 @@ enum VerificationKind {
   document
   video_kyc
   audit
+  mca
 
   @@map("verification_kind")
 }
@@ -36,7 +40,14 @@ enum VerificationStatus {
 
 enum MemberRole {
   owner
+  /// legacy: treated as `requester` (docs/design/buyer-approvals.md); kept so existing rows and the seller side keep working
   staff
+  // buyer team roles (docs/design/buyer-approvals.md)
+  admin
+  requester
+  approver
+  finance
+  viewer
 
   @@map("member_role")
 }
@@ -55,6 +66,9 @@ model Person {
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
   /// DPDP erasure: PII nulled/tombstoned, row kept for referential integrity
   erasedAt          DateTime? @map("erased_at") @db.Timestamptz
+  /// Last time the person signed in or a session was refreshed (coarse: updated at most once a day). Session rows are purged
+  /// after 90 days, so this is the durable "last approached us" signal for the DPDP Rules inactivity erasure (compliance).
+  lastActiveAt      DateTime? @map("last_active_at") @db.Timestamptz
 
   memberships    BusinessMember[]
   consents       Consent[]
@@ -73,6 +87,10 @@ model Business {
   name             String
   gstin            String?  @unique
   udyam            String?
+  /// Seller-declared MSME size class: micro | small | medium (null = not declared). Drives the IT Act s.43B(h) payment-due
+  /// tracking (docs/design/purchase-orders.md); micro and small count, and an Udyam number must be on file.
+  msmeCategory     String?  @map("msme_category")
+  msmeDeclaredAt   DateTime? @map("msme_declared_at") @db.Timestamptz
   /// Company profile (seller-declared, verified against GST/MCA data)
   legalName        String?  @map("legal_name")
   tradeName        String?  @map("trade_name")
@@ -89,6 +107,13 @@ model Business {
   gstStatus        String?  @map("gst_status") // Active | Cancelled | Suspended | Inactive
   gstVerifiedAt    DateTime? @map("gst_verified_at") @db.Timestamptz
   gstLastCheckedAt DateTime? @map("gst_last_checked_at") @db.Timestamptz
+  /// Udyam / MCA registry checks (ADR-003 T1). Evidence lives in VerificationRecord.details.
+  udyamVerifiedAt  DateTime? @map("udyam_verified_at") @db.Timestamptz
+  udyamLastCheckedAt DateTime? @map("udyam_last_checked_at") @db.Timestamptz
+  mcaVerifiedAt    DateTime? @map("mca_verified_at") @db.Timestamptz
+  mcaLastCheckedAt DateTime? @map("mca_last_checked_at") @db.Timestamptz
+  /// Active | Struck Off | Under Liquidation | ... as reported by the MCA provider
+  mcaStatus        String?   @map("mca_status")
   city             String?
   state            String?
   pincode          String?
@@ -103,6 +128,7 @@ model Business {
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   members       BusinessMember[]
+  invites       BusinessInvite[]
   addresses     BusinessAddress[]
   verifications VerificationRecord[]
   listings      Listing[]
@@ -135,6 +161,29 @@ model BusinessMember {
 
   @@id([businessId, personId])
   @@map("business_members")
+}
+
+/// Pending/used invitation to join a business team (docs/design/buyer-approvals.md). Only the sha256 of the single-use token is
+/// stored. The invitee's email is personal data (DPDP): exported to the inviter, purged after the retention window, erased with them.
+model BusinessInvite {
+  id                 String     @id @default(uuid()) @db.Uuid
+  businessId         String     @map("business_id") @db.Uuid
+  /// lower-cased
+  email              String
+  role               MemberRole
+  tokenHash          String     @unique @map("token_hash")
+  invitedByPersonId  String     @map("invited_by_person_id") @db.Uuid
+  expiresAt          DateTime   @map("expires_at") @db.Timestamptz
+  acceptedAt         DateTime?  @map("accepted_at") @db.Timestamptz
+  acceptedByPersonId String?    @map("accepted_by_person_id") @db.Uuid
+  revokedAt          DateTime?  @map("revoked_at") @db.Timestamptz
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@index([businessId, createdAt])
+  @@index([email])
+  @@map("business_invites")
 }
 
 /// Saved delivery address of a business (buyer role). Personal data under DPDP: included in the data export and
@@ -250,6 +299,33 @@ model PersonMfa {
   @@map("person_mfa")
 }
 
+/// WebAuthn passkey (phishing-resistant second factor; ADR-029/ADR-042, docs/design/admin-passkeys.md). Realm-scoped so the
+/// seller/buyer realms can adopt it later; only the admin realm is wired today. The public key is public by design (no
+/// field encryption); revoked rows are kept (revokedAt) as a trail, and are deleted with the person on erasure.
+model PersonPasskey {
+  id           String    @id @default(uuid()) @db.Uuid
+  personId     String    @map("person_id") @db.Uuid
+  realm        String
+  /// base64url credential id as sent by the authenticator
+  credentialId String    @unique @map("credential_id")
+  publicKey    Bytes     @map("public_key")
+  signCount    BigInt    @default(0) @map("sign_count")
+  transports   String[]  @default([])
+  aaguid       String
+  /// "singleDevice" | "multiDevice"
+  deviceType   String    @map("device_type")
+  backedUp     Boolean   @default(false) @map("backed_up")
+  nickname     String
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  lastUsedAt   DateTime? @map("last_used_at") @db.Timestamptz
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz
+  /// "user" | "reset" | "clone_suspected"
+  revokedReason String?  @map("revoked_reason")
+
+  @@index([personId, realm])
+  @@map("person_passkeys")
+}
+
 // ---- T2 / T3 verification (ADR-003) — owned by @cnote/identity ------------------------------------------------
 
 enum KycStatus {
@@ -322,10 +398,32 @@ model VerificationAudit {
   result        String? // pass | fail | conditional
   validUntil    DateTime? @map("valid_until") @db.Timestamptz
   requestedBy   String?   @map("requested_by") @db.Uuid // staff id
+  /// Partner-submission flow: external partner record, single-use signed upload link (only the sha256 is stored),
+  /// the partner's checklist + geotagged photo metadata, and the staff review (docs/design/verification-t2-t3.md).
+  partnerId     String?   @map("partner_id") @db.Uuid
+  uploadTokenHash String? @unique @map("upload_token_hash")
+  uploadTokenExpiresAt DateTime? @map("upload_token_expires_at") @db.Timestamptz
+  submission    Json?
+  submittedAt   DateTime? @map("submitted_at") @db.Timestamptz
+  reviewedBy    String?   @map("reviewed_by") @db.Uuid
+  reviewNote    String?   @map("review_note")
+  /// the T3 badge asks for a re-audit from this date (validUntil minus the lead time)
+  reAuditDueAt  DateTime? @map("re_audit_due_at") @db.Timestamptz
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([businessId, createdAt])
   @@index([status])
   @@map("verification_audits")
+}
+
+/// External T3 audit agency (SGS, TUV, a local agency). Not a login: it only ever receives single-use upload links.
+model AuditPartner {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  contactEmail String?  @map("contact_email")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("audit_partners")
 }

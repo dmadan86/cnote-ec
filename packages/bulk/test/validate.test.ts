@@ -138,3 +138,22 @@ describe("buildErrorReport", () => {
     expect(again.rows.at(0)!.cells.errors).toBe("file level");
   });
 });
+
+describe("shipping columns (freight estimator)", () => {
+  it("converts grams and centimetres to the catalogue's grams and millimetres", () => {
+    const r = run({ unit_weight_g: "1,250", unit_length_cm: "30.5", unit_width_cm: "20", unit_height_cm: "12" });
+    expect(r.errors).toEqual([]);
+    expect(r.valid[0]!.shipping).toEqual({ unitWeightGrams: 1250, unitLengthMm: 305, unitWidthMm: 200, unitHeightMm: 120 });
+  });
+  it("leaves shipping undefined when the cells are blank", () => {
+    expect(run({}).valid[0]!.shipping).toBeUndefined();
+  });
+  it.each([
+    [{ unit_weight_g: "0" }, "unit_weight_g: Weight must be whole grams"],
+    [{ unit_weight_g: "2.5" }, "unit_weight_g: Weight must be whole grams"],
+    [{ unit_length_cm: "-1" }, "unit_length_cm: Size must be"],
+    [{ unit_height_cm: "abc" }, "unit_height_cm: Size must be"],
+  ])("rejects a bad cell (case %#)", (cells, msg) => {
+    expect(msgs(run(cells)).join("|")).toContain(msg);
+  });
+});

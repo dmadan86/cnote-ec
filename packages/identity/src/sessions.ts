@@ -76,6 +76,21 @@ async function mint(personId: string, sessionId: string, refreshToken: string, i
 }
 
 /**
+ * Durable "last approached us" marker for the inactivity erasure (DPDP Rules 2025 Third Schedule; @cnote/compliance). Written at most
+ * once a day per person, best effort: a failure here must never block a sign-in.
+ */
+export async function touchLastActive(personId: string, now = new Date()): Promise<void> {
+  try {
+    await prisma.person.updateMany({
+      where: { id: personId, OR: [{ lastActiveAt: null }, { lastActiveAt: { lt: new Date(now.getTime() - 86_400_000) } }] },
+      data: { lastActiveAt: now },
+    });
+  } catch {
+    /* the marker is a convenience for retention; sign-in must not depend on it */
+  }
+}
+
+/**
  * Creates a durable session in the caller's realm and its first token pair. Runs the realm's
  * admission guard first (e.g. admin requires active staff); a rejection is reported exactly like
  * bad credentials so it can't be used to probe who is staff.
@@ -100,6 +115,7 @@ export async function issueTokens(personId: string, ctx: AuthContext, isNew = fa
     select: { id: true },
   });
   await cacheState(row.id, "1");
+  await touchLastActive(personId);
   return mint(personId, row.id, refreshToken, isNew, expiresAt, realm);
 }
 
@@ -168,6 +184,7 @@ export async function refreshSession(refreshToken: string, ctx: AuthContext): Pr
   });
   if (swapped.count !== 1) throw fail();
   await cacheState(session.id, "1");
+  await touchLastActive(session.personId);
   const pair = await mint(session.personId, session.id, next, false, session.expiresAt, realm);
   await graceStore(hash, pair);
   return pair;

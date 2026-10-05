@@ -27,3 +27,20 @@ export { cacheWorker, cacheHandlers } from "./cache-worker";
 export { getSearchIndex, searchBackendName, OpenSearchIndex, postgresIndex } from "./index-port";
 export type { SearchIndex, SearchIndexQuery, SearchIndexResult, IndexDoc, RawHit, SearchFacets, FacetBucket, PriceBucket, IndexHealth, ReindexResult, SearchBackendName } from "./index-port";
 export { searchIndexer, indexerHandlers, syncListings, reindexAll } from "./indexer";
+
+// Staff-curated synonym dictionary: versioned data, edited in the admin console (ADR-004, ADR-009).
+export {
+  checkGroups, parseGroupsText, formatGroupsText, parseSolr, toSolrLines, synonymVariants, normaliseTerm, MAX_GROUPS, MAX_TERMS_PER_GROUP, MAX_TERM_LENGTH,
+  type SynonymGroup, type GroupsCheck,
+} from "./synonyms/groups";
+export {
+  getActiveSynonyms, listSynonymVersions, getSynonymVersion, publishSynonyms, rollbackSynonyms, importBuiltInSynonyms, activeSynonymLines, invalidateSynonymCache,
+  type SynonymSet, type SynonymVersionSummary,
+} from "./synonyms/store";
+
+// Relevance judgements: file format, staff-recorded grades, scoring (ADR-009). `eval:relevance` is the CLI.
+export { parseRelevanceFile, productKeyOf, queryKeyOf, type RelevanceFile, type CorpusItem, type RelevanceQuery } from "./relevance/format";
+export { recordJudgement, listJudgements, judgedQueries, deleteJudgement, exportJudgements, type JudgementView, type RecordJudgementInput } from "./relevance/judgements";
+export { rankIds, type RankOptions } from "./relevance/rank";
+export { scoreFile, floorViolations, type BackendScores, type BaselineFile } from "./relevance/run";
+export { recallAtK } from "./eval/metrics";

@@ -9,7 +9,7 @@ import {
 import { cacheKey } from "../src/keys";
 import { hashSecret, generateSecret } from "../src/secret";
 import { bumpUsage, loadUsage } from "../src/usage";
-import { logExpiringKeys } from "../src/worker";
+import { notifyExpiringKeys } from "../src/worker";
 
 const people: string[] = [];
 const newPerson = () => {
@@ -333,7 +333,8 @@ describe("usage", () => {
 });
 
 describe("worker jobs", () => {
-  it("logExpiringKeys counts only active keys expiring within 7 days", async () => {
+  const events = (keyId: string) => prisma.domainEvent.findMany({ where: { type: "ApiKeyExpiring", aggregateId: keyId }, orderBy: { id: "asc" } });
+  it("notifyExpiringKeys emits one 7d notice per active key expiring within 7 days, once only", async () => {
     const p = newPerson();
     const soon = await mk(p);
     const later = await mk(p);
@@ -343,15 +344,34 @@ describe("worker jobs", () => {
     await prisma.apiKey.update({ where: { id: soon.key.id }, data: { expiresAt: new Date(now.getTime() + 3 * 86_400_000) } });
     await prisma.apiKey.update({ where: { id: later.key.id }, data: { expiresAt: new Date(now.getTime() + 20 * 86_400_000) } });
     await prisma.apiKey.update({ where: { id: gone.key.id }, data: { expiresAt: new Date(now.getTime() + 2 * 86_400_000), revokedAt: now } });
-    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
-    await logExpiringKeys(now);
-    const lines = log.mock.calls.map((c) => String(c[0])).filter((l) => l.includes(p));
-    expect(lines).toHaveLength(1);
-    expect(lines[0]).toContain(soon.key.prefix);
-    void never;
-    for (const job of worker.jobs!) {
-      await (job.run as () => Promise<void>)();
-    }
+    await notifyExpiringKeys(now);
+    await notifyExpiringKeys(now);
+    await notifyExpiringKeys(new Date(now.getTime() + 3_600_000));
+    const ev = await events(soon.key.id);
+    expect(ev).toHaveLength(1);
+    expect(ev[0]!.payload).toMatchObject({ keyId: soon.key.id, personId: p, prefix: soon.key.prefix, threshold: "7d" });
+    expect(JSON.stringify(ev[0]!.payload)).not.toContain(soon.secret);
+    for (const k of [later, gone, never]) expect(await events(k.key.id)).toHaveLength(0);
+  });
+  it("sends a second notice on the day of expiry (within 24h), once, and only the day notice when first seen inside the last day", async () => {
+    const p = newPerson();
+    const a = await mk(p);
+    const b = await mk(p);
+    const now = new Date();
+    await prisma.apiKey.update({ where: { id: a.key.id }, data: { expiresAt: new Date(now.getTime() + 3 * 86_400_000) } });
+    await prisma.apiKey.update({ where: { id: b.key.id }, data: { expiresAt: new Date(now.getTime() + 6 * 3_600_000) } });
+    await notifyExpiringKeys(now);
+    const later = new Date(now.getTime() + 2.5 * 86_400_000);
+    await notifyExpiringKeys(later);
+    await notifyExpiringKeys(later);
+    expect((await events(a.key.id)).map((e) => (e.payload as { threshold: string }).threshold)).toEqual(["7d", "expiry_day"]);
+    expect((await events(b.key.id)).map((e) => (e.payload as { threshold: string }).threshold)).toEqual(["expiry_day"]);
+    // an already-expired key gets nothing
+    await notifyExpiringKeys(new Date(now.getTime() + 10 * 86_400_000));
+    expect(await events(a.key.id)).toHaveLength(2);
+  });
+  it("runs every worker job without error", async () => {
+    for (const job of worker.jobs!) await (job.run as () => Promise<void>)();
   });
 });
 

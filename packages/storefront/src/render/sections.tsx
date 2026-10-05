@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { placeholderOf, type ImageRef, type Page, type PlaceholderKey, type Section, type SectionOf, type StorefrontDocument } from "../document/schema";
 import type { Inline, RichText } from "../document/richtext";
-import { embedSpec } from "../document/embed";
+import { embedKey, embedSpec, remoteEmbedRef } from "../document/embed";
 import type { EmbedComponent, ImageComponent, LinkComponent, RenderData, RenderHrefs, RenderProduct } from "./types";
 import { formatRupees, headingId, rgba, trustLabel } from "./util";
 
@@ -221,6 +221,11 @@ export function SectionView({ s, ctx, index }: { s: Section; ctx: Ctx; index: nu
       );
     case "embed": {
       if (!ctx.embeds) return null;
+      const ref = remoteEmbedRef(s.source);
+      // ADR-003: a third-party video is shown only once it has been moderated and approved; until then visitors see nothing.
+      if (ref && !ctx.data.approvedEmbeds?.includes(embedKey(ref))) {
+        return ctx.preview ? <Empty ctx={ctx}>Video: waiting for approval. Visitors will see it once it has been checked.</Empty> : null;
+      }
       const spec = embedSpec(s.source);
       const E = ctx.Embed;
       return (

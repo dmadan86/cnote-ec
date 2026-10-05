@@ -8,6 +8,7 @@ import { identity } from "@/lib/services";
 import { GstForm } from "@/features/verification/gst-form";
 import { KycPanel } from "@/features/kyc/kyc-panel";
 import { T3Status } from "@/features/kyc/t3-status";
+import { RegistryCard } from "@/features/verification/registry-card";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("verification");
@@ -21,8 +22,12 @@ export default async function VerificationPage() {
   const f = await getFormatter();
   const records = await load(() => identity.listVerificationRecords(b.id));
   const kyc = await load(async () => (b.verificationTier === 1 ? identity.getKycSession({ personId: session.personId, businessId: b.id }) : null));
+  const registry = await load(() => identity.getRegistryStatus(b.id));
+  const company = await load(() => identity.getCompanyProfile(b.id));
   const audits = await load(() => identity.listAudits({ businessId: b.id, limit: 1 }));
   const audit = audits.ok ? audits.data[0] ?? null : null;
+  // computed on the server per request (render-time clocks are impure in components)
+  const reAuditDue = !!audit?.reAuditDueAt && new Date(audit.reAuditDueAt).getTime() <= new Date().getTime();
 
   const tiers = [
     { tier: 0, name: t("tiers.t0.name"), body: t("tiers.t0.body"), done: session.phoneVerified, soon: false },
@@ -71,10 +76,22 @@ export default async function VerificationPage() {
         </Card>
       ) : null}
 
+      {b.verificationTier >= 1 && registry.ok && registry.data ? (
+        <Card>
+          <CardHeader><CardTitle>{t("registry.title")}</CardTitle></CardHeader>
+          <CardBody>
+            <RegistryCard
+              udyam={registry.data.udyam} udyamVerifiedAt={registry.data.udyamVerifiedAt} cin={registry.data.cin} mcaVerifiedAt={registry.data.mcaVerifiedAt} mcaStatus={registry.data.mcaStatus}
+              showCin={company.ok && !!company.data && ["private_limited", "public_limited", "llp"].includes(company.data.companyType ?? "")}
+            />
+          </CardBody>
+        </Card>
+      ) : null}
+
       {b.verificationTier >= 2 || audit ? (
         <Card>
           <CardHeader><CardTitle>{t("auditCard")}</CardTitle></CardHeader>
-          <CardBody><T3Status audit={audit} tier={b.verificationTier} /></CardBody>
+          <CardBody><T3Status audit={audit} tier={b.verificationTier} reAuditDue={reAuditDue} /></CardBody>
         </Card>
       ) : null}
 

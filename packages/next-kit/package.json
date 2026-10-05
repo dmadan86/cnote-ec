@@ -27,14 +27,15 @@
     "@cnote/leadgen": "workspace:*",
     "@cnote/security": "workspace:*",
     "@cnote/ui": "workspace:*",
+    "@simplewebauthn/browser": "14.0.0",
     "server-only": "^0.0.1",
     "zod": "^4.1.0"
   },
   "peerDependencies": {
+    "lucide-react": "^1.49.0",
     "next": "^16",
-    "react": "^19",
     "next-intl": "^4.14.8",
-    "lucide-react": "^1.49.0"
+    "react": "^19"
   },
   "devDependencies": {
     "@types/react": "^19",

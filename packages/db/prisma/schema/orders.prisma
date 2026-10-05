@@ -52,9 +52,13 @@ model Order {
   /// latest tracking reference (courier name + AWB), optional
   trackingCourier  String?     @map("tracking_courier")
   trackingRef      String?     @map("tracking_ref")
+  /// When the order moved to `delivered` (the buyer's delivery confirmation = day of acceptance for MSMED s.15 / IT Act s.43B(h)).
+  deliveredAt      DateTime?   @map("delivered_at") @db.Timestamptz
   createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   fulfilmentEvents OrderFulfilmentEvent[]
+  purchaseOrder    PurchaseOrder?
+  rateContractCallOff RateContractCallOff?
 
   @@unique([matchId])
   @@index([buyerBusinessId, createdAt])
@@ -77,4 +81,650 @@ model OrderFulfilmentEvent {
 
   @@index([orderId, createdAt])
   @@map("order_fulfilment_events")
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Purchase orders, supplier invoices, e-invoice / e-way bill references and MSME payment-due tracking
+// (docs/design/purchase-orders.md). Owned by @cnote/enquiry. Money is integer paise (BigInt). Dates without a time are
+// Indian-calendar dates (@db.Date).
+// ---------------------------------------------------------------------------------------------------------------------------
+
+enum PurchaseOrderStatus {
+  issued // sent, waiting for the seller's answer
+  acknowledged // the seller accepted the current version
+  rejected // the seller rejected the current version
+  cancelled
+
+  @@map("purchase_order_status")
+}
+
+enum SupplierInvoiceStatus {
+  open // outstanding (or partly paid)
+  paid // fully paid
+  void // withdrawn by the seller (only before any payment)
+
+  @@map("supplier_invoice_status")
+}
+
+/// The stable identity of a PO. Content lives in immutable PurchaseOrderVersion rows; an amendment adds a version.
+model PurchaseOrder {
+  id                    String              @id @default(uuid()) @db.Uuid
+  /// one PO per order (an amendment is a new version, not a new PO)
+  orderId               String              @unique @map("order_id") @db.Uuid
+  buyerBusinessId       String              @map("buyer_business_id") @db.Uuid
+  sellerBusinessId      String              @map("seller_business_id") @db.Uuid
+  /// gap-free per buyer business and Indian financial year, e.g. "PO/26-27/000012"
+  number                String
+  financialYear         String              @map("financial_year")
+  status                PurchaseOrderStatus @default(issued)
+  currentVersion        Int                 @default(1) @map("current_version")
+  cancelledAt           DateTime?           @map("cancelled_at") @db.Timestamptz
+  cancelledByBusinessId String?             @map("cancelled_by_business_id") @db.Uuid
+  cancelReason          String?             @map("cancel_reason")
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  order                 Order               @relation(fields: [orderId], references: [id])
+  versions              PurchaseOrderVersion[]
+  invoices              SupplierInvoice[]
+
+  @@unique([buyerBusinessId, number])
+  @@index([sellerBusinessId, createdAt])
+  @@index([buyerBusinessId, createdAt])
+  @@map("purchase_orders")
+}
+
+/// One sent version of a PO. NEVER updated after insert (the PDF key is set once, right after the PDF is stored).
+model PurchaseOrderVersion {
+  id                String   @id @default(uuid()) @db.Uuid
+  purchaseOrderId   String   @map("purchase_order_id") @db.Uuid
+  version           Int
+  /// agreed payment terms in days from acceptance of goods; 0 = on delivery / advance
+  paymentTermsDays  Int      @map("payment_terms_days")
+  expectedDelivery  DateTime? @map("expected_delivery") @db.Date
+  /// { name, legalName, gstin, stateCode } snapshots of both parties
+  buyer             Json
+  seller            Json
+  /// { label, contactName, phone, line1, line2, city, state, stateCode, pincode } copied from the buyer's saved address
+  deliveryAddress   Json     @map("delivery_address")
+  placeOfSupply     String   @map("place_of_supply")
+  intraState        Boolean  @map("intra_state")
+  taxablePaise      BigInt   @map("taxable_paise")
+  cgstPaise         BigInt   @map("cgst_paise")
+  sgstPaise         BigInt   @map("sgst_paise")
+  igstPaise         BigInt   @map("igst_paise")
+  totalPaise        BigInt   @map("total_paise")
+  notes             String?
+  /// private media bucket key of the immutable PDF and its sha256 (tamper evidence)
+  pdfKey            String?  @map("pdf_key")
+  pdfSha256         String?  @map("pdf_sha256")
+  createdByPersonId String   @map("created_by_person_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  lines             PurchaseOrderLine[]
+  acks              PurchaseOrderAck[]
+
+  @@unique([purchaseOrderId, version])
+  @@map("purchase_order_versions")
+}
+
+/// Line-based so multi-line RFQs (parallel work) can issue N lines; today the single quote line becomes line 1.
+model PurchaseOrderLine {
+  id               String   @id @default(uuid()) @db.Uuid
+  versionId        String   @map("version_id") @db.Uuid
+  lineNo           Int      @map("line_no")
+  description      String
+  hsn              String?
+  quantity         Int
+  unit             String
+  unitPricePaise   BigInt   @map("unit_price_paise")
+  /// the unit price already includes GST (quote said "GST included")
+  priceIncludesGst Boolean  @default(false) @map("price_includes_gst")
+  gstRateBps       Int      @map("gst_rate_bps")
+  taxablePaise     BigInt   @map("taxable_paise")
+  taxPaise         BigInt   @map("tax_paise")
+  totalPaise       BigInt   @map("total_paise")
+  quoteId          String?  @map("quote_id") @db.Uuid
+  version          PurchaseOrderVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@unique([versionId, lineNo])
+  @@map("purchase_order_lines")
+}
+
+/// Append-only seller answers. The current answer of a version is its latest row; no row = still pending.
+model PurchaseOrderAck {
+  id         String   @id @default(uuid()) @db.Uuid
+  versionId  String   @map("version_id") @db.Uuid
+  decision   String // "accepted" | "rejected"
+  reason     String?
+  byPersonId String   @map("by_person_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  version    PurchaseOrderVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([versionId, createdAt])
+  @@map("purchase_order_acks")
+}
+
+/// Gap-free PO numbering per buyer business and financial year. The row lock is held until the issuing transaction ends.
+model PurchaseOrderSequence {
+  buyerBusinessId String @map("buyer_business_id") @db.Uuid
+  financialYear   String @map("financial_year")
+  lastNumber      Int    @default(0) @map("last_number")
+
+  @@id([buyerBusinessId, financialYear])
+  @@map("purchase_order_sequences")
+}
+
+/// The seller's own tax invoice recorded against a PO (a record, not an invoice issued by the platform), with optional
+/// e-invoice / e-way bill references and the MSME payment due date.
+model SupplierInvoice {
+  id                 String   @id @default(uuid()) @db.Uuid
+  purchaseOrderId    String   @map("purchase_order_id") @db.Uuid
+  /// PO version whose terms applied when the invoice was recorded
+  poVersion          Int      @map("po_version")
+  orderId            String   @map("order_id") @db.Uuid
+  buyerBusinessId    String   @map("buyer_business_id") @db.Uuid
+  sellerBusinessId   String   @map("seller_business_id") @db.Uuid
+  invoiceNumber      String   @map("invoice_number")
+  invoiceDate        DateTime @map("invoice_date") @db.Date
+  financialYear      String   @map("financial_year")
+  taxablePaise       BigInt   @map("taxable_paise")
+  gstPaise           BigInt   @map("gst_paise")
+  totalPaise         BigInt   @map("total_paise")
+  status             SupplierInvoiceStatus @default(open)
+  voidReason         String?  @map("void_reason")
+  // uploaded copy (private bucket)
+  fileKey            String?  @map("file_key")
+  fileName           String?  @map("file_name")
+  fileMime           String?  @map("file_mime")
+  fileSize           Int?     @map("file_size")
+  // e-invoice (record-only; see the EInvoiceVerifier port)
+  irn                String?  @unique
+  ackNo              String?  @map("ack_no")
+  ackDate            DateTime? @map("ack_date") @db.Timestamptz
+  signedQr           String?  @map("signed_qr")
+  /// consistent | mismatch | unchecked (from the EInvoiceVerifier port)
+  eInvoiceCheck      String?  @map("e_invoice_check")
+  eInvoiceNote       String?  @map("e_invoice_note")
+  ewbNo              String?  @map("ewb_no")
+  ewbValidUntil      DateTime? @map("ewb_valid_until") @db.Timestamptz
+  // MSME payment due (IT Act s.43B(h) / MSMED Act s.15)
+  /// the seller was a covered micro/small enterprise when the invoice was recorded
+  msmeCovered        Boolean  @default(false) @map("msme_covered")
+  /// written_agreement (PO accepted by the seller) | no_agreement (statutory 15 days)
+  agreementBasis     String   @map("agreement_basis")
+  agreedDays         Int?     @map("agreed_days")
+  /// delivery (buyer confirmed delivery) | invoice_date (fallback until delivery is confirmed)
+  dueBasis           String   @map("due_basis")
+  acceptanceDate     DateTime @map("acceptance_date") @db.Date
+  dueDate            DateTime? @map("due_date") @db.Date
+  paidPaise          BigInt   @default(0) @map("paid_paise")
+  /// credit notes recorded against this invoice (returns, docs/design/grn-returns.md); outstanding = total - credited - paid
+  creditedPaise      BigInt   @default(0) @map("credited_paise")
+  paidAt             DateTime? @map("paid_at") @db.Timestamptz
+  recordedByPersonId String   @map("recorded_by_person_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  purchaseOrder      PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  payments           SupplierInvoicePayment[]
+  reminders          SupplierInvoiceReminder[]
+  lines              SupplierInvoiceLine[]
+  matchOverrides     InvoiceMatchOverride[]
+  creditNotes        ReturnCreditNote[]
+
+  @@unique([sellerBusinessId, financialYear, invoiceNumber])
+  @@index([purchaseOrderId])
+  @@index([buyerBusinessId, status, dueDate])
+  @@index([msmeCovered, status, dueDate])
+  @@map("supplier_invoices")
+}
+
+/// Payments the buyer recorded against a supplier invoice (money moves off-platform in Phase 1; this is the buyer's record).
+model SupplierInvoicePayment {
+  id          String   @id @default(uuid()) @db.Uuid
+  invoiceId   String   @map("invoice_id") @db.Uuid
+  amountPaise BigInt   @map("amount_paise")
+  paidOn      DateTime @map("paid_on") @db.Date
+  /// UTR / payment reference
+  reference   String
+  byPersonId  String   @map("by_person_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  invoice     SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([invoiceId, reference])
+  @@map("supplier_invoice_payments")
+}
+
+/// Which due-date reminder stages were already sent (t7 | t1 | overdue): the scheduled job inserts one row per stage per
+/// invoice together with its event, so a re-run sends nothing twice.
+model SupplierInvoiceReminder {
+  invoiceId String   @map("invoice_id") @db.Uuid
+  stage     String
+  sentAt    DateTime @default(now()) @map("sent_at") @db.Timestamptz
+  invoice   SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@id([invoiceId, stage])
+  @@map("supplier_invoice_reminders")
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Goods receipt notes (GRN), three-way match and returns (docs/design/grn-returns.md). Owned by @cnote/enquiry.
+// Quantities are whole units (same as PurchaseOrderLine.quantity); money is BigInt paise; dates without a time are @db.Date.
+// ---------------------------------------------------------------------------------------------------------------------------
+
+/// Gap-free numbering per buyer business, document kind ("grn" | "rma") and Indian financial year. The row lock is held until the
+/// creating transaction ends, so a rollback releases the number.
+model DocumentSequence {
+  buyerBusinessId String @map("buyer_business_id") @db.Uuid
+  kind            String
+  financialYear   String @map("financial_year")
+  lastNumber      Int    @default(0) @map("last_number")
+
+  @@id([buyerBusinessId, kind, financialYear])
+  @@map("document_sequences")
+}
+
+/// One receipt of goods against a PO, recorded by the buyer. Never edited after insert (a correction is a new GRN or a return).
+model GoodsReceipt {
+  id                String   @id @default(uuid()) @db.Uuid
+  purchaseOrderId   String   @map("purchase_order_id") @db.Uuid
+  orderId           String   @map("order_id") @db.Uuid
+  buyerBusinessId   String   @map("buyer_business_id") @db.Uuid
+  sellerBusinessId  String   @map("seller_business_id") @db.Uuid
+  /// e.g. "GRN/26-27/000004", gap-free per buyer business and financial year
+  number            String
+  financialYear     String   @map("financial_year")
+  receivedOn        DateTime @map("received_on") @db.Date
+  receiverName      String   @map("receiver_name")
+  /// supplier delivery challan / LR number, optional
+  deliveryNoteRef   String?  @map("delivery_note_ref")
+  note              String?
+  /// this receipt's accepted quantity made the buyer's delivery confirmation (day of acceptance for s.43B(h))
+  confirmedDelivery Boolean  @default(false) @map("confirmed_delivery")
+  createdByPersonId String   @map("created_by_person_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  lines             GoodsReceiptLine[]
+  photos            GoodsReceiptPhoto[]
+  returns           GoodsReturn[]
+
+  @@unique([buyerBusinessId, number])
+  @@index([purchaseOrderId, createdAt])
+  @@index([buyerBusinessId, createdAt])
+  @@index([sellerBusinessId, createdAt])
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptLine {
+  id            String   @id @default(uuid()) @db.Uuid
+  receiptId     String   @map("receipt_id") @db.Uuid
+  /// PurchaseOrderLine.lineNo (stable across PO versions)
+  poLineNo      Int      @map("po_line_no")
+  description   String
+  unit          String
+  receivedQty   Int      @map("received_qty")
+  acceptedQty   Int      @map("accepted_qty")
+  rejectedQty   Int      @map("rejected_qty")
+  /// damaged | short | wrong_spec | quality_fail (required when rejectedQty > 0)
+  rejectReason  String?  @map("reject_reason")
+  rejectNote    String?  @map("reject_note")
+  /// PO unit price excluding GST at the time of receipt (value of returns / credit estimates)
+  unitPricePaise BigInt  @map("unit_price_paise")
+  receipt       GoodsReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  returnLines   GoodsReturnLine[]
+
+  @@unique([receiptId, poLineNo])
+  @@map("goods_receipt_lines")
+}
+
+/// Photos of the delivery / damage (private bucket under `grn/<receiptId>/...`, only served to the two parties).
+model GoodsReceiptPhoto {
+  id        String   @id @default(uuid()) @db.Uuid
+  receiptId String   @map("receipt_id") @db.Uuid
+  poLineNo  Int?     @map("po_line_no")
+  key       String
+  fileName  String   @map("file_name")
+  mimeType  String   @map("mime_type")
+  sizeBytes Int      @map("size_bytes")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  receipt   GoodsReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  @@index([receiptId, createdAt])
+  @@map("goods_receipt_photos")
+}
+
+/// Optional line detail of a supplier invoice (the invoice header stays amount based). Enables per-line three-way match.
+model SupplierInvoiceLine {
+  id             String   @id @default(uuid()) @db.Uuid
+  invoiceId      String   @map("invoice_id") @db.Uuid
+  lineNo         Int      @map("line_no")
+  /// PurchaseOrderLine.lineNo this line bills
+  poLineNo       Int      @map("po_line_no")
+  quantity       Int
+  /// price per unit excluding GST
+  unitPricePaise BigInt   @map("unit_price_paise")
+  taxablePaise   BigInt   @map("taxable_paise")
+  invoice        SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([invoiceId, lineNo])
+  @@index([invoiceId, poLineNo])
+  @@map("supplier_invoice_lines")
+}
+
+/// Per buyer business: three-way match tolerances (basis points) and whether an invoice with no goods receipt yet blocks
+/// "mark paid". No row = platform defaults (env).
+model BuyerMatchSettings {
+  buyerBusinessId   String   @id @map("buyer_business_id") @db.Uuid
+  qtyToleranceBps   Int      @map("qty_tolerance_bps")
+  priceToleranceBps Int      @map("price_tolerance_bps")
+  blockPendingGrn   Boolean  @default(false) @map("block_pending_grn")
+  updatedByPersonId String   @map("updated_by_person_id") @db.Uuid
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("buyer_match_settings")
+}
+
+/// Append-only: the buyer paid an invoice whose three-way match was a mismatch, with a reason. Never updated or deleted by the app.
+model InvoiceMatchOverride {
+  id          String   @id @default(uuid()) @db.Uuid
+  invoiceId   String   @map("invoice_id") @db.Uuid
+  /// hash of the per-line match numbers at override time; a payment is allowed while the current mismatch has the same fingerprint
+  fingerprint String
+  reason      String
+  /// snapshot of what was overridden ({ status, lines: [{ poLineNo, status, ... }] })
+  summary     Json
+  byPersonId  String   @map("by_person_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  invoice     SupplierInvoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId, createdAt])
+  @@map("invoice_match_overrides")
+}
+
+enum GoodsReturnStatus {
+  requested // raised by the buyer, waiting for the seller
+  approved
+  rejected // seller declined (the buyer may open a dispute)
+  cancelled // withdrawn by the buyer while requested
+  shipped // buyer recorded the return shipment
+  received // seller confirmed the goods are back
+  credited // seller recorded a credit note (terminal)
+
+  @@map("goods_return_status")
+}
+
+/// Return merchandise authorisation raised by the buyer from a goods receipt.
+model GoodsReturn {
+  id                  String            @id @default(uuid()) @db.Uuid
+  /// e.g. "RMA/26-27/000002", gap-free per buyer business and financial year
+  number              String
+  financialYear       String            @map("financial_year")
+  receiptId           String            @map("receipt_id") @db.Uuid
+  purchaseOrderId     String            @map("purchase_order_id") @db.Uuid
+  orderId             String            @map("order_id") @db.Uuid
+  buyerBusinessId     String            @map("buyer_business_id") @db.Uuid
+  sellerBusinessId    String            @map("seller_business_id") @db.Uuid
+  status              GoodsReturnStatus @default(requested)
+  /// damaged | short | wrong_spec | quality_fail | not_as_ordered | other
+  reasonCode          String            @map("reason_code")
+  reasonNote          String?           @map("reason_note")
+  /// estimated credit (taxable value of the returned units at PO prices)
+  estimatedPaise      BigInt            @map("estimated_paise")
+  requestedByPersonId String            @map("requested_by_person_id") @db.Uuid
+  decidedAt           DateTime?         @map("decided_at") @db.Timestamptz
+  decidedByPersonId   String?           @map("decided_by_person_id") @db.Uuid
+  decisionNote        String?           @map("decision_note")
+  shipCourier         String?           @map("ship_courier")
+  shipTrackingRef     String?           @map("ship_tracking_ref")
+  shippedAt           DateTime?         @map("shipped_at") @db.Timestamptz
+  receivedBackAt      DateTime?         @map("received_back_at") @db.Timestamptz
+  creditedAt          DateTime?         @map("credited_at") @db.Timestamptz
+  /// dispute opened from a rejected return (@cnote/disputes owns the dispute; this is only the link)
+  disputeId           String?           @map("dispute_id") @db.Uuid
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  receipt             GoodsReceipt      @relation(fields: [receiptId], references: [id])
+  lines               GoodsReturnLine[]
+  creditNote          ReturnCreditNote?
+
+  @@unique([buyerBusinessId, number])
+  @@index([buyerBusinessId, status, createdAt])
+  @@index([sellerBusinessId, status, createdAt])
+  @@index([receiptId])
+  @@map("goods_returns")
+}
+
+model GoodsReturnLine {
+  id             String   @id @default(uuid()) @db.Uuid
+  returnId       String   @map("return_id") @db.Uuid
+  receiptLineId  String   @map("receipt_line_id") @db.Uuid
+  poLineNo       Int      @map("po_line_no")
+  description    String
+  unit           String
+  quantity       Int
+  /// "rejected" (units the buyer rejected at receipt) | "accepted" (accepted units returned later)
+  source         String
+  unitPricePaise BigInt   @map("unit_price_paise")
+  goodsReturn    GoodsReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  receiptLine    GoodsReceiptLine @relation(fields: [receiptLineId], references: [id])
+
+  @@index([returnId])
+  @@index([receiptLineId])
+  @@map("goods_return_lines")
+}
+
+/// The seller's credit note for a return (one per return). Reduces the payable of the invoice it is recorded against.
+model ReturnCreditNote {
+  id                 String   @id @default(uuid()) @db.Uuid
+  returnId           String   @unique @map("return_id") @db.Uuid
+  invoiceId          String   @map("invoice_id") @db.Uuid
+  orderId            String   @map("order_id") @db.Uuid
+  buyerBusinessId    String   @map("buyer_business_id") @db.Uuid
+  sellerBusinessId   String   @map("seller_business_id") @db.Uuid
+  number             String
+  financialYear      String   @map("financial_year")
+  noteDate           DateTime @map("note_date") @db.Date
+  taxablePaise       BigInt   @map("taxable_paise")
+  gstPaise           BigInt   @map("gst_paise")
+  totalPaise         BigInt   @map("total_paise")
+  irn                String?  @unique
+  recordedByPersonId String   @map("recorded_by_person_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  goodsReturn        GoodsReturn @relation(fields: [returnId], references: [id])
+  invoice            SupplierInvoice @relation(fields: [invoiceId], references: [id])
+
+  @@unique([sellerBusinessId, financialYear, number])
+  @@index([invoiceId])
+  @@map("return_credit_notes")
+}
+
+// Rate contracts (docs/design/rate-contracts.md): agreed prices for a period and/or volume between one buyer business and one
+// seller business, with versioned amendments and call-off orders. Owned by @cnote/enquiry. Private to the two parties: nothing
+// here is read by ranking or lead matching (ADR-005). Money is integer paise (BigInt); dates without a time are Indian dates.
+// There is deliberately NO auto-renew column: a renewal is always a new, explicitly accepted contract.
+// ---------------------------------------------------------------------------------------------------------------------------
+
+enum RateContractStatus {
+  draft // the buyer is still preparing revision 1; the seller cannot see it
+  proposed // revision sent, not yet accepted by both parties
+  active // a revision accepted by both parties is in force (call-offs allowed within its dates)
+  expired // past valid-to of the active revision
+  terminated // ended by either party (or declined before it started)
+
+  @@map("rate_contract_status")
+}
+
+/// The stable identity of a contract. Terms live in immutable RateContractRevision rows.
+model RateContract {
+  id                     String             @id @default(uuid()) @db.Uuid
+  /// gap-free per buyer business and Indian financial year, e.g. "RC/26-27/000003"
+  number                 String
+  financialYear          String             @map("financial_year")
+  buyerBusinessId        String             @map("buyer_business_id") @db.Uuid
+  sellerBusinessId       String             @map("seller_business_id") @db.Uuid
+  title                  String
+  status                 RateContractStatus @default(draft)
+  /// highest revision number (the one awaiting an answer, or the active one)
+  latestRevision         Int                @default(1) @map("latest_revision")
+  /// the revision accepted by both parties and in force; null until the first one is accepted
+  activeRevision         Int?               @map("active_revision")
+  /// set when the contract was created from an accepted quote
+  sourceQuoteId          String?            @map("source_quote_id") @db.Uuid
+  /// set when this contract is an explicit renewal of an earlier one
+  renewedFromId          String?            @map("renewed_from_id") @db.Uuid
+  terminatedAt           DateTime?          @map("terminated_at") @db.Timestamptz
+  terminatedByBusinessId String?            @map("terminated_by_business_id") @db.Uuid
+  terminationReason      String?            @map("termination_reason")
+  expiredAt              DateTime?          @map("expired_at") @db.Timestamptz
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  revisions              RateContractRevision[]
+  callOffs               RateContractCallOff[]
+  alerts                 RateContractAlert[]
+
+  @@unique([buyerBusinessId, number])
+  @@index([buyerBusinessId, createdAt])
+  @@index([sellerBusinessId, createdAt])
+  @@index([status])
+  @@map("rate_contracts")
+}
+
+/// Contract numbering per buyer business and financial year (same approach as purchase orders: the row lock serialises issuers).
+model RateContractSequence {
+  buyerBusinessId String @map("buyer_business_id") @db.Uuid
+  financialYear   String @map("financial_year")
+  lastNumber      Int    @default(0) @map("last_number")
+
+  @@id([buyerBusinessId, financialYear])
+  @@map("rate_contract_sequences")
+}
+
+/// One version of the terms. Never edited after it is proposed (a draft's revision 1 is replaced in place until the buyer sends it).
+model RateContractRevision {
+  id                   String   @id @default(uuid()) @db.Uuid
+  contractId           String   @map("contract_id") @db.Uuid
+  revision             Int
+  proposedByBusinessId String   @map("proposed_by_business_id") @db.Uuid
+  /// nulled by the retention purge
+  proposedByPersonId   String?  @map("proposed_by_person_id") @db.Uuid
+  validFrom            DateTime @map("valid_from") @db.Date
+  validTo              DateTime @map("valid_to") @db.Date
+  currency             String   @default("INR")
+  paymentTermsDays     Int      @map("payment_terms_days")
+  /// ex_works | for_destination | delivered | other (what the unit prices include)
+  priceBasis           String   @map("price_basis")
+  /// optional cap on the total taxable value of all call-offs
+  valueCapPaise        BigInt?  @map("value_cap_paise")
+  notes                String?
+  /// what changed in this revision (shown in the history)
+  changeNote           String?  @map("change_note")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  contract             RateContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  items                RateContractItem[]
+  acceptances          RateContractAcceptance[]
+
+  @@unique([contractId, revision])
+  @@map("rate_contract_revisions")
+}
+
+model RateContractItem {
+  id              String  @id @default(uuid()) @db.Uuid
+  revisionId      String  @map("revision_id") @db.Uuid
+  /// stable across revisions so consumption carries over an amendment
+  itemKey         String  @map("item_key") @db.Uuid
+  lineNo          Int     @map("line_no")
+  /// optional catalogue reference; a free-text item has none
+  listingId       String? @map("listing_id") @db.Uuid
+  description     String
+  hsn             String?
+  unit            String
+  unitPricePaise  BigInt  @map("unit_price_paise")
+  gstRateBps      Int     @map("gst_rate_bps")
+  /// minimum quantity per call-off
+  moq             Int?
+  /// cap on the total quantity over the life of the contract
+  quantityCap     Int?    @map("quantity_cap")
+  /// fixed | indexed
+  variationKind   String  @default("fixed") @map("variation_kind")
+  /// for indexed items: the most the applied price may differ from the contract price, in basis points
+  variationCapBps Int?    @map("variation_cap_bps")
+  /// what the price is indexed to (free text, e.g. "LME copper monthly average")
+  variationNote   String? @map("variation_note")
+  revision        RateContractRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+
+  @@unique([revisionId, lineNo])
+  @@unique([revisionId, itemKey])
+  @@map("rate_contract_items")
+}
+
+/// Append-only: each row is one party's answer to one revision. The proposer's own row is written with the revision.
+model RateContractAcceptance {
+  id         String   @id @default(uuid()) @db.Uuid
+  revisionId String   @map("revision_id") @db.Uuid
+  businessId String   @map("business_id") @db.Uuid
+  /// nulled by the retention purge
+  personId   String?  @map("person_id") @db.Uuid
+  /// accepted | rejected
+  decision   String
+  reason     String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  revision   RateContractRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+
+  @@index([revisionId, createdAt])
+  @@map("rate_contract_acceptances")
+}
+
+/// A call-off: an order (and, when purchase orders are enabled, a PO) placed against the contract at the contract prices.
+model RateContractCallOff {
+  id               String    @id @default(uuid()) @db.Uuid
+  contractId       String    @map("contract_id") @db.Uuid
+  /// the revision whose prices applied
+  revision         Int
+  callOffNo        Int       @map("call_off_no")
+  orderId          String    @unique @map("order_id") @db.Uuid
+  /// placed | cancelled (cancelled when the order is cancelled; its quantities are released)
+  status           String    @default("placed")
+  taxablePaise     BigInt    @map("taxable_paise")
+  placedByPersonId String?   @map("placed_by_person_id") @db.Uuid
+  /// client-supplied key (public API, web form): a retried call-off with the same key returns the original instead of ordering twice
+  idempotencyKey   String?   @map("idempotency_key")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  cancelledAt      DateTime? @map("cancelled_at") @db.Timestamptz
+  contract         RateContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  order            Order     @relation(fields: [orderId], references: [id])
+  lines            RateContractCallOffLine[]
+
+  @@unique([contractId, callOffNo])
+  @@unique([contractId, idempotencyKey])
+  @@map("rate_contract_call_offs")
+}
+
+model RateContractCallOffLine {
+  id                 String @id @default(uuid()) @db.Uuid
+  callOffId          String @map("call_off_id") @db.Uuid
+  itemKey            String @map("item_key") @db.Uuid
+  lineNo             Int    @map("line_no")
+  description        String
+  unit               String
+  quantity           Int
+  contractPricePaise BigInt @map("contract_price_paise")
+  /// differs from the contract price only for an indexed item, within its cap
+  appliedPricePaise  BigInt @map("applied_price_paise")
+  taxablePaise       BigInt @map("taxable_paise")
+  callOff            RateContractCallOff @relation(fields: [callOffId], references: [id], onDelete: Cascade)
+
+  @@unique([callOffId, lineNo])
+  @@index([itemKey])
+  @@map("rate_contract_call_off_lines")
+}
+
+/// Which consumption warnings (scope = item key or "value", threshold 80 | 100) and expiry reminders (scope "expiry",
+/// threshold 30 | 7) were sent: inserted in the same transaction as the event, so each is sent once.
+model RateContractAlert {
+  contractId String   @map("contract_id") @db.Uuid
+  scope      String
+  threshold  Int
+  sentAt     DateTime @default(now()) @map("sent_at") @db.Timestamptz
+  contract   RateContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@id([contractId, scope, threshold])
+  @@map("rate_contract_alerts")
 }

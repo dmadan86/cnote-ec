@@ -22,6 +22,30 @@ export * from "./quotes";
 export * from "./fulfilment";
 export * from "./attachments";
 export * from "./comparison";
+// rfq-multiline: BOM lines, per-line quotes, per-line awards (docs/design/rfq-multiline.md)
+export * from "./lines";
+export * from "./awards";
 
 // DPDP access right: registered with @cnote/compliance's export registry (security audit M10).
 export { exportPersonalData } from "./privacy";
+export * from "./risk";
+export { rfqEstimatePaise } from "./approvals";
+
+// Purchase orders, supplier invoices, e-invoice / e-way bill references, MSME 43B(h) payment dues (docs/design/purchase-orders.md)
+export * from "./po-core";
+export * from "./purchase-orders";
+export * from "./supplier-invoices";
+export { getEInvoiceVerifier, setEInvoiceVerifier, mockEInvoiceVerifier, qrSvgDataUri, decodeSignedQr, type EInvoiceVerifier, type EInvoiceCheckInput, type EInvoiceCheckResult, type EInvoiceCheckStatus } from "./einvoice";
+export { purgePurchaseOrderDocuments } from "./po-retention";
+
+// Goods receipt notes, three-way match and returns (docs/design/grn-returns.md)
+export * from "./grn-core";
+export * from "./match-core";
+export * from "./goods-receipts";
+export * from "./match";
+export * from "./returns";
+export { purgeGoodsReceiptPhotos } from "./grn-retention";
+// Rate contracts: agreed prices between a buyer and a seller, versioned amendments, call-off orders (docs/design/rate-contracts.md)
+export * from "./rc-core";
+export * from "./rate-contracts";
+export { purgeRateContracts } from "./rc-retention";

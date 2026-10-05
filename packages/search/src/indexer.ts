@@ -2,6 +2,7 @@ import * as ai from "@cnote/ai";
 import { countPublicListings, getPublicListingsByIds, listPublicListingIndex, listPublicSellerListings, type ListingView } from "@cnote/catalogue";
 import type { EventHandlers, ModuleWorker } from "@cnote/core";
 import { getTrustProfiles } from "@cnote/identity";
+import { variantKeysOf } from "./filters";
 import { getSearchIndex, type IndexDoc, type SearchIndex } from "./index-port";
 
 /**
@@ -44,6 +45,8 @@ export async function buildDocs(listings: ListingView[], now = Date.now()): Prom
       badgeActive: seller.badgeActive,
       pricePaise: l.pricePaise,
       moq: l.moq,
+      availability: l.availability ?? "in_stock",
+      variantValues: variantKeysOf(l.variants),
       embedding: embeddings.get(l.id),
       updatedAt: l.updatedAt,
       version: now,
@@ -80,6 +83,8 @@ async function syncSeller(businessId: string) {
 
 export const indexerHandlers: EventHandlers = {
   ListingVersionPublished: async (e) => syncListings([e.payload.listingId]),
+  // stock moves without a new version: keep the "in stock only" filter and the facets converged
+  ListingAvailabilityChanged: async (e) => syncListings([e.payload.listingId]),
   ListingImageModerated: async (e) => syncListings([e.payload.listingId]),
   // Withdrawals remove directly: never depend on a possibly stale cached read for a takedown.
   ListingUnpublished: async (e) => removeListing(e.payload.listingId),

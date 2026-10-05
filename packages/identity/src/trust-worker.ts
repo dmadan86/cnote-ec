@@ -4,12 +4,13 @@ import { prisma } from "@cnote/db";
 import { bustSellerCaches } from "./business";
 import { mailQueueConsumers } from "./mail-queue";
 import { gstWorkerJobs } from "./gst/continuous";
+import { registryWorkerJobs } from "./registry/verify";
 import { computeTrustScore, emptySignals, RESPONSE_SLA_MS, type TrustSignals } from "./trust";
 
 const counterKey = (businessId: string) => `trust:${businessId}`;
 const DAY = 24 * 60 * 60 * 1000;
 
-function signalsFrom(tier: number, h: Record<string, string>, createdAt: Date, now: number): TrustSignals {
+function signalsFrom(tier: number, h: Record<string, string>, createdAt: Date, now: number, registry: { verified: number; flag: boolean } = { verified: 0, flag: false }): TrustSignals {
   const n = (k: string) => Number(h[k] ?? 0) || 0;
   const last = Number(h.lastActivityAt) || createdAt.getTime();
   return {
@@ -27,6 +28,8 @@ function signalsFrom(tier: number, h: Record<string, string>, createdAt: Date, n
     samplesApproved: n("samplesApproved"),
     samplesExpired: n("samplesExpired"),
     inactiveDays: Math.max(0, Math.floor((now - last) / DAY)),
+    registryVerified: registry.verified,
+    registryFlag: registry.flag,
   };
 }
 
@@ -35,7 +38,10 @@ export async function recomputeTrust(businessId: string, now = Date.now()): Prom
   const b = await prisma.business.findUnique({ where: { id: businessId } });
   if (!b) return null;
   const h = await redis.hgetall(counterKey(businessId));
-  const { score, badgeActive } = computeTrustScore(signalsFrom(b.verificationTier, h, b.createdAt, now));
+  const { score, badgeActive } = computeTrustScore(signalsFrom(b.verificationTier, h, b.createdAt, now, {
+    verified: (b.udyamVerifiedAt ? 1 : 0) + (b.mcaVerifiedAt ? 1 : 0),
+    flag: !!b.mcaStatus && b.mcaStatus !== "Active",
+  }));
   if (score === b.trustScore && badgeActive === b.badgeActive) return { changed: false, score };
   // updateMany, not update: the business may be erased between the read and the write (DPDP erasure, cleanup).
   const updated = await prisma.$transaction(async (tx) => {
@@ -148,5 +154,5 @@ export const worker: ModuleWorker = {
   name: "identity",
   handlers: trustHandlers,
   queues: mailQueueConsumers,
-  jobs: [{ name: "identity.trust-decay", everyMs: DAY, run: async () => void (await runTrustDecay()) }, ...gstWorkerJobs, ...auditWorkerJobs],
+  jobs: [{ name: "identity.trust-decay", everyMs: DAY, run: async () => void (await runTrustDecay()) }, ...gstWorkerJobs, ...registryWorkerJobs, ...auditWorkerJobs],
 };

@@ -16,6 +16,8 @@ export function filtersToState(filters: SearchFilters | Record<string, unknown> 
     pmax: f.priceMaxPaise !== undefined ? Math.round(f.priceMaxPaise / 100) : null,
     moq: f.maxMoq ?? null,
     priced: f.hasPrice === true,
+    inStock: f.inStockOnly === true,
+    variants: f.variantOptions ?? {},
     sort: sort && isSort(sort) ? (sort as SearchSort) : "relevance",
   };
 }

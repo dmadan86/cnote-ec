@@ -1,5 +1,5 @@
 // @cnote/compliance: DPDP grievance redressal, moderation appeals, retention framework and the India data-residency
-// guard (ADR-010), plus cookie-consent receipts. Queries ONLY GrievanceTicket, ModerationAppeal, RetentionRun and CookieConsentReceipt; other modules are reached through
+// guard (ADR-010), plus cookie-consent receipts, the DPDP inactivity erasure notice and the nominee right (polish). Queries ONLY GrievanceTicket, ModerationAppeal, RetentionRun and CookieConsentReceipt; other modules are reached through
 // their public exports (purge functions, moderation getters/decisions).
 // PUBLIC CONTRACT. Extend, don't break.
 export * from "./config";
@@ -25,5 +25,14 @@ export {
   type ExportSource, type ExportOptions,
 } from "./export";
 export { assertIndiaResidency, getResidencyReport, ResidencyError, type ResidencyReport, type ResidencyCheck, type CheckStatus } from "./residency";
+export {
+  INACTIVITY_DEFAULT_DAYS, MIN_NOTICE_HOURS, DEFAULT_NOTICE_HOURS, inactivityErasureEnabled, noticePeriodMs, sendInactivityNotices, executeInactivityErasures, runInactivityErasure,
+  type InactivityRunResult,
+} from "./inactivity";
+export {
+  MAX_ACTIVE_NOMINEES, NOMINEE_RELATIONSHIPS, NOMINEE_GROUNDS, NOMINEE_COMPLETE_ACTIONS, normalizeContact, addNominee, changeNominee, revokeNominee, listMyNominees, fileNomineeRequest,
+  listNomineeRequests, getNomineeRequest, decideNomineeRequest, completeNomineeRequest, exportNomineeData, deleteNomineesForPerson, purgeDecidedNomineeRequests,
+  type NomineeInput, type NomineeView, type NomineeRelationship, type NomineeGround, type NomineeCompleteAction, type NomineeRequestInput, type NomineeRequestStatus, type NomineeRequestSummary, type NomineeRequestDetail,
+} from "./nominee";
 export { maskEmail } from "./util";
 export { worker } from "./worker";

@@ -50,6 +50,13 @@ async function loadPrefill(s: Session, enquiryId: string | undefined, orderId: s
       budgetMaxRupees: paiseToRupees(e?.budgetMaxPaise ?? null),
       minSellerTier: e?.minSellerTier ?? undefined,
       sameSupplier: supplier,
+      // a multi-line requirement is requested again as the same bill of materials
+      lines: e && e.lines.length > 1
+        ? e.lines.map((l) => ({
+            itemName: l.itemName, spec: l.spec ?? "", quantity: String(l.quantity), unit: l.unit, targetPrice: l.targetPricePaise === null ? "" : String(l.targetPricePaise / 100),
+            hsn: l.hsn ?? "", categorySlug: l.category?.slug ?? "",
+          }))
+        : undefined,
     },
   };
 }
@@ -58,6 +65,7 @@ export default async function NewRfqPage(props: PageProps<"/rfq/new">) {
   const locale = await getRequestLocale();
   const t = await getTranslations({ locale, namespace: "rfq" });
   const tr = await getTranslations({ locale, namespace: "retention" });
+  const tv = await getTranslations({ locale, namespace: "pdp" });
   const sp = await props.searchParams;
   const q = first(sp.q)?.slice(0, 140);
   const listing = first(sp.listing);
@@ -69,6 +77,10 @@ export default async function NewRfqPage(props: PageProps<"/rfq/new">) {
   const unit = first(sp.unit)?.slice(0, 20);
   const priceRaw = first(sp.price);
   const pricePaise = priceRaw && /^\d{1,15}$/.test(priceRaw) ? Number(priceRaw) : undefined;
+  // The variant chosen on the product page: its SKU and a readable name become a line of the requirement.
+  const variantRaw = first(sp.variant);
+  const variantSku = variantRaw && /^[A-Za-z0-9._-]{1,64}$/.test(variantRaw) ? variantRaw : undefined;
+  const variantLabel = variantSku ? first(sp.vlabel)?.replace(/[\r\n]+/g, " ").slice(0, 140) : undefined;
   // "Request again": ?again=<enquiryId> and/or ?order=<orderId>
   const againRaw = first(sp.again);
   const orderRaw = first(sp.order);
@@ -78,7 +90,7 @@ export default async function NewRfqPage(props: PageProps<"/rfq/new">) {
   const sampleRaw = first(sp.sample);
   const sampleId = sampleRaw && UUID.test(sampleRaw) ? sampleRaw : undefined;
   const qs = new URLSearchParams();
-  for (const [k, v] of [["sample", sampleId], ["q", q], ["listing", listing], ["category", category], ["seller", seller], ["qty", qty?.toString()], ["unit", unit], ["price", pricePaise?.toString()], ["again", again], ["order", orderId]] as const) if (v) qs.set(k, v);
+  for (const [k, v] of [["sample", sampleId], ["q", q], ["listing", listing], ["category", category], ["seller", seller], ["qty", qty?.toString()], ["unit", unit], ["price", pricePaise?.toString()], ["variant", variantSku], ["vlabel", variantLabel], ["again", again], ["order", orderId]] as const) if (v) qs.set(k, v);
   const session = await requireBusiness(`/rfq/new${qs.size ? `?${qs}` : ""}`);
   const prefill = again || orderId ? await loadPrefill(session, again, orderId) : null;
   const samplePre = sampleId && samplesEnabled() ? await getBulkPrefill(actorOf(session), sampleId).catch(() => null) : null;
@@ -99,7 +111,7 @@ export default async function NewRfqPage(props: PageProps<"/rfq/new">) {
     ? { ...prefill.defaults, categorySlug: categories.some((c) => c.slug === prefill.defaults.categorySlug) ? prefill.defaults.categorySlug : undefined }
     : {
         title: q,
-        requirement: q,
+        requirement: [q, variantSku ? tv("requirementLine", { label: variantLabel || variantSku, sku: variantSku }) : undefined].filter(Boolean).join("\n") || undefined,
         categorySlug: categories.some((c) => c.slug === category) ? category : undefined,
         preferredListingId: listing && UUID.test(listing) ? listing : undefined,
         // From a seller's storefront "Request quote": prefer that seller if it is an eligible match.

@@ -7,8 +7,12 @@ vi.mock("@cnote/templates", () => ({ defineTemplates: (d: unknown) => { h.define
 vi.mock("@cnote/email", () => ({ sendEmail: async () => "id" }));
 vi.mock("@cnote/identity", () => ({ BADGE_THRESHOLD: 40, getConsents: async () => ({ marketing: false }) }));
 
+import { GRN_KINDS } from "../src/kinds-grn";
+import { CONTRACT_KINDS } from "../src/kinds-contracts";
+import { PAYABLE_KINDS } from "../src/kinds-payables";
 import { PHASE23_KINDS } from "../src/kinds-phase23";
 import { SAMPLE_KINDS } from "../src/kinds-samples";
+import { APPROVAL_KINDS } from "../src/kinds-approvals";
 import { KINDS, getKind, kindsFor, observedEvents, registerNotificationTemplates, templateDefinitions } from "../src/kinds";
 import { CATEGORY_META, channelLock, defaultPreference, effectiveChannels } from "../src/preferences";
 import { redact, maskEmail, listQueueTopics, registerQueueTopic } from "../src/ops";
@@ -33,6 +37,8 @@ const dir = (over: Partial<Directory> = {}): Directory => ({
 const ev = (type: string, payload: unknown): DomainEvent => ({ id: 1, type, version: 1, aggregateType: "x", aggregateId: "x", payload, occurredAt: "" }) as never;
 
 interface Row { key: string; event: ReturnType<typeof ev>; people: string[]; app?: string; vars?: Record<string, unknown>; href?: string }
+const KEY_EXP = { keyId: "k", personId: "owner", name: "CI  deploy", prefix: "ck_live_ab12", expiresAt: "2026-10-12T05:00:00.000Z" };
+const NOTICE = { personId: "owner", noticeId: "n", eraseAfter: "2026-10-14T05:00:00.000Z", lastActiveAt: "2023-10-01T00:00:00.000Z" };
 const TABLE: Row[] = [
   { key: "lead.matched", event: ev("LeadMatched", { enquiryId: "e", matchId: "m", sellerBusinessId: SB }), people: ["s1", "s2"], vars: { enquiryTitle: "Yarn", intentScore: 80 }, href: "/leads" },
   { key: "lead.accepted", event: ev("LeadAccepted", { enquiryId: "e", sellerBusinessId: SB }), people: ["b1"], vars: { sellerName: "Sharma" }, href: "/buyer/enquiries/e" },
@@ -62,7 +68,13 @@ const TABLE: Row[] = [
   { key: "lead.reachability_result", event: ev("ReachabilityChecked", { checkId: "c", enquiryId: "e", matchId: "m", channel: "sms", status: "responded", sellerBusinessId: SB }), people: ["s1", "s2"], href: "/leads" },
   { key: "message.digest", event: ev("MessageSent", { conversationId: "c", senderPersonId: "s1" }), people: [] }, // pipeline-only digest kind: never resolved from an event
   { key: "deal.confirm_requested", event: ev("DealClaimedBySeller", { matchId: "m", sellerBusinessId: SB, buyerBusinessId: BB, conversationId: "c" }), people: ["b1"], vars: { sellerName: "Sharma", enquiryTitle: "Yarn" }, href: "/conversations/c" },
+  { key: "attachment.quarantined", event: ev("AttachmentQuarantined", { quarantineId: "q", enquiryId: "e", kind: "rfq", uploadedByBusinessId: BB, uploadedByPersonId: "b1", signature: "Eicar-Test-Signature", scanner: "mock" }), people: ["b1"], app: "web", vars: { uploadKind: "requirement" }, href: "/buyer/enquiries" },
+  { key: "attachment.quarantined", event: ev("AttachmentQuarantined", { quarantineId: "q", enquiryId: "e", kind: "quote", uploadedByBusinessId: SB, uploadedByPersonId: "s1", signature: "Eicar-Test-Signature", scanner: "mock" }), people: ["s1"], app: "seller", vars: { uploadKind: "quote" }, href: "/conversations" },
   { key: "domain.claim_superseded", event: ev("DomainClaimSuperseded", { domainId: "d", storefrontId: "sf", sellerBusinessId: SB, hostname: "www.acme.com", reason: "expired" }), people: ["s1", "s2"], href: "/storefront/domains", vars: { hostname: "www.acme.com" } },
+  { key: "developer.api_key_expiring", event: ev("ApiKeyExpiring", { ...KEY_EXP, threshold: "7d" }), people: ["owner"], vars: { keyName: "CI deploy", keyPrefix: "ck_live_ab12", expiresOn: "12 Oct 2026" }, href: "/account/developers" },
+  { key: "developer.api_key_expires_today", event: ev("ApiKeyExpiring", { ...KEY_EXP, threshold: "expiry_day" }), people: ["owner"], href: "/account/developers" },
+  { key: "account.inactivity_erasure_notice", event: ev("InactivityErasureNoticeSent", NOTICE), people: ["owner"], vars: { eraseOn: "14 October 2026" }, href: "/signin" },
+  { key: "account.nominee_changed", event: ev("DataNomineeChanged", { personId: "owner", nomineeId: "x", change: "added" }), people: ["owner"], href: "/account/nominee" },
 ];
 const NONE: { key: string; event: ReturnType<typeof ev>; note: string }[] = [
   { key: "enquiry.under_review", event: ev("EnquiryScored", { enquiryId: "e", needsReview: false }), note: "no review needed" },
@@ -98,8 +110,9 @@ describe("kinds registry", () => {
   });
   it("every kind is exercised by the mapping table", () => {
     const covered = new Set(TABLE.map((r) => r.key));
-    const phase23 = new Set([...PHASE23_KINDS, ...SAMPLE_KINDS].map((k) => k.key)); // covered in kinds-phase23.test.ts / kinds-samples.test.ts
-    for (const k of KINDS) if (!phase23.has(k.key) && k.category !== "alerts") expect(covered, k.key).toContain(k.key); // alerts: kinds-alerts.db.test.ts
+    const phase23 = new Set([...PHASE23_KINDS, ...PAYABLE_KINDS, ...GRN_KINDS, ...CONTRACT_KINDS, ...SAMPLE_KINDS].map((k) => k.key)); // covered in kinds-phase23.test.ts / kinds-payables.test.ts / kinds-samples.test.ts
+    const approvals = new Set(APPROVAL_KINDS.map((k) => k.key)); // covered in kinds-approvals.test.ts
+    for (const k of KINDS) if (!phase23.has(k.key) && !approvals.has(k.key) && k.category !== "alerts") expect(covered, k.key).toContain(k.key); // alerts: kinds-alerts.db.test.ts
   });
   it("observedEvents/kindsFor are consistent; several kinds may share an event", () => {
     const evs = observedEvents();
@@ -112,8 +125,10 @@ describe("kinds registry", () => {
   it("template definitions map category (security/marketing/transactional) and register once", () => {
     const defs = templateDefinitions();
     expect(defs).toHaveLength(KINDS.length);
-    expect(defs.filter((d) => !d.key.startsWith("alert.")).every((d) => d.category === "transactional")).toBe(true);
-    expect(defs.filter((d) => d.key.startsWith("alert.")).map((d) => d.category)).toEqual(["alert", "alert", "alert", "alert"]); // opt-in alerts: unsubscribe footer, no marketing consent
+    expect(defs.filter((d) => !d.key.startsWith("alert.") && !d.key.startsWith("developer.") && !d.key.startsWith("account.") && !d.key.startsWith("team.")).every((d) => d.category === "transactional")).toBe(true);
+    expect(defs.filter((d) => (d.key.startsWith("developer.") || d.key.startsWith("account."))).every((d) => d.category === "security" && d.channels.includes("email"))).toBe(true);
+    expect(defs.filter((d) => d.key.startsWith("team.")).every((d) => d.category === "security")).toBe(true); // team changes are security notices
+    expect(defs.filter((d) => d.key.startsWith("alert.")).map((d) => d.category)).toEqual(["alert", "alert", "alert", "alert", "alert"]); // opt-in alerts: unsubscribe footer, no marketing consent
     registerNotificationTemplates();
     registerNotificationTemplates();
     expect(h.defined.length).toBeLessThanOrEqual(1);

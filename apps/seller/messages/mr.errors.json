@@ -255,7 +255,8 @@
       "filesDeletedAfterDays": "फाइल {retentionDays} दिवसांनंतर हटवल्या जातात",
       "nothingDownloadJob": "या जॉबसाठी डाउनलोड करण्यासारखे काही नाही",
       "fileNoLongerAvailable": "ही फाइल आता उपलब्ध नाही",
-      "unknownCategory": "अज्ञात श्रेणी \"{categorySlug}\""
+      "unknownCategory": "अज्ञात श्रेणी \"{categorySlug}\"",
+      "skuNotFound": "SKU \"{sku}\" अस्तित्वात नाही"
     },
     "catalogue": {
       "notImage": "हा तुमचा फोटो नाही",
@@ -278,7 +279,8 @@
       "voiceNoteNotFound": "व्हॉइस नोट सापडली नाही",
       "notVoiceNote": "ही तुमची व्हॉइस नोट नाही",
       "recordingAlreadyBeenDeleted": "हे रेकॉर्डिंग आधीच हटवले गेले आहे",
-      "recordingNoLongerAvailable": "हे रेकॉर्डिंग आता उपलब्ध नाही"
+      "recordingNoLongerAvailable": "हे रेकॉर्डिंग आता उपलब्ध नाही",
+      "noVariants": "या लिस्टिंगमध्ये कोणतेही व्हेरिएंट नाहीत"
     },
     "compliance": {
       "signAppeal": "अपील करण्यासाठी साइन इन करा",
@@ -349,7 +351,9 @@
       "videoKycNotStartedSession": "या सत्रासाठी व्हिडिओ KYC सुरू झालेले नाही.",
       "noteRequired": "टीप आवश्यक आहे.",
       "sessionAlreadyDecided": "या सत्रावर आधीच निर्णय झाला आहे.",
-      "startEnrollmentFirst": "आधी नोंदणी सुरू करा."
+      "startEnrollmentFirst": "आधी नोंदणी सुरू करा.",
+      "auditReviewNoteRequired": "पुनरावलोकन टीप आवश्यक आहे.",
+      "auditPartnerNoteRequired": "भागीदारासाठी टीप आवश्यक आहे."
     },
     "leadgen": {
       "requestExpiredStartAgain": "या विनंतीची मुदत संपली आहे. कृपया पुन्हा सुरू करा.",

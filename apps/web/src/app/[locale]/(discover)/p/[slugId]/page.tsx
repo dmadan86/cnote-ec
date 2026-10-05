@@ -17,9 +17,12 @@ import { getUiLabels } from "@/features/search/labels";
 import { moqText } from "@/features/search/format";
 import { Gallery } from "@/features/pdp/gallery";
 import { PurchasePanel } from "@/features/pdp/purchase-panel";
+import { VariantProvider } from "@/features/pdp/variant-context";
+import { VariantSelector } from "@/features/pdp/variant-selector";
 import { ShareMenu } from "@/features/pdp/share-menu";
 import { TradeInfo } from "@/features/pdp/trade-info";
 import { SampleOffer } from "@/features/samples/sample-offer";
+import { FreightEstimate } from "@/features/pdp/freight-estimate";
 import { ProductQa } from "@/features/qa/section";
 import { ProductReviewsStatic } from "@/features/reviews";
 import { RatingStars } from "@/features/reviews/stars";
@@ -116,7 +119,7 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
   ];
   const canonical = absoluteUrl(localizePath(productPath(listing), locale));
   const pdp = await getTranslations({ locale, namespace: "pdp" });
-  const images = listing.imageUrls.slice(0, 10).map((src, i) => ({ src, blur: listing.imageBlurs?.[i] ?? null, alt: i === 0 ? listing.title : t("imageAlt", { title: listing.title, n: i + 1 }) }));
+  const images = listing.imageUrls.slice(0, 10).map((src, i) => ({ id: listing.imageIds?.[i] ?? null, src, blur: listing.imageBlurs?.[i] ?? null, alt: i === 0 ? listing.title : t("imageAlt", { title: listing.title, n: i + 1 }) }));
 
   return (
     <Container className="py-6 lg:py-8">
@@ -128,6 +131,11 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
         ]}
       />
       <Breadcrumbs linkComponent={Link} label={ui.breadcrumb} items={[{ label: ui.home, href: "/" }, { label: listing.category.name, href: categoryPath(listing.category.slug) }, { label: listing.title }]} />
+      <VariantProvider
+        axes={listing.variantAxes ?? []}
+        variants={listing.variants ?? []}
+        stock={{ availability: listing.availability ?? "in_stock", availableQty: listing.availableQty ?? null, stockUpdatedAt: listing.stockUpdatedAt ?? null }}
+      >
       <div className="mt-5 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div>
           <Gallery images={images} title={listing.title} />
@@ -145,7 +153,10 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
             ) : null}
           </div>
 
+          <VariantSelector base={{ pricePaise: listing.pricePaise, priceTiers: listing.priceTiers ?? [], moq: listing.moq, leadTimeDays: listing.trade?.leadTimeDays ?? null }} unit={listing.priceUnit} />
+
           <PurchasePanel
+            leadTimeDays={listing.trade?.leadTimeDays ?? null}
             listingId={listing.id}
             listingTitle={listing.title}
             unit={listing.priceUnit}
@@ -187,6 +198,8 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
               }
             />
           ) : null}
+
+          <FreightEstimate listingId={listing.id} unit={listing.moqUnit ?? listing.priceUnit} moq={listing.moq} />
 
           <TradeInfo listing={listing} locale={locale} />
 
@@ -234,6 +247,7 @@ export default async function ProductPage(props: PageProps<"/[locale]/p/[slugId]
           </section>
         </div>
       </div>
+      </VariantProvider>
 
       <div className="mt-12">
         <ProductReviewsStatic listingId={listing.id} />

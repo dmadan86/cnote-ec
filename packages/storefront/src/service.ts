@@ -6,6 +6,7 @@ import { cachedManyTagged, cachedTagged, cacheTags, DomainError, emit, rateLimit
 import { prisma, type Prisma, type Tx } from "@cnote/db";
 import { getTrustProfiles } from "@cnote/identity";
 import { purgeStorefront, storefrontTag } from "./cache";
+import { ensureEmbedReviews } from "./embeds";
 import { listApprovedSellerImages, loadRenderData } from "./data";
 import { blankDocument, collectImages, collectText, documentHasEmbeds, embedsEnabled, imageIdOf, validateDocument, SCHEMA_VERSION, type StorefrontDocument } from "./document";
 import { signPreviewToken, verifyPreviewToken } from "./preview";
@@ -61,6 +62,8 @@ export type PublishOutcome = {
   verdict: "allow" | "review" | "block";
   flags: string[];
   reason: string | null;
+  /** third-party videos in the document that are not approved yet: they are hidden from visitors until staff (or the auto-approver) clear them */
+  heldEmbeds: number;
 };
 
 export interface PublishedStorefront {
@@ -388,6 +391,8 @@ export async function publish(sellerBusinessId: string, personId: string): Promi
   const doc = parseStored(draftRow.document);
   assertEmbedsAllowed(doc);
   await assertImagesApproved(sellerBusinessId, doc);
+  // Third-party videos are moderated separately and are NOT part of the publish gate: a held video is simply not rendered.
+  const embeds = await ensureEmbedReviews({ id: sf.id, slug: sf.slug, sellerBusinessId }, doc);
   const screen = await screenText(sellerBusinessId, doc);
   const clean = screen.verdict === "allow";
   const verdictLabel = clean ? "allow" : `${screen.verdict}${screen.flags.length ? `: ${screen.flags.join(", ")}` : ""}`;
@@ -409,7 +414,7 @@ export async function publish(sellerBusinessId: string, personId: string): Promi
     }
   });
   if (clean) await purgeStorefront([sf.slug]);
-  return { outcome: clean ? "published" : "in_review", versionId: draftRow.id, version: draftRow.version, verdict: screen.verdict, flags: screen.flags, reason: screen.reason };
+  return { outcome: clean ? "published" : "in_review", versionId: draftRow.id, version: draftRow.version, verdict: screen.verdict, flags: screen.flags, reason: screen.reason, heldEmbeds: embeds.held.length };
 }
 
 // ---------------------------------------------------------------------------------------------

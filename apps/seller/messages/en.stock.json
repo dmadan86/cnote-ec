@@ -1,0 +1,82 @@
+{
+  "stock": {
+    "availability": {
+      "in_stock": "In stock",
+      "made_to_order": "Made to order",
+      "out_of_stock": "Out of stock"
+    },
+    "badge": {
+      "qty": "{qty} available",
+      "leadTime": "Ships in {days} days",
+      "updated": "Stock updated {when}",
+      "variants": "{count, plural, one {# variant} other {# variants}}",
+      "rollup": "best stock among variants"
+    },
+    "section": {
+      "legend": "Availability",
+      "status": "Stock status",
+      "qty": "Quantity available (optional)",
+      "qtyHint": "Units on hand. Leave empty if you do not track it.",
+      "leadTimeNote": "Made to order needs a lead time: fill in the lead time (days) in Trade details below.",
+      "instant": "Stock changes reach buyers at once and need no review.",
+      "rollup": "This listing has variants, so buyers see the best stock among them: {state}. Set stock for each variant below."
+    },
+    "toggle": {
+      "label": "Stock status of {title}",
+      "leadTime": "Lead time (days)",
+      "leadTimePrompt": "Made to order needs a lead time.",
+      "apply": "Apply",
+      "cancel": "Cancel",
+      "saved": "Stock status is now {state}.",
+      "manage": "Manage variants"
+    },
+    "actions": {
+      "leadTimeNeeded": "Enter the lead time in days (0 to 730) for made-to-order items.",
+      "qtyInvalid": "Quantity must be a whole number, 0 or more.",
+      "bad": "Choose a valid stock status."
+    },
+    "variants": {
+      "legend": "Variants",
+      "intro": "Offer sizes, colours or grades as separate variants, each with its own SKU, price and stock. Variant details are reviewed like the rest of the listing; stock updates are not.",
+      "noAxes": "This category has no variant options configured, so variants are not available for it.",
+      "empty": "No variants yet.",
+      "count": "{count} of {max} variants",
+      "rowTitle": "Variant {n}",
+      "add": "Add variant",
+      "generate": "Generate all combinations",
+      "generateHint": "Adds one row for every combination of the option lists that is not there yet (up to {max} variants in total).",
+      "remove": "Remove variant {n}",
+      "sku": "Variant SKU",
+      "pickOption": "Choose",
+      "price": "Price override (rupees)",
+      "moq": "Minimum order override",
+      "tiers": "Quantity price overrides",
+      "tierQty": "From quantity",
+      "tierPrice": "Price (rupees)",
+      "tierAdd": "Add tier",
+      "tierRemove": "Remove tier {n}",
+      "availability": "Availability",
+      "qty": "Quantity",
+      "leadTime": "Lead time (days)",
+      "image": "Image",
+      "noImage": "Same as listing",
+      "imageOption": "Image {n}",
+      "saving": "Saving...",
+      "saveStructure": "Save variants",
+      "saveHint": "Saved to your working copy. Buyers see new or changed variants after you submit the listing for review.",
+      "updateStock": "Update stock now",
+      "stockHint": "Applies to buyers at once, without review. Only variants that are already saved are updated.",
+      "saved": "Variants saved. Submit the listing for review to publish changes to the variants themselves.",
+      "stockSaved": "Stock updated. Buyers see it now.",
+      "err": {
+        "sku": "Variant {n}: enter a SKU.",
+        "axis": "Variant {n}: choose {axis}.",
+        "number": "Variant {n}: quantity, minimum order and lead time must be whole numbers.",
+        "price": "Variant {n}: price must be a number, 0 or more.",
+        "tier": "Variant {n}: fill in both fields of every price tier.",
+        "tooMany": "At most {max} variants.",
+        "parse": "Could not read the variants. Reload the page and try again."
+      }
+    }
+  }
+}
