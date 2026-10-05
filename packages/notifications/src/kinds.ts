@@ -8,6 +8,7 @@ import { defineTemplates, type TemplateDefinition } from "@cnote/templates";
 import { cleanName, envInt, fan, HREF, inr, kind, membersOf, RECIPIENT_NAME, v } from "./kind-helpers";
 import { ALERT_KINDS } from "./kinds-alerts";
 import { PHASE23_KINDS } from "./kinds-phase23";
+import { SAMPLE_KINDS } from "./kinds-samples";
 import type { NotificationCategory, NotificationKind } from "./types";
 
 export const KINDS: NotificationKind[] = [
@@ -511,6 +512,7 @@ export const KINDS: NotificationKind[] = [
   }),
   ...PHASE23_KINDS,
   ...ALERT_KINDS,
+  ...SAMPLE_KINDS,
 ];
 
 const KEY_INDEX = new Map(KINDS.map((k) => [k.key, k]));

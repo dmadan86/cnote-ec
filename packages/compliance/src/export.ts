@@ -16,6 +16,7 @@ import { exportPersonalData as identityExport, listPersonBusinessIds } from "@cn
 import { exportPersonalData as leadgenExport } from "@cnote/leadgen";
 import { exportPersonalData as notificationsExport } from "@cnote/notifications";
 import { exportPersonalData as reviewsExport } from "@cnote/reviews";
+import { exportPersonalData as samplesExport } from "@cnote/samples";
 import { exportPersonalData as wishlistExport } from "@cnote/wishlist";
 
 export interface ExportSource {
@@ -48,6 +49,7 @@ export const EXPORT_SOURCES: readonly ExportSource[] = [
   { module: "catalogue", description: "Voice-note metadata and transcripts", export: (id) => catalogueExport(id) },
   { module: "leadgen", description: "Lead-capture funnel rows", export: (id) => leadgenExport(id) },
   { module: "disputes", description: "Disputes, evidence statements, messages and appeals", export: disputesExport },
+  { module: "samples", description: "Sample requests: ship-to details, notes, dispatch and evaluation", export: samplesExport },
   { module: "compliance", description: "Cookie-consent receipts", export: (id) => exportCookieConsentReceipts(id) },
 ];
 

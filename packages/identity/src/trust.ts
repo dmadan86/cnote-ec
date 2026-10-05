@@ -16,6 +16,11 @@ export interface TrustSignals {
   offersBroken?: number;
   /** Seller-initiated lead refunds (buyer_fake / buyer_unreachable). Only an abnormal share of accepted leads costs points. */
   refundsClaimed?: number;
+  /** Buyer verdicts on delivered samples (docs/design/samples.md). The approval rate counts only from SAMPLE_MIN_EVALUATED evaluated samples. */
+  samplesEvaluated?: number;
+  samplesApproved?: number;
+  /** Sample requests that expired unanswered (48h SLA missed). */
+  samplesExpired?: number;
   inactiveDays: number;
 }
 
@@ -32,6 +37,11 @@ const PRIOR_RATE = 0.7;
 // exist, ADR-002); each refund beyond that costs 3 points, capped at 15. Needs a minimum sample so a new seller is not hit.
 export const REFUND_FREE_SHARE = 0.2;
 export const REFUND_MIN_SAMPLE = 5;
+// Sample approval (docs/design/samples.md): worth at most +-SAMPLE_MAX_PTS, and only from SAMPLE_MIN_EVALUATED evaluated samples so one early
+// verdict cannot move a seller. 60% approval is neutral; each 5 points of rate is worth 1 point. Unanswered requests cost 1 point each, capped.
+export const SAMPLE_MIN_EVALUATED = 5;
+export const SAMPLE_MAX_PTS = 5;
+export const SAMPLE_EXPIRY_MAX_PENALTY = 5;
 
 export function computeTrustScore(s: TrustSignals): { score: number; badgeActive: boolean } {
   const tierPts = TIER_POINTS[Math.min(Math.max(Math.trunc(s.tier), 0), 3)]!;
@@ -47,7 +57,12 @@ export function computeTrustScore(s: TrustSignals): { score: number; badgeActive
   const acceptedTotal = s.acceptedFast + s.acceptedSlow;
   const excessRefunds = acceptedTotal >= REFUND_MIN_SAMPLE ? Math.max(0, (s.refundsClaimed ?? 0) - Math.floor(acceptedTotal * REFUND_FREE_SHARE)) : 0;
   const refundPts = -Math.min(15, excessRefunds * 3);
+  const evaluated = s.samplesEvaluated ?? 0;
+  const samplePts = evaluated >= SAMPLE_MIN_EVALUATED
+    ? Math.max(-SAMPLE_MAX_PTS, Math.min(SAMPLE_MAX_PTS, Math.round(((s.samplesApproved ?? 0) / evaluated - 0.6) * 20)))
+    : 0;
+  const sampleExpiryPts = -Math.min(SAMPLE_EXPIRY_MAX_PENALTY, s.samplesExpired ?? 0);
   const decay = -Math.min(15, Math.max(0, Math.floor((s.inactiveDays - 30) / 10) + (s.inactiveDays > 30 ? 1 : 0)));
-  const score = Math.round(Math.min(100, Math.max(0, tierPts + responsePts + dealPts + disputePts + moderationPts + offerPts + refundPts + decay)));
+  const score = Math.round(Math.min(100, Math.max(0, tierPts + responsePts + dealPts + disputePts + moderationPts + offerPts + refundPts + samplePts + sampleExpiryPts + decay)));
   return { score, badgeActive: s.tier >= 1 && score >= BADGE_THRESHOLD };
 }

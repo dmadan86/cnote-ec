@@ -188,6 +188,19 @@ export interface DomainEventPayloads {
   SubscriptionCancelled: { businessId: string; subscriptionId: string; planCode: string; billingInterval: "monthly" | "annual"; refundPaise: number; unusedMonths: number; effectiveAt: string; reason: string | null };
   /** The paid period ends soon and will NOT renew by itself: asks the owner to confirm a renewal (ADR-005). */
   SubscriptionRenewalDue: { businessId: string; subscriptionId: string; planCode: string; billingInterval: "monthly" | "annual"; periodEnd: string };
+  // samples (docs/design/samples.md): sample request and approval workflow before a bulk order. Business ids on every event so observers need no lookups.
+  SampleRequested: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string; listingId: string | null; quantity: number; amountPaise: number; respondBy: string };
+  SampleAccepted: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string; amountPaise: number; adjustableAgainstBulk: boolean; expectedDispatchBy: string | null; responseMs: number };
+  SampleDeclined: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string; reason: string; responseMs: number };
+  SampleDispatched: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string; courier: string; trackingRef: string | null };
+  SampleDelivered: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string; deliveredBy: "buyer" | "seller" };
+  /** The buyer's verdict. `approved` makes the sample the golden quality reference for the bulk order. Feeds the supplier trust read model (approval rate). */
+  SampleEvaluated: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string; approved: boolean; reasons: string[]; photoCount: number };
+  /** The seller did not respond within the SLA (48h by default). */
+  SampleExpired: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string };
+  SampleCancelled: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string };
+  /** An RFQ was created from an approved sample (the sample is its quality reference). */
+  SampleBulkQuoteRequested: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string; enquiryId: string };
 }
 
 export type DomainEventType = keyof DomainEventPayloads;
@@ -331,6 +344,15 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   SubscriptionStarted: 1,
   SubscriptionCancelled: 2,
   SubscriptionRenewalDue: 1,
+  SampleRequested: 1,
+  SampleAccepted: 1,
+  SampleDeclined: 1,
+  SampleDispatched: 1,
+  SampleDelivered: 1,
+  SampleEvaluated: 1,
+  SampleExpired: 1,
+  SampleCancelled: 1,
+  SampleBulkQuoteRequested: 1,
 };
 
 export interface DomainEvent<T extends DomainEventType = DomainEventType> {
