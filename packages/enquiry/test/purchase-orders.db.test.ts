@@ -192,7 +192,7 @@ describe("supplier invoices, e-invoice references and the MSME due date", () => 
     const inv = await lib.recordSupplierInvoice(d.seller, { purchaseOrderId: po.id, invoiceNumber: "INV/26-27/001", invoiceDate: today(), taxablePaise: 1_000_000, gstPaise: 180_000 });
     expect(inv).toMatchObject({ totalPaise: 1_180_000, outstandingPaise: 1_180_000, status: "open", eInvoice: null, ewayBill: null });
     const view = await lib.getPurchaseOrder(d.buyer, po.id);
-    expect(view?.amounts).toEqual({ poPaise: 2_950_000, invoicedPaise: 1_180_000, paidPaise: 0, remainingToInvoicePaise: 1_770_000, outstandingPaise: 1_180_000 });
+    expect(view?.amounts).toEqual({ poPaise: 2_950_000, invoicedPaise: 1_180_000, paidPaise: 0, remainingToInvoicePaise: 1_770_000, outstandingPaise: 1_180_000, creditedPaise: 0 });
     await expect(lib.recordSupplierInvoice(d.seller, { purchaseOrderId: po.id, invoiceNumber: "INV/26-27/002", invoiceDate: today(), taxablePaise: 2_000_000, gstPaise: 360_000 })).rejects.toMatchObject({ code: "validation", message: expect.stringMatching(/above the purchase order/i) });
     await expect(lib.recordSupplierInvoice(d.seller, { purchaseOrderId: po.id, invoiceNumber: "INV/26-27/001", invoiceDate: today(), taxablePaise: 100, gstPaise: 18 })).rejects.toMatchObject({ code: "conflict" });
     await expect(lib.recordSupplierInvoice(d.buyer, { purchaseOrderId: po.id, invoiceNumber: "X-1", invoiceDate: today(), taxablePaise: 100, gstPaise: 18 })).rejects.toMatchObject({ code: "not_found" });

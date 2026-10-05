@@ -422,3 +422,111 @@ describe("retention and export", () => {
     expect(await lib.purgeGoodsReceiptPhotos(future)).toBe(0);
   });
 });
+
+describe("edge cases and guards", () => {
+  it("receipt reads and the receiving status reject foreign, malformed and unknown ids; the feature flag turns writes off", async () => {
+    const d = await deal();
+    expect(await lib.getReceivingStatus(d.seller, d.po.id)).toBeNull();
+    expect(await lib.getReceivingStatus(d.buyer, "x")).toBeNull();
+    expect(await lib.getGoodsReceipt(d.buyer, "x")).toBeNull();
+    expect(await lib.listGoodsReceiptsForOrder(d.buyer, "x")).toEqual([]);
+    expect(await lib.getReturnableLines(d.buyer, "x")).toBeNull();
+    expect(await lib.getReturnableLines(d.seller, randomUUID())).toBeNull();
+    expect(await lib.listReturnsForOrder(d.buyer, "x")).toEqual([]);
+    expect(await lib.getPurchaseOrderMatch(d.buyer, "x")).toBeNull();
+    expect(await lib.listCreditableInvoices(d.seller, "x")).toEqual([]);
+    await expect(lib.recordGoodsReceipt(d.buyer, { purchaseOrderId: "x", receivedOn: today(), receiverName: "Ravi", lines: [{ poLineNo: 1, receivedQty: 1 }] })).rejects.toMatchObject({ code: "not_found" });
+    await expect(lib.recordGoodsReceipt(d.buyer, { purchaseOrderId: d.po.id, receivedOn: today(), receiverName: "Ravi", lines: [{ poLineNo: 1, receivedQty: 1 }], photos: Array.from({ length: 6 }, () => ({ fileName: "a.jpg", bytes: JPG })) })).rejects.toMatchObject({ code: "validation" });
+    await expect(lib.recordGoodsReceipt(d.buyer, { purchaseOrderId: d.po.id, receivedOn: today(), receiverName: "Ravi", lines: [{ poLineNo: 1, receivedQty: 1 }], photos: [{ fileName: "a.jpg", bytes: JPG, poLineNo: 9 }] })).rejects.toMatchObject({ code: "validation" });
+    await expect(lib.recordGoodsReceipt(d.buyer, { purchaseOrderId: d.po.id, receivedOn: today(), receiverName: "Ravi", note: "x".repeat(501), lines: [{ poLineNo: 1, receivedQty: 1 }] })).rejects.toMatchObject({ code: "validation" });
+    expect(await lib.getBuyerMatchSettings(d.buyer.businessId)).toMatchObject({ custom: false, qtyToleranceBps: 200, priceToleranceBps: 100 });
+
+    process.env.PURCHASE_ORDERS_ENABLED = "false";
+    try {
+      await expect(lib.recordGoodsReceipt(d.buyer, { purchaseOrderId: d.po.id, receivedOn: today(), receiverName: "Ravi", lines: [{ poLineNo: 1, receivedQty: 1 }] })).rejects.toMatchObject({ code: "forbidden" });
+      await expect(lib.requestReturn(d.buyer, { receiptId: randomUUID(), reasonCode: "other", lines: [] })).rejects.toMatchObject({ code: "forbidden" });
+      await expect(lib.setBuyerMatchSettings(d.buyer, { qtyToleranceBps: 1, priceToleranceBps: 1 })).rejects.toMatchObject({ code: "forbidden" });
+    } finally {
+      process.env.PURCHASE_ORDERS_ENABLED = "true";
+    }
+  });
+
+  it("receipts on completed, rejected and cancelled POs and orders are handled", async () => {
+    const d = await deal();
+    await lib.transitionOrder(d.buyer, d.orderId, "delivered");
+    await lib.transitionOrder(d.buyer, d.orderId, "completed");
+    const g = await lib.recordGoodsReceipt(d.buyer, { purchaseOrderId: d.po.id, receivedOn: today(), receiverName: "Ravi", lines: [{ poLineNo: 1, receivedQty: 3 }] });
+    expect(g.confirmedDelivery).toBe(false);
+    // a completed order whose delivery was never stamped (legacy row) is stamped by the receipt
+    const d2 = await deal();
+    await prisma.order.update({ where: { id: d2.orderId }, data: { status: "completed", deliveredAt: null } });
+    const g2 = await lib.recordGoodsReceipt(d2.buyer, { purchaseOrderId: d2.po.id, receivedOn: lib.addDays(today(), -3), receiverName: "Ravi", lines: [{ poLineNo: 1, receivedQty: 3 }] });
+    expect(g2.confirmedDelivery).toBe(true);
+    expect(lib.istDate((await prisma.order.findUniqueOrThrow({ where: { id: d2.orderId } })).deliveredAt!)).toBe(lib.addDays(today(), -3));
+    // a rejected-only receipt (nothing accepted) does not confirm delivery
+    const d3 = await deal();
+    const g3 = await lib.recordGoodsReceipt(d3.buyer, { purchaseOrderId: d3.po.id, receivedOn: today(), receiverName: "Ravi", lines: [{ poLineNo: 1, receivedQty: 5, rejectedQty: 5, rejectReason: "wrong_spec" }] });
+    expect(g3.confirmedDelivery).toBe(false);
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: d3.orderId } })).deliveredAt).toBeNull();
+    const d4 = await deal();
+    await prisma.purchaseOrder.update({ where: { id: d4.po.id }, data: { status: "rejected" } });
+    await expect(lib.recordGoodsReceipt(d4.buyer, { purchaseOrderId: d4.po.id, receivedOn: today(), receiverName: "Ravi", lines: [{ poLineNo: 1, receivedQty: 1 }] })).rejects.toMatchObject({ code: "conflict", message: expect.stringMatching(/rejected/) });
+    await prisma.purchaseOrder.update({ where: { id: d4.po.id }, data: { status: "cancelled" } });
+    await expect(lib.recordGoodsReceipt(d4.buyer, { purchaseOrderId: d4.po.id, receivedOn: today(), receiverName: "Ravi", lines: [{ poLineNo: 1, receivedQty: 1 }] })).rejects.toMatchObject({ message: expect.stringMatching(/cancelled/) });
+  });
+
+  it("validates return requests and credit notes strictly", async () => {
+    const d = await deal();
+    const inv = await lib.recordSupplierInvoice(d.seller, { purchaseOrderId: d.po.id, invoiceNumber: "E-1", invoiceDate: today(), taxablePaise: 500_000, gstPaise: 90_000 });
+    const inv2 = await lib.recordSupplierInvoice(d.seller, { purchaseOrderId: d.po.id, invoiceNumber: "E-2", invoiceDate: today(), taxablePaise: 500_000, gstPaise: 90_000 });
+    const grn = await lib.recordGoodsReceipt(d.buyer, { purchaseOrderId: d.po.id, receivedOn: today(), receiverName: "Ravi", lines: [{ poLineNo: 1, receivedQty: 100, rejectedQty: 20, rejectReason: "damaged" }] });
+    const lineId = grn.lines[0]!.id;
+    const req = (lines: { receiptLineId: string; quantity: number; source: "rejected" | "accepted" }[], extra: Record<string, unknown> = {}) => lib.requestReturn(d.buyer, { receiptId: grn.id, reasonCode: "damaged", lines, ...extra });
+    await expect(req([{ receiptLineId: lineId, quantity: 1, source: "rejected" }], { note: "x".repeat(501) })).rejects.toMatchObject({ code: "validation" });
+    await expect(req([{ receiptLineId: "nope", quantity: 1, source: "rejected" }])).rejects.toMatchObject({ code: "validation" });
+    await expect(req([{ receiptLineId: lineId, quantity: 1, source: "weird" as never }])).rejects.toMatchObject({ code: "validation" });
+    await expect(req([{ receiptLineId: lineId, quantity: 1.5, source: "rejected" }])).rejects.toMatchObject({ code: "validation" });
+    await expect(req([{ receiptLineId: lineId, quantity: 1, source: "rejected" }, { receiptLineId: lineId, quantity: 1, source: "rejected" }])).rejects.toMatchObject({ code: "validation" });
+    await expect(req([{ receiptLineId: randomUUID(), quantity: 1, source: "rejected" }])).rejects.toMatchObject({ code: "validation" });
+    await expect(lib.requestReturn(d.buyer, { receiptId: "x", reasonCode: "damaged", lines: [] })).rejects.toMatchObject({ code: "not_found" });
+
+    const both = await req([{ receiptLineId: lineId, quantity: 20, source: "rejected" }, { receiptLineId: lineId, quantity: 5, source: "accepted" }]);
+    expect(both).toMatchObject({ units: 25, estimatedPaise: 625_000 });
+    await expect(lib.decideReturn(d.seller, both.id, { decision: "approved", note: "x".repeat(501) })).rejects.toMatchObject({ code: "validation" });
+    await lib.decideReturn(d.seller, both.id, { decision: "approved" });
+    await expect(lib.recordReturnShipment(d.buyer, both.id, { courier: "c".repeat(61), trackingRef: "LR-1234" })).rejects.toMatchObject({ code: "validation" });
+    await lib.recordReturnShipment(d.buyer, both.id, { trackingRef: "LR-1234" });
+
+    const note = { invoiceId: inv.id, number: "CN-A", noteDate: today(), taxablePaise: 100_000, gstPaise: 18_000 };
+    await expect(lib.recordReturnCreditNote(d.seller, both.id, { ...note, noteDate: "nope" })).rejects.toMatchObject({ code: "validation" });
+    await expect(lib.recordReturnCreditNote(d.seller, both.id, { ...note, noteDate: lib.addDays(today(), -5) })).rejects.toMatchObject({ code: "validation", message: expect.stringMatching(/before the invoice/) });
+    await expect(lib.recordReturnCreditNote(d.seller, both.id, { ...note, invoiceId: "x" })).rejects.toMatchObject({ code: "validation" });
+    await expect(lib.recordReturnCreditNote(d.seller, both.id, { ...note, number: "bad number!" })).rejects.toMatchObject({ code: "validation" });
+    await lib.voidSupplierInvoice(d.seller, inv2.id, "wrong invoice");
+    await expect(lib.recordReturnCreditNote(d.seller, both.id, { ...note, invoiceId: inv2.id })).rejects.toMatchObject({ code: "conflict" });
+    await lib.recordReturnCreditNote(d.seller, both.id, { ...note, irn: "e".repeat(64) });
+
+    // a second return: the same credit note number or the same IRN is refused
+    const second = await req([{ receiptLineId: lineId, quantity: 5, source: "accepted" }]);
+    await lib.decideReturn(d.seller, second.id, { decision: "approved" });
+    await expect(lib.recordReturnCreditNote(d.seller, second.id, { ...note, taxablePaise: 10_000, gstPaise: 0 })).rejects.toMatchObject({ code: "conflict", details: { number: expect.any(String) } });
+    await expect(lib.recordReturnCreditNote(d.seller, second.id, { ...note, number: "CN-B", taxablePaise: 10_000, gstPaise: 0, irn: "e".repeat(64) })).rejects.toMatchObject({ code: "conflict", details: { irn: expect.any(String) } });
+    expect((await lib.getGoodsReturn(d.buyer, second.id))!.status).toBe("approved");
+
+    // order cancelled: no new returns
+    await prisma.order.update({ where: { id: d.orderId }, data: { status: "cancelled" } });
+    await expect(req([{ receiptLineId: lineId, quantity: 1, source: "accepted" }])).rejects.toMatchObject({ code: "conflict" });
+  });
+
+  it("status lookup for several POs and invoice line validation", async () => {
+    const d = await deal();
+    const inv = await lib.recordSupplierInvoice(d.seller, { purchaseOrderId: d.po.id, invoiceNumber: "S-1", invoiceDate: today(), taxablePaise: 1000, gstPaise: 180 });
+    const map = await lib.getInvoiceMatchStatuses(d.buyer, [d.po.id, d.po.id, "x"]);
+    expect(map.get(inv.id)).toMatchObject({ status: "pending_grn" });
+    expect([...(await lib.getInvoiceMatchStatuses(d.seller, [d.po.id])).values()][0]!.gate).toBeNull();
+    const base = { purchaseOrderId: d.po.id, invoiceNumber: "S-2", invoiceDate: today(), taxablePaise: 1000, gstPaise: 0 };
+    await expect(lib.recordSupplierInvoice(d.seller, { ...base, lines: Array.from({ length: 51 }, (_, i) => ({ poLineNo: i + 1, quantity: 1, unitPricePaise: 1 })) })).rejects.toMatchObject({ code: "validation" });
+    await expect(lib.recordSupplierInvoice(d.seller, { ...base, lines: [{ poLineNo: 1, quantity: 0, unitPricePaise: 1000 }] })).rejects.toMatchObject({ code: "validation" });
+    await expect(lib.recordSupplierInvoice(d.seller, { ...base, lines: [{ poLineNo: 1, quantity: 1, unitPricePaise: -5 }] })).rejects.toMatchObject({ code: "validation" });
+  });
+});

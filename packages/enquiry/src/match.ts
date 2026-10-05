@@ -184,3 +184,13 @@ export async function getPurchaseOrderMatch(actor: Actor, purchaseOrderId: strin
     overall,
   };
 }
+
+/** Match status and (buyer only) payment gate for the invoices of several POs, keyed by invoice id. Used by list pages. */
+export async function getInvoiceMatchStatuses(actor: Actor, purchaseOrderIds: string[]): Promise<Map<string, { status: InvoiceMatch["status"]; gate: PaymentGate | null }>> {
+  const out = new Map<string, { status: InvoiceMatch["status"]; gate: PaymentGate | null }>();
+  for (const id of [...new Set(purchaseOrderIds)]) {
+    const m = await getPurchaseOrderMatch(actor, id);
+    if (m) for (const i of m.invoices) out.set(i.invoiceId, { status: i.status, gate: i.gate });
+  }
+  return out;
+}
