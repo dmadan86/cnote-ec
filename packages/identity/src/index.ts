@@ -37,3 +37,7 @@ export { findOrCreatePersonByVerifiedPhone } from "./verified-phone";
 export * from "./kyc";
 export * from "./audits";
 export * from "./addresses";
+
+// Buyer team roles, invitations and owner transfer (docs/design/buyer-approvals.md).
+export * from "./team";
+export { exportTeamData, purgeOldInvites } from "./team-privacy";

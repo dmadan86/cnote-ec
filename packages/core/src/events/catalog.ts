@@ -188,6 +188,20 @@ export interface DomainEventPayloads {
   SubscriptionCancelled: { businessId: string; subscriptionId: string; planCode: string; billingInterval: "monthly" | "annual"; refundPaise: number; unusedMonths: number; effectiveAt: string; reason: string | null };
   /** The paid period ends soon and will NOT renew by itself: asks the owner to confirm a renewal (ADR-005). */
   SubscriptionRenewalDue: { businessId: string; subscriptionId: string; planCode: string; billingInterval: "monthly" | "annual"; periodEnd: string };
+  // buyer team roles + approval chains (docs/design/buyer-approvals.md). The invitee's email and decision comments never travel in events.
+  BuyerMemberInvited:   { businessId: string; inviteId: string; role: string; invitedByPersonId: string; expiresAt: string };
+  BuyerMemberJoined:    { businessId: string; personId: string; role: string; inviteId: string };
+  BuyerMemberRoleChanged: { businessId: string; personId: string; from: string; to: string; changedByPersonId: string };
+  BuyerMemberRemoved:   { businessId: string; personId: string; removedByPersonId: string };
+  BusinessOwnershipTransferred: { businessId: string; fromPersonId: string; toPersonId: string };
+  /** A level of the chain became active: `approverPersonIds` are everyone who can decide it now (delegates not included). */
+  ApprovalRequested:    { requestId: string; businessId: string; action: string; subjectType: string; subjectId: string; subjectSummary: string; amountPaise: number; requesterPersonId: string; level: number; totalLevels: number; approverPersonIds: string[] };
+  ApprovalDecided:      { requestId: string; businessId: string; level: number; decision: "approved" | "rejected"; deciderPersonId: string; onBehalfOfPersonId: string | null };
+  /** The whole chain approved. Callers resume the held action from this event (a synchronous requireApproval "approved" emits nothing). */
+  ApprovalApproved:     { requestId: string; businessId: string; action: string; subjectType: string; subjectId: string; subjectSummary: string; amountPaise: number; requesterPersonId: string };
+  /** Chain ended without approval: a rejection, a withdrawal by the requester or the SLA expiry. */
+  ApprovalRejected:     { requestId: string; businessId: string; action: string; subjectType: string; subjectId: string; subjectSummary: string; amountPaise: number; requesterPersonId: string; cause: "rejected" | "cancelled" | "expired"; deciderPersonId: string | null };
+  ApprovalReminder:     { requestId: string; businessId: string; subjectSummary: string; level: number; reminderNo: number; approverPersonIds: string[] };
 }
 
 export type DomainEventType = keyof DomainEventPayloads;
@@ -331,6 +345,17 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   SubscriptionStarted: 1,
   SubscriptionCancelled: 2,
   SubscriptionRenewalDue: 1,
+  // buyer team roles + approval chains
+  BuyerMemberInvited: 1,
+  BuyerMemberJoined: 1,
+  BuyerMemberRoleChanged: 1,
+  BuyerMemberRemoved: 1,
+  BusinessOwnershipTransferred: 1,
+  ApprovalRequested: 1,
+  ApprovalDecided: 1,
+  ApprovalApproved: 1,
+  ApprovalRejected: 1,
+  ApprovalReminder: 1,
 };
 
 export interface DomainEvent<T extends DomainEventType = DomainEventType> {

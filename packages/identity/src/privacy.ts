@@ -4,6 +4,7 @@ import { enforceLimit } from "./limits";
 import { isMfaEnabled, verifyMfa } from "./mfa";
 import { verifyPassword } from "./password";
 import { revokeAllSessions } from "./sessions";
+import { eraseTeamData, exportTeamData } from "./team-privacy";
 import { CONSENT_PURPOSES } from "./types";
 
 /** DPDP access right: everything this module holds about a person (no credential hashes). */
@@ -31,6 +32,7 @@ export async function exportPersonalData(personId: string): Promise<Record<strin
     consents: consents.map((c) => ({ purpose: c.purpose, granted: c.granted, source: c.source, createdAt: c.createdAt })),
     sessions: authSessions.map((s) => ({ id: s.id, userAgent: s.userAgent, ip: s.ip, createdAt: s.createdAt, lastUsedAt: s.lastUsedAt, expiresAt: s.expiresAt, revokedAt: s.revokedAt })),
     loginIdentities: authIdentities.map((i) => ({ provider: i.provider, email: i.email, createdAt: i.createdAt })),
+    team: await exportTeamData(personId),
   };
 }
 
@@ -39,6 +41,7 @@ export async function erasePerson(personId: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
     // Businesses this person alone belongs to: their saved addresses and (non-seller) GST identifiers go with them.
     // Seller businesses keep GSTIN/PAN: tax-invoice and trust-record retention outranks erasure (DPDP s.8(7) / ADR-010).
+    await eraseTeamData(tx, personId); // invitations hold email addresses: delete them before the email is tombstoned
     const memberships = await tx.businessMember.findMany({ where: { personId }, select: { businessId: true } });
     const sole: string[] = [];
     for (const m of memberships) if ((await tx.businessMember.count({ where: { businessId: m.businessId } })) === 1) sole.push(m.businessId);

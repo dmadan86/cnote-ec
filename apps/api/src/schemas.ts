@@ -164,7 +164,7 @@ const enquiryBase = {
   neededBy: z.string().nullable(),
   intentScore: z.number().nullable().openapi({ description: "AI intent score; low-intent enquiries are held for review." }),
   intentReasons: z.array(z.string()),
-  status: z.enum(["scoring", "review", "matched", "unmatched", "closed", "rejected"]),
+  status: z.enum(["scoring", "review", "matched", "unmatched", "closed", "rejected", "pending_approval"]),
   createdAt: iso("2026-09-01T10:00:00.000Z"),
   buyerPicks: z.boolean().optional(),
   sellerCap: z.number().int().optional(),
@@ -292,7 +292,7 @@ export const Me = z
     business: TrustProfile.nullable(),
     person: z.object({ id: uuid(), name: z.string().nullable(), email: z.string().nullable().openapi({ description: "Masked, e.g. a***@gmail.com" }) }),
     businesses: z.array(z.object({
-      businessId: uuid(), name: z.string(), role: z.enum(["owner", "staff"]), isSeller: z.boolean(), isBuyer: z.boolean(),
+      businessId: uuid(), name: z.string(), role: z.enum(["owner", "staff", "admin", "requester", "approver", "finance", "viewer"]), isSeller: z.boolean(), isBuyer: z.boolean(),
       verificationTier: z.number().int(), badgeActive: z.boolean(),
     })),
   })

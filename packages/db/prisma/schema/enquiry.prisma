@@ -9,6 +9,8 @@ enum EnquiryStatus {
   unmatched
   closed
   rejected
+  /// held until the buyer business's approval chain signs off (docs/design/buyer-approvals.md); never matched while held
+  pending_approval
 
   @@map("enquiry_status")
 }
