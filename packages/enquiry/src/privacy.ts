@@ -5,7 +5,7 @@ import { prisma } from "@cnote/db";
 
 export async function exportPersonalData(personId: string, ctx: PersonalExportContext): Promise<PersonalExport> {
   const biz = ctx.businessIds;
-  const [enquiries, messages, quotes, orders, dealReports, attachments, purchaseOrders, supplierInvoices] = await Promise.all([
+  const [enquiries, messages, quotes, orders, dealReports, attachments, purchaseOrders, supplierInvoices, rateContracts] = await Promise.all([
     prisma.enquiry.findMany({
       where: { buyerPersonId: personId },
       orderBy: { createdAt: "asc" },
@@ -60,6 +60,18 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
           include: { payments: { orderBy: { createdAt: "asc" } } },
         })
       : Promise.resolve([]),
+    // rate contracts (docs/design/rate-contracts.md): every revision with items and answers, and the call-offs placed against them
+    biz.length
+      ? prisma.rateContract.findMany({
+          where: { OR: [{ buyerBusinessId: { in: biz } }, { sellerBusinessId: { in: biz } }] },
+          orderBy: { createdAt: "asc" },
+          take: EXPORT_TAKE,
+          include: {
+            revisions: { orderBy: { revision: "asc" }, include: { items: { orderBy: { lineNo: "asc" } }, acceptances: true } },
+            callOffs: { orderBy: { callOffNo: "asc" }, include: { lines: { orderBy: { lineNo: "asc" } } } },
+          },
+        })
+      : Promise.resolve([]),
   ]);
   return {
     enquiries: exportCollection(enquiries),
@@ -70,5 +82,6 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
     attachments: exportCollection(attachments),
     purchaseOrders: exportCollection(purchaseOrders),
     supplierInvoices: exportCollection(supplierInvoices),
+    rateContracts: exportCollection(rateContracts),
   };
 }

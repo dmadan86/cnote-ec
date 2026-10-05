@@ -6,6 +6,7 @@ import { prisma, type Order, type OrderStatus, type Tx } from "@cnote/db";
 import { profiles } from "./support";
 import { availableFulfilmentStages, type FulfilmentStage } from "./fulfilment";
 import { onOrderCancelledTx } from "./purchase-orders";
+import { onOrderCancelledReleaseCallOffTx } from "./rate-contracts";
 import { onOrderDeliveredTx } from "./supplier-invoices";
 import type { Actor } from "./types";
 
@@ -130,6 +131,11 @@ async function toViews(rows: Order[], actor: Actor): Promise<OrderView[]> {
     profiles(rows.flatMap((r) => [r.buyerBusinessId, r.sellerBusinessId])),
   ]);
   const titles = new Map(enquiries.map((e) => [e.id, e.title]));
+  // call-off orders have no enquiry: name them after their rate contract
+  const callOffs = await prisma.rateContractCallOff.findMany({
+    where: { orderId: { in: rows.filter((r) => !r.enquiryId).map((r) => r.id) } }, select: { orderId: true, callOffNo: true, contract: { select: { number: true } } },
+  });
+  const callOffTitle = new Map(callOffs.map((c) => [c.orderId, `Call-off ${c.callOffNo} on ${c.contract.number}`]));
   return rows.map((o) => {
     const role = roleOf(o, actor) as OrderRole;
     const other = role === "buyer" ? o.sellerBusinessId : o.buyerBusinessId;
@@ -137,7 +143,7 @@ async function toViews(rows: Order[], actor: Actor): Promise<OrderView[]> {
       id: o.id,
       matchId: o.matchId,
       enquiryId: o.enquiryId,
-      enquiryTitle: (o.enquiryId ? titles.get(o.enquiryId) : null) ?? (o.settlement === "ondc" ? "ONDC order" : "Requirement"),
+      enquiryTitle: (o.enquiryId ? titles.get(o.enquiryId) : null) ?? callOffTitle.get(o.id) ?? (o.settlement === "ondc" ? "ONDC order" : "Requirement"),
       externalRef: o.externalRef,
       quoteId: o.quoteId,
       role,
@@ -347,7 +353,10 @@ async function persist(tx: Tx, order: Order, next: OrderState, actorBusinessId: 
     // Purchase orders / supplier invoices follow the order (docs/design/purchase-orders.md): delivery fixes the MSME acceptance date,
     // cancellation cancels the PO and withdraws unpaid invoices.
     if (deliveredNow) await onOrderDeliveredTx(tx, order.id, now);
-    if (updated.status === "cancelled") await onOrderCancelledTx(tx, order.id, actorBusinessId);
+    if (updated.status === "cancelled") {
+      await onOrderCancelledTx(tx, order.id, actorBusinessId);
+      await onOrderCancelledReleaseCallOffTx(tx, order.id, now); // rate contracts: the call-off's quantities go back to the contract
+    }
   }
   return updated;
 }

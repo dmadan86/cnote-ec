@@ -32,3 +32,8 @@ export * from "./purchase-orders";
 export * from "./supplier-invoices";
 export { getEInvoiceVerifier, setEInvoiceVerifier, mockEInvoiceVerifier, qrSvgDataUri, decodeSignedQr, type EInvoiceVerifier, type EInvoiceCheckInput, type EInvoiceCheckResult, type EInvoiceCheckStatus } from "./einvoice";
 export { purgePurchaseOrderDocuments } from "./po-retention";
+
+// Rate contracts: agreed prices between a buyer and a seller, versioned amendments, call-off orders (docs/design/rate-contracts.md)
+export * from "./rc-core";
+export * from "./rate-contracts";
+export { purgeRateContracts } from "./rc-retention";

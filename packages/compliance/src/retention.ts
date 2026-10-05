@@ -6,7 +6,7 @@
 // (`RETENTION_<KEY>_DAYS`) with the safe defaults below. Consent ledger rows and admin audit logs are never purged.
 import { prisma } from "@cnote/db";
 import * as catalogue from "@cnote/catalogue";
-import { purgeInactiveConversationMessages, purgePurchaseOrderDocuments } from "@cnote/enquiry";
+import { purgeInactiveConversationMessages, purgePurchaseOrderDocuments, purgeRateContracts } from "@cnote/enquiry";
 import { purgeErasedPersonResiduals, purgeExpiredAuthSessions, purgeKycDocuments } from "@cnote/identity";
 import { purgeAbandonedCaptures } from "@cnote/leadgen";
 import { purgeReadNotifications } from "@cnote/notifications";
@@ -176,6 +176,13 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     description: "Closed purchase orders (cancelled, or on a completed or cancelled order) and settled supplier invoices: delivery contact name/phone are blanked and the stored PDF / uploaded invoice copies are deleted. Numbers, amounts, versions, e-invoice references and payment records are kept.",
     legalBasis: "DPDP s.8(7); the monetary record stays for GST s.36 / Income Tax Act record keeping, so only the personal data and document files go after 7 years",
     run: (before, { dryRun }) => purgePurchaseOrderDocuments(before, { dryRun }),
+  },
+  // rate contracts (docs/design/rate-contracts.md)
+  {
+    name: "enquiry.rate_contracts_7y", module: "enquiry", envKey: "RATE_CONTRACTS", defaultDays: 2555, supportsDryRun: true,
+    description: "Expired or terminated rate contracts: the person who proposed, accepted or placed each step is cleared and notes, change notes, decline reasons and the termination reason are blanked. Numbers, parties, dates, prices, quantities and call-offs are kept.",
+    legalBasis: "DPDP s.8(7); the commercial record stays because the orders, purchase orders and invoices it backs are kept for GST / Income Tax record keeping",
+    run: (before, { dryRun }) => purgeRateContracts(before, { dryRun }),
   },
 ];
 
