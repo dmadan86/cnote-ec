@@ -38,6 +38,7 @@
     "@cnote/promotions": "workspace:*",
     "@cnote/quality": "workspace:*",
     "@cnote/reviews": "workspace:*",
+    "@cnote/samples": "workspace:*",
     "@cnote/security": "workspace:*",
     "@cnote/storefront": "workspace:*",
     "@cnote/ui": "workspace:*",
@@ -53,6 +54,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "typescript": "^6.0.3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22",
     "@types/react": "^19",

@@ -1,13 +1,13 @@
 import {
   Bell, BellRing, BookmarkCheck, Bot, ClipboardList, Download, Factory, FileText, GitCompareArrows, Heart, House, KeyRound, LayoutDashboard, LayoutGrid,
-  PackageCheck, PlusCircle, Scale, Search, Store, Tag, type LucideIcon,
+  PackageCheck, PlusCircle, Scale, Search, Store, Tag, FlaskConical, type LucideIcon,
 } from "lucide-react";
 import { splitLocale } from "@/i18n/config";
 
 /** Message keys live in the `rail` namespace (messages/<locale>.rail.json). */
 export type RailLabelKey =
   | "home" | "search" | "categories" | "manufacturers" | "pricing" | "requestQuote" | "signIn"
-  | "overview" | "postRequirement" | "myRequirements" | "orders" | "agents"
+  | "overview" | "postRequirement" | "myRequirements" | "orders" | "samples" | "agents"
   | "saved" | "compare" | "suppliers" | "savedSearches" | "alerts" | "notifications" | "grievances" | "developers" | "exportData";
 
 export interface RailItem {
@@ -45,6 +45,7 @@ export const RAIL_GROUPS: readonly (readonly RailItem[])[] = [
     { href: "/rfq/new", label: "postRequirement", icon: PlusCircle },
     { href: "/buyer/enquiries", label: "myRequirements", icon: ClipboardList },
     { href: "/buyer/orders", label: "orders", icon: PackageCheck },
+    { href: "/buyer/samples", label: "samples", icon: FlaskConical },
     { href: "/buyer/agents", label: "agents", icon: Bot },
   ],
   [

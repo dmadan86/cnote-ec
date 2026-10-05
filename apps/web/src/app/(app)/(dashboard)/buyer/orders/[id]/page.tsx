@@ -13,6 +13,7 @@ import { EscrowPanel } from "@/features/escrow/escrow-panel";
 import { OrderStatusBadge } from "@/features/orders/status";
 import { RequestAgain } from "@/features/retention/request-again";
 import { ReportProblem } from "@/features/disputes/report-problem";
+import { GoldenSample } from "@/features/samples/golden-sample";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations({ locale: await getRequestLocale(), namespace: "titles" });
@@ -50,6 +51,7 @@ export default async function BuyerOrderPage(props: { params: Promise<{ id: stri
             </dl>
           </CardBody>
         </Card>
+        <GoldenSample orderId={o.id} actor={actorOf(s)} locale={locale} />
         <TrackingTimeline actor={actorOf(s)} order={o} locale={locale} />
         <EscrowPanel actor={actorOf(s)} order={o} locale={locale} />
         <OrderActions orderId={o.id} actions={o.actions} />

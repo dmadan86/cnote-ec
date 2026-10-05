@@ -6,6 +6,8 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { RfqForm } from "@/features/enquiry/rfq-form";
 import { PriceHint } from "@/features/prices/price-hint";
+import { getBulkPrefill, samplesEnabled } from "@/lib/samples";
+import { sampleLabels, fill } from "@/features/samples/labels";
 import { getRequestLocale } from "@/lib/request-locale";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -72,13 +74,28 @@ export default async function NewRfqPage(props: PageProps<"/rfq/new">) {
   const orderRaw = first(sp.order);
   const again = againRaw && UUID.test(againRaw) ? againRaw : undefined;
   const orderId = orderRaw && UUID.test(orderRaw) ? orderRaw : undefined;
+  // "Request bulk quote" from an approved sample (docs/design/samples.md): ?sample=<id>
+  const sampleRaw = first(sp.sample);
+  const sampleId = sampleRaw && UUID.test(sampleRaw) ? sampleRaw : undefined;
   const qs = new URLSearchParams();
-  for (const [k, v] of [["q", q], ["listing", listing], ["category", category], ["seller", seller], ["qty", qty?.toString()], ["unit", unit], ["price", pricePaise?.toString()], ["again", again], ["order", orderId]] as const) if (v) qs.set(k, v);
+  for (const [k, v] of [["sample", sampleId], ["q", q], ["listing", listing], ["category", category], ["seller", seller], ["qty", qty?.toString()], ["unit", unit], ["price", pricePaise?.toString()], ["again", again], ["order", orderId]] as const) if (v) qs.set(k, v);
   const session = await requireBusiness(`/rfq/new${qs.size ? `?${qs}` : ""}`);
   const prefill = again || orderId ? await loadPrefill(session, again, orderId) : null;
+  const samplePre = sampleId && samplesEnabled() ? await getBulkPrefill(actorOf(session), sampleId).catch(() => null) : null;
+  const sl = samplePre ? await sampleLabels(locale) : null;
 
   const categories = (await listCategories()).filter((c) => !c.prohibited).map((c) => ({ slug: c.slug, name: c.name }));
-  const defaults = prefill
+  const defaults = samplePre
+    ? {
+        title: `${samplePre.subject}`.slice(0, 140),
+        requirement: `${samplePre.subject}\n\n${samplePre.requirementNote}`,
+        categorySlug: categories.some((c) => c.slug === samplePre.categorySlug) ? (samplePre.categorySlug ?? undefined) : undefined,
+        unit: samplePre.quantityUnit ?? undefined,
+        preferredListingId: samplePre.listingId ?? undefined,
+        preferredSellerId: samplePre.sellerBusinessId,
+        sampleId: samplePre.sampleId,
+      }
+    : prefill
     ? { ...prefill.defaults, categorySlug: categories.some((c) => c.slug === prefill.defaults.categorySlug) ? prefill.defaults.categorySlug : undefined }
     : {
         title: q,
@@ -95,6 +112,7 @@ export default async function NewRfqPage(props: PageProps<"/rfq/new">) {
     <Container className="max-w-3xl py-8">
       <PageHeader title={t("title")} description={t("subtitle")} />
       <div className="mt-6">
+        {samplePre && sl ? <Alert tone="info" className="mb-4">{fill(sl.rfqBanner, { title: samplePre.subject })}</Alert> : null}
         {prefill ? <Alert tone="info" className="mb-4">{tr(prefill.fromOrder ? "again.bannerOrder" : "again.banner", { title: prefill.title })}</Alert> : null}
         {(again || orderId) && !prefill ? <Alert tone="warning" className="mb-4">{tr("again.notFound")}</Alert> : null}
         <PriceHint locale={locale} />
