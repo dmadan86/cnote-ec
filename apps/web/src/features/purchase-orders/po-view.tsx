@@ -31,7 +31,11 @@ export async function DueBadge({ inv, locale }: { inv: SupplierInvoiceView; loca
 }
 
 /** One supplier invoice with its e-invoice / e-way bill references, due-date basis and (for the buyer) the payment form. */
-export async function InvoiceCard({ inv, locale, orderId, today, canPay }: { inv: SupplierInvoiceView; locale: Locale; orderId: string; today: string; canPay: boolean }) {
+const MATCH_TONE: Record<string, BadgeTone> = { matched: "success", within_tolerance: "brand", mismatch: "danger", pending_grn: "warning" };
+export type InvoiceMatchInfo = { status: "matched" | "within_tolerance" | "mismatch" | "pending_grn"; gate: { blocked: boolean; reason: "mismatch" | "pending_grn" | null } | null };
+
+export async function InvoiceCard({ inv, locale, orderId, today, canPay, match }: { inv: SupplierInvoiceView; locale: Locale; orderId: string; today: string; canPay: boolean; match?: InvoiceMatchInfo | null }) {
+  const tm = await getTranslations({ locale, namespace: "grn.match" });
   const t = await getTranslations({ locale, namespace: "po.invoices" });
   const e = inv.eInvoice;
   const d = inv.due;
@@ -44,6 +48,7 @@ export async function InvoiceCard({ inv, locale, orderId, today, canPay }: { inv
             <p className="text-xs text-muted">{t("dated", { date: day(inv.invoiceDate, locale) })}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {match && inv.status !== "void" ? <Badge tone={MATCH_TONE[match.status]}>{tm("badge")}: {tm(`status.${match.status}`)}</Badge> : null}
             {d.msmeCovered && inv.status !== "void" ? <Badge tone="brand">{t("msmeBadge")}</Badge> : null}
             <DueBadge inv={inv} locale={locale} />
           </div>
@@ -54,6 +59,7 @@ export async function InvoiceCard({ inv, locale, orderId, today, canPay }: { inv
           <span className="font-semibold">{t("total", { amount: inr(inv.totalPaise) })}</span>
         </p>
         {inv.status === "void" ? <p className="text-sm text-muted">{t("withdrawn", { reason: inv.voidReason ?? "" })}</p> : null}
+        {inv.creditedPaise > 0 ? <p className="text-sm">{tm("credited", { amount: inr(inv.creditedPaise) })}{inv.refundDuePaise > 0 ? ` ${tm("refundDue", { amount: inr(inv.refundDuePaise) })}` : ""}</p> : null}
         {inv.status === "open" && inv.paidPaise > 0 ? <p className="text-sm">{t("partPaid", { paid: inr(inv.paidPaise), total: inr(inv.totalPaise) })}</p> : null}
         {d.msmeCovered && inv.status !== "void" ? (
           <p className="text-xs text-muted">
@@ -99,19 +105,19 @@ export async function InvoiceCard({ inv, locale, orderId, today, canPay }: { inv
           </section>
         ) : null}
 
-        {canPay && inv.status === "open" ? <PayDisclosure inv={inv} orderId={orderId} today={today} locale={locale} /> : null}
+        {canPay && inv.status === "open" ? <PayDisclosure inv={inv} orderId={orderId} today={today} locale={locale} matchBlock={match?.gate?.blocked ? match.gate.reason : null} /> : null}
       </CardBody>
     </Card>
   );
 }
 
-async function PayDisclosure({ inv, orderId, today, locale }: { inv: SupplierInvoiceView; orderId: string; today: string; locale: Locale }) {
+async function PayDisclosure({ inv, orderId, today, locale, matchBlock }: { inv: SupplierInvoiceView; orderId: string; today: string; locale: Locale; matchBlock: "mismatch" | "pending_grn" | null }) {
   const t = await getTranslations({ locale, namespace: "po.pay" });
   return (
     <details className="rounded-lg border border-line p-3">
       <summary className="min-h-11 cursor-pointer text-sm font-semibold text-brand-700 focus-visible:outline-2 focus-visible:outline-brand-600">{t("title")}</summary>
       <div className="pt-3">
-        <PayForm invoiceId={inv.id} orderId={orderId} balanceLabel={inr(inv.outstandingPaise)} today={today} minDate={inv.invoiceDate} />
+        <PayForm invoiceId={inv.id} orderId={orderId} balanceLabel={inr(inv.outstandingPaise)} today={today} minDate={inv.invoiceDate} matchBlock={matchBlock} />
       </div>
     </details>
   );

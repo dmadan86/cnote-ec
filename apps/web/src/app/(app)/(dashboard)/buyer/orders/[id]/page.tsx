@@ -28,6 +28,7 @@ export default async function BuyerOrderPage(props: { params: Promise<{ id: stri
   const locale = await getRequestLocale();
   const t = await getTranslations({ locale, namespace: "buyer" });
   const tp = await getTranslations({ locale, namespace: "po" });
+  const tg = await getTranslations({ locale, namespace: "grn" });
   const poSummary = purchaseOrdersEnabled() && o.settlement !== "ondc" && o.status !== "cancelled" ? (await purchaseOrderSummaries(actorOf(s), [o.id])).get(o.id) ?? null : undefined;
   const dt = { format: (d: Date) => formatDate(d, locale, { dateStyle: "medium", timeStyle: "short" }) };
   return (
@@ -66,6 +67,13 @@ export default async function BuyerOrderPage(props: { params: Promise<{ id: stri
               <div>
                 <Link href={`/buyer/orders/${o.id}/purchase-order`} className={buttonClasses(poSummary ? "outline" : "primary")}>{poSummary ? tp("panelOpen") : tp("panelIssue")}</Link>
               </div>
+              {poSummary ? (
+                <div className="flex flex-wrap gap-2">
+                  <Link href={`/buyer/orders/${o.id}/receipts`} className={buttonClasses("outline")}>{tg("panelReceipts")}</Link>
+                  <Link href={`/buyer/orders/${o.id}/match`} className={buttonClasses("outline")}>{tg("panelMatch")}</Link>
+                  <Link href="/buyer/returns" className={buttonClasses("outline")}>{tg("panelReturns")}</Link>
+                </div>
+              ) : null}
             </CardBody>
           </Card>
         ) : null}

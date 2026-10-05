@@ -61,7 +61,7 @@ export async function payInvoiceAction(_prev: ActionResult | null, f: FormData):
   return runLocalized(async () => {
     const rupees = text(f, "amount");
     const amountPaise = rupees === "" ? null : Math.round(Number(rupees) * 100);
-    await recordInvoicePayment(actorOf(s), text(f, "invoiceId"), { amountPaise: amountPaise === null ? undefined : Number.isFinite(amountPaise) ? amountPaise : -1, paidOn: text(f, "paidOn"), reference: text(f, "reference") });
+    await recordInvoicePayment(actorOf(s), text(f, "invoiceId"), { amountPaise: amountPaise === null ? undefined : Number.isFinite(amountPaise) ? amountPaise : -1, paidOn: text(f, "paidOn"), reference: text(f, "reference"), overrideReason: text(f, "overrideReason") || null });
     revalidatePath("/buyer/payables");
     if (orderId) revalidatePath(`/buyer/orders/${orderId}`, "layout");
   });

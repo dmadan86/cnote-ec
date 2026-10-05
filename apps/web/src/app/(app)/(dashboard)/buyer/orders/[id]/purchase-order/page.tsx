@@ -1,4 +1,4 @@
-import { getOrder, getPurchaseOrderForOrder, istDate, purchaseOrdersEnabled, suggestPurchaseOrder } from "@cnote/enquiry";
+import { getInvoiceMatchStatuses, getOrder, getPurchaseOrderForOrder, istDate, purchaseOrdersEnabled, suggestPurchaseOrder } from "@cnote/enquiry";
 import { listAddresses } from "@cnote/identity";
 import { actorOf, requireBusiness } from "@cnote/next-kit";
 import { Alert, Badge, Card, CardBody, CardTitle, Container, PageHeader } from "@cnote/ui";
@@ -58,6 +58,7 @@ export default async function BuyerPurchaseOrderPage(props: { params: Promise<{ 
 
   const cur = po.versions[0]!;
   const payInvoices = po.invoices;
+  const matches = await getInvoiceMatchStatuses(actor, [po.id]);
   const tax = po.intraState ? "CGST + SGST" : "IGST";
   return (
     <Container className="max-w-3xl py-8">
@@ -173,7 +174,7 @@ export default async function BuyerPurchaseOrderPage(props: { params: Promise<{ 
           {payInvoices.length === 0 ? <p className="text-sm text-muted">{t("invoices.none")}</p> : (
             <ul className="flex flex-col gap-3">
               {payInvoices.map((inv) => (
-                <li key={inv.id}><InvoiceCard inv={inv} locale={locale} orderId={id} today={today} canPay={po.actions.payInvoices} /></li>
+                <li key={inv.id}><InvoiceCard inv={inv} locale={locale} orderId={id} today={today} canPay={po.actions.payInvoices} match={matches.get(inv.id) ?? null} /></li>
               ))}
             </ul>
           )}
