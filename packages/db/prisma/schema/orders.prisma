@@ -58,6 +58,7 @@ model Order {
   updatedAt        DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   fulfilmentEvents OrderFulfilmentEvent[]
   purchaseOrder    PurchaseOrder?
+  rateContractCallOff RateContractCallOff?
 
   @@unique([matchId])
   @@index([buyerBusinessId, createdAt])
@@ -533,4 +534,197 @@ model ReturnCreditNote {
   @@unique([sellerBusinessId, financialYear, number])
   @@index([invoiceId])
   @@map("return_credit_notes")
+}
+
+// Rate contracts (docs/design/rate-contracts.md): agreed prices for a period and/or volume between one buyer business and one
+// seller business, with versioned amendments and call-off orders. Owned by @cnote/enquiry. Private to the two parties: nothing
+// here is read by ranking or lead matching (ADR-005). Money is integer paise (BigInt); dates without a time are Indian dates.
+// There is deliberately NO auto-renew column: a renewal is always a new, explicitly accepted contract.
+// ---------------------------------------------------------------------------------------------------------------------------
+
+enum RateContractStatus {
+  draft // the buyer is still preparing revision 1; the seller cannot see it
+  proposed // revision sent, not yet accepted by both parties
+  active // a revision accepted by both parties is in force (call-offs allowed within its dates)
+  expired // past valid-to of the active revision
+  terminated // ended by either party (or declined before it started)
+
+  @@map("rate_contract_status")
+}
+
+/// The stable identity of a contract. Terms live in immutable RateContractRevision rows.
+model RateContract {
+  id                     String             @id @default(uuid()) @db.Uuid
+  /// gap-free per buyer business and Indian financial year, e.g. "RC/26-27/000003"
+  number                 String
+  financialYear          String             @map("financial_year")
+  buyerBusinessId        String             @map("buyer_business_id") @db.Uuid
+  sellerBusinessId       String             @map("seller_business_id") @db.Uuid
+  title                  String
+  status                 RateContractStatus @default(draft)
+  /// highest revision number (the one awaiting an answer, or the active one)
+  latestRevision         Int                @default(1) @map("latest_revision")
+  /// the revision accepted by both parties and in force; null until the first one is accepted
+  activeRevision         Int?               @map("active_revision")
+  /// set when the contract was created from an accepted quote
+  sourceQuoteId          String?            @map("source_quote_id") @db.Uuid
+  /// set when this contract is an explicit renewal of an earlier one
+  renewedFromId          String?            @map("renewed_from_id") @db.Uuid
+  terminatedAt           DateTime?          @map("terminated_at") @db.Timestamptz
+  terminatedByBusinessId String?            @map("terminated_by_business_id") @db.Uuid
+  terminationReason      String?            @map("termination_reason")
+  expiredAt              DateTime?          @map("expired_at") @db.Timestamptz
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  revisions              RateContractRevision[]
+  callOffs               RateContractCallOff[]
+  alerts                 RateContractAlert[]
+
+  @@unique([buyerBusinessId, number])
+  @@index([buyerBusinessId, createdAt])
+  @@index([sellerBusinessId, createdAt])
+  @@index([status])
+  @@map("rate_contracts")
+}
+
+/// Contract numbering per buyer business and financial year (same approach as purchase orders: the row lock serialises issuers).
+model RateContractSequence {
+  buyerBusinessId String @map("buyer_business_id") @db.Uuid
+  financialYear   String @map("financial_year")
+  lastNumber      Int    @default(0) @map("last_number")
+
+  @@id([buyerBusinessId, financialYear])
+  @@map("rate_contract_sequences")
+}
+
+/// One version of the terms. Never edited after it is proposed (a draft's revision 1 is replaced in place until the buyer sends it).
+model RateContractRevision {
+  id                   String   @id @default(uuid()) @db.Uuid
+  contractId           String   @map("contract_id") @db.Uuid
+  revision             Int
+  proposedByBusinessId String   @map("proposed_by_business_id") @db.Uuid
+  /// nulled by the retention purge
+  proposedByPersonId   String?  @map("proposed_by_person_id") @db.Uuid
+  validFrom            DateTime @map("valid_from") @db.Date
+  validTo              DateTime @map("valid_to") @db.Date
+  currency             String   @default("INR")
+  paymentTermsDays     Int      @map("payment_terms_days")
+  /// ex_works | for_destination | delivered | other (what the unit prices include)
+  priceBasis           String   @map("price_basis")
+  /// optional cap on the total taxable value of all call-offs
+  valueCapPaise        BigInt?  @map("value_cap_paise")
+  notes                String?
+  /// what changed in this revision (shown in the history)
+  changeNote           String?  @map("change_note")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  contract             RateContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  items                RateContractItem[]
+  acceptances          RateContractAcceptance[]
+
+  @@unique([contractId, revision])
+  @@map("rate_contract_revisions")
+}
+
+model RateContractItem {
+  id              String  @id @default(uuid()) @db.Uuid
+  revisionId      String  @map("revision_id") @db.Uuid
+  /// stable across revisions so consumption carries over an amendment
+  itemKey         String  @map("item_key") @db.Uuid
+  lineNo          Int     @map("line_no")
+  /// optional catalogue reference; a free-text item has none
+  listingId       String? @map("listing_id") @db.Uuid
+  description     String
+  hsn             String?
+  unit            String
+  unitPricePaise  BigInt  @map("unit_price_paise")
+  gstRateBps      Int     @map("gst_rate_bps")
+  /// minimum quantity per call-off
+  moq             Int?
+  /// cap on the total quantity over the life of the contract
+  quantityCap     Int?    @map("quantity_cap")
+  /// fixed | indexed
+  variationKind   String  @default("fixed") @map("variation_kind")
+  /// for indexed items: the most the applied price may differ from the contract price, in basis points
+  variationCapBps Int?    @map("variation_cap_bps")
+  /// what the price is indexed to (free text, e.g. "LME copper monthly average")
+  variationNote   String? @map("variation_note")
+  revision        RateContractRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+
+  @@unique([revisionId, lineNo])
+  @@unique([revisionId, itemKey])
+  @@map("rate_contract_items")
+}
+
+/// Append-only: each row is one party's answer to one revision. The proposer's own row is written with the revision.
+model RateContractAcceptance {
+  id         String   @id @default(uuid()) @db.Uuid
+  revisionId String   @map("revision_id") @db.Uuid
+  businessId String   @map("business_id") @db.Uuid
+  /// nulled by the retention purge
+  personId   String?  @map("person_id") @db.Uuid
+  /// accepted | rejected
+  decision   String
+  reason     String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  revision   RateContractRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+
+  @@index([revisionId, createdAt])
+  @@map("rate_contract_acceptances")
+}
+
+/// A call-off: an order (and, when purchase orders are enabled, a PO) placed against the contract at the contract prices.
+model RateContractCallOff {
+  id               String    @id @default(uuid()) @db.Uuid
+  contractId       String    @map("contract_id") @db.Uuid
+  /// the revision whose prices applied
+  revision         Int
+  callOffNo        Int       @map("call_off_no")
+  orderId          String    @unique @map("order_id") @db.Uuid
+  /// placed | cancelled (cancelled when the order is cancelled; its quantities are released)
+  status           String    @default("placed")
+  taxablePaise     BigInt    @map("taxable_paise")
+  placedByPersonId String?   @map("placed_by_person_id") @db.Uuid
+  /// client-supplied key (public API, web form): a retried call-off with the same key returns the original instead of ordering twice
+  idempotencyKey   String?   @map("idempotency_key")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  cancelledAt      DateTime? @map("cancelled_at") @db.Timestamptz
+  contract         RateContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  order            Order     @relation(fields: [orderId], references: [id])
+  lines            RateContractCallOffLine[]
+
+  @@unique([contractId, callOffNo])
+  @@unique([contractId, idempotencyKey])
+  @@map("rate_contract_call_offs")
+}
+
+model RateContractCallOffLine {
+  id                 String @id @default(uuid()) @db.Uuid
+  callOffId          String @map("call_off_id") @db.Uuid
+  itemKey            String @map("item_key") @db.Uuid
+  lineNo             Int    @map("line_no")
+  description        String
+  unit               String
+  quantity           Int
+  contractPricePaise BigInt @map("contract_price_paise")
+  /// differs from the contract price only for an indexed item, within its cap
+  appliedPricePaise  BigInt @map("applied_price_paise")
+  taxablePaise       BigInt @map("taxable_paise")
+  callOff            RateContractCallOff @relation(fields: [callOffId], references: [id], onDelete: Cascade)
+
+  @@unique([callOffId, lineNo])
+  @@index([itemKey])
+  @@map("rate_contract_call_off_lines")
+}
+
+/// Which consumption warnings (scope = item key or "value", threshold 80 | 100) and expiry reminders (scope "expiry",
+/// threshold 30 | 7) were sent: inserted in the same transaction as the event, so each is sent once.
+model RateContractAlert {
+  contractId String   @map("contract_id") @db.Uuid
+  scope      String
+  threshold  Int
+  sentAt     DateTime @default(now()) @map("sent_at") @db.Timestamptz
+  contract   RateContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@id([contractId, scope, threshold])
+  @@map("rate_contract_alerts")
 }

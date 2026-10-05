@@ -11,6 +11,7 @@ import { DEVELOPER_KINDS } from "./kinds-developer";
 import { DPDP_KINDS } from "./kinds-dpdp";
 import { APPROVAL_KINDS } from "./kinds-approvals";
 import { GRN_KINDS } from "./kinds-grn";
+import { CONTRACT_KINDS } from "./kinds-contracts";
 import { PAYABLE_KINDS } from "./kinds-payables";
 import { PHASE23_KINDS } from "./kinds-phase23";
 import type { NotificationCategory, NotificationKind } from "./types";
@@ -542,6 +543,7 @@ export const KINDS: NotificationKind[] = [
   ...APPROVAL_KINDS,
   ...PAYABLE_KINDS,
   ...GRN_KINDS,
+  ...CONTRACT_KINDS,
 ];
 
 const KEY_INDEX = new Map(KINDS.map((k) => [k.key, k]));

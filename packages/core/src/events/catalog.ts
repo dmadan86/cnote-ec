@@ -256,6 +256,19 @@ export interface DomainEventPayloads {
   /** Seller credit note for a return: `totalPaise` reduces the invoice payable; escrow refunds up to that amount from held funds. */
   ReturnCreditNoteRecorded: { creditNoteId: string; goodsReturnId: string; returnNumber: string; supplierInvoiceId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; creditNoteNumber: string; totalPaise: number; outstandingPaise: number; refundDuePaise: number; hasIrn: boolean };
   GoodsReturnDisputeLinked: { goodsReturnId: string; number: string; disputeId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string };
+  // rate contracts and call-offs (docs/design/rate-contracts.md); payloads carry ids, numbers and paise, never terms text or addresses
+  RateContractProposed: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; revision: number; proposedByBusinessId: string; amendment: boolean; validFrom: string; validTo: string };
+  RateContractActivated: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; revision: number; amendment: boolean; validFrom: string; validTo: string };
+  RateContractRejected: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; revision: number; rejectedByBusinessId: string; reason: string | null };
+  RateContractTerminated: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; terminatedByBusinessId: string; reason: string | null };
+  RateContractExpired: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; validTo: string };
+  RateContractCallOffPlaced: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; callOffId: string; callOffNo: number; orderId: string; taxablePaise: number; lineCount: number };
+  /** A call-off's quantities were given back to the contract because its order was cancelled. */
+  RateContractCallOffReleased: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; callOffId: string; orderId: string };
+  /** Consumption crossed 80% or 100% of a quantity cap (scope item) or of the value cap (scope value). Sent once per scope and threshold. */
+  RateContractConsumptionWarning: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; scope: "item" | "value"; itemKey: string | null; itemDescription: string | null; threshold: 80 | 100; usedPercent: number };
+  /** Scheduled reminder 30 or 7 days before the active revision ends. The contract never renews by itself. */
+  RateContractExpiryReminder: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; daysLeft: 30 | 7; validTo: string };
 }
 
 export type DomainEventType = keyof DomainEventPayloads;
@@ -445,6 +458,16 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   GoodsReturnReceived: 1,
   ReturnCreditNoteRecorded: 1,
   GoodsReturnDisputeLinked: 1,
+  // rate contracts
+  RateContractProposed: 1,
+  RateContractActivated: 1,
+  RateContractRejected: 1,
+  RateContractTerminated: 1,
+  RateContractExpired: 1,
+  RateContractCallOffPlaced: 1,
+  RateContractCallOffReleased: 1,
+  RateContractConsumptionWarning: 1,
+  RateContractExpiryReminder: 1,
 };
 
 export interface DomainEvent<T extends DomainEventType = DomainEventType> {

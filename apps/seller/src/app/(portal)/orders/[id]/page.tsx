@@ -36,6 +36,8 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   const o = res.data;
   if (!o || o.role !== "seller") return <div className="space-y-4">{back}<Alert tone="warning">{t("notFound")}</Alert></div>;
   const tp = await getTranslations("purchaseOrders");
+  const tc = await getTranslations("contracts");
+  const rcLink = enquiry.rateContractsEnabled() ? await enquiry.rateContractLinkForOrder(actorOf(session), o.id) : null;
   const poSummary = enquiry.purchaseOrdersEnabled() && o.settlement !== "ondc" ? (await enquiry.purchaseOrderSummaries(actorOf(session), [o.id])).get(o.id) ?? null : undefined;
   return (
     <div className="space-y-6">
@@ -59,6 +61,12 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
           </dl>
         </CardBody>
       </Card>
+      {rcLink ? (
+        <Alert tone="info">
+          {tc("orderPanel", { number: rcLink.number })}{" "}
+          <Link href={`/contracts/${rcLink.contractId}`} className="font-medium underline">{tc("orderPanelOpen")}</Link>
+        </Alert>
+      ) : null}
       {poSummary !== undefined ? (
         <Card>
           <CardHeader><CardTitle>{tp("panelTitle")}</CardTitle></CardHeader>

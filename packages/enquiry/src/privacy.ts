@@ -5,7 +5,7 @@ import { prisma } from "@cnote/db";
 
 export async function exportPersonalData(personId: string, ctx: PersonalExportContext): Promise<PersonalExport> {
   const biz = ctx.businessIds;
-  const [enquiries, messages, quotes, orders, dealReports, attachments, quarantined, signals, enquiryLines, quoteLines, purchaseOrders, supplierInvoices, goodsReceipts, goodsReturns, matchOverrides, matchSettings] = await Promise.all([
+  const [enquiries, messages, quotes, orders, dealReports, attachments, quarantined, signals, enquiryLines, quoteLines, purchaseOrders, supplierInvoices, goodsReceipts, goodsReturns, matchOverrides, matchSettings, rateContracts] = await Promise.all([
     prisma.enquiry.findMany({
       where: { buyerPersonId: personId },
       orderBy: { createdAt: "asc" },
@@ -99,6 +99,20 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
     // reasons the person gave when paying an invoice whose three-way match was blocking
     prisma.invoiceMatchOverride.findMany({ where: { byPersonId: personId }, orderBy: { createdAt: "asc" }, take: EXPORT_TAKE }),
     biz.length ? prisma.buyerMatchSettings.findMany({ where: { buyerBusinessId: { in: biz } }, take: EXPORT_TAKE }) : Promise.resolve([]),
+    // rate contracts (docs/design/rate-contracts.md): every revision with items and answers, and the call-offs placed against them
+    biz.length
+      ? prisma.rateContract.findMany({
+          // same visibility rule as the screens: the seller side never sees a buyer's unsent draft
+          where: { OR: [{ buyerBusinessId: { in: biz } }, { sellerBusinessId: { in: biz }, status: { not: "draft" } }] },
+          orderBy: { createdAt: "asc" },
+          take: EXPORT_TAKE,
+          include: {
+            // answers are exported only for the requester's own businesses (the counterparty's answer is theirs)
+            revisions: { orderBy: { revision: "asc" }, include: { items: { orderBy: { lineNo: "asc" } }, acceptances: { where: { businessId: { in: biz } } } } },
+            callOffs: { orderBy: { callOffNo: "asc" }, include: { lines: { orderBy: { lineNo: "asc" } } } },
+          },
+        })
+      : Promise.resolve([]),
   ]);
   return {
     enquiries: exportCollection(enquiries),
@@ -117,5 +131,6 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
     goodsReturns: exportCollection(goodsReturns),
     invoiceMatchOverrides: exportCollection(matchOverrides),
     matchSettings: exportCollection(matchSettings),
+    rateContracts: exportCollection(rateContracts),
   };
 }

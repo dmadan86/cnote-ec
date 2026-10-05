@@ -45,3 +45,7 @@ export * from "./goods-receipts";
 export * from "./match";
 export * from "./returns";
 export { purgeGoodsReceiptPhotos } from "./grn-retention";
+// Rate contracts: agreed prices between a buyer and a seller, versioned amendments, call-off orders (docs/design/rate-contracts.md)
+export * from "./rc-core";
+export * from "./rate-contracts";
+export { purgeRateContracts } from "./rc-retention";

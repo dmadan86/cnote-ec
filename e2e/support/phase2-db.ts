@@ -235,3 +235,62 @@ export async function seedGoodsReceipt(email: string): Promise<{ orderId: string
     return { ...seeded, receiptId: String(grn.id), returnId: String(ret.id) };
   });
 }
+
+ * Rate contracts (docs/design/rate-contracts.md) for the buyer with the given email: one ACTIVE contract (a capped item at 80% used, an
+ * indexed item, a value cap, one call-off) and one contract whose seller revision 2 waits for the buyer's answer. Also saves a default
+ * delivery address so the call-off form shows. Returns the ids the specs open.
+ */
+export async function seedRateContract(email: string): Promise<{ activeId: string; pendingId: string; sellerBusinessId: string } & Principal> {
+  return withDb(async (c) => {
+    const me = await principalOf(c, email);
+    const seller = await otherSeller(c, me.businessId);
+    await c.query(
+      "insert into business_addresses (id, business_id, label, line1, city, state, state_code, pincode, is_default, updated_at) values (gen_random_uuid(), $1, 'Warehouse', '12 Industrial Area', 'Pune', 'Maharashtra', '27', '411001', true, now())",
+      [me.businessId],
+    );
+    const contract = async (number: string, title: string, status: string, active: number | null, latest: number): Promise<string> =>
+      String((await c.query(
+        "insert into rate_contracts (id, number, financial_year, buyer_business_id, seller_business_id, title, status, latest_revision, active_revision, updated_at) values (gen_random_uuid(), $1, '2026-27', $2, $3, $4, $5::rate_contract_status, $6, $7, now()) returning id",
+        [number, me.businessId, seller, title, status, latest, active],
+      )).rows[0]!.id);
+    const revision = async (contractId: string, n: number, by: string, price: number, from: string, to: string): Promise<string> => {
+      const r = String((await c.query(
+        `insert into rate_contract_revisions (id, contract_id, revision, proposed_by_business_id, valid_from, valid_to, payment_terms_days, price_basis, value_cap_paise, change_note)
+         values (gen_random_uuid(), $1, $2, $3, ${from}, ${to}, 30, 'delivered', 5000000, $4) returning id`,
+        [contractId, n, by, n > 1 ? "Board price rose" : null],
+      )).rows[0]!.id);
+      await c.query(
+        "insert into rate_contract_items (id, revision_id, item_key, line_no, description, hsn, unit, unit_price_paise, gst_rate_bps, moq, quantity_cap) values (gen_random_uuid(), $1, '11111111-1111-4111-8111-111111111111', 1, 'Corrugated box 12x10', '4819', 'pcs', $2, 1800, 100, 1000)",
+        [r, price],
+      );
+      await c.query(
+        "insert into rate_contract_items (id, revision_id, item_key, line_no, description, unit, unit_price_paise, gst_rate_bps, variation_kind, variation_cap_bps, variation_note) values (gen_random_uuid(), $1, '22222222-2222-4222-8222-222222222222', 2, 'Copper wire 2.5mm', 'kg', 80000, 1800, 'indexed', 500, 'LME copper monthly average')",
+        [r],
+      );
+      return r;
+    };
+    const accept = (rev: string, biz: string, person: string | null) =>
+      c.query("insert into rate_contract_acceptances (id, revision_id, business_id, person_id, decision) values (gen_random_uuid(), $1, $2, $3, 'accepted')", [rev, biz, person]);
+
+    const activeId = await contract("RC/26-27/000001", "Packaging 2026-27", "active", 1, 1);
+    const r1 = await revision(activeId, 1, me.businessId, 2500, "current_date - 10", "current_date + 355");
+    await accept(r1, me.businessId, me.personId);
+    await accept(r1, seller, null);
+    const o = (await c.query(
+      "insert into orders (id, buyer_business_id, seller_business_id, status, total_paise, buyer_confirmed_at, updated_at) values (gen_random_uuid(), $1, $2, 'recorded', 2000000, now(), now()) returning id",
+      [me.businessId, seller],
+    )).rows[0]!;
+    const co = (await c.query("insert into rate_contract_call_offs (id, contract_id, revision, call_off_no, order_id, taxable_paise) values (gen_random_uuid(), $1, 1, 1, $2, 2000000) returning id", [activeId, o.id])).rows[0]!;
+    await c.query(
+      "insert into rate_contract_call_off_lines (id, call_off_id, item_key, line_no, description, unit, quantity, contract_price_paise, applied_price_paise, taxable_paise) values (gen_random_uuid(), $1, '11111111-1111-4111-8111-111111111111', 1, 'Corrugated box 12x10', 'pcs', 800, 2500, 2500, 2000000)",
+      [co.id],
+    );
+
+    const pendingId = await contract("RC/26-27/000002", "Labels 2026-27", "proposed", null, 2);
+    const p1 = await revision(pendingId, 1, me.businessId, 2500, "current_date", "current_date + 364");
+    await accept(p1, me.businessId, me.personId);
+    const p2 = await revision(pendingId, 2, seller, 2700, "current_date", "current_date + 364");
+    await accept(p2, seller, null);
+    return { ...me, activeId, pendingId, sellerBusinessId: seller };
+  });
+}
