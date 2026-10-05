@@ -4,7 +4,7 @@ import { getCategoryBySlug, getPublicListingsByIds, listCategories } from "@cnot
 import { cachedTagged, cacheTags } from "@cnote/core";
 import { getTrustProfiles } from "@cnote/identity";
 import { z } from "zod";
-import { filtersSchema, hasActiveFilters, isSearchSort, matchesFilters, normaliseFilters, sortOrganic, type IndexFilters, type OrganicItem, type SearchFilters, type SearchSort } from "./filters";
+import { filtersSchema, hasActiveFilters, isSearchSort, matchesFilters, normaliseFilters, sortOrganic, variantKeysOf, type IndexFilters, type OrganicItem, type SearchFilters, type SearchSort } from "./filters";
 import { fusionWeights, INDIC_LEXICAL_WEIGHT, organicScore, rrfFuse, toCandidates } from "./fusion";
 import { getSearchIndex, type SearchFacets } from "./index-port";
 import { normaliseQuery } from "./normalise";
@@ -109,6 +109,8 @@ async function run(nq: ReturnType<typeof normaliseQuery>, filters: SearchFilters
   if (filters.priceMaxPaise !== undefined) index.priceMaxPaise = filters.priceMaxPaise;
   if (filters.maxMoq !== undefined) index.maxMoq = filters.maxMoq;
   if (filters.hasPrice) index.hasPrice = true;
+  if (filters.inStockOnly) index.inStockOnly = true;
+  if (filters.variantOptions) index.variantOptions = filters.variantOptions;
   const text = nq.text || categoryName; // pure category browse falls back to the category's own text
   if (!text) return empty;
 
@@ -148,7 +150,7 @@ async function run(nq: ReturnType<typeof normaliseQuery>, filters: SearchFilters
     if (!listing) return [];
     // Backstop for stale index data (OpenSearch docs lag the live row): re-check the filters against the live listing and the
     // seller profile. A no-op when the index already filtered correctly.
-    if (hasActiveFilters(recheck) && !matchesFilters({ categoryId: "", tier: s.seller.verificationTier, state: s.seller.state, city: s.seller.city, pricePaise: listing.pricePaise ?? null, moq: listing.moq ?? null }, recheck)) return [];
+    if (hasActiveFilters(recheck) && !matchesFilters({ categoryId: "", tier: s.seller.verificationTier, state: s.seller.state, city: s.seller.city, pricePaise: listing.pricePaise ?? null, moq: listing.moq ?? null, inStock: (listing.availability ?? "in_stock") === "in_stock", variantValues: variantKeysOf(listing.variants) }, recheck)) return [];
     const item: OrganicItem & { listing: typeof listing; seller: typeof s.seller } = {
       id: s.id,
       score: s.score,

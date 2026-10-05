@@ -1,5 +1,5 @@
 import { cachedTagged, cacheTags, invalidateTags } from "@cnote/core";
-import { prisma } from "@cnote/db";
+import { prisma, type Prisma } from "@cnote/db";
 import { toCategoryView } from "./mappers";
 import type { CategoryView } from "./index";
 
@@ -71,7 +71,7 @@ export async function upsertCategories(defs: CategoryDef[]): Promise<CategoryVie
       icon: d.icon ?? null,
       leadCap: d.leadCap ?? 3,
       prohibited: d.prohibited ?? false,
-      attributeSchema: d.attributeSchema ?? { fields: [] },
+      attributeSchema: (d.attributeSchema ?? { fields: [] }) as unknown as Prisma.InputJsonValue,
       sortOrder: d.sortOrder ?? 0,
       parentId,
     };

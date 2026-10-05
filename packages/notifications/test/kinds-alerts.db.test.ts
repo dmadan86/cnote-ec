@@ -41,9 +41,9 @@ afterAll(async () => {
 });
 
 describe("alert kinds", () => {
-  it("are four opt-in kinds in the alerts category, mapped to the 'alert' email template category with Hindi seed copy", () => {
-    expect(ALERT_KINDS.map((k) => k.key)).toEqual(["alert.price_drop", "alert.back_in_stock", "alert.followed_digest", "alert.saved_search"]);
-    expect(kindsFor("BuyerAlertTriggered")).toHaveLength(4);
+  it("are five opt-in kinds in the alerts category, mapped to the 'alert' email template category with Hindi seed copy", () => {
+    expect(ALERT_KINDS.map((k) => k.key)).toEqual(["alert.price_drop", "alert.back_in_stock", "alert.listing_relisted", "alert.followed_digest", "alert.saved_search"]);
+    expect(kindsFor("BuyerAlertTriggered")).toHaveLength(5);
     for (const k of ALERT_KINDS) {
       expect(k.category).toBe("alerts");
       expect(k.app).toBe("web");
@@ -103,6 +103,16 @@ describe("alert kinds", () => {
     expect(kinds).toEqual(["alert.back_in_stock", "alert.saved_search"]);
     expect(getKind("alert.saved_search")!.category).toBe("alerts");
     expect(h.rendered.find((r) => r.key === "alert.saved_search")!.vars).toMatchObject({ label: "cotton yarn", count: 4 });
+  });
+
+  it("a live-again alert reaches only its own kind, under the back-in-stock opt-in, and unsubscribes that switch", async () => {
+    await setAlertSetting(P, "back_in_stock", true);
+    await notifyForEvent(ev({ alertType: "listing_relisted", label: "Yarn" }), dir);
+    expect((await listNotifications(P, "web")).items.map((i) => i.kind)).toEqual(["alert.listing_relisted"]);
+    expect(h.rendered.find((r) => r.key === "alert.listing_relisted")!.vars.unsubscribeUrl).toContain("/unsubscribe/alerts");
+    await setAlertSetting(P, "back_in_stock", false);
+    await notifyForEvent(ev({ alertType: "listing_relisted", label: "Other" }), dir);
+    expect((await listNotifications(P, "web")).items).toHaveLength(1); // switched off: nothing new
   });
 
   it("muting the in-app and email channels in notification preferences silences every alert", async () => {

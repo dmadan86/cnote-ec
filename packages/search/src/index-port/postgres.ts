@@ -34,7 +34,7 @@ async function facetsFor(q: SearchIndexQuery): Promise<SearchFacets | undefined>
     const f = q.filters ?? {};
     // legacy single-category callers: the category is a scope for the facet pool, not a disjunctive filter
     const rows = await retrieveFacetRows({ text: q.text, variants: q.variants, categoryId: f.categoryIds ? null : q.categoryId });
-    return computeFacets(rows, f);
+    return computeFacets(rows.map((r) => ({ ...r, inStock: r.availability === "in_stock" })), f);
   } catch {
     return undefined;
   }

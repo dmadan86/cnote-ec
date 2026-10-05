@@ -19,6 +19,10 @@ export interface ListingFilters {
   /** listings with no stated MOQ always qualify */
   maxMoq?: number;
   hasPrice?: boolean;
+  /** only listings whose effective availability is "in_stock" (made-to-order does not count). Filter only: never a ranking signal. */
+  inStockOnly?: boolean;
+  /** variant axis -> lower-cased values. OR within an axis, AND across axes, matched at listing level (some variant has a selected value of each axis). */
+  variantOptions?: Record<string, string[]>;
 }
 
 const int = (n: number) => Math.trunc(n);
@@ -38,6 +42,11 @@ function listingFilters(f: ListingFilters | undefined): Prisma.Sql[] {
   if (f.priceMinPaise !== undefined) parts.push(Prisma.sql`AND l.price_paise >= ${int(f.priceMinPaise)}::bigint`);
   if (f.priceMaxPaise !== undefined) parts.push(Prisma.sql`AND l.price_paise <= ${int(f.priceMaxPaise)}::bigint`);
   if (f.maxMoq !== undefined) parts.push(Prisma.sql`AND (l.moq IS NULL OR l.moq <= ${int(f.maxMoq)}::int)`);
+  if (f.inStockOnly) parts.push(Prisma.sql`AND l.availability = 'in_stock'`);
+  for (const [axis, values] of Object.entries(f.variantOptions ?? {})) {
+    if (!values.length) continue;
+    parts.push(Prisma.sql`AND l.variant_values && ARRAY[${Prisma.join(values.map((v) => Prisma.sql`${`${axis}:${v}`.toLowerCase()}`))}]::text[]`);
+  }
   return parts;
 }
 
@@ -187,6 +196,9 @@ export interface FacetRow {
   city: string | null;
   pricePaise: number | null;
   moq: number | null;
+  /** effective availability (in_stock | made_to_order | out_of_stock) and the lower-cased "axis:value" pairs of the variants */
+  availability: string;
+  variantValues: string[];
 }
 
 const FACET_POOL_MAX = 2000;
@@ -203,10 +215,10 @@ export async function retrieveFacetRows(opts: { text?: string; variants?: string
   const qs = text || opts.variants?.length ? lexicalQueries(text, opts.variants ?? []) : null;
   if ((text || opts.variants?.length) && !qs) return [];
   const where = qs ? Prisma.sql`(l.search_tsv @@ ${qs.strict} OR l.search_tsv @@ ${qs.loose} OR l.search_tsv @@ ${qs.variant})` : Prisma.sql`TRUE`;
-  const rows = await liveDb.$queryRaw<{ category_id: string; category_slug: string; seller_tier: number; seller_state: string | null; seller_city: string | null; price_paise: bigint | null; moq: number | null }[]>`
-    SELECT l.category_id, l.category_slug, l.seller_tier, l.seller_state, l.seller_city, l.price_paise, l.moq
+  const rows = await liveDb.$queryRaw<{ category_id: string; category_slug: string; seller_tier: number; seller_state: string | null; seller_city: string | null; price_paise: bigint | null; moq: number | null; availability: string; variant_values: string[] | null }[]>`
+    SELECT l.category_id, l.category_slug, l.seller_tier, l.seller_state, l.seller_city, l.price_paise, l.moq, l.availability, l.variant_values
     FROM live_listings l WHERE ${where} ${filters(opts.categoryId)} LIMIT ${limit}`;
-  return rows.map((r) => ({ categoryId: r.category_id, categorySlug: r.category_slug, tier: Number(r.seller_tier), state: r.seller_state, city: r.seller_city, pricePaise: r.price_paise == null ? null : Number(r.price_paise), moq: r.moq }));
+  return rows.map((r) => ({ categoryId: r.category_id, categorySlug: r.category_slug, tier: Number(r.seller_tier), state: r.seller_state, city: r.seller_city, pricePaise: r.price_paise == null ? null : Number(r.price_paise), moq: r.moq, availability: r.availability, variantValues: r.variant_values ?? [] }));
 }
 
 /** Typeahead over live listing titles: word-prefix match, cached briefly per prefix. */

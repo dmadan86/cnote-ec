@@ -78,6 +78,8 @@ export function buildIndexBody(o: MappingOptions) {
         badgeActive: { type: "boolean" },
         pricePaise: { type: "long" },
         moq: { type: "long" },
+        availability: { type: "keyword" },
+        variantValues: { type: "keyword" },
         updatedAt: { type: "date" },
         embedding: {
           type: "knn_vector",
@@ -110,6 +112,8 @@ export function toSourceDoc(d: import("./types").IndexDoc) {
     badgeActive: d.badgeActive,
     pricePaise: d.pricePaise,
     moq: d.moq,
+    availability: d.availability ?? "in_stock",
+    variantValues: d.variantValues ?? [],
     updatedAt: d.updatedAt,
     ...(d.embedding && d.embedding.length === EMBEDDING_DIM ? { embedding: d.embedding } : {}),
   };

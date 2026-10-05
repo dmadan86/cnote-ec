@@ -32,6 +32,16 @@ model LiveListing {
   /// quantity slabs [{ minQty, pricePaise }] and trade info (lead time, packaging, sample, capacity, payment terms, certifications)
   priceTiers       Json     @default("[]") @map("price_tiers")
   trade            Json     @default("{}")
+  /// stock (docs/design/variants-stock.md): the best availability across variants (or the listing's own), written by the publisher
+  /// and by the stock fast path; buyer filters read it. in_stock | made_to_order | out_of_stock
+  availability     String   @default("in_stock")
+  availableQty     Int?     @map("available_qty")
+  stockUpdatedAt   DateTime? @map("stock_updated_at") @db.Timestamptz
+  /// [{ key, label }] axes frozen at publish, and the variants: [{ id, sku, axisValues, pricePaise, priceTiers, moq, availability, availableQty, leadTimeDays, imageId, sortOrder }]
+  variantAxes      Json     @default("[]") @map("variant_axes")
+  variants         Json     @default("[]")
+  /// lower-cased "axis:value" pairs of every variant, for the variant facet / filter
+  variantValues    String[] @default([]) @map("variant_values")
   language         String   @default("en")
   aiGenerated      Boolean  @default(false) @map("ai_generated")
   /// public image data, ordered: [{ id, url, alt, width, height, blur, variants: [{ width, height, format, key }] }]
@@ -55,6 +65,8 @@ model LiveListing {
 
   @@index([categoryId])
   @@index([sellerBusinessId])
+  @@index([availability])
+  @@index([variantValues], type: Gin)
   @@index([firstPublishedAt(sort: Desc)])
   @@index([searchTsv], map: "live_listings_search_tsv_idx", type: Gin)
   @@map("live_listings")

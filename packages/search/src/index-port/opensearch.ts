@@ -192,6 +192,7 @@ export function parseFacets(a: any): SearchFacets {
     city: buckets(a.city),
     state: buckets(a.state),
     verificationTier: buckets(a.verificationTier),
+    variant: buckets(a.variant),
     price: (inner(a.price)?.buckets ?? []).map((b: any) => ({ key: String(b.key), fromPaise: ranges.get(b.key)?.from ?? null, toPaise: ranges.get(b.key)?.to ?? null, count: Number(b.doc_count) })),
   };
 }
