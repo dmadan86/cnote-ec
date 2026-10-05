@@ -1,4 +1,4 @@
-import { getOrder, purchaseOrderSummaries, purchaseOrdersEnabled } from "@cnote/enquiry";
+import { getOrder, purchaseOrderSummaries, purchaseOrdersEnabled, rateContractLinkForOrder, rateContractsEnabled } from "@cnote/enquiry";
 import { actorOf, requireBusiness } from "@cnote/next-kit";
 import { Alert, Badge, Card, CardBody, CardTitle, Container, Money, PageHeader, buttonClasses } from "@cnote/ui";
 import type { Metadata } from "next";
@@ -29,6 +29,9 @@ export default async function BuyerOrderPage(props: { params: Promise<{ id: stri
   const t = await getTranslations({ locale, namespace: "buyer" });
   const tp = await getTranslations({ locale, namespace: "po" });
   const poSummary = purchaseOrdersEnabled() && o.settlement !== "ondc" && o.status !== "cancelled" ? (await purchaseOrderSummaries(actorOf(s), [o.id])).get(o.id) ?? null : undefined;
+  const rcOn = rateContractsEnabled();
+  const tc = await getTranslations({ locale, namespace: "contracts" });
+  const rcLink = rcOn ? await rateContractLinkForOrder(actorOf(s), o.id) : null;
   const dt = { format: (d: Date) => formatDate(d, locale, { dateStyle: "medium", timeStyle: "short" }) };
   return (
     <Container className="max-w-3xl py-8">
@@ -66,6 +69,23 @@ export default async function BuyerOrderPage(props: { params: Promise<{ id: stri
               <div>
                 <Link href={`/buyer/orders/${o.id}/purchase-order`} className={buttonClasses(poSummary ? "outline" : "primary")}>{poSummary ? tp("panelOpen") : tp("panelIssue")}</Link>
               </div>
+            </CardBody>
+          </Card>
+        ) : null}
+        {rcLink ? (
+          <Card>
+            <CardBody className="flex flex-col gap-2">
+              <CardTitle>{tc("orderPanel.title")}</CardTitle>
+              <p className="text-sm">{tc("orderPanel.fromContract", { n: rcLink.callOffNo, number: rcLink.number })}</p>
+              <div><Link href={`/buyer/contracts/${rcLink.contractId}`} className={buttonClasses("outline")}>{tc("orderPanel.open")}</Link></div>
+            </CardBody>
+          </Card>
+        ) : rcOn && o.quoteId && o.role === "buyer" ? (
+          <Card>
+            <CardBody className="flex flex-col gap-2">
+              <CardTitle>{tc("orderPanel.convertTitle")}</CardTitle>
+              <p className="text-sm text-muted">{tc("orderPanel.convertNote")}</p>
+              <div><Link href={`/buyer/contracts/new?quote=${o.quoteId}`} className={buttonClasses("outline")}>{tc("orderPanel.convert")}</Link></div>
             </CardBody>
           </Card>
         ) : null}

@@ -55,6 +55,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "typescript": "^6.0.3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22",
     "@types/react": "^19",

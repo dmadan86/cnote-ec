@@ -1,0 +1,166 @@
+{
+  "contracts": {
+    "metaTitle": "Rate contracts",
+    "title": "Rate contracts",
+    "description": "Prices agreed with buyers for a period or volume. Orders placed under a contract use these prices.",
+    "tabsLabel": "Contract views",
+    "tab": {
+      "answer": "Needs your answer",
+      "active": "Active",
+      "proposals": "Proposals",
+      "ended": "Ended"
+    },
+    "emptyTitle": "Nothing here",
+    "empty": {
+      "answer": "No contract is waiting for your answer.",
+      "active": "You have no active rate contracts.",
+      "proposals": "No proposals are open.",
+      "ended": "No contracts have ended."
+    },
+    "validity": "{from} to {to}",
+    "validityLabel": "Valid",
+    "valueUsedLabel": "Value used on {number}",
+    "needsAnswer": "Your answer needed",
+    "status": {
+      "draft": "Draft",
+      "proposed": "Proposed",
+      "active": "Active",
+      "expired": "Expired",
+      "terminated": "Ended"
+    },
+    "back": "Back to contracts",
+    "detailTitle": "Rate contract {number}",
+    "phase": {
+      "not_started": "Not started yet"
+    },
+    "daysLeft": "{days} days left",
+    "terminatedBy": "Ended by {who}. Reason: {reason}",
+    "expiredNote": "This contract reached its end date. It does not renew by itself; the buyer can start a renewal for you to accept.",
+    "noAutoRenew": "This contract will not renew by itself. A renewal is a new contract that both sides accept.",
+    "party": {
+      "buyer": "the buyer",
+      "seller": "you"
+    },
+    "pending": {
+      "titleFirst": "Proposal (revision {n})",
+      "titleAmend": "Proposed change (revision {n})",
+      "declined": "Declined",
+      "waiting": "Waiting for an answer",
+      "by": "Proposed by {who} on {date}.",
+      "changeNote": "What changed: {note}",
+      "reason": "Reason given: {reason}",
+      "waitingOther": "The buyer has to answer this revision. Until then the current terms stay in force."
+    },
+    "paymentTerms": "Payment terms",
+    "paymentTermsValue": "{days} days",
+    "priceBasis": "Prices include",
+    "basis": {
+      "ex_works": "Ex-works (pickup)",
+      "for_destination": "Freight to destination",
+      "delivered": "Delivered",
+      "other": "Other"
+    },
+    "valueCap": "Total value limit (before tax)",
+    "noCap": "No limit",
+    "notes": "Notes",
+    "buyer": "Buyer",
+    "current": {
+      "title": "Terms in force (revision {n})"
+    },
+    "consumption": {
+      "title": "Consumption",
+      "value": "Called off so far: {used}",
+      "ofCap": "of {cap}",
+      "valueLabel": "Share of the contract value used",
+      "beforeTax": "Values are before GST."
+    },
+    "callOffs": {
+      "title": "Call-off orders",
+      "none": "The buyer has not placed any order under this contract yet.",
+      "row": "Call-off {n}: {amount} before tax, placed {date}",
+      "cancelled": "Cancelled",
+      "open": "Open order"
+    },
+    "history": {
+      "title": "Revision history",
+      "row": "Revision {n} proposed by {who} on {date}",
+      "state": {
+        "active": "In force",
+        "superseded": "Replaced",
+        "pending": "Waiting",
+        "declined": "Declined"
+      }
+    },
+    "propose": {
+      "title": "Suggest a change",
+      "open": "Counter-propose or amend terms",
+      "hint": "This sends a new revision. The buyer must accept it before it applies; until then the current terms stay in force. You cannot remove an item that already has orders.",
+      "saved": "Your revision was sent to the buyer.",
+      "validFrom": "Valid from",
+      "validTo": "Valid until",
+      "paymentTerms": "Payment terms (days)",
+      "priceBasis": "Prices include",
+      "basis": {
+        "ex_works": "Ex-works (pickup)",
+        "for_destination": "Freight to destination",
+        "delivered": "Delivered",
+        "other": "Other"
+      },
+      "valueCap": "Total value limit in rupees, before tax",
+      "valueCapHint": "Leave empty for no limit.",
+      "itemN": "Item {n}",
+      "newItem": "Add an item (optional)",
+      "item": {
+        "description": "Item description",
+        "unit": "Unit",
+        "price": "Price per unit in rupees, before GST",
+        "gst": "GST rate (%)",
+        "moq": "Minimum per order",
+        "cap": "Quantity limit for the whole contract",
+        "variation": "Price type",
+        "fixed": "Fixed price",
+        "indexed": "Indexed to a reference",
+        "varCap": "Most the price may move (%)",
+        "varHint": "Only for indexed prices.",
+        "varNote": "What the price is indexed to",
+        "remove": "Remove this item"
+      },
+      "notes": "Notes",
+      "changeNote": "What changed and why",
+      "changeNoteHint": "The buyer sees this.",
+      "pending": "Sending…",
+      "submit": "Send revision"
+    },
+    "respond": {
+      "hint": "Accepting means both sides agree to these terms. You can still suggest a change instead.",
+      "reason": "Reason (needed when declining)",
+      "reasonHint": "Tell the buyer what you would accept.",
+      "accept": "Accept",
+      "decline": "Decline",
+      "pending": "Please wait…"
+    },
+    "terminate": {
+      "open": "End this contract",
+      "hint": "Orders already placed stay as they are. The buyer is told.",
+      "reason": "Reason",
+      "pending": "Ending…",
+      "submit": "End contract"
+    },
+    "itemsCaption": "Items, prices and limits",
+    "col": {
+      "item": "Item",
+      "price": "Price",
+      "gst": "GST",
+      "moq": "Minimum",
+      "cap": "Limit",
+      "used": "Used"
+    },
+    "indexedNote": "Indexed: may move up to {percent}% ({note})",
+    "fixedNote": "Fixed price",
+    "usedQty": "{qty} {unit} ordered",
+    "usedLabel": "Quantity used for {item}",
+    "usedOf": "{used} of {cap}",
+    "orderPanel": "Placed under rate contract {number}",
+    "orderPanelOpen": "Open contract"
+  }
+}
