@@ -12,7 +12,7 @@
 //    copy of the data, correction, other). Every staff step is wrapped in `audited()` by the admin app.
 import { DomainError, emit } from "@cnote/core";
 import { prisma } from "@cnote/db";
-import { describePersonForStaff, erasePerson, findPersonIdByEmail, verifyErasureStepUp, type ErasureStepUp } from "@cnote/identity";
+import { describePersonForStaff, erasePerson, findPersonIdByEmail, getOwnContacts, verifyErasureStepUp, type ErasureStepUp } from "@cnote/identity";
 import { blindIndex, decryptField, encryptField } from "@cnote/security";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -73,7 +73,7 @@ export async function listMyNominees(personId: string): Promise<NomineeView[]> {
 }
 
 async function assertNotSelf(personId: string, contact: string) {
-  const own = await prisma.person.findUnique({ where: { id: personId }, select: { email: true, phone: true } });
+  const own = await getOwnContacts(personId);
   if (own && [own.email, own.phone].filter(Boolean).map((c) => normalizeContact(c!)).includes(contact)) {
     throw new DomainError("validation", "You can't nominate yourself. Enter someone else's contact.", { field: "contact" });
   }

@@ -37,5 +37,5 @@ export { findOrCreatePersonByVerifiedPhone } from "./verified-phone";
 export * from "./kyc";
 export * from "./audits";
 export * from "./addresses";
-export { getLastActiveAt, isInactivityEligible, listInactiveAccounts, findPersonIdByEmail, describePersonForStaff, type InactiveAccount } from "./inactivity";
+export { getLastActiveAt, isInactivityEligible, listInactiveAccounts, findPersonIdByEmail, getOwnContacts, describePersonForStaff, type InactiveAccount } from "./inactivity";
 export { touchLastActive } from "./sessions";

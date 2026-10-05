@@ -77,3 +77,9 @@ export async function describePersonForStaff(personId: string): Promise<{ emailM
   const emailMasked = p.email ? `${p.email.slice(0, 1)}***@${p.email.split("@")[1] ?? ""}` : null;
   return { emailMasked, erased: !!p.erasedAt, createdAt: p.createdAt, lastActiveAt: p.lastActiveAt };
 }
+
+/** The person's own contact points (e-mail, phone), for checks such as "you cannot nominate yourself". Null when unknown or erased. */
+export async function getOwnContacts(personId: string): Promise<{ email: string | null; phone: string | null } | null> {
+  const p = await prisma.person.findUnique({ where: { id: personId }, select: { email: true, phone: true, erasedAt: true } });
+  return !p || p.erasedAt ? null : { email: p.email, phone: p.phone };
+}

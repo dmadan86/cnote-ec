@@ -112,4 +112,37 @@ describe("securityHeaders", () => {
     const list = staticHeaderList({ app: "web", env: prod });
     expect(list.find((x) => x.key === "Content-Security-Policy")?.value).toContain("'unsafe-inline'");
   });
+
+  describe("hash mode (static pages without unsafe-inline)", () => {
+    const H1 = `'sha256-${"A".repeat(43)}='`;
+    const H2 = `'sha256-${"b".repeat(43)}='`;
+    it("replaces unsafe-inline with the page's inline-script hashes", () => {
+      const csp = buildCsp({ app: "web", scriptHashes: [H1, H2], env: {} });
+      expect(dir(csp, "script-src")).toBe(`script-src 'self' ${H1} ${H2}`);
+      expect(dir(csp, "script-src")).not.toContain("unsafe-inline");
+      // every other directive is untouched
+      expect(dir(csp, "object-src")).toBe("object-src 'none'");
+      expect(dir(csp, "base-uri")).toBe("base-uri 'self'");
+    });
+    it("an empty list stays in static mode; duplicates collapse", () => {
+      expect(dir(buildCsp({ app: "web", scriptHashes: [], env: {} }), "script-src")).toBe("script-src 'self' 'unsafe-inline'");
+      expect(dir(buildCsp({ app: "web", scriptHashes: [H1, H1], env: {} }), "script-src")).toBe(`script-src 'self' ${H1}`);
+    });
+    it("rejects anything that is not a well-formed hash source (no smuggled directives or keywords)", () => {
+      for (const bad of ["'unsafe-inline'", "sha256-AAAA", `'sha256-${"A".repeat(43)}='; script-src *`, "'sha1-AAAA'", `'sha256-${"A".repeat(10)}'`, "https://evil.example"]) {
+        expect(() => buildCsp({ app: "web", scriptHashes: [bad], env: {} }), bad).toThrow(/Invalid CSP script hash/);
+      }
+    });
+    it("in nonce mode hashes are added next to the nonce", () => {
+      const sd = dir(buildCsp({ app: "web", nonce: "abc123", scriptHashes: [H1], env: {} }), "script-src");
+      expect(sd).toContain("'nonce-abc123'");
+      expect(sd).toContain(H1);
+      expect(sd).toContain("'strict-dynamic'");
+    });
+    it("staticHeaderList carries the hash policy", () => {
+      const v = staticHeaderList({ app: "web", scriptHashes: [H1], env: {} }).find((x) => x.key === "Content-Security-Policy")!.value;
+      expect(v).toContain(`script-src 'self' ${H1}`);
+      expect(v).not.toMatch(/script-src[^;]*unsafe-inline/);
+    });
+  });
 });
