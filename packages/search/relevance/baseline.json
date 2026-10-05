@@ -1,0 +1,11 @@
+{
+  "_doc": "Committed floor for the relevance fixture (ADR-009). CI fails when a metric drops below value - tolerance. Rewrite only for an intended ranking change: pnpm --filter @cnote/search eval:relevance -- --write-baseline",
+  "tolerance": 0.02,
+  "backends": {
+    "postgres": {
+      "ndcg10": 0.94,
+      "mrr": 0.983,
+      "recall20": 0.867
+    }
+  }
+}

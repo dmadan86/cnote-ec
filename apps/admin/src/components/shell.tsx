@@ -1,6 +1,6 @@
 import { type Privilege, type StaffView, hasPrivilege } from "@cnote/admin";
 import { signOutAction } from "@cnote/next-kit";
-import { Bot, Banknote, LineChart, Camera, Gavel, Landmark, Layers, Network, Gift, Globe, Megaphone, MessageCircle, Tag, Ticket, Activity, BarChart3, Building2, CreditCard, FileClock, Filter, ImageIcon, KeyRound, LayoutDashboard, LayoutTemplate, ListChecks, LogOut, Mail, MessageSquareWarning, Scale, ScrollText, ShieldCheck, Store, UserCog, UserRound } from "lucide-react";
+import { Bot, Banknote, Search, LineChart, Camera, Gavel, Landmark, Layers, Network, Gift, Globe, Megaphone, MessageCircle, Tag, Ticket, Activity, BarChart3, Building2, CreditCard, FileClock, Filter, ImageIcon, KeyRound, LayoutDashboard, LayoutTemplate, ListChecks, LogOut, Mail, MessageSquareWarning, Scale, ScrollText, ShieldCheck, Store, UserCog, UserRound } from "lucide-react";
 import { NavLink } from "./nav";
 
 const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Privilege }[] = [
@@ -35,6 +35,7 @@ const NAV: { href: string; label: string; icon: React.ReactNode; privilege?: Pri
   { href: "/prices", label: "Price benchmarks", icon: <LineChart className="size-4" aria-hidden />, privilege: "prices.manage" },
   { href: "/agents", label: "Agents", icon: <Bot className="size-4" aria-hidden />, privilege: "agents.read" },
   { href: "/ondc", label: "ONDC", icon: <Network className="size-4" aria-hidden />, privilege: "ondc.manage" },
+  { href: "/search/synonyms", label: "Search tuning", icon: <Search className="size-4" aria-hidden />, privilege: "search.read" },
   { href: "/businesses", label: "Businesses", icon: <Building2 className="size-4" aria-hidden />, privilege: "businesses.read" },
   { href: "/compliance", label: "Compliance", icon: <Scale className="size-4" aria-hidden />, privilege: "compliance.read" },
   { href: "/staff", label: "Staff", icon: <UserCog className="size-4" aria-hidden />, privilege: "staff.read" },

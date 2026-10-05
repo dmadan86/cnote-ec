@@ -187,6 +187,8 @@ export interface ColloquialOptions {
   flapAsR: boolean;
   /** Tamil-style intervocalic voicing k/c/ṭ/t/p -> g/j/ḍ/d/b */
   voicing: boolean;
+  /** a word-final anusvara is "m" (Telugu/Kannada బియ్యం -> biyyam) instead of "n" (Hindi गेहूं -> gehun) */
+  finalM: boolean;
 }
 
 const FOLD: Record<string, string> = {
@@ -245,18 +247,20 @@ function render(units: Unit[], o: ColloquialOptions): string {
     } else if (u.t === "V") {
       r = o.longVowels && LONG[u.r] ? LONG[u.r]! : (FOLD[u.r] ?? u.r);
     } else if (u.t === "M") {
-      r = FOLD[u.r] ?? u.r;
+      r = o.finalM && u.r === "ṃ" && i === units.length - 1 ? "m" : (FOLD[u.r] ?? u.r);
     }
     s += r;
   }
   return s.normalize("NFC");
 }
 
-const BASE_OPTS: ColloquialOptions = { schwaDeletion: true, longVowels: false, vAsW: false, flapAsR: false, voicing: false };
+const BASE_OPTS: ColloquialOptions = { schwaDeletion: true, longVowels: false, vAsW: false, flapAsR: false, voicing: false, finalM: false };
+/** Dravidian scripts pronounce a final anusvara as "m". */
+const FINAL_M: ReadonlySet<IndicScript> = new Set(["taml", "telu", "knda"]);
 
 /** One ASCII spelling of an Indic word (or mixed text; non-Indic runs pass through untouched). */
 export function colloquial(text: string, script: IndicScript | null, opts: Partial<ColloquialOptions> = {}): string {
-  const o = { ...BASE_OPTS, schwaDeletion: script ? SCHWA_DELETING.has(script) : true, ...opts };
+  const o = { ...BASE_OPTS, schwaDeletion: script ? SCHWA_DELETING.has(script) : true, finalM: script ? FINAL_M.has(script) : false, ...opts };
   return splitRuns(clean(text))
     .map((run) => {
       if (!run.indic) return run.text;
@@ -281,6 +285,7 @@ export function romanVariants(word: string, script: IndicScript | null = detectS
     colloquial(word, script, { vAsW: true }),
     colloquial(word, script, { flapAsR: true }),
     ...(script === "taml" ? [colloquial(word, script, { voicing: true })] : []),
+    ...(script && FINAL_M.has(script) ? [colloquial(word, script, { finalM: false })] : []), // "biyyan" as the alternative spelling
   ];
   return [...new Set(forms.filter((f) => f.length > 0))];
 }

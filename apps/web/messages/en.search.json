@@ -14,10 +14,10 @@
     "voiceDenied": "Microphone access is blocked. Allow it in your browser settings, or type your search.",
     "voiceError": "Voice search isn't working right now. Please type your search.",
     "voiceLimited": "Too many voice searches. Please wait a minute and try again.",
-    "photoAria": "Search by photo",
-    "photoTitle": "Search by photo",
+    "photoAria": "Search by image",
+    "photoTitle": "Search by image",
     "photoNotice": "Your photo is sent to our image-recognition service to work out what it is, and is not saved.",
-    "photoChoose": "Choose or take a photo",
+    "photoChoose": "Choose from gallery",
     "photoWorking": "Looking at your photo…",
     "photoRedirecting": "Searching for “{q}”…",
     "photoError": "We couldn't use that photo. Use a JPEG, PNG or WebP under 5 MB.",
@@ -28,6 +28,7 @@
     "photoResultsFor": "Results for photo: “{q}”",
     "photoNote": "We matched this from your photo. Change the words if they are not right.",
     "photoEditLabel": "Search words from your photo",
-    "photoEditSubmit": "Update search"
+    "photoEditSubmit": "Update search",
+    "photoTake": "Take a photo"
   }
 }

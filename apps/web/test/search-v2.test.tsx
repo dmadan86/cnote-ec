@@ -245,3 +245,17 @@ describe("SearchTools (server render = no JS)", () => {
     expect(html).not.toContain("<button"); // no controls until the browser proves it can record / upload
   });
 });
+
+describe("PhotoPicker (search by image)", () => {
+  it("the camera control asks phones for the rear camera; the gallery control does not; both are labelled file inputs", async () => {
+    const { PhotoPicker } = await import("@/features/search/search-tools");
+    const camera = renderToStaticMarkup(<PhotoPicker label="Take a photo" capture busy={false} onFile={() => undefined} />);
+    expect(camera).toContain('accept="image/*"');
+    expect(camera).toContain('capture="environment"');
+    expect(camera).toContain("Take a photo");
+    expect(camera).toMatch(/<label[^>]*><svg[^>]*aria-hidden="true"/);
+    const gallery = renderToStaticMarkup(<PhotoPicker label="Choose from gallery" busy onFile={() => undefined} />);
+    expect(gallery).not.toContain("capture=");
+    expect(gallery).toContain("disabled");
+  });
+});

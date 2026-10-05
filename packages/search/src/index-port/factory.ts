@@ -1,3 +1,4 @@
+import { activeSynonymLines } from "../synonyms/store";
 import { OpenSearchIndex, createOpenSearchClient, type OsClient } from "./opensearch";
 import { postgresIndex } from "./postgres";
 import type { SearchBackendName, SearchIndex } from "./types";
@@ -18,7 +19,7 @@ export function getSearchIndex(): SearchIndex {
   if (cached?.name === name) return cached.index;
   const index =
     name === "opensearch"
-      ? new OpenSearchIndex(createOpenSearchClient() as unknown as OsClient, { synonymsPackagePath: process.env.OPENSEARCH_SYNONYMS_PACKAGE_PATH })
+      ? new OpenSearchIndex(createOpenSearchClient() as unknown as OsClient, { synonymsPackagePath: process.env.OPENSEARCH_SYNONYMS_PACKAGE_PATH, extraSynonyms: activeSynonymLines })
       : postgresIndex;
   cached = { name, index };
   return index;

@@ -129,6 +129,9 @@ importers:
       '@cnote/reviews':
         specifier: workspace:*
         version: link:../../packages/reviews
+      '@cnote/search':
+        specifier: workspace:*
+        version: link:../../packages/search
       '@cnote/security':
         specifier: workspace:*
         version: link:../../packages/security
@@ -1673,6 +1676,10 @@ importers:
       zod:
         specifier: ^4.6.5
         version: 4.6.5
+    devDependencies:
+      '@cnote/live-db':
+        specifier: workspace:*
+        version: link:../live-db
 
   packages/security:
     dependencies:

@@ -1,5 +1,5 @@
 import { Client } from "@opensearch-project/opensearch";
-import { ALIAS, buildIndexBody, indexName, knnScoreToCosine, loadSynonyms, parseIndexVersion, toSourceDoc, type MappingOptions } from "./mapping";
+import { ALIAS as DEFAULT_ALIAS, buildIndexBody, indexName, knnScoreToCosine, loadSynonyms, parseIndexVersion, toSourceDoc, type MappingOptions } from "./mapping";
 import { buildKnnRequest, buildLexicalRequest, buildSuggestRequest, decodeCursor, encodeCursor, PRICE_RANGES } from "./query";
 import type { FacetBucket, IndexDoc, IndexHealth, RawHit, ReindexResult, SearchFacets, SearchIndex, SearchIndexQuery, SearchIndexResult } from "./types";
 
@@ -40,8 +40,20 @@ export class OpenSearchIndex implements SearchIndex {
 
   constructor(
     private readonly client: OsClient,
-    private readonly opts: { synonyms?: string[]; synonymsPackagePath?: string; shards?: number; replicas?: number } = {},
-  ) {}
+    private readonly opts: {
+      synonyms?: string[];
+      /** Staff-curated synonym lines (Solr format), read each time an index is built; failures fall back to the file set only. */
+      extraSynonyms?: () => Promise<string[]>;
+      synonymsPackagePath?: string;
+      shards?: number;
+      replicas?: number;
+      /** Alias to read/write. Default `listings`; the relevance harness uses a private alias so it never touches live data. */
+      alias?: string;
+    } = {},
+  ) {
+    this.alias = opts.alias ?? DEFAULT_ALIAS;
+  }
+  private readonly alias: string;
 
   private async detectIcu(): Promise<boolean> {
     if (this.icu !== undefined) return this.icu;
@@ -55,16 +67,17 @@ export class OpenSearchIndex implements SearchIndex {
   }
 
   private async mappingOptions(): Promise<MappingOptions> {
-    return { icu: await this.detectIcu(), synonyms: this.opts.synonyms ?? loadSynonyms(), synonymsPackagePath: this.opts.synonymsPackagePath, shards: this.opts.shards, replicas: this.opts.replicas };
+    const curated = this.opts.synonyms ? [] : await (this.opts.extraSynonyms?.() ?? Promise.resolve([])).catch(() => [] as string[]);
+    return { icu: await this.detectIcu(), synonyms: this.opts.synonyms ?? [...loadSynonyms(), ...curated], synonymsPackagePath: this.opts.synonymsPackagePath, shards: this.opts.shards, replicas: this.opts.replicas };
   }
 
   /** Creates listings_v1 + alias on first use. Idempotent. Returns the current concrete index. */
   async ensureIndex(): Promise<string> {
     const current = await this.currentIndices();
-    if (current.length) return current.sort((a, b) => parseIndexVersion(b) - parseIndexVersion(a))[0]!;
-    const name = indexName(1);
+    if (current.length) return current.sort((a, b) => parseIndexVersion(b, this.alias) - parseIndexVersion(a, this.alias))[0]!;
+    const name = indexName(1, this.alias);
     try {
-      await this.client.indices.create({ index: name, body: { ...buildIndexBody(await this.mappingOptions()), aliases: { [ALIAS]: {} } } });
+      await this.client.indices.create({ index: name, body: { ...buildIndexBody(await this.mappingOptions()), aliases: { [this.alias]: {} } } });
     } catch (e) {
       if (!/resource_already_exists/.test(String((e as Error).message))) throw e; // concurrent creator won
     }
@@ -73,7 +86,7 @@ export class OpenSearchIndex implements SearchIndex {
 
   private async currentIndices(): Promise<string[]> {
     try {
-      const { body } = await this.client.indices.getAlias({ name: ALIAS });
+      const { body } = await this.client.indices.getAlias({ name: this.alias });
       return Object.keys(body ?? {});
     } catch (e) {
       if ((e as { statusCode?: number }).statusCode === 404) return [];
@@ -85,8 +98,8 @@ export class OpenSearchIndex implements SearchIndex {
     const lexReq = q.text.trim() ? buildLexicalRequest(q, { facets: decodeCursor(q.cursor) === 0 }) : null;
     const knnReq = buildKnnRequest(q);
     const [lex, vec] = await Promise.all([
-      lexReq ? this.client.search({ index: ALIAS, body: lexReq }) : null,
-      knnReq ? this.client.search({ index: ALIAS, body: knnReq }) : null,
+      lexReq ? this.client.search({ index: this.alias, body: lexReq }) : null,
+      knnReq ? this.client.search({ index: this.alias, body: knnReq }) : null,
     ]);
     const merged = new Map<string, RawHit>();
     const lexHits: any[] = lex?.body?.hits?.hits ?? [];
@@ -107,7 +120,7 @@ export class OpenSearchIndex implements SearchIndex {
   }
 
   async suggest(prefix: string, limit = 8): Promise<string[]> {
-    const { body } = await this.client.search({ index: ALIAS, body: buildSuggestRequest(prefix, limit * 3) });
+    const { body } = await this.client.search({ index: this.alias, body: buildSuggestRequest(prefix, limit * 3) });
     const titles = (body?.hits?.hits ?? []).map((h: any) => String(h._source.title));
     return [...new Set<string>(titles)].slice(0, limit);
   }
@@ -115,14 +128,14 @@ export class OpenSearchIndex implements SearchIndex {
   async upsert(docs: IndexDoc[]): Promise<void> {
     if (!docs.length) return;
     await this.ensureIndex();
-    const res = await bulkIndex(this.client, ALIAS, docs);
+    const res = await bulkIndex(this.client, this.alias, docs);
     if (res.failed) throw new Error(`opensearch upsert: ${res.failed} of ${docs.length} failed`);
   }
 
   async remove(ids: string[]): Promise<void> {
     if (!ids.length) return;
     const version = Date.now();
-    const body = ids.flatMap((id) => [{ delete: { _index: ALIAS, _id: id, version, version_type: "external_gte" } }]);
+    const body = ids.flatMap((id) => [{ delete: { _index: this.alias, _id: id, version, version_type: "external_gte" } }]);
     const { body: r } = await this.client.bulk({ body });
     const bad = (r?.items ?? []).filter((i: any) => i.delete?.status >= 400 && i.delete.status !== 404 && i.delete.status !== CONFLICT);
     if (bad.length) throw new Error(`opensearch remove: ${bad.length} failed`);
@@ -141,7 +154,7 @@ export class OpenSearchIndex implements SearchIndex {
   /** Builds listings_v<N+1>, bulk-loads it, then swaps the alias atomically (readers never see a partial index). */
   async reindexAll(stream: AsyncIterable<IndexDoc[]>): Promise<ReindexResult> {
     const old = await this.currentIndices();
-    const next = indexName(Math.max(0, ...old.map(parseIndexVersion)) + 1);
+    const next = indexName(Math.max(0, ...old.map((n) => parseIndexVersion(n, this.alias))) + 1, this.alias);
     await this.client.indices.create({ index: next, body: buildIndexBody({ ...(await this.mappingOptions()), replicas: 0 }) });
     let indexed = 0;
     let failed = 0;
@@ -158,10 +171,10 @@ export class OpenSearchIndex implements SearchIndex {
       throw e;
     }
     await this.client.indices.updateAliases({
-      body: { actions: [...old.map((index) => ({ remove: { index, alias: ALIAS } })), { add: { index: next, alias: ALIAS } }] },
+      body: { actions: [...old.map((index) => ({ remove: { index, alias: this.alias } })), { add: { index: next, alias: this.alias } }] },
     });
     // Keep the immediately previous index for rollback; drop older ones.
-    for (const index of old.sort((a, b) => parseIndexVersion(a) - parseIndexVersion(b)).slice(0, -1)) await this.client.indices.delete({ index }).catch(() => undefined);
+    for (const index of old.sort((a, b) => parseIndexVersion(a, this.alias) - parseIndexVersion(b, this.alias)).slice(0, -1)) await this.client.indices.delete({ index }).catch(() => undefined);
     return { indexed, failed, index: next };
   }
 }

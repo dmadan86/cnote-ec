@@ -1,0 +1,49 @@
+// Owned by @cnote/search (search synonym dictionary + staff relevance judgements). ADR-004, ADR-009.
+
+/// One immutable snapshot of the staff-editable synonym dictionary (ADR-009). The active dictionary is the row with the
+/// highest `version`; publishing an edit appends version N+1 and rolling back appends a COPY of an older snapshot as N+1,
+/// so history is never rewritten. `groups` is `[{ terms: string[], note?: string }]`: every term in a group is
+/// interchangeable with the others (any script), validated by the module before it is stored.
+model SearchSynonymVersion {
+  id               String   @id @default(uuid()) @db.Uuid
+  version          Int      @unique
+  groups           Json
+  groupCount       Int      @map("group_count")
+  /// seed | edit | rollback | import
+  source           String
+  /// the version this snapshot was copied from (rollback) or edited from (edit)
+  basedOnVersion   Int?     @map("based_on_version")
+  note             String?
+  createdByStaffId String?  @map("created_by_staff_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("search_synonym_versions")
+}
+
+/// A staff relevance judgement recorded from live search results (ADR-009 evaluation). Keyed to a seed-independent
+/// DESCRIPTOR (the listing's title key + category slug), not only to the listing id, so an exported file still means
+/// something after the catalogue changes. One grade per (query, product key); re-judging overwrites.
+/// No personal data: queries are the staff member's own typed text.
+model SearchJudgement {
+  id              String   @id @default(uuid()) @db.Uuid
+  /// normalised query (lower-case, collapsed spaces): the dedupe key
+  queryKey        String   @map("query_key")
+  query           String
+  lang            String
+  /// stable descriptor of the judged product: slug of its title
+  productKey      String   @map("product_key")
+  listingId       String?  @map("listing_id") @db.Uuid
+  listingTitle    String   @map("listing_title")
+  categorySlug    String?  @map("category_slug")
+  /// 0 not relevant, 1 related, 2 relevant, 3 ideal
+  grade           Int
+  /// backend the staff member was looking at when judging (postgres | opensearch)
+  backend         String
+  judgedByStaffId String   @map("judged_by_staff_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([queryKey, productKey])
+  @@index([queryKey])
+  @@map("search_judgements")
+}
