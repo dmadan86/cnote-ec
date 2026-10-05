@@ -4,6 +4,9 @@
  *   pnpm db:seed                 idempotent upsert (safe to re-run; keys are stable ids / slugs / GSTINs)
  *   pnpm db:seed -- --reset      delete all seeded sellers + their listings, then seed again
  *   pnpm db:seed -- --clean      delete seeded sellers + listings and stop
+ *   pnpm db:seed -- --vertical=<key> [--only]
+ *                                load a vertical playbook (categories + candidate vertical, ADR-011/016); never
+ *                                automatic. With --only the dummy data is skipped. Keys: see listPlaybooks().
  *
  * Seeded rows are identifiable by their owner Person: email `*@example.com` (sellerN@, seller-demo@,
  * buyer-demo@). Categories are kept on reset (real data may reference them). Real catalogue data will
@@ -16,11 +19,14 @@ import * as billing from "@cnote/billing";
 import * as catalogue from "@cnote/catalogue";
 import { prisma, toVectorLiteral, withPurge } from "@cnote/db";
 import * as identity from "@cnote/identity";
+import { listPlaybooks, loadPlaybook } from "@cnote/verticals";
 import { createHash, randomBytes, scrypt as scryptCb } from "node:crypto";
 import { promisify } from "node:util";
 
 const RESET = process.argv.includes("--reset");
 const CLEAN = process.argv.includes("--clean");
+const VERTICAL = process.argv.find((a) => a.startsWith("--vertical="))?.slice("--vertical=".length);
+const ONLY = process.argv.includes("--only");
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -562,6 +568,14 @@ async function embed(ids: string[]) {
 }
 
 async function main() {
+  if (VERTICAL !== undefined) {
+    // Explicit opt-in (ADR-011): the playbook is data, loaded only when asked for by key.
+    const known = listPlaybooks().map((p) => p.key);
+    if (!known.includes(VERTICAL)) throw new Error(`Unknown vertical "${VERTICAL}". Available: ${known.join(", ")}`);
+    const res = await loadPlaybook(VERTICAL);
+    console.log(`Vertical playbook "${res.playbook}": ${res.categories} categories upserted; vertical ${res.verticalCreated ? "created as candidate" : "already existed (stage unchanged)"}.`);
+    if (ONLY) return;
+  }
   if (RESET || CLEAN) await cleanSeed();
   if (CLEAN) return;
 
