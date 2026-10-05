@@ -34,6 +34,7 @@ vi.mock("@cnote/catalogue", () => ({
   findSellerCandidates: async (o: { excludeSellerIds?: string[] }) => st.candidates.filter((c) => !o.excludeSellerIds?.includes(c.sellerBusinessId)),
 }));
 vi.mock("@cnote/identity", () => ({
+  getMemberRole: async () => null, // legacy fixtures are not team members: approvals/roles do not apply (docs/design/buyer-approvals.md)
   getTrustProfiles: async (ids: string[]) => new Map(ids.filter((i) => st.profiles.has(i)).map((i) => [i, st.profiles.get(i)])),
   hasConsent: async () => st.consent,
   get getPersonContact() {

@@ -1,0 +1,17 @@
+{
+  "name": "@cnote/approvals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@cnote/core": "workspace:*",
+    "@cnote/db": "workspace:*",
+    "@cnote/identity": "workspace:*",
+    "zod": "^4.1.0"
+  }
+}

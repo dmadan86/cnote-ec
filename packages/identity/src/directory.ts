@@ -8,7 +8,7 @@ export { hashPassword } from "./password";
 
 export interface BusinessMemberView {
   personId: string;
-  role: "owner" | "staff";
+  role: "owner" | "staff" | "admin" | "requester" | "approver" | "finance" | "viewer";
 }
 
 /** Members of a business; `ownersOnly` narrows to role=owner. */
@@ -88,7 +88,7 @@ export async function isPersonErased(personId: string): Promise<boolean> {
 export interface PersonBusinessView {
   businessId: string;
   name: string;
-  role: "owner" | "staff";
+  role: "owner" | "staff" | "admin" | "requester" | "approver" | "finance" | "viewer";
   isSeller: boolean;
   isBuyer: boolean;
   verificationTier: number;

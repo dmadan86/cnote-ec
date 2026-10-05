@@ -1,6 +1,7 @@
 "use server";
 // Buyer-side server actions. Each re-checks the session: server actions are reachable by direct POST.
-import { awardLines, pickSellers, createEnquiry, decideQuote, reportDeal, sendMessage, setQuoteShortlisted, type AttachmentUpload, type EnquiryView } from "@cnote/enquiry";
+import { awardLines, pickSellers, createEnquiry, decideQuote, reportDeal, sendMessage, setQuoteShortlisted, type AttachmentUpload, type DecideQuoteResult, type EnquiryView } from "@cnote/enquiry";
+import { localizeApprovalError } from "@/features/approvals/localize";
 import { actorOf, requireBusiness, type ActionResult } from "@cnote/next-kit";
 import { clientIp } from "@cnote/security/client-ip";
 import { headers } from "next/headers";
@@ -95,15 +96,17 @@ export async function reportDealAction(_prev: ActionResult | null, f: FormData):
 }
 
 /** Quote comparison actions (buyer). The deal value is computed server-side from the stored quote. */
-export async function quoteDecisionAction(_prev: ActionResult | null, f: FormData): Promise<ActionResult> {
+export async function quoteDecisionAction(_prev: ActionResult<DecideQuoteResult> | null, f: FormData): Promise<ActionResult<DecideQuoteResult>> {
   const enquiryId = str(f, "enquiryId") ?? "";
   const s = await requireBusiness(`/buyer/enquiries/${enquiryId}`);
   const decision = str(f, "decision");
-  return runLocalized(async () => {
+  const r = await runLocalized(async () => {
     if (decision !== "accept" && decision !== "decline") throw new Error("invalid decision");
-    await decideQuote(actorOf(s), str(f, "quoteId") ?? "", decision);
+    const res = await decideQuote(actorOf(s), str(f, "quoteId") ?? "", decision);
     revalidatePath(`/buyer/enquiries/${enquiryId}`);
+    return res;
   });
+  return localizeApprovalError(r); // approval/role errors are localised from the `approvals` catalogue
 }
 
 export async function shortlistQuoteAction(_prev: ActionResult | null, f: FormData): Promise<ActionResult> {

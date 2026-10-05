@@ -3,6 +3,8 @@ import * as catalogue from "@cnote/catalogue";
 import { DomainError, emit, rateLimit } from "@cnote/core";
 import { prisma, toVectorLiteral } from "@cnote/db";
 import { randomUUID } from "node:crypto";
+import * as approvals from "@cnote/approvals";
+import { assertCan, consult, rfqEstimatePaise } from "./approvals";
 import { checkAttachments, discardStored, MAX_RFQ_ATTACHMENTS, MAX_RFQ_ATTACHMENT_BYTES, storeAttachmentBytes } from "./attachments";
 import { getBuyerEnquiry } from "./buyer";
 import { deriveTitle, enquiryLinesSchema, linesDigest, type ParsedEnquiryLine } from "./lines";
@@ -41,6 +43,8 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
   if (allowed.includes(false)) {
     throw new DomainError("rate_limited", "You have posted many requirements this hour. Please try again a little later.");
   }
+
+  const isMember = await assertCan(actor, "rfq.create"); // viewer/approver/finance roles cannot publish requirements
 
   const category = data.categorySlug ? await catalogue.getCategoryBySlug(data.categorySlug) : null;
   if (data.categorySlug && !category) throw new DomainError("validation", "Unknown category", undefined, "ads.unknownCategory");
@@ -108,7 +112,12 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
     scoreNeedsReview = intent.needsReview;
   }
   const held = !blocked && (moderation.verdict === "review" || moderation.needsReview || scoreNeedsReview);
-  const status = blocked ? "rejected" : held ? "review" : "scoring";
+  // docs/design/buyer-approvals.md: a matching approval rule holds the RFQ (never matched, never shown to sellers) until the chain signs off.
+  const approval = blocked
+    ? { status: "not_required" as const, requestId: null }
+    : await consult(actor, { action: "rfq_publish", amountPaise: rfqEstimatePaise(data), subject: { type: "enquiry", id, summary: `RFQ: ${data.title}` } }, isMember);
+  const awaitingApproval = approval.status === "pending";
+  const status = blocked ? "rejected" : awaitingApproval ? "pending_approval" : held ? "review" : "scoring";
 
   const stored = await storeAttachmentBytes(id, files, { actor, kind: "rfq" });
   const expiresAt = new Date(Date.now() + data.expiresInDays * 24 * 60 * 60 * 1000);
@@ -159,6 +168,7 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
   });
   } catch (err) {
     await discardStored(stored);
+    if (approval.requestId && awaitingApproval) await approvals.cancelRequest({ requestId: approval.requestId, actorId: actor.personId }).catch(() => undefined);
     throw err;
   }
 

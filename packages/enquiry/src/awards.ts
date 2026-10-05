@@ -5,6 +5,8 @@ import { prisma } from "@cnote/db";
 import { z } from "zod";
 import { MAX_ENQUIRY_LINES } from "./lines";
 import { recordOrderTx } from "./orders";
+import { assertCan } from "./approvals";
+import { getSpendLimitPaise, getSpentPaise, matchPolicy, recordSpend } from "@cnote/approvals";
 import type { Actor } from "./types";
 
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -33,7 +35,7 @@ export interface AwardResult {
  * - the amounts are the stored, server-computed line totals.
  * Everything runs in one transaction (awards, buyer-confirmed "won" deal report, Order, events).
  */
-export async function awardLines(actor: Actor, enquiryId: string, input: LineAwardInput[]): Promise<{ results: AwardResult[] }> {
+export async function applyLineAwards(actor: Actor, enquiryId: string, input: LineAwardInput[]): Promise<{ results: AwardResult[] }> {
   if (!UUID.test(enquiryId)) throw new DomainError("not_found", "Requirement not found");
   const parsed = awardInputSchema.safeParse(input);
   if (!parsed.success) throw new DomainError("validation", parsed.error.issues[0]?.message ?? "Invalid award");
@@ -158,4 +160,38 @@ export async function listAwardedLines(actor: Actor, enquiryId: string): Promise
   if (!UUID.test(enquiryId)) return [];
   const rows = await prisma.enquiryLineAward.findMany({ where: { enquiryId, enquiry: { buyerBusinessId: actor.businessId } }, orderBy: { ordinal: "asc" } });
   return rows.map(toAwardedLine);
+}
+
+/**
+ * Buyer-facing line award (web, REST, MCP). Team members are held to the business's approval rules and spend limits
+ * (docs/design/buyer-approvals.md): when a quote_accept rule matches the awarded value, or it would take the member over their
+ * monthly limit, the direct award is refused and the buyer accepts the supplier's quote instead, which goes through the
+ * approval chain and awards the open lines once approved. Otherwise the lines are awarded and the spend recorded.
+ */
+export async function awardLines(actor: Actor, enquiryId: string, input: LineAwardInput[]): Promise<{ results: AwardResult[] }> {
+  const isMember = await assertCan(actor, "quote.decide");
+  if (isMember) {
+    const parsed = awardInputSchema.safeParse(input);
+    if (!parsed.success) throw new DomainError("validation", parsed.error.issues[0]?.message ?? "Invalid award");
+    const lines = await prisma.quoteLine.findMany({
+      where: { OR: parsed.data.map((a) => ({ quoteId: a.quoteId, enquiryLineId: a.enquiryLineId })) },
+      select: { lineTotalPaise: true },
+    });
+    const total = lines.reduce((sum, l) => sum + Number(l.lineTotalPaise ?? 0n), 0);
+    const [policy, limit, spent] = await Promise.all([
+      matchPolicy(actor.businessId, "quote_accept", total),
+      getSpendLimitPaise(actor.businessId, actor.personId),
+      getSpentPaise(actor.businessId, actor.personId),
+    ]);
+    if (policy || (limit !== null && spent + total > limit)) {
+      throw new DomainError("conflict", "This award needs approval. Accept each supplier's quote to send it for approval.");
+    }
+  }
+  const out = await applyLineAwards(actor, enquiryId, input);
+  if (isMember) {
+    for (const r of out.results) {
+      await recordSpend({ businessId: actor.businessId, personId: actor.personId, amountPaise: r.totalPaise, action: "quote_accept", subject: { type: "quote", id: r.quoteId } });
+    }
+  }
+  return out;
 }

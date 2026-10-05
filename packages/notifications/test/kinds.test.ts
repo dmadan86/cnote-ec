@@ -8,6 +8,7 @@ vi.mock("@cnote/email", () => ({ sendEmail: async () => "id" }));
 vi.mock("@cnote/identity", () => ({ BADGE_THRESHOLD: 40, getConsents: async () => ({ marketing: false }) }));
 
 import { PHASE23_KINDS } from "../src/kinds-phase23";
+import { APPROVAL_KINDS } from "../src/kinds-approvals";
 import { KINDS, getKind, kindsFor, observedEvents, registerNotificationTemplates, templateDefinitions } from "../src/kinds";
 import { CATEGORY_META, channelLock, defaultPreference, effectiveChannels } from "../src/preferences";
 import { redact, maskEmail, listQueueTopics, registerQueueTopic } from "../src/ops";
@@ -106,7 +107,8 @@ describe("kinds registry", () => {
   it("every kind is exercised by the mapping table", () => {
     const covered = new Set(TABLE.map((r) => r.key));
     const phase23 = new Set(PHASE23_KINDS.map((k) => k.key)); // covered in kinds-phase23.test.ts
-    for (const k of KINDS) if (!phase23.has(k.key) && k.category !== "alerts") expect(covered, k.key).toContain(k.key); // alerts: kinds-alerts.db.test.ts
+    const approvals = new Set(APPROVAL_KINDS.map((k) => k.key)); // covered in kinds-approvals.test.ts
+    for (const k of KINDS) if (!phase23.has(k.key) && !approvals.has(k.key) && k.category !== "alerts") expect(covered, k.key).toContain(k.key); // alerts: kinds-alerts.db.test.ts
   });
   it("observedEvents/kindsFor are consistent; several kinds may share an event", () => {
     const evs = observedEvents();
@@ -119,8 +121,9 @@ describe("kinds registry", () => {
   it("template definitions map category (security/marketing/transactional) and register once", () => {
     const defs = templateDefinitions();
     expect(defs).toHaveLength(KINDS.length);
-    expect(defs.filter((d) => !d.key.startsWith("alert.") && !d.key.startsWith("developer.") && !d.key.startsWith("account.")).every((d) => d.category === "transactional")).toBe(true);
+    expect(defs.filter((d) => !d.key.startsWith("alert.") && !d.key.startsWith("developer.") && !d.key.startsWith("account.") && !d.key.startsWith("team.")).every((d) => d.category === "transactional")).toBe(true);
     expect(defs.filter((d) => (d.key.startsWith("developer.") || d.key.startsWith("account."))).every((d) => d.category === "security" && d.channels.includes("email"))).toBe(true);
+    expect(defs.filter((d) => d.key.startsWith("team.")).every((d) => d.category === "security")).toBe(true); // team changes are security notices
     expect(defs.filter((d) => d.key.startsWith("alert.")).map((d) => d.category)).toEqual(["alert", "alert", "alert", "alert", "alert"]); // opt-in alerts: unsubscribe footer, no marketing consent
     registerNotificationTemplates();
     registerNotificationTemplates();

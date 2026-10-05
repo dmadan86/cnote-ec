@@ -75,7 +75,8 @@ CI (`.github/workflows/ci.yml`) runs `db:check`, `db:migrate`, then typecheck, l
 - `identity`, `billing` and `admin` → `core`, `db`
 - `catalogue` → + `ai`, `identity`
 - `search` → + `ai`, `catalogue`, `identity`
-- `enquiry` → + `ai`, `catalogue`, `identity`, `billing`
+- `approvals` → `core`, `db`, `identity` (buyer approval chains; callers such as `enquiry` depend on it, never the reverse)
+- `enquiry` → + `ai`, `catalogue`, `identity`, `billing`, `approvals`
 
 Don't add cycles. A module queries **only the Prisma models in its own schema file**. It reaches other modules through their public functions or domain events. The one sanctioned exception is `billing.consumeCredit/refundCredit(tx, …)`, which join the caller's transaction. Domain packages are framework-free (no `next/*` imports): `apps/web` reads cookies and calls module functions. Web code is organised as routes in `src/app/…` and feature components in `src/features/<module>/`.
 

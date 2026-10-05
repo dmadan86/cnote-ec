@@ -42,3 +42,7 @@ export * from "./addresses";
 export { getLastActiveAt, isInactivityEligible, listInactiveAccounts, findPersonIdByEmail, getOwnContacts, describePersonForStaff, type InactiveAccount } from "./inactivity";
 export { touchLastActive } from "./sessions";
 export * from "./registry";
+
+// Buyer team roles, invitations and owner transfer (docs/design/buyer-approvals.md).
+export * from "./team";
+export { exportTeamData, purgeOldInvites } from "./team-privacy";

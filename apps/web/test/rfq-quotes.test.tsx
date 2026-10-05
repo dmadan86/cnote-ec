@@ -34,6 +34,7 @@ const row = (o: Partial<ComparisonRow> & { id: string }): ComparisonRow => ({
   quantity: 200,
   decision: null,
   earlierQuotes: 0,
+  approval: null,
   quote: {
     id: `q-${o.id}`, pricePaise: 500, quantity: 200, unit: "pcs", leadTimeDays: 10, notes: null, validUntil: "2026-12-01", createdAt: "2026-10-01T00:00:00.000Z",
     moq: null, moqUnit: null, deliveryTerms: null, deliveryNote: null, deliveryChargePaise: null, paymentTerms: "net_15", paymentNote: null, gstIncluded: null,

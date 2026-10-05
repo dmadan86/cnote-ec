@@ -40,7 +40,14 @@ enum VerificationStatus {
 
 enum MemberRole {
   owner
+  /// legacy: treated as `requester` (docs/design/buyer-approvals.md); kept so existing rows and the seller side keep working
   staff
+  // buyer team roles (docs/design/buyer-approvals.md)
+  admin
+  requester
+  approver
+  finance
+  viewer
 
   @@map("member_role")
 }
@@ -117,6 +124,7 @@ model Business {
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   members       BusinessMember[]
+  invites       BusinessInvite[]
   addresses     BusinessAddress[]
   verifications VerificationRecord[]
   listings      Listing[]
@@ -149,6 +157,29 @@ model BusinessMember {
 
   @@id([businessId, personId])
   @@map("business_members")
+}
+
+/// Pending/used invitation to join a business team (docs/design/buyer-approvals.md). Only the sha256 of the single-use token is
+/// stored. The invitee's email is personal data (DPDP): exported to the inviter, purged after the retention window, erased with them.
+model BusinessInvite {
+  id                 String     @id @default(uuid()) @db.Uuid
+  businessId         String     @map("business_id") @db.Uuid
+  /// lower-cased
+  email              String
+  role               MemberRole
+  tokenHash          String     @unique @map("token_hash")
+  invitedByPersonId  String     @map("invited_by_person_id") @db.Uuid
+  expiresAt          DateTime   @map("expires_at") @db.Timestamptz
+  acceptedAt         DateTime?  @map("accepted_at") @db.Timestamptz
+  acceptedByPersonId String?    @map("accepted_by_person_id") @db.Uuid
+  revokedAt          DateTime?  @map("revoked_at") @db.Timestamptz
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@index([businessId, createdAt])
+  @@index([email])
+  @@map("business_invites")
 }
 
 /// Saved delivery address of a business (buyer role). Personal data under DPDP: included in the data export and

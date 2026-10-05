@@ -86,7 +86,7 @@ export interface EnquiryView {
   neededBy: string | null;
   intentScore: number | null;
   intentReasons: string[];
-  status: "scoring" | "review" | "matched" | "unmatched" | "closed" | "rejected";
+  status: "scoring" | "review" | "matched" | "unmatched" | "closed" | "rejected" | "pending_approval";
   createdAt: string;
   matches: MatchView[];
   /** Buyer chose to pick sellers manually (ADR-002 option 4). */

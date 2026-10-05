@@ -2,7 +2,7 @@
 // Side-by-side quote comparison (ADR-002 transparency: "Sent to N suppliers; you are seeing quotes from M").
 // Desktop: one table row per supplier. Mobile: stacked cards in a swipeable (scroll-snap) strip. Both read the same rows,
 // so sort, "best" marks and shortlist state always agree. "Best" is a word plus a star, never colour alone.
-import type { ComparisonRow, QuoteComparison } from "@cnote/enquiry";
+import type { ComparisonRow, DecideQuoteResult, QuoteComparison } from "@cnote/enquiry";
 import type { QuoteLandedRow } from "@cnote/logistics";
 import type { ActionResult } from "@cnote/next-kit";
 import { Badge, Button, Money, TrustBadge, buttonClasses, cn } from "@cnote/ui";
@@ -31,16 +31,24 @@ function Best({ show, column, t }: { show: boolean; column: string; t: T }) {
 }
 
 function QuoteActions({ row, enquiryId, t }: { row: ComparisonRow; enquiryId: string; t: T }) {
-  const [dec, decide, deciding] = useActionState<ActionResult | null, FormData>(quoteDecisionAction, null);
+  const ta = useTranslations("approvals");
+  const [dec, decide, deciding] = useActionState<ActionResult<DecideQuoteResult> | null, FormData>(quoteDecisionAction, null);
+  const awaiting = row.approval?.status === "pending" || (dec?.ok && dec.data.status === "pending_approval");
+  const requestId = row.approval?.requestId ?? (dec?.ok ? dec.data.requestId : null);
   const [sl, shortlist, shortlisting] = useActionState<ActionResult | null, FormData>(shortlistQuoteAction, null);
   const msg = (dec && !dec.ok ? dec.error : null) ?? (sl && !sl.ok ? sl.error : null);
-  const done = dec?.ok ? (row.decision === "won" ? t("acceptedToast") : t("declinedToast")) : null;
+  const done = dec?.ok ? (dec.data.status === "pending_approval" ? ta("badge.sentForApproval") : row.decision === "won" ? t("acceptedToast") : t("declinedToast")) : null;
   const seller = row.sellerName;
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
         {row.decision === "won" ? (
           <Badge tone="success">{t("accepted")}</Badge>
+        ) : awaiting ? (
+          <Badge tone="warning">
+            {ta("badge.awaiting")}
+            {requestId ? <Link href={`/buyer/approvals/${requestId}`} className="ms-1 underline">{ta("badge.view")}<span className="sr-only"> ({seller})</span></Link> : null}
+          </Badge>
         ) : (
           <form action={decide}>
             <input type="hidden" name="enquiryId" value={enquiryId} />

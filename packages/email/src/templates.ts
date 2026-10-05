@@ -89,3 +89,40 @@ defineTemplates([
     defaults: { email: { subject: "{{subject}}", body: "<p>{{message}}</p>" } },
   },
 ]);
+
+// Buyer team invitations (docs/design/buyer-approvals.md). The link carries the single-use token; the copy is editable in the template studio.
+defineTemplates([
+  {
+    key: "team.invite",
+    name: "Team invitation",
+    description: "Sent when an owner or admin invites someone by email to join their company's buying team.",
+    category: "transactional",
+    channels: ["email"],
+    variables: [
+      { name: "businessName", description: "The company that invited them", example: "Sharma Textiles Pvt Ltd" },
+      { name: "role", description: "The role they are invited as (plain words)", example: "approver" },
+      { name: "inviteUrl", description: "Single-use link that accepts the invitation", example: "https://app.example.com/team/invite?token=abc123", required: true },
+      { name: "expiresInDays", description: "How many days the link stays valid", example: "7" },
+    ],
+    defaults: {
+      email: {
+        subject: "{{businessName}} invited you to their buying team",
+        preheader: "Accept within {{expiresInDays}} days to join as {{role}}.",
+        body:
+          "<h2>You are invited</h2><p>{{businessName}} invited you to join their buying team on BizKart as <strong>{{role}}</strong>.</p>" +
+          '<p><a href="{{inviteUrl}}">Accept the invitation</a></p><p>The link works for {{expiresInDays}} days and only for the email address it was sent to. If you were not expecting this, ignore this email.</p>',
+      },
+    },
+    localized: {
+      hi: {
+        email: {
+          subject: "{{businessName}} ने आपको अपनी खरीद टीम में बुलाया है",
+          preheader: "{{expiresInDays}} दिनों के भीतर स्वीकार करें और {{role}} के रूप में जुड़ें।",
+          body:
+            "<h2>आपको आमंत्रित किया गया है</h2><p>{{businessName}} ने आपको BizKart पर अपनी खरीद टीम में <strong>{{role}}</strong> के रूप में जुड़ने के लिए बुलाया है।</p>" +
+            '<p><a href="{{inviteUrl}}">आमंत्रण स्वीकार करें</a></p><p>यह लिंक {{expiresInDays}} दिन चलेगा और सिर्फ़ उसी ईमेल पते के लिए है जिस पर भेजा गया। अगर आप इसकी उम्मीद नहीं कर रहे थे तो इस ईमेल को अनदेखा करें।</p>',
+        },
+      },
+    },
+  },
+]);

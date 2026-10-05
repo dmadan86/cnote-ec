@@ -66,15 +66,18 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   // DPDP orchestrator (ADR-010 access/erasure/retention): sits ABOVE the domain modules and calls their public
   // export/erase functions, so it may depend on many of them. Nothing may depend on it except apps.
   "@cnote/compliance": [
-    "@cnote/alerts", "@cnote/catalogue", "@cnote/core", "@cnote/credit", "@cnote/db", "@cnote/disputes", "@cnote/enquiry", "@cnote/identity", "@cnote/leadgen", "@cnote/notifications",
+    "@cnote/alerts", "@cnote/approvals", "@cnote/catalogue", "@cnote/core", "@cnote/credit", "@cnote/db", "@cnote/disputes", "@cnote/enquiry", "@cnote/identity", "@cnote/leadgen", "@cnote/notifications",
     "@cnote/developer", "@cnote/ondc", "@cnote/quality", "@cnote/reviews", "@cnote/security", "@cnote/storefront", "@cnote/whatsapp", "@cnote/wishlist",
   ],
   "@cnote/developer": ["@cnote/core", "@cnote/db", "@cnote/identity"],
   "@cnote/catalogue": ["@cnote/ai", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media", "@cnote/live-db"],
   // + live-db (DEV dependency only): the relevance harness (packages/search/relevance/, outside src/) writes its fixture corpus to the live read DB.
   "@cnote/search": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/live-db"],
-  // security: keyed ip-prefix hashing (risk.ts), formula-safe CSV, SSRF-safe telephony calls (reachability-provider.ts)
-  "@cnote/enquiry": ["@cnote/ai", "@cnote/billing", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media", "@cnote/security"],
+  // Buyer approval chains + spend limits (docs/design/buyer-approvals.md). Callers depend on it, never the reverse: subjects are opaque {type,id,summary}.
+  "@cnote/approvals": ["@cnote/core", "@cnote/db", "@cnote/identity"],
+  // + approvals: RFQ publish and quote acceptance consult approval policies and resume from ApprovalApproved.
+  // + security: keyed ip-prefix hashing (risk.ts), formula-safe CSV, SSRF-safe telephony calls (reachability-provider.ts)
+  "@cnote/enquiry": ["@cnote/ai", "@cnote/approvals", "@cnote/billing", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media", "@cnote/security"],
   "@cnote/wishlist": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity"],
   // Buyer retention: follows, saved searches, opt-in alerts. Reads saved items via wishlist and new matches via search (public APIs only).
   "@cnote/alerts": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/search", "@cnote/wishlist"],
