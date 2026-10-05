@@ -187,6 +187,14 @@ export interface DomainEventPayloads {
   /** v2 (ADR-005): adds the interval, the pro-rated refund requested through the payment provider (paise, GST-inclusive) and the optional reason. v1 had only the first three fields. */
   SubscriptionCancelled: { businessId: string; subscriptionId: string; planCode: string; billingInterval: "monthly" | "annual"; refundPaise: number; unusedMonths: number; effectiveAt: string; reason: string | null };
   /** The paid period ends soon and will NOT renew by itself: asks the owner to confirm a renewal (ADR-005). */
+  // polish: DPDP (compliance)
+  /** 48-hour (or longer) notice that a personal account will be erased for inactivity (DPDP Rules 2025 r.8 / Third Schedule). */
+  InactivityErasureNoticeSent: { personId: string; noticeId: string; eraseAfter: string; lastActiveAt: string };
+  /** A data principal added, changed or revoked a nominee (DPDP s.14). Never carries the nominee's details. */
+  DataNomineeChanged: { personId: string; nomineeId: string; change: "added" | "changed" | "revoked" };
+  // polish: developer API keys
+  /** An active personal API key is about to expire (threshold "7d" = within 7 days, "expiry_day" = within 24h). Never carries the secret. */
+  ApiKeyExpiring: { keyId: string; personId: string; name: string; prefix: string; expiresAt: string; threshold: "7d" | "expiry_day" };
   SubscriptionRenewalDue: { businessId: string; subscriptionId: string; planCode: string; billingInterval: "monthly" | "annual"; periodEnd: string };
   // passkeys (ADR-029/042, docs/design/admin-passkeys.md)
   PasskeyRegistered: { personId: string; realm: string; passkeyId: string; aaguid: string; deviceType: string };
@@ -339,6 +347,11 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   PasskeyRegistered: 1,
   PasskeyRevoked: 1,
   PasskeyCloneSuspected: 1,
+  // polish: DPDP (compliance)
+  InactivityErasureNoticeSent: 1,
+  DataNomineeChanged: 1,
+  // polish: developer API keys
+  ApiKeyExpiring: 1,
 };
 
 export interface DomainEvent<T extends DomainEventType = DomainEventType> {

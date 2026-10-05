@@ -99,3 +99,8 @@ export async function getKeyUsage(personId: string, keyId: string, days = 30): P
   if (!owned) throw new DomainError("not_found", "API key not found.");
   return loadUsage(keyId, Math.min(Math.max(1, Math.floor(days)), 90));
 }
+
+/** True when any of the person's API keys was used since `since` (programmatic use counts as the person approaching us: DPDP inactivity erasure). */
+export async function hasApiKeyActivitySince(personId: string, since: Date): Promise<boolean> {
+  return (await prisma.apiKey.count({ where: { personId, lastUsedAt: { gte: since } } })) > 0;
+}

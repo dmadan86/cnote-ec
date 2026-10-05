@@ -20,6 +20,8 @@ import { purgeOldMessages, purgeOndcOrderPayloads } from "@cnote/ondc";
 import { purgeOldQualityMedia } from "@cnote/quality";
 import { numFromEnv } from "./config";
 import { purgeCookieConsentReceipts } from "./consent";
+import { INACTIVITY_DEFAULT_DAYS, runInactivityErasure } from "./inactivity";
+import { purgeDecidedNomineeRequests } from "./nominee";
 
 const DAY = 86_400_000;
 
@@ -35,7 +37,7 @@ export interface RetentionPolicy {
   /** false when the owning purge cannot count without deleting (dry-run then reports 0 and does nothing) */
   supportsDryRun: boolean;
   /** purge everything older than `before`; returns rows affected (dry-run: rows that WOULD be affected) */
-  run(before: Date, opts: { dryRun: boolean }): Promise<number>;
+  run(before: Date, opts: { dryRun: boolean; now?: Date; windowDays?: number }): Promise<number>;
 }
 
 export const windowDays = (p: Pick<RetentionPolicy, "envKey" | "defaultDays">, env: NodeJS.ProcessEnv = process.env): number =>
@@ -147,6 +149,21 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     run: (before, { dryRun }) => purgeCookieConsentReceipts(before, { dryRun }),
   },
   {
+    name: "identity.inactive_accounts_erasure", module: "compliance", envKey: "INACTIVE_ACCOUNTS", defaultDays: INACTIVITY_DEFAULT_DAYS, supportsDryRun: true,
+    description: "Buyer-side personal accounts with no sign-in for the window are noticed by e-mail at least 48 hours ahead, then erased unless the person came back. Off until INACTIVITY_ERASURE_ENABLED=true.",
+    legalBasis: "DPDP Act s.8(7); DPDP Rules 2025 r.8 and Third Schedule (3 years for e-commerce entities above the user threshold; 48-hour prior notice)",
+    run: async (_before, { dryRun, now = new Date(), windowDays: days = INACTIVITY_DEFAULT_DAYS }) => {
+      const r = await runInactivityErasure({ now, windowMs: days * DAY, dryRun });
+      return r.noticed + r.erased + r.cancelled;
+    },
+  },
+  {
+    name: "compliance.nominee_requests_decided", module: "compliance", envKey: "NOMINEE_REQUESTS", defaultDays: 1095, supportsDryRun: true,
+    description: "Completed or rejected nominee requests (encrypted requester name, contact and message) after the window; revoked nominations are deleted with them.",
+    legalBasis: "DPDP s.8(7); 3 years covers the limitation period within which a decision on a deceased or incapacitated principal's data could be challenged, pending counsel review",
+    run: (before, { dryRun }) => purgeDecidedNomineeRequests(before, { dryRun }),
+  },
+  {
     name: "notifications.read_90d", module: "notifications", envKey: "READ_NOTIFICATIONS", defaultDays: 90, supportsDryRun: true,
     description: "In-app notifications the person has read. Unread notifications are kept.",
     legalBasis: "DPDP s.8(7)",
@@ -199,7 +216,7 @@ export async function runRetention(opts: RunOptions = {}): Promise<RetentionResu
     let purged = 0;
     let error: string | null = null;
     try {
-      purged = await p.run(before, { dryRun });
+      purged = await p.run(before, { dryRun, now, windowDays: windowDays(p, env) });
     } catch (e) {
       error = (e instanceof Error ? e.message : String(e)).slice(0, 500);
       console.error(`[compliance] retention ${p.name} failed`, e);

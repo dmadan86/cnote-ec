@@ -23,7 +23,7 @@ function merge(base: Json, over: Json): Json {
  * best-effort directory scan (server only, `messages/` next to the app) decides which names to try. A file whose top
  * level already has a `<namespace>` key is merged as-is; otherwise its content is placed under that namespace.
  */
-const KNOWN_NAMESPACE_FILES = ["a2a", "account", "account2", "actions", "ads", "buyer", "compare", "credit", "disputes", "escrow", "help", "negotiation", "prices", "promotions", "quality", "rail", "reachability", "search", "supplier", "errors", "filters", "states", "grievance", "legal", "notif", "orderTracking", "pdp", "titles", "wishlist", "rfq2", "pricing2", "convenience", "qa", "retention"];
+const KNOWN_NAMESPACE_FILES = ["a2a", "account", "account2", "actions", "ads", "buyer", "compare", "credit", "disputes", "escrow", "help", "negotiation", "prices", "promotions", "quality", "rail", "reachability", "search", "supplier", "errors", "filters", "states", "grievance", "legal", "notif", "orderTracking", "pdp", "titles", "wishlist", "rfq2", "pricing2", "convenience", "qa", "retention", "nominee"];
 
 function discoverNamespaces(): string[] {
   const found = new Set(KNOWN_NAMESPACE_FILES);
@@ -89,7 +89,7 @@ export const CLIENT_NAMESPACES = ["shell", "search", "rails", "consent", "unlock
  * Extra namespaces for client components of the dynamic routes (account, buyer, rfq, ...). Kept out of CLIENT_NAMESPACES
  * so the static public pages do not ship them; the (app) layout passes both lists.
  */
-export const APP_CLIENT_NAMESPACES = ["account", "account2", "buyer", "wishlist", "notif", "grievance"] as const;
+export const APP_CLIENT_NAMESPACES = ["account", "account2", "buyer", "wishlist", "notif", "grievance", "nominee"] as const;
 
 export function pickClientMessages(all: Messages, extra: readonly string[] = []): Partial<Messages> {
   const out: Record<string, unknown> = {};

@@ -15,9 +15,9 @@ import { firstParty, type StorageEntry } from "@cnote/consent";
 
 export const SELLER_CONSENT_COOKIE = "seller_consent";
 /** Bump when a NEW optional purpose/provider is added or an existing one changes materially: everybody is asked again. */
-export const SELLER_POLICY_VERSION = 1;
-/** Update together with SELLER_POLICY_VERSION. */
-export const SELLER_POLICY_UPDATED = "2026-10-02";
+export const SELLER_POLICY_VERSION = 2;
+/** Update together with SELLER_POLICY_VERSION. v2 (2026-10-06): the banner and dialog link to the new /cookies policy page; new necessary key seller_consent_sync (account sync). */
+export const SELLER_POLICY_UPDATED = "2026-10-06";
 
 export const SELLER_STORAGE_REGISTRY: readonly StorageEntry[] = [
   // --- strictly necessary -------------------------------------------------------------------------------------------
@@ -25,6 +25,8 @@ export const SELLER_STORAGE_REGISTRY: readonly StorageEntry[] = [
   // The consent record itself (DPDP s.6(10) proof): the receipt not yet acknowledged by the server, resent on the next load
   // until it gets a 200, then deleted.
   firstParty("seller_consent_pending", "necessary", "localStorage", "consentPending", { unit: "persistent" }),
+  // Account sync (v2): remembers, for this visit only, that the cookie choice was checked against the signed-in seller's consent ledger.
+  firstParty("seller_consent_sync", "necessary", "sessionStorage", "consentSync", { unit: "session" }),
   // Auth cookies carry a `__Host-` prefix in production (packages/identity cookieNames). httpOnly, set by the server.
   firstParty("cnote_seller_at", "necessary", "cookie", "auth", { unit: "minutes", n: 15 }, true),
   firstParty("cnote_seller_rt", "necessary", "cookie", "session", { unit: "days", n: 30 }, true),

@@ -1,25 +1,13 @@
 // Account ledger sync (server). A signed-in person's cookie choice is mirrored into the identity consent ledger
 // (purposes analytics_cookies / marketing_cookies / functional_cookies) so it follows them across devices. Uses identity's PUBLIC functions only.
 import { getConsentStates, setConsent, type ConsentLedgerState } from "@cnote/identity";
+import { effectiveChoiceTime } from "@cnote/consent";
 import type { AccountConsent } from "./account-sync";
 import type { ConsentChoices } from "./state";
 
+export { effectiveChoiceTime };
+
 const SOURCE = "web_cookie_banner";
-/** The cookie carries a client clock; within this skew of the server clock it is treated as "now". */
-const SKEW_MS = 5 * 60_000;
-
-/**
- * When the choice really happened, on the server clock. A fresh choice (client time within 5 minutes of now, the same
- * tolerance parseConsent allows) counts as now, so a slow or fast device clock cannot make a new choice look older than the
- * previous ledger row. A late resend of an offline receipt keeps its (older) client time, so it cannot overwrite a newer
- * choice made on another device meanwhile.
- */
-export function effectiveChoiceTime(clientAtSeconds: number | undefined, nowMs: number): number {
-  if (!clientAtSeconds) return nowMs;
-  const clientMs = clientAtSeconds * 1000;
-  return Math.abs(nowMs - clientMs) <= SKEW_MS ? nowMs : clientMs;
-}
-
 /**
  * Writes the ledger rows that changed. Per purpose: first ever -> write; different from the latest row AND newer than it
  * -> write; otherwise nothing (same value, or an older receipt arriving late). Returns the purposes written.

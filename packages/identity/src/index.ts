@@ -6,7 +6,7 @@ export type { Realm, RealmPolicy } from "./constants";
 export type {
   ConsentPurpose, SessionBusiness, Session, TrustProfile, AuthContext, AuthTokens, CreateBusinessInput,
 } from "./types";
-export { CONSENT_PURPOSES, COOKIE_CONSENT_PURPOSES } from "./types";
+export { ALL_COOKIE_CONSENT_PURPOSES, CONSENT_PURPOSES, COOKIE_CONSENT_PURPOSES, SELLER_COOKIE_CONSENT_PURPOSES } from "./types";
 
 export { signUpWithPassword, signInWithPassword, requestPasswordReset, resetPassword, type SignUpInput } from "./auth";
 export { googleAuthorizationUrl, completeGoogleSignIn, isGoogleConfigured } from "./google";
@@ -38,3 +38,5 @@ export { findOrCreatePersonByVerifiedPhone } from "./verified-phone";
 export * from "./kyc";
 export * from "./audits";
 export * from "./addresses";
+export { getLastActiveAt, isInactivityEligible, listInactiveAccounts, findPersonIdByEmail, getOwnContacts, describePersonForStaff, type InactiveAccount } from "./inactivity";
+export { touchLastActive } from "./sessions";

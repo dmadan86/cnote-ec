@@ -1,0 +1,273 @@
+{
+  "notice": {
+    "en": {
+      "acceptAll": "Accept all",
+      "alwaysActive": "Always active",
+      "analyticsDesc": "Records when you created your business, only to measure how long onboarding takes (time to your first listing and to finishing). Nothing else, and nothing is shared with other companies.",
+      "analyticsTitle": "Analytics",
+      "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie. <link>Cookie policy</link>",
+      "customise": "Customise",
+      "dialogIntro": "Choose which optional cookies and similar storage {site} may use. Essential ones are always on because the site cannot work without them. You can change your choice at any time from Cookie settings in the footer.",
+      "dialogTitle": "Cookie preferences",
+      "duration": {
+        "days": "{count, plural, one {# day} other {# days}}",
+        "minutes": "{count, plural, one {# minute} other {# minutes}}",
+        "months": "{count, plural, one {# month} other {# months}}",
+        "persistent": "Until you clear it",
+        "session": "Session",
+        "years": "{count, plural, one {# year} other {# years}}"
+      },
+      "gpcNote": "Your browser's Global Privacy Control signal is on, so marketing stays off unless you switch it on here.",
+      "kind": {
+        "cookie": "Cookie",
+        "localStorage": "Local storage",
+        "sessionStorage": "Session storage"
+      },
+      "marketingDesc": "Remembers the referral code from the link you followed (for example from another seller), so the person who referred you can be credited when you create your business.",
+      "marketingTitle": "Marketing and attribution",
+      "necessaryDesc": "Needed for sign-in, security, your language and your onboarding progress, and to remember this choice. They cannot be switched off.",
+      "necessaryTitle": "Strictly necessary",
+      "off": "Off",
+      "on": "On",
+      "policyTitle": "Cookie policy",
+      "provider": {
+        "firstParty": "First party"
+      },
+      "purpose": {
+        "auth": "Keeps you signed in for a few minutes at a time (short-lived access token).",
+        "consent": "Remembers your cookie choice.",
+        "consentPending": "Holds your latest cookie choice until our server confirms it has saved the record of it.",
+        "consentSync": "Remembers, for this visit only, that your cookie choice was checked against your account.",
+        "locale": "Remembers the language you chose.",
+        "mfa": "Holds a pending two-step sign-in for a few minutes.",
+        "oauth": "Protects the Google sign-in round trip against forgery.",
+        "onboardingDone": "Remembers that you finished onboarding.",
+        "onboardingFirstListing": "Remembers that you submitted your first listing, so onboarding can show you the result.",
+        "onboardingSkip": "Remembers an onboarding step you chose to skip.",
+        "onboardingStart": "Records when you created your business, to measure how long onboarding takes.",
+        "referral": "Remembers the referral code from the link you followed until you create your business.",
+        "session": "Keeps you signed in on this device (refresh token, revoked when you sign out)."
+      },
+      "rejectAll": "Reject all",
+      "saveChoices": "Save choices"
+    },
+    "hi": {
+      "acceptAll": "सभी स्वीकार करें",
+      "alwaysActive": "हमेशा चालू",
+      "analyticsDesc": "सिर्फ़ ऑनबोर्डिंग में लगने वाला समय (पहली लिस्टिंग तक और पूरा होने तक) मापने के लिए दर्ज करती है कि आपने बिज़नेस कब बनाया। इसके अलावा कुछ नहीं, और किसी अन्य कंपनी को कुछ नहीं भेजा जाता।",
+      "analyticsTitle": "एनालिटिक्स",
+      "bannerText": "{site}, डेटा फ़िड्यूशियरी के रूप में, इस सेलर पोर्टल को चलाने के लिए ज़रूरी कुकी इस्तेमाल करता है। आपकी अनुमति से हम ऑनबोर्डिंग में लगने वाला समय मापने के लिए एनालिटिक्स कुकी और आप जिस रेफ़रल लिंक से आए उसे याद रखने के लिए मार्केटिंग कुकी भी इस्तेमाल करते हैं। आपके स्वीकार किए बिना कोई वैकल्पिक कुकी इस्तेमाल नहीं होती। हर कुकी देखने के लिए \"अपनी पसंद चुनें\" दबाएँ। <link>कुकी नीति</link>",
+      "customise": "अपनी पसंद चुनें",
+      "dialogIntro": "चुनें कि {site} कौन-सी वैकल्पिक कुकी और इसी तरह का स्टोरेज इस्तेमाल कर सकता है। ज़रूरी कुकी हमेशा चालू रहती हैं क्योंकि उनके बिना साइट काम नहीं कर सकती। आप अपनी पसंद कभी भी फ़ुटर में \"कुकी सेटिंग\" से बदल सकते हैं।",
+      "dialogTitle": "कुकी की पसंद",
+      "duration": {
+        "days": "{count, plural, one {# दिन} other {# दिन}}",
+        "minutes": "{count, plural, one {# मिनट} other {# मिनट}}",
+        "months": "{count, plural, one {# महीना} other {# महीने}}",
+        "persistent": "जब तक आप हटा न दें",
+        "session": "सेशन",
+        "years": "{count, plural, one {# साल} other {# साल}}"
+      },
+      "gpcNote": "आपके ब्राउज़र का ग्लोबल प्राइवेसी कंट्रोल सिग्नल चालू है, इसलिए मार्केटिंग तब तक बंद रहती है जब तक आप उसे यहाँ चालू न करें।",
+      "kind": {
+        "cookie": "कुकी",
+        "localStorage": "लोकल स्टोरेज",
+        "sessionStorage": "सेशन स्टोरेज"
+      },
+      "marketingDesc": "आपने जिस रेफ़रल लिंक से प्रवेश किया (जैसे किसी दूसरे सेलर से) उसका कोड याद रखती है, ताकि आपका बिज़नेस बनने पर आपको रेफ़र करने वाले को श्रेय मिल सके।",
+      "marketingTitle": "मार्केटिंग और एट्रिब्यूशन",
+      "necessaryDesc": "साइन-इन, सुरक्षा, आपकी भाषा और ऑनबोर्डिंग की प्रगति के लिए, और यह पसंद याद रखने के लिए ज़रूरी। इन्हें बंद नहीं किया जा सकता।",
+      "necessaryTitle": "बिल्कुल ज़रूरी",
+      "off": "बंद",
+      "on": "चालू",
+      "policyTitle": "कुकी नीति",
+      "provider": {
+        "firstParty": "फ़र्स्ट पार्टी"
+      },
+      "purpose": {
+        "auth": "आपको कुछ मिनट तक साइन-इन रखती है (छोटी अवधि का एक्सेस टोकन)।",
+        "consent": "आपकी कुकी पसंद याद रखती है।",
+        "consentPending": "आपकी नवीनतम कुकी पसंद को तब तक रखती है जब तक हमारा सर्वर पुष्टि न कर दे कि उसका रिकॉर्ड सहेज लिया गया है।",
+        "consentSync": "केवल इस विज़िट के लिए याद रखती है कि आपकी कुकी पसंद आपके खाते से मिलाई जा चुकी है।",
+        "locale": "आपकी चुनी हुई भाषा याद रखती है।",
+        "mfa": "कुछ मिनट के लिए अधूरा दो-चरणीय साइन-इन रखती है।",
+        "oauth": "Google साइन-इन की प्रक्रिया को जालसाज़ी से बचाती है।",
+        "onboardingDone": "याद रखती है कि आपने ऑनबोर्डिंग पूरी कर ली है।",
+        "onboardingFirstListing": "याद रखती है कि आपने पहली लिस्टिंग जमा कर दी है, ताकि ऑनबोर्डिंग आपको नतीजा दिखा सके।",
+        "onboardingSkip": "ऑनबोर्डिंग का वह चरण याद रखती है जिसे आपने छोड़ा।",
+        "onboardingStart": "ऑनबोर्डिंग में लगने वाला समय मापने के लिए दर्ज करती है कि आपने बिज़नेस कब बनाया।",
+        "referral": "आपका बिज़नेस बनने तक उस रेफ़रल लिंक का कोड याद रखती है जिससे आप आए।",
+        "session": "इस डिवाइस पर आपको साइन-इन रखती है (रिफ़्रेश टोकन, साइन-आउट करने पर रद्द हो जाता है)।"
+      },
+      "rejectAll": "सभी अस्वीकार करें",
+      "saveChoices": "पसंद सहेजें"
+    }
+  },
+  "registry": [
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 12,
+        "unit": "months"
+      },
+      "kind": "cookie",
+      "name": "seller_consent",
+      "provider": "firstParty",
+      "purpose": "consent"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "unit": "persistent"
+      },
+      "kind": "localStorage",
+      "name": "seller_consent_pending",
+      "provider": "firstParty",
+      "purpose": "consentPending"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "unit": "session"
+      },
+      "kind": "sessionStorage",
+      "name": "seller_consent_sync",
+      "provider": "firstParty",
+      "purpose": "consentSync"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 15,
+        "unit": "minutes"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "cnote_seller_at",
+      "provider": "firstParty",
+      "purpose": "auth"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 30,
+        "unit": "days"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "cnote_seller_rt",
+      "provider": "firstParty",
+      "purpose": "session"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 10,
+        "unit": "minutes"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "cnote_seller_oauth",
+      "provider": "firstParty",
+      "purpose": "oauth"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 5,
+        "unit": "minutes"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "cnote_seller_mfa",
+      "provider": "firstParty",
+      "purpose": "mfa"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 1,
+        "unit": "years"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "seller_locale",
+      "provider": "firstParty",
+      "purpose": "locale"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 1,
+        "unit": "years"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "seller_onb_done",
+      "provider": "firstParty",
+      "purpose": "onboardingDone"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 1,
+        "unit": "years"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "seller_onb_skip_gst",
+      "provider": "firstParty",
+      "purpose": "onboardingSkip"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 1,
+        "unit": "years"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "seller_onb_skip_listing",
+      "provider": "firstParty",
+      "purpose": "onboardingSkip"
+    },
+    {
+      "category": "necessary",
+      "duration": {
+        "n": 1,
+        "unit": "years"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "seller_onb_t1",
+      "provider": "firstParty",
+      "purpose": "onboardingFirstListing"
+    },
+    {
+      "category": "analytics",
+      "duration": {
+        "n": 1,
+        "unit": "years"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "seller_onb_t0",
+      "provider": "firstParty",
+      "purpose": "onboardingStart"
+    },
+    {
+      "category": "marketing",
+      "duration": {
+        "n": 30,
+        "unit": "days"
+      },
+      "httpOnly": true,
+      "kind": "cookie",
+      "name": "seller_ref",
+      "provider": "firstParty",
+      "purpose": "referral"
+    }
+  ],
+  "updated": "2026-10-06",
+  "version": 2
+}

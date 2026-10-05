@@ -1,6 +1,7 @@
 // Browser side of the consent manager, shared by every app that shows a banner. Every function takes the app's `ConsentConfig`
 // (cookie name, policy version, registry, storage keys, receipt path) and an injectable `ConsentEnv` (default: the real browser),
 // so the withdrawal / clear logic is unit-testable in node without a DOM. No react / next imports.
+import { reconcileAccountConsent, requestedActionFor, type AccountConsent } from "./account-sync";
 import { clientClearable, type StorageEntry } from "./registry";
 import {
   acceptAllChoices,
@@ -255,3 +256,46 @@ export const subscribeConsent = (cb: () => void) => {
 };
 /** Raw cookie value snapshot (a string, so it is referentially stable between renders). */
 export const consentSnapshot = (cfg: Pick<ConsentConfig, "cookieName">): string => cookieValue(document.cookie, cfg.cookieName) ?? "";
+
+// --- Account sync (signed-in people) ------------------------------------------------------------------------------------
+
+export interface AccountSyncOptions {
+  /** sessionStorage key (registered as strictly necessary) marking that this visit was checked against the account ledger */
+  syncKey: string;
+  /** same-origin endpoint returning the ledger state, e.g. `/api/consent/account` */
+  accountPath: string;
+}
+
+/** GET the signed-in person's ledger state; null on any network / server trouble (try again on the next load). */
+export async function loadAccountConsent(accountPath: string): Promise<AccountConsent | null> {
+  try {
+    const res = await fetch(accountPath, { credentials: "same-origin", cache: "no-store" });
+    return res.ok ? ((await res.json()) as AccountConsent) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Account sync: when there is no valid cookie, or once per visit, ask the app's account endpoint for the ledger and let the NEWER
+ * of cookie and ledger win per purpose (a withdrawal elsewhere beats an older grant here). Anonymous visitors cost one tiny request
+ * while the banner is showing. Returns true when the cookie was replaced. Shared by the buyer web and the seller app.
+ */
+export async function syncFromAccount(
+  cfg: ConsentConfig,
+  sync: AccountSyncOptions,
+  locale: string,
+  env: ConsentEnv = browserEnv(cfg),
+  load: () => Promise<AccountConsent | null> = () => loadAccountConsent(sync.accountPath),
+): Promise<boolean> {
+  const cookie = readClientConsent(cfg, env);
+  if (cookie && env.readSession(sync.syncKey)) return false;
+  const account = await load();
+  if (!account) return false;
+  env.writeSession(sync.syncKey, account.signedIn ? "1" : "0");
+  // The visitor may have chosen while the request was in flight: reconcile against the cookie as it is now.
+  const decision = reconcileAccountConsent(readClientConsent(cfg, env), account, Math.floor(env.now() / 1000));
+  if (decision.kind !== "adopt") return false;
+  applyConsent(cfg, decision.choices, requestedActionFor(decision.choices), locale, env, { at: decision.at });
+  return true;
+}

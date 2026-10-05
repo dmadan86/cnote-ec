@@ -1,7 +1,7 @@
 {
   "consent": {
     "aria": "Cookie notice",
-    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie.",
+    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie. <link>Cookie policy</link>",
     "acceptAll": "Accept all",
     "rejectAll": "Reject all",
     "customise": "Customise",
@@ -53,7 +53,23 @@
       "onboardingSkip": "Remembers an onboarding step you chose to skip.",
       "onboardingStart": "Records when you created your business, to measure how long onboarding takes.",
       "onboardingFirstListing": "Remembers that you submitted your first listing, so onboarding can show you the result.",
-      "referral": "Remembers the referral code from the link you followed until you create your business."
-    }
+      "referral": "Remembers the referral code from the link you followed until you create your business.",
+      "consentSync": "Remembers, for this visit only, that your cookie choice was checked against your account."
+    },
+    "policyTitle": "Cookie policy",
+    "policyDescription": "Which cookies and similar storage {site} uses, why, for how long, and how to change your choice.",
+    "versionLine": "Policy version {version}, last updated {date}.",
+    "whatTitle": "What are cookies?",
+    "whatBody": "Cookies are small text files a website saves in your browser. We also use similar browser storage (local and session storage). Some are essential; the rest are used only if you agree.",
+    "categoriesTitle": "Categories",
+    "categoriesBody": "We group them into three categories. Essential ones are always on. Analytics and marketing are off until you accept them, and refusing them never limits what you can do on {site}.",
+    "tableTitle": "Cookies and storage we use",
+    "changeTitle": "Change or withdraw your choice",
+    "changeBody": "You can change your choice at any time; withdrawing is as easy as giving consent. When you withdraw, we stop that use and delete the related cookies and storage.",
+    "gpcTitle": "Global Privacy Control",
+    "gpcBody": "If your browser sends the Global Privacy Control signal, we treat marketing as switched off by default. You can still switch it on yourself in the preferences.",
+    "grievanceTitle": "Questions or complaints",
+    "grievanceBody": "Contact our Grievance Officer if you have a question or complaint about how we use cookies or your personal data.",
+    "grievanceLink": "Grievance redressal"
   }
 }

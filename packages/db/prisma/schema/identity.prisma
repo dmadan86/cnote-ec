@@ -11,6 +11,9 @@ enum ConsentPurpose {
   analytics_cookies
   marketing_cookies
   functional_cookies
+  /// the SELLER app's cookie-banner choices (onboarding timing, referral attribution), kept apart from the buyer web's purposes
+  seller_analytics_cookies
+  seller_marketing_cookies
 
   @@map("consent_purpose")
 }
@@ -55,6 +58,9 @@ model Person {
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
   /// DPDP erasure: PII nulled/tombstoned, row kept for referential integrity
   erasedAt          DateTime? @map("erased_at") @db.Timestamptz
+  /// Last time the person signed in or a session was refreshed (coarse: updated at most once a day). Session rows are purged
+  /// after 90 days, so this is the durable "last approached us" signal for the DPDP Rules inactivity erasure (compliance).
+  lastActiveAt      DateTime? @map("last_active_at") @db.Timestamptz
 
   memberships    BusinessMember[]
   consents       Consent[]

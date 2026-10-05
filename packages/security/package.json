@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./client-ip": "./src/client-ip.ts"
+    "./client-ip": "./src/client-ip.ts",
+    "./csp-hashes": "./src/csp-hashes.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

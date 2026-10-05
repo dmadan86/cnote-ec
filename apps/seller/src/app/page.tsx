@@ -3,7 +3,7 @@ import { ArrowRight, BadgeCheck, Gauge, Handshake, RefreshCcw, Sparkles, Users }
 import { buttonClasses, Card, CardBody, Container, Money } from "@cnote/ui";
 import { getTranslations } from "next-intl/server";
 import { load } from "@/lib/safe";
-import { CookieSettingsLink } from "@/features/consent/settings-link";
+import { CookieLinks } from "@/features/consent/settings-link";
 import { Logo } from "@/features/shell/logo";
 import { billing, currentSessionSafe } from "@/lib/services";
 import { LanguageSwitcher } from "@/i18n/language-switcher";
@@ -145,7 +145,7 @@ export default async function LandingPage() {
         <Container className="flex flex-col gap-2 sm:flex-row sm:justify-between">
           <span>{t("footerNote")}</span>
           <span className="flex flex-wrap items-center gap-x-4">
-            <CookieSettingsLink />
+            <CookieLinks />
             <Link href="/signin" className="font-medium text-brand-700">
               {t("signIn")}
             </Link>

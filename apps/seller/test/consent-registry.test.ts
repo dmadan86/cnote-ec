@@ -9,8 +9,8 @@ const SRC = path.join(__dirname, "..", "src");
 const rel = (f: string) => path.relative(SRC, f).split(path.sep).join("/");
 const names = SELLER_STORAGE_REGISTRY.map((e) => e.name);
 const files = sourceFiles(SRC);
-/** Quoted `seller_*` strings that are NOT storage keys: purpose "source" labels of the identity consent ledger. */
-const NOT_STORAGE = new Set(["seller_portal", "seller_onboarding", "seller_settings"]);
+/** Quoted `seller_*` strings that are NOT storage keys: purpose "source" labels and purposes of the identity consent ledger. */
+const NOT_STORAGE = new Set(["seller_portal", "seller_onboarding", "seller_settings", "seller_cookie_banner", "seller_analytics_cookies", "seller_marketing_cookies"]);
 
 describe("seller cookie registry (single source of truth)", () => {
   it("has unique names and only known categories; every entry has a purpose", () => {
@@ -39,7 +39,7 @@ describe("seller cookie registry (single source of truth)", () => {
     const cat = (n: string) => SELLER_STORAGE_REGISTRY.find((e) => e.name === n)?.category;
     expect(cat("seller_onb_t0")).toBe("analytics");
     expect(cat("seller_ref")).toBe("marketing");
-    for (const n of ["seller_consent", "seller_consent_pending", "seller_locale", "seller_onb_done", "seller_onb_skip_gst", "seller_onb_skip_listing", "seller_onb_t1", "cnote_seller_at", "cnote_seller_rt"]) expect(cat(n), n).toBe("necessary");
+    for (const n of ["seller_consent", "seller_consent_pending", "seller_consent_sync", "seller_locale", "seller_onb_done", "seller_onb_skip_gst", "seller_onb_skip_listing", "seller_onb_t1", "cnote_seller_at", "cnote_seller_rt"]) expect(cat(n), n).toBe("necessary");
     expect(optionalEntries(SELLER_STORAGE_REGISTRY).map((e) => e.name).sort()).toEqual(["seller_onb_t0", "seller_ref"]);
     expect(entriesOf(SELLER_STORAGE_REGISTRY, "functional")).toEqual([]);
   });
@@ -83,5 +83,15 @@ describe("seller storage writes and third-party loads are accounted for", () => 
     const client = read(path.join(SRC, "instrumentation-client.ts"));
     expect(client).toContain('sentryOptions("seller", "browser")');
     expect(client).not.toMatch(/replayIntegration|replaysSessionSampleRate|browserTracingIntegration/);
+  });
+
+  it("the cookie policy page and dialog can describe every entry: each purpose has copy in every locale, and the policy page strings exist", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const l of ["en", "hi", "kn", "ta", "te", "mr", "gu", "bn"]) {
+      const c = (JSON.parse(readFileSync(path.join(__dirname, "..", "messages", `${l}.consent.json`), "utf8")) as { consent: Record<string, unknown> }).consent;
+      for (const e of SELLER_STORAGE_REGISTRY) expect((c.purpose as Record<string, string>)[e.purpose], `${l}: purpose.${e.purpose}`).toBeTruthy();
+      for (const k of ["policyTitle", "policyDescription", "versionLine", "whatBody", "categoriesBody", "tableTitle", "changeBody", "gpcBody", "grievanceBody", "grievanceLink"]) expect(c[k], `${l}: ${k}`).toBeTruthy();
+      expect(c.bannerText, `${l}: banner links to the policy`).toContain("<link>");
+    }
   });
 });
