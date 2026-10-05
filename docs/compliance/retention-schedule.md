@@ -16,6 +16,8 @@ Windows are env-configurable (`RETENTION_<KEY>_DAYS`); the values below are the 
 | `notifications.read_90d` | notifications | Read in-app notifications (unread kept) | 90 d | `READ_NOTIFICATIONS` | Storage limitation |
 | `reviews.rejected_ugc_12m` | reviews | Rejected reviews and comments (never public) and their reactions | 365 d | `REJECTED_UGC` | Storage limitation; leaves a full year for appeals |
 | `wishlist.empty_lists_24m` | wishlist | Empty, non-default wishlists | 730 d | `EMPTY_WISHLISTS` | Storage limitation |
+| `enquiry.attachments_after_close_365d` | enquiry | RFQ drawings/specs and quote attachments: bytes in the private bucket and the `enquiry_attachments` rows. Clock starts at the requirement's quote deadline (`expiresAt`), or for legacy rows without one, creation of a closed/rejected/unmatched requirement. Requirements that became an order keep theirs a further 730 d from the order (dispute limitation). | 365 d | `ENQUIRY_ATTACHMENTS` | Storage limitation; one year covers follow-up quotes and repeat orders |
+| `enquiry.attachment_quarantine_30d` | enquiry | Bytes of uploads the malware scanner flagged; the `attachment_quarantine` row (who, when, signature, no bytes) stays as the audit record | 30 d | `ATTACHMENT_QUARANTINE` | Storage limitation; kept only for security review |
 
 ## Deliberately never purged
 

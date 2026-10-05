@@ -61,6 +61,8 @@ const TABLE: Row[] = [
   { key: "lead.reachability_result", event: ev("ReachabilityChecked", { checkId: "c", enquiryId: "e", matchId: "m", channel: "sms", status: "responded", sellerBusinessId: SB }), people: ["s1", "s2"], href: "/leads" },
   { key: "message.digest", event: ev("MessageSent", { conversationId: "c", senderPersonId: "s1" }), people: [] }, // pipeline-only digest kind: never resolved from an event
   { key: "deal.confirm_requested", event: ev("DealClaimedBySeller", { matchId: "m", sellerBusinessId: SB, buyerBusinessId: BB, conversationId: "c" }), people: ["b1"], vars: { sellerName: "Sharma", enquiryTitle: "Yarn" }, href: "/conversations/c" },
+  { key: "attachment.quarantined", event: ev("AttachmentQuarantined", { quarantineId: "q", enquiryId: "e", kind: "rfq", uploadedByBusinessId: BB, uploadedByPersonId: "b1", signature: "Eicar-Test-Signature", scanner: "mock" }), people: ["b1"], app: "web", vars: { uploadKind: "requirement" }, href: "/buyer/enquiries" },
+  { key: "attachment.quarantined", event: ev("AttachmentQuarantined", { quarantineId: "q", enquiryId: "e", kind: "quote", uploadedByBusinessId: SB, uploadedByPersonId: "s1", signature: "Eicar-Test-Signature", scanner: "mock" }), people: ["s1"], app: "seller", vars: { uploadKind: "quote" }, href: "/conversations" },
   { key: "domain.claim_superseded", event: ev("DomainClaimSuperseded", { domainId: "d", storefrontId: "sf", sellerBusinessId: SB, hostname: "www.acme.com", reason: "expired" }), people: ["s1", "s2"], href: "/storefront/domains", vars: { hostname: "www.acme.com" } },
 ];
 const NONE: { key: string; event: ReturnType<typeof ev>; note: string }[] = [

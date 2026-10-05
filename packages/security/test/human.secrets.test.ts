@@ -146,7 +146,7 @@ describe("validateSecrets matrix", () => {
   const BI = Buffer.alloc(32, 9).toString("base64");
   const prod = (over: Record<string, string | undefined> = {}) => ({
     NODE_ENV: "production", DATABASE_URL: "postgres://x/db?sslmode=require", REDIS_URL: "rediss://x", JWT_SECRET_WEB: STRONG, JWT_SECRET_SELLER: STRONG2, JWT_SECRET_ADMIN: STRONG3,
-    FIELD_ENCRYPTION_KEYS: KEYS, BLIND_INDEX_KEY: BI, TURNSTILE_SECRET: "t", NEXT_PUBLIC_TURNSTILE_SITE_KEY: "s", ...over,
+    FIELD_ENCRYPTION_KEYS: KEYS, BLIND_INDEX_KEY: BI, TURNSTILE_SECRET: "t", NEXT_PUBLIC_TURNSTILE_SITE_KEY: "s", ATTACHMENT_SCANNER: "clamav", CLAMAV_HOST: "clamav.internal", ...over,
   });
   const apps: SecretsApp[] = ["web", "seller", "admin", "studio", "api", "worker"];
   const errs = (app: SecretsApp, env: Record<string, string | undefined>) => validateSecrets(app, env).errors.join("\n");
@@ -240,6 +240,24 @@ describe("validateSecrets matrix", () => {
     expect(e2e.errors).toEqual([]);
     expect(e2e.warnings.join()).toMatch(/OTP_DEV_ECHO/);
     expect(errs("api", { ...prod({ OTP_DEV_ECHO: "true" }), NODE_ENV: "development" })).toBe("");
+  });
+  it("production refuses uploads without a malware scanner unless uploads are off or the risk is waived", () => {
+    for (const app of ["web", "seller"] as const) {
+      expect(errs(app, prod({ ATTACHMENT_SCANNER: undefined, CLAMAV_HOST: undefined })), app).toMatch(/malware scanner/);
+      expect(errs(app, prod({ ATTACHMENT_SCANNER: "mock" })), app).toMatch(/malware scanner/);
+      expect(errs(app, prod({ ATTACHMENT_SCANNER: "off" })), app).toMatch(/ATTACHMENT_SCAN_WAIVER/);
+    }
+    expect(errs("web", prod({ CLAMAV_HOST: undefined }))).toMatch(/CLAMAV_HOST is not set/);
+    expect(errs("web", prod({ CLAMAV_HOST: "  " }))).toMatch(/CLAMAV_HOST is not set/);
+    // uploads off: no scanner needed
+    for (const off of ["false", "0", "no", "off"]) expect(errs("web", prod({ ATTACHMENT_SCANNER: undefined, CLAMAV_HOST: undefined, RFQ_ATTACHMENTS_ENABLED: off }))).toBe("");
+    // explicit waiver downgrades to a loud warning
+    const waived = validateSecrets("web", prod({ ATTACHMENT_SCANNER: "mock", ATTACHMENT_SCAN_WAIVER: "1" }));
+    expect(waived.errors).toEqual([]);
+    expect(waived.warnings.join()).toMatch(/NOT virus-scanned/);
+    // apps that take no uploads are not affected; non-production never errors
+    for (const app of ["admin", "studio", "worker", "api"] as const) expect(errs(app, prod({ ATTACHMENT_SCANNER: undefined, CLAMAV_HOST: undefined }))).toBe("");
+    expect(errs("web", { ...prod({ ATTACHMENT_SCANNER: undefined, CLAMAV_HOST: undefined }), NODE_ENV: "development" })).toBe("");
   });
   it("production requires the webhook secret of every ENABLED provider", () => {
     const cases: [Record<string, string>, RegExp][] = [

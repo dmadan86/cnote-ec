@@ -6,3 +6,4 @@ export { S3MediaStore, type S3StoreConfig } from "./s3";
 export { AzureMediaStore, GcsMediaStore } from "./stubs";
 export { getMediaStore, getPublicMediaStore, setMediaStore } from "./factory";
 export * from "./variants";
+export * from "./scan";

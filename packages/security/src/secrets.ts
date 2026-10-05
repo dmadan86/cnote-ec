@@ -54,6 +54,11 @@ export function isWeakSecret(value: string): boolean {
 const REALM_ENV = { web: "JWT_SECRET_WEB", seller: "JWT_SECRET_SELLER", admin: "JWT_SECRET_ADMIN" } as const;
 const APP_REALM: Partial<Record<SecretsApp, keyof typeof REALM_ENV>> = { web: "web", seller: "seller", studio: "seller", admin: "admin" };
 
+/** Apps that accept RFQ / quote uploads. */
+const UPLOAD_APPS: readonly SecretsApp[] = ["web", "seller"];
+/** RFQ_ATTACHMENTS_ENABLED=false|0|no|off switches uploads off (default on). Same rule as @cnote/enquiry's attachmentsEnabled. */
+const attachmentsEnabled = (env: Env): boolean => !["0", "false", "no", "off"].includes((env.RFQ_ATTACHMENTS_ENABLED ?? "").trim().toLowerCase());
+
 const truthy = (v: string | undefined): boolean => ["1", "true", "yes", "on"].includes((v ?? "").trim().toLowerCase());
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
@@ -83,7 +88,7 @@ function validateTransport(env: Env, errors: string[]): void {
 }
 
 /** Production-only checks on dev conveniences and on the secrets that enabled providers need to verify their webhooks. */
-function validateProductionFlags(env: Env, errors: string[], warnings: string[]): void {
+function validateProductionFlags(app: SecretsApp, env: Env, errors: string[], warnings: string[]): void {
   if (truthy(env.OTP_DEV_ECHO)) {
     // Non-production deployments that run NODE_ENV=production (the Playwright e2e servers read the OTP off the screen; the dev k8s
     // overlay) opt out explicitly. A real deployment must never set ALLOW_OTP_ECHO_IN_PRODUCTION.
@@ -108,6 +113,19 @@ function validateProductionFlags(env: Env, errors: string[], warnings: string[])
   if (env.REVALIDATE_SECRET && env.REVALIDATE_SECRET.length < 32) errors.push("REVALIDATE_SECRET is weak (need 32+ random characters)");
   const customDomains = ["cloudflare", "vercel", "aws"].includes((env.EDGE_PROVIDER ?? "mock").trim().toLowerCase()) || truthy(env.DOMAINS_HTTP_PROBE);
   need(customDomains, "custom domains (EDGE_PROVIDER / DOMAINS_HTTP_PROBE)", "DOMAIN_CHECK_SECRET");
+
+  // RFQ / quote attachments are downloaded by other users: a malware scanner is mandatory while uploads are on.
+  // ATTACHMENT_SCANNER=mock only detects the EICAR test string. ATTACHMENT_SCAN_WAIVER=1 is an explicit, documented waiver.
+  if (UPLOAD_APPS.includes(app) && attachmentsEnabled(env)) {
+    const scanner = (env.ATTACHMENT_SCANNER ?? "mock").trim().toLowerCase();
+    if (scanner === "clamav") {
+      if (!env.CLAMAV_HOST?.trim()) errors.push("CLAMAV_HOST is not set: ATTACHMENT_SCANNER=clamav cannot reach clamd without it");
+    } else {
+      const msg = `no malware scanner is configured for RFQ/quote attachments (ATTACHMENT_SCANNER=${scanner || "mock"}): set ATTACHMENT_SCANNER=clamav and CLAMAV_HOST, or turn uploads off with RFQ_ATTACHMENTS_ENABLED=false`;
+      if (truthy(env.ATTACHMENT_SCAN_WAIVER)) warnings.push(`${msg} (waived by ATTACHMENT_SCAN_WAIVER=1: uploads are NOT virus-scanned)`);
+      else errors.push(`${msg}; or acknowledge the risk with ATTACHMENT_SCAN_WAIVER=1`);
+    }
+  }
 
   if (env.CSP_REPORT_ONLY === "1") {
     if (truthy(env.CSP_REPORT_ONLY_ACK)) warnings.push("CSP_REPORT_ONLY=1 (acknowledged): the CSP is not being enforced");
@@ -143,7 +161,7 @@ export function validateSecrets(app: SecretsApp, env: Env = process.env): Secret
     if (!env.DATABASE_URL) errors.push("DATABASE_URL is not set");
     if (!env.REDIS_URL) errors.push("REDIS_URL is not set (sessions, rate limits and queues need it)");
     validateTransport(env, errors);
-    validateProductionFlags(env, errors, warnings);
+    validateProductionFlags(app, env, errors, warnings);
   }
 
   const usesFieldCrypto = app !== "studio";

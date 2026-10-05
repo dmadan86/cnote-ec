@@ -509,6 +509,27 @@ export const KINDS: NotificationKind[] = [
       return fan(await membersOf(dir, sellerBusinessId), { businessId: sellerBusinessId, vars: { outcome }, href: "/leads" });
     },
   }),
+  // ai_ops: attachment malware scanning
+  kind({
+    key: "attachment.quarantined",
+    name: "Attachment blocked by security scan",
+    description: "An RFQ or quote attachment the uploader sent was flagged by the malware scanner and quarantined; the requirement or quote was not created.",
+    category: "messages",
+    app: "web",
+    event: "AttachmentQuarantined",
+    variables: [v("uploadKind", "What was being sent: \"requirement\" or \"quote\"", "requirement"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "An attachment was blocked", body: "A file you tried to attach to your {{uploadKind}} failed our virus scan, so it was not sent. Scan the file on your device, remove it and try again." },
+      email: { subject: "An attachment was blocked by our security scan", body: "Hi {{recipientName}},\n\nA file you tried to attach to your {{uploadKind}} failed our virus scan, so nothing was sent and the file was not shared with anyone. Please scan the file on your device, remove it and try again.\n\nTry again: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"AttachmentQuarantined">) {
+      const quote = e.payload.kind === "quote";
+      return fan([e.payload.uploadedByPersonId], {
+        businessId: e.payload.uploadedByBusinessId, app: quote ? "seller" : "web",
+        vars: { uploadKind: quote ? "quote" : "requirement" }, href: quote ? "/conversations" : "/buyer/enquiries",
+      });
+    },
+  }),
   ...PHASE23_KINDS,
   ...ALERT_KINDS,
 ];

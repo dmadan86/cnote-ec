@@ -75,7 +75,7 @@ export async function sendQuote(
   const files = checkAttachments(quote.attachments, MAX_QUOTE_ATTACHMENTS, MAX_QUOTE_ATTACHMENT_BYTES);
   const { c, role } = await requireParticipant(actor, conversationId);
   if (role !== "seller") throw new DomainError("forbidden", "Only the seller can send a quote.");
-  const stored = await storeAttachmentBytes(c.match.enquiryId, files);
+  const stored = await storeAttachmentBytes(c.match.enquiryId, files, { actor, kind: "quote" });
   try {
   return await prisma.$transaction(async (tx) => {
     const row = await tx.quote.create({
@@ -100,7 +100,7 @@ export async function sendQuote(
     });
     if (stored.length) {
       await tx.enquiryAttachment.createMany({
-        data: stored.map((s) => ({ id: s.id, enquiryId: c.match.enquiryId, quoteId: row.id, uploadedByBusiness: actor.businessId, key: s.key, fileName: s.fileName, mimeType: s.mimeType, sizeBytes: s.sizeBytes, createdAt: s.createdAt })),
+        data: stored.map((s) => ({ id: s.id, enquiryId: c.match.enquiryId, quoteId: row.id, uploadedByBusiness: actor.businessId, key: s.key, fileName: s.fileName, mimeType: s.mimeType, sizeBytes: s.sizeBytes, createdAt: s.createdAt, scannedAt: s.scannedAt, scanner: s.scanner })),
       });
     }
     await emit(tx, "QuoteSent", { type: "conversation", id: conversationId }, {

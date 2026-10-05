@@ -77,7 +77,7 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
   const held = !blocked && (moderation.verdict === "review" || moderation.needsReview || scoreNeedsReview);
   const status = blocked ? "rejected" : held ? "review" : "scoring";
 
-  const stored = await storeAttachmentBytes(id, files);
+  const stored = await storeAttachmentBytes(id, files, { actor, kind: "rfq" });
   const expiresAt = new Date(Date.now() + data.expiresInDays * 24 * 60 * 60 * 1000);
   try {
   await prisma.$transaction(async (tx) => {
@@ -110,7 +110,7 @@ export async function createEnquiry(actor: Actor, input: EnquiryInput, ctx: Crea
     });
     if (stored.length) {
       await tx.enquiryAttachment.createMany({
-        data: stored.map((s) => ({ id: s.id, enquiryId: id, uploadedByBusiness: actor.businessId, key: s.key, fileName: s.fileName, mimeType: s.mimeType, sizeBytes: s.sizeBytes, createdAt: s.createdAt })),
+        data: stored.map((s) => ({ id: s.id, enquiryId: id, uploadedByBusiness: actor.businessId, key: s.key, fileName: s.fileName, mimeType: s.mimeType, sizeBytes: s.sizeBytes, createdAt: s.createdAt, scannedAt: s.scannedAt, scanner: s.scanner })),
       });
     }
     await tx.$executeRaw`UPDATE enquiries SET embedding = ${vec}::vector, embedding_version = ${emb.version} WHERE id = ${id}::uuid`;

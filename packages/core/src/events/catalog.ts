@@ -188,6 +188,9 @@ export interface DomainEventPayloads {
   SubscriptionCancelled: { businessId: string; subscriptionId: string; planCode: string; billingInterval: "monthly" | "annual"; refundPaise: number; unusedMonths: number; effectiveAt: string; reason: string | null };
   /** The paid period ends soon and will NOT renew by itself: asks the owner to confirm a renewal (ADR-005). */
   SubscriptionRenewalDue: { businessId: string; subscriptionId: string; planCode: string; billingInterval: "monthly" | "annual"; periodEnd: string };
+  // ai_ops: attachment malware scanning
+  /** The malware scanner flagged an RFQ or quote attachment: bytes quarantined, never visible to the other party; the uploader is told. No file name or content in the payload. */
+  AttachmentQuarantined: { quarantineId: string; enquiryId: string; kind: "rfq" | "quote"; uploadedByBusinessId: string; uploadedByPersonId: string; signature: string; scanner: string };
 }
 
 export type DomainEventType = keyof DomainEventPayloads;
@@ -331,6 +334,8 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   SubscriptionStarted: 1,
   SubscriptionCancelled: 2,
   SubscriptionRenewalDue: 1,
+  // ai_ops
+  AttachmentQuarantined: 1,
 };
 
 export interface DomainEvent<T extends DomainEventType = DomainEventType> {
