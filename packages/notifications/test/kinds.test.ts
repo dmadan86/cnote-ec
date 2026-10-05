@@ -33,6 +33,7 @@ const ev = (type: string, payload: unknown): DomainEvent => ({ id: 1, type, vers
 
 interface Row { key: string; event: ReturnType<typeof ev>; people: string[]; app?: string; vars?: Record<string, unknown>; href?: string }
 const KEY_EXP = { keyId: "k", personId: "owner", name: "CI  deploy", prefix: "ck_live_ab12", expiresAt: "2026-10-12T05:00:00.000Z" };
+const NOTICE = { personId: "owner", noticeId: "n", eraseAfter: "2026-10-14T05:00:00.000Z", lastActiveAt: "2023-10-01T00:00:00.000Z" };
 const TABLE: Row[] = [
   { key: "lead.matched", event: ev("LeadMatched", { enquiryId: "e", matchId: "m", sellerBusinessId: SB }), people: ["s1", "s2"], vars: { enquiryTitle: "Yarn", intentScore: 80 }, href: "/leads" },
   { key: "lead.accepted", event: ev("LeadAccepted", { enquiryId: "e", sellerBusinessId: SB }), people: ["b1"], vars: { sellerName: "Sharma" }, href: "/buyer/enquiries/e" },
@@ -65,6 +66,8 @@ const TABLE: Row[] = [
   { key: "domain.claim_superseded", event: ev("DomainClaimSuperseded", { domainId: "d", storefrontId: "sf", sellerBusinessId: SB, hostname: "www.acme.com", reason: "expired" }), people: ["s1", "s2"], href: "/storefront/domains", vars: { hostname: "www.acme.com" } },
   { key: "developer.api_key_expiring", event: ev("ApiKeyExpiring", { ...KEY_EXP, threshold: "7d" }), people: ["owner"], vars: { keyName: "CI deploy", keyPrefix: "ck_live_ab12", expiresOn: "12 Oct 2026" }, href: "/account/developers" },
   { key: "developer.api_key_expires_today", event: ev("ApiKeyExpiring", { ...KEY_EXP, threshold: "expiry_day" }), people: ["owner"], href: "/account/developers" },
+  { key: "account.inactivity_erasure_notice", event: ev("InactivityErasureNoticeSent", NOTICE), people: ["owner"], vars: { eraseOn: "14 October 2026" }, href: "/signin" },
+  { key: "account.nominee_changed", event: ev("DataNomineeChanged", { personId: "owner", nomineeId: "x", change: "added" }), people: ["owner"], href: "/account/nominee" },
 ];
 const NONE: { key: string; event: ReturnType<typeof ev>; note: string }[] = [
   { key: "enquiry.under_review", event: ev("EnquiryScored", { enquiryId: "e", needsReview: false }), note: "no review needed" },
@@ -114,8 +117,8 @@ describe("kinds registry", () => {
   it("template definitions map category (security/marketing/transactional) and register once", () => {
     const defs = templateDefinitions();
     expect(defs).toHaveLength(KINDS.length);
-    expect(defs.filter((d) => !d.key.startsWith("alert.") && !d.key.startsWith("developer.")).every((d) => d.category === "transactional")).toBe(true);
-    expect(defs.filter((d) => d.key.startsWith("developer.")).every((d) => d.category === "security" && d.channels.includes("email"))).toBe(true);
+    expect(defs.filter((d) => !d.key.startsWith("alert.") && !d.key.startsWith("developer.") && !d.key.startsWith("account.")).every((d) => d.category === "transactional")).toBe(true);
+    expect(defs.filter((d) => (d.key.startsWith("developer.") || d.key.startsWith("account."))).every((d) => d.category === "security" && d.channels.includes("email"))).toBe(true);
     expect(defs.filter((d) => d.key.startsWith("alert.")).map((d) => d.category)).toEqual(["alert", "alert", "alert", "alert"]); // opt-in alerts: unsubscribe footer, no marketing consent
     registerNotificationTemplates();
     registerNotificationTemplates();

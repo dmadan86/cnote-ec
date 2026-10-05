@@ -1,6 +1,6 @@
 "use server";
 import { audited } from "@cnote/admin";
-import { decideAppeal, respondToGrievance, RETENTION_POLICIES, runRetention } from "@cnote/compliance";
+import { completeNomineeRequest, decideAppeal, decideNomineeRequest, NOMINEE_COMPLETE_ACTIONS, respondToGrievance, RETENTION_POLICIES, runRetention } from "@cnote/compliance";
 import { type ActionResult, runAction } from "@cnote/next-kit";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -48,5 +48,37 @@ export async function retentionDryRunAction(_prev: ActionResult | null, fd: Form
     await audited(ctx, "compliance.manage", "retention.dry_run", { type: "RetentionPolicy", id: name ?? "all" }, () => runRetention({ policies, dryRun: true }), { policy: name ?? "all" });
   });
   if (r.ok) revalidatePath("/compliance/retention");
+  return r;
+}
+
+const nomineeDecisionSchema = z.object({ id: z.uuid(), decision: z.enum(["verified", "rejected"]), note: z.string().trim().min(5, "Describe the documents you checked (at least 5 characters)").max(1000) });
+
+/** Nominee request decision (DPDP s.14). Verifying needs a matching active nomination (enforced in @cnote/compliance) and the documents checked. */
+export async function decideNomineeAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const r = await runAction(async () => {
+    const i = nomineeDecisionSchema.parse({ id: fd.get("id"), decision: fd.get("decision"), note: fd.get("note") ?? "" });
+    const ctx = await actionContext();
+    await audited(ctx, "compliance.manage", "nominee_request.decide", { type: "NomineeRequest", id: i.id }, () => decideNomineeRequest(i.id, i.decision, i.note, ctx.staff.id), { decision: i.decision });
+  });
+  if (r.ok) {
+    revalidatePath("/compliance/nominees");
+    revalidatePath(`/compliance/nominees/${String(fd.get("id"))}`);
+  }
+  return r;
+}
+
+const nomineeCompleteSchema = z.object({ id: z.uuid(), action: z.enum(NOMINEE_COMPLETE_ACTIONS), note: z.string().trim().min(3, "Add a short note on what was done").max(1000) });
+
+/** Completes a verified nominee request. "erase_account" erases the account holder's account (irreversible; audited). */
+export async function completeNomineeAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const r = await runAction(async () => {
+    const i = nomineeCompleteSchema.parse({ id: fd.get("id"), action: fd.get("action"), note: fd.get("note") ?? "" });
+    const ctx = await actionContext();
+    await audited(ctx, "compliance.manage", "nominee_request.complete", { type: "NomineeRequest", id: i.id }, () => completeNomineeRequest(i.id, i.action, i.note, ctx.staff.id), { action: i.action });
+  });
+  if (r.ok) {
+    revalidatePath("/compliance/nominees");
+    revalidatePath(`/compliance/nominees/${String(fd.get("id"))}`);
+  }
   return r;
 }

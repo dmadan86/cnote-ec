@@ -8,6 +8,7 @@ import { defineTemplates, type TemplateDefinition } from "@cnote/templates";
 import { cleanName, envInt, fan, HREF, inr, kind, membersOf, RECIPIENT_NAME, v } from "./kind-helpers";
 import { ALERT_KINDS } from "./kinds-alerts";
 import { DEVELOPER_KINDS } from "./kinds-developer";
+import { DPDP_KINDS } from "./kinds-dpdp";
 import { PHASE23_KINDS } from "./kinds-phase23";
 import type { NotificationCategory, NotificationKind } from "./types";
 
@@ -513,6 +514,7 @@ export const KINDS: NotificationKind[] = [
   ...PHASE23_KINDS,
   ...ALERT_KINDS,
   ...DEVELOPER_KINDS, // polish: API key expiry notices
+  ...DPDP_KINDS, // polish: DPDP inactivity erasure notice + nominee change
 ];
 
 const KEY_INDEX = new Map(KINDS.map((k) => [k.key, k]));

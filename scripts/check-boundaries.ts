@@ -65,7 +65,7 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   // export/erase functions, so it may depend on many of them. Nothing may depend on it except apps.
   "@cnote/compliance": [
     "@cnote/alerts", "@cnote/catalogue", "@cnote/core", "@cnote/credit", "@cnote/db", "@cnote/disputes", "@cnote/enquiry", "@cnote/identity", "@cnote/leadgen", "@cnote/notifications",
-    "@cnote/ondc", "@cnote/quality", "@cnote/reviews", "@cnote/storefront", "@cnote/whatsapp", "@cnote/wishlist",
+    "@cnote/developer", "@cnote/ondc", "@cnote/quality", "@cnote/reviews", "@cnote/security", "@cnote/storefront", "@cnote/whatsapp", "@cnote/wishlist",
   ],
   "@cnote/developer": ["@cnote/core", "@cnote/db", "@cnote/identity"],
   "@cnote/catalogue": ["@cnote/ai", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media", "@cnote/live-db"],

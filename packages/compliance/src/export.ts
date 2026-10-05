@@ -17,6 +17,7 @@ import { exportPersonalData as leadgenExport } from "@cnote/leadgen";
 import { exportPersonalData as notificationsExport } from "@cnote/notifications";
 import { exportPersonalData as reviewsExport } from "@cnote/reviews";
 import { exportPersonalData as wishlistExport } from "@cnote/wishlist";
+import { exportNomineeData } from "./nominee";
 
 export interface ExportSource {
   /** unique, stable: the JSON key of the section (unless `flatten`) */
@@ -35,7 +36,13 @@ export async function exportCookieConsentReceipts(personId: string): Promise<Per
     take: EXPORT_TAKE,
     select: { app: true, policyVersion: true, analytics: true, marketing: true, functional: true, gpc: true, action: true, locale: true, createdAt: true },
   });
-  return { cookieConsentReceipts: exportCollection(rows) };
+  const notices = await prisma.inactivityErasureNotice.findMany({
+    where: { personId },
+    orderBy: { noticedAt: "asc" },
+    take: EXPORT_TAKE,
+    select: { noticedAt: true, eraseAfter: true, status: true, resolution: true, resolvedAt: true },
+  });
+  return { cookieConsentReceipts: exportCollection(rows), inactivityErasureNotices: exportCollection(notices), ...(await exportNomineeData(personId)) };
 }
 
 export const EXPORT_SOURCES: readonly ExportSource[] = [
@@ -48,7 +55,7 @@ export const EXPORT_SOURCES: readonly ExportSource[] = [
   { module: "catalogue", description: "Voice-note metadata and transcripts", export: (id) => catalogueExport(id) },
   { module: "leadgen", description: "Lead-capture funnel rows", export: (id) => leadgenExport(id) },
   { module: "disputes", description: "Disputes, evidence statements, messages and appeals", export: disputesExport },
-  { module: "compliance", description: "Cookie-consent receipts", export: (id) => exportCookieConsentReceipts(id) },
+  { module: "compliance", description: "Cookie-consent receipts, inactivity-erasure notices, nominees (decrypted for you) and requests made about your account", export: (id) => exportCookieConsentReceipts(id) },
 ];
 
 /** JSON.stringify replacer: money is BigInt paise (stringified, exact), everything else is plain data. */

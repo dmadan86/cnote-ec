@@ -1075,6 +1075,9 @@ importers:
       '@cnote/db':
         specifier: workspace:*
         version: link:../db
+      '@cnote/developer':
+        specifier: workspace:*
+        version: link:../developer
       '@cnote/disputes':
         specifier: workspace:*
         version: link:../disputes
@@ -1099,6 +1102,9 @@ importers:
       '@cnote/reviews':
         specifier: workspace:*
         version: link:../reviews
+      '@cnote/security':
+        specifier: workspace:*
+        version: link:../security
       '@cnote/storefront':
         specifier: workspace:*
         version: link:../storefront
