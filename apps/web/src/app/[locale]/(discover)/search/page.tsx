@@ -76,7 +76,7 @@ export default async function SearchPage(props: PageProps<"/[locale]/search">) {
     );
   } else if (isSellers) {
     // Suppliers: tier / state / city only (price, MOQ and category describe listings, not suppliers).
-    const sstate: FilterState = { ...state, categories: [], pmin: null, pmax: null, moq: null, priced: false, sort: state.sort === "trust" ? "trust" : "relevance" };
+    const sstate: FilterState = { ...state, categories: [], pmin: null, pmax: null, moq: null, priced: false, inStock: false, variants: {}, sort: state.sort === "trust" ? "trust" : "relevance" };
     const all = await loadSellers({ q: q || undefined, limit: 100 });
     const sellers = sortSellers(filterSellers(all, sstate), sstate.sort).slice(0, 24);
     count = sellers.length;

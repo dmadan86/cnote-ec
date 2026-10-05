@@ -11,6 +11,8 @@ import { moqText } from "./format";
 import { getUiLabels } from "./labels";
 import { cardOffer } from "../promotions/card-offer";
 import { ProductImage } from "./product-image";
+import { getTranslations } from "next-intl/server";
+import { AvailabilityBadge } from "../pdp/availability-badge";
 
 const CARD_SIZES = "(min-width: 1280px) 12vw, (min-width: 1024px) 20vw, (min-width: 640px) 30vw, 45vw";
 
@@ -22,6 +24,10 @@ const CARD_SIZES = "(min-width: 1280px) 12vw, (min-width: 1024px) 20vw, (min-wid
 export async function ListingCard({ listing, seller, priority, rating, locale, offer }: { listing: ListingView; seller?: TrustProfile | null; priority?: boolean; rating?: { average: number; count: number }; locale: Locale; offer?: PublicOffer | null }) {
   const labels = await getUiLabels(locale);
   const shown = offer ? await cardOffer(offer, locale) : null;
+  const availability = listing.availability ?? "in_stock";
+  const tp = await getTranslations({ locale, namespace: "pdp" });
+  const lead = listing.trade?.leadTimeDays;
+  const stockLabel = availability === "made_to_order" && lead != null ? tp("availability.madeToOrderLead", { days: lead }) : tp(`availability.${availability}`);
   return (
     <ProductCard
       id={listing.id}
@@ -34,7 +40,12 @@ export async function ListingCard({ listing, seller, priority, rating, locale, o
       seller={seller ? { name: seller.name, city: seller.city, tier: seller.verificationTier, badgeActive: seller.badgeActive } : null}
       wishlist={<SaveIsland id={listing.id} title={listing.title} />}
       rating={rating ? <RatingStars average={rating.average} count={rating.count} /> : null}
-      footer={<CompareIsland id={listing.id} title={listing.title} />}
+      footer={
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <AvailabilityBadge availability={availability} label={stockLabel} size="sm" />
+          <CompareIsland id={listing.id} title={listing.title} />
+        </div>
+      }
       linkComponent={LocaleLink}
       labels={labels.card}
       offer={shown?.chip ?? null}

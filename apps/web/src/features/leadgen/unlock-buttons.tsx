@@ -33,7 +33,9 @@ export function UnlockButton({ trigger, unlock, listingId, listingTitle, label, 
   const qty = prefill?.quantity;
   const unit = prefill?.unit;
   const price = prefill?.pricePaise;
-  const onUnlocked = useCallback((r: UnlockResult) => router.push(withRfqPrefill(r.next, { quantity: qty, unit, pricePaise: price })), [router, qty, unit, price]);
+  const variantSku = prefill?.variantSku;
+  const variantLabel = prefill?.variantLabel;
+  const onUnlocked = useCallback((r: UnlockResult) => router.push(withRfqPrefill(r.next, { quantity: qty, unit, pricePaise: price, variantSku, variantLabel })), [router, qty, unit, price, variantSku, variantLabel]);
   const { start, dialog, pending, error } = useUnlock({ visitorId: vid, onUnlocked, humanSlot, getHumanToken, labels });
   return (
     <>
