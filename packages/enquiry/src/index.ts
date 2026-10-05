@@ -25,3 +25,10 @@ export * from "./comparison";
 
 // DPDP access right: registered with @cnote/compliance's export registry (security audit M10).
 export { exportPersonalData } from "./privacy";
+
+// Purchase orders, supplier invoices, e-invoice / e-way bill references, MSME 43B(h) payment dues (docs/design/purchase-orders.md)
+export * from "./po-core";
+export * from "./purchase-orders";
+export * from "./supplier-invoices";
+export { getEInvoiceVerifier, setEInvoiceVerifier, mockEInvoiceVerifier, qrSvgDataUri, decodeSignedQr, type EInvoiceVerifier, type EInvoiceCheckInput, type EInvoiceCheckResult, type EInvoiceCheckStatus } from "./einvoice";
+export { purgePurchaseOrderDocuments } from "./po-retention";

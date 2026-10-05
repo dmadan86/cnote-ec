@@ -52,9 +52,12 @@ model Order {
   /// latest tracking reference (courier name + AWB), optional
   trackingCourier  String?     @map("tracking_courier")
   trackingRef      String?     @map("tracking_ref")
+  /// When the order moved to `delivered` (the buyer's delivery confirmation = day of acceptance for MSMED s.15 / IT Act s.43B(h)).
+  deliveredAt      DateTime?   @map("delivered_at") @db.Timestamptz
   createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   fulfilmentEvents OrderFulfilmentEvent[]
+  purchaseOrder    PurchaseOrder?
 
   @@unique([matchId])
   @@index([buyerBusinessId, createdAt])
@@ -77,4 +80,222 @@ model OrderFulfilmentEvent {
 
   @@index([orderId, createdAt])
   @@map("order_fulfilment_events")
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Purchase orders, supplier invoices, e-invoice / e-way bill references and MSME payment-due tracking
+// (docs/design/purchase-orders.md). Owned by @cnote/enquiry. Money is integer paise (BigInt). Dates without a time are
+// Indian-calendar dates (@db.Date).
+// ---------------------------------------------------------------------------------------------------------------------------
+
+enum PurchaseOrderStatus {
+  issued // sent, waiting for the seller's answer
+  acknowledged // the seller accepted the current version
+  rejected // the seller rejected the current version
+  cancelled
+
+  @@map("purchase_order_status")
+}
+
+enum SupplierInvoiceStatus {
+  open // outstanding (or partly paid)
+  paid // fully paid
+  void // withdrawn by the seller (only before any payment)
+
+  @@map("supplier_invoice_status")
+}
+
+/// The stable identity of a PO. Content lives in immutable PurchaseOrderVersion rows; an amendment adds a version.
+model PurchaseOrder {
+  id                    String              @id @default(uuid()) @db.Uuid
+  /// one PO per order (an amendment is a new version, not a new PO)
+  orderId               String              @unique @map("order_id") @db.Uuid
+  buyerBusinessId       String              @map("buyer_business_id") @db.Uuid
+  sellerBusinessId      String              @map("seller_business_id") @db.Uuid
+  /// gap-free per buyer business and Indian financial year, e.g. "PO/26-27/000012"
+  number                String
+  financialYear         String              @map("financial_year")
+  status                PurchaseOrderStatus @default(issued)
+  currentVersion        Int                 @default(1) @map("current_version")
+  cancelledAt           DateTime?           @map("cancelled_at") @db.Timestamptz
+  cancelledByBusinessId String?             @map("cancelled_by_business_id") @db.Uuid
+  cancelReason          String?             @map("cancel_reason")
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  order                 Order               @relation(fields: [orderId], references: [id])
+  versions              PurchaseOrderVersion[]
+  invoices              SupplierInvoice[]
+
+  @@unique([buyerBusinessId, number])
+  @@index([sellerBusinessId, createdAt])
+  @@index([buyerBusinessId, createdAt])
+  @@map("purchase_orders")
+}
+
+/// One sent version of a PO. NEVER updated after insert (the PDF key is set once, right after the PDF is stored).
+model PurchaseOrderVersion {
+  id                String   @id @default(uuid()) @db.Uuid
+  purchaseOrderId   String   @map("purchase_order_id") @db.Uuid
+  version           Int
+  /// agreed payment terms in days from acceptance of goods; 0 = on delivery / advance
+  paymentTermsDays  Int      @map("payment_terms_days")
+  expectedDelivery  DateTime? @map("expected_delivery") @db.Date
+  /// { name, legalName, gstin, stateCode } snapshots of both parties
+  buyer             Json
+  seller            Json
+  /// { label, contactName, phone, line1, line2, city, state, stateCode, pincode } copied from the buyer's saved address
+  deliveryAddress   Json     @map("delivery_address")
+  placeOfSupply     String   @map("place_of_supply")
+  intraState        Boolean  @map("intra_state")
+  taxablePaise      BigInt   @map("taxable_paise")
+  cgstPaise         BigInt   @map("cgst_paise")
+  sgstPaise         BigInt   @map("sgst_paise")
+  igstPaise         BigInt   @map("igst_paise")
+  totalPaise        BigInt   @map("total_paise")
+  notes             String?
+  /// private media bucket key of the immutable PDF and its sha256 (tamper evidence)
+  pdfKey            String?  @map("pdf_key")
+  pdfSha256         String?  @map("pdf_sha256")
+  createdByPersonId String   @map("created_by_person_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  lines             PurchaseOrderLine[]
+  acks              PurchaseOrderAck[]
+
+  @@unique([purchaseOrderId, version])
+  @@map("purchase_order_versions")
+}
+
+/// Line-based so multi-line RFQs (parallel work) can issue N lines; today the single quote line becomes line 1.
+model PurchaseOrderLine {
+  id               String   @id @default(uuid()) @db.Uuid
+  versionId        String   @map("version_id") @db.Uuid
+  lineNo           Int      @map("line_no")
+  description      String
+  hsn              String?
+  quantity         Int
+  unit             String
+  unitPricePaise   BigInt   @map("unit_price_paise")
+  /// the unit price already includes GST (quote said "GST included")
+  priceIncludesGst Boolean  @default(false) @map("price_includes_gst")
+  gstRateBps       Int      @map("gst_rate_bps")
+  taxablePaise     BigInt   @map("taxable_paise")
+  taxPaise         BigInt   @map("tax_paise")
+  totalPaise       BigInt   @map("total_paise")
+  quoteId          String?  @map("quote_id") @db.Uuid
+  version          PurchaseOrderVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@unique([versionId, lineNo])
+  @@map("purchase_order_lines")
+}
+
+/// Append-only seller answers. The current answer of a version is its latest row; no row = still pending.
+model PurchaseOrderAck {
+  id         String   @id @default(uuid()) @db.Uuid
+  versionId  String   @map("version_id") @db.Uuid
+  decision   String // "accepted" | "rejected"
+  reason     String?
+  byPersonId String   @map("by_person_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  version    PurchaseOrderVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([versionId, createdAt])
+  @@map("purchase_order_acks")
+}
+
+/// Gap-free PO numbering per buyer business and financial year. The row lock is held until the issuing transaction ends.
+model PurchaseOrderSequence {
+  buyerBusinessId String @map("buyer_business_id") @db.Uuid
+  financialYear   String @map("financial_year")
+  lastNumber      Int    @default(0) @map("last_number")
+
+  @@id([buyerBusinessId, financialYear])
+  @@map("purchase_order_sequences")
+}
+
+/// The seller's own tax invoice recorded against a PO (a record, not an invoice issued by the platform), with optional
+/// e-invoice / e-way bill references and the MSME payment due date.
+model SupplierInvoice {
+  id                 String   @id @default(uuid()) @db.Uuid
+  purchaseOrderId    String   @map("purchase_order_id") @db.Uuid
+  /// PO version whose terms applied when the invoice was recorded
+  poVersion          Int      @map("po_version")
+  orderId            String   @map("order_id") @db.Uuid
+  buyerBusinessId    String   @map("buyer_business_id") @db.Uuid
+  sellerBusinessId   String   @map("seller_business_id") @db.Uuid
+  invoiceNumber      String   @map("invoice_number")
+  invoiceDate        DateTime @map("invoice_date") @db.Date
+  financialYear      String   @map("financial_year")
+  taxablePaise       BigInt   @map("taxable_paise")
+  gstPaise           BigInt   @map("gst_paise")
+  totalPaise         BigInt   @map("total_paise")
+  status             SupplierInvoiceStatus @default(open)
+  voidReason         String?  @map("void_reason")
+  // uploaded copy (private bucket)
+  fileKey            String?  @map("file_key")
+  fileName           String?  @map("file_name")
+  fileMime           String?  @map("file_mime")
+  fileSize           Int?     @map("file_size")
+  // e-invoice (record-only; see the EInvoiceVerifier port)
+  irn                String?  @unique
+  ackNo              String?  @map("ack_no")
+  ackDate            DateTime? @map("ack_date") @db.Timestamptz
+  signedQr           String?  @map("signed_qr")
+  /// consistent | mismatch | unchecked (from the EInvoiceVerifier port)
+  eInvoiceCheck      String?  @map("e_invoice_check")
+  eInvoiceNote       String?  @map("e_invoice_note")
+  ewbNo              String?  @map("ewb_no")
+  ewbValidUntil      DateTime? @map("ewb_valid_until") @db.Timestamptz
+  // MSME payment due (IT Act s.43B(h) / MSMED Act s.15)
+  /// the seller was a covered micro/small enterprise when the invoice was recorded
+  msmeCovered        Boolean  @default(false) @map("msme_covered")
+  /// written_agreement (PO accepted by the seller) | no_agreement (statutory 15 days)
+  agreementBasis     String   @map("agreement_basis")
+  agreedDays         Int?     @map("agreed_days")
+  /// delivery (buyer confirmed delivery) | invoice_date (fallback until delivery is confirmed)
+  dueBasis           String   @map("due_basis")
+  acceptanceDate     DateTime @map("acceptance_date") @db.Date
+  dueDate            DateTime? @map("due_date") @db.Date
+  paidPaise          BigInt   @default(0) @map("paid_paise")
+  paidAt             DateTime? @map("paid_at") @db.Timestamptz
+  recordedByPersonId String   @map("recorded_by_person_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  purchaseOrder      PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  payments           SupplierInvoicePayment[]
+  reminders          SupplierInvoiceReminder[]
+
+  @@unique([sellerBusinessId, financialYear, invoiceNumber])
+  @@index([purchaseOrderId])
+  @@index([buyerBusinessId, status, dueDate])
+  @@index([msmeCovered, status, dueDate])
+  @@map("supplier_invoices")
+}
+
+/// Payments the buyer recorded against a supplier invoice (money moves off-platform in Phase 1; this is the buyer's record).
+model SupplierInvoicePayment {
+  id          String   @id @default(uuid()) @db.Uuid
+  invoiceId   String   @map("invoice_id") @db.Uuid
+  amountPaise BigInt   @map("amount_paise")
+  paidOn      DateTime @map("paid_on") @db.Date
+  /// UTR / payment reference
+  reference   String
+  byPersonId  String   @map("by_person_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  invoice     SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([invoiceId, reference])
+  @@map("supplier_invoice_payments")
+}
+
+/// Which due-date reminder stages were already sent (t7 | t1 | overdue): the scheduled job inserts one row per stage per
+/// invoice together with its event, so a re-run sends nothing twice.
+model SupplierInvoiceReminder {
+  invoiceId String   @map("invoice_id") @db.Uuid
+  stage     String
+  sentAt    DateTime @default(now()) @map("sent_at") @db.Timestamptz
+  invoice   SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@id([invoiceId, stage])
+  @@map("supplier_invoice_reminders")
 }

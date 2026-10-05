@@ -37,3 +37,5 @@ export { findOrCreatePersonByVerifiedPhone } from "./verified-phone";
 export * from "./kyc";
 export * from "./audits";
 export * from "./addresses";
+// MSME declaration + party profiles for purchase orders / supplier invoices (docs/design/purchase-orders.md)
+export * from "./msme";
