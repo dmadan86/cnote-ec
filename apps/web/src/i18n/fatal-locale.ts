@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { DEFAULT_LOCALE, LOCALE_COOKIE, localizePath, splitLocale, toLocale, isLocale, type Locale } from "./config";
 import { FATAL_COPY, type FatalCopy } from "./fatal-copy";
 
@@ -24,11 +24,10 @@ export interface FatalView {
   search: string;
 }
 
-/** Copy + locale-aware links for a failure page. Renders English first (matches the static HTML), then switches. */
+const noop = () => () => undefined;
+
+/** Copy + locale-aware links for a failure page. Server/hydration render English (matches the static HTML); the client then switches. */
 export function useFatalView(): FatalView {
-  const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE);
-  useEffect(() => {
-    setLocale(detectFatalLocale(window.location.pathname, document.cookie));
-  }, []);
+  const locale = useSyncExternalStore<Locale>(noop, () => detectFatalLocale(window.location.pathname, document.cookie), () => DEFAULT_LOCALE);
   return { locale, copy: FATAL_COPY[locale], home: localizePath("/", locale), search: localizePath("/search", locale) };
 }

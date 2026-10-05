@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AccountPage() {
   const s = await requireSession("/account");
   const locale = await getRequestLocale();
-  const [t, t2, tc, consents, sessions] = await Promise.all([getTranslations({ locale, namespace: "account" }), getTranslations({ locale, namespace: "account2" }), getTranslations({ locale, namespace: "consent" }), getConsents(s.personId), listAuthSessions(s.personId, s.sessionId, "web")]);
+  const [t, t2, tc, tn, consents, sessions] = await Promise.all([getTranslations({ locale, namespace: "account" }), getTranslations({ locale, namespace: "account2" }), getTranslations({ locale, namespace: "consent" }), getTranslations({ locale, namespace: "nominee" }), getConsents(s.personId), listAuthSessions(s.personId, s.sessionId, "web")]);
   const when = (iso: string) => formatDate(iso, locale, { dateStyle: "medium", timeStyle: "short" });
 
   return (
@@ -81,6 +81,14 @@ export default async function AccountPage() {
             <p className="text-sm text-muted">{t("downloadBody")}</p>
             {/* Plain anchor: /account/export is a route handler returning a file, so client-side <Link> navigation would break the download. */}
             <a href="/account/export" download className={buttonClasses("outline", "md", "self-start")}>{t("downloadButton")}</a>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>{tn("navTitle")}</CardTitle></CardHeader>
+          <CardBody className="flex flex-col gap-3">
+            <p className="text-sm text-muted">{tn("navBody")}</p>
+            <Link href="/account/nominee" className={buttonClasses("outline", "md", "self-start")}>{tn("navLink")}</Link>
           </CardBody>
         </Card>
 
