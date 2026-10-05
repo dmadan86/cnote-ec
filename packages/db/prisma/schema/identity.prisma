@@ -87,6 +87,10 @@ model Business {
   name             String
   gstin            String?  @unique
   udyam            String?
+  /// Seller-declared MSME size class: micro | small | medium (null = not declared). Drives the IT Act s.43B(h) payment-due
+  /// tracking (docs/design/purchase-orders.md); micro and small count, and an Udyam number must be on file.
+  msmeCategory     String?  @map("msme_category")
+  msmeDeclaredAt   DateTime? @map("msme_declared_at") @db.Timestamptz
   /// Company profile (seller-declared, verified against GST/MCA data)
   legalName        String?  @map("legal_name")
   tradeName        String?  @map("trade_name")

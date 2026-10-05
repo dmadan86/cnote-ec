@@ -232,6 +232,17 @@ export interface DomainEventPayloads {
   /** Chain ended without approval: a rejection, a withdrawal by the requester or the SLA expiry. */
   ApprovalRejected:     { requestId: string; businessId: string; action: string; subjectType: string; subjectId: string; subjectSummary: string; amountPaise: number; requesterPersonId: string; cause: "rejected" | "cancelled" | "expired"; deciderPersonId: string | null };
   ApprovalReminder:     { requestId: string; businessId: string; subjectSummary: string; level: number; reminderNo: number; approverPersonIds: string[] };
+  // purchase orders, supplier invoices and MSME payment dues (docs/design/purchase-orders.md)
+  PurchaseOrderIssued: { purchaseOrderId: string; orderId: string; number: string; version: 1; buyerBusinessId: string; sellerBusinessId: string; totalPaise: number; paymentTermsDays: number };
+  PurchaseOrderAmended: { purchaseOrderId: string; orderId: string; number: string; version: number; previousVersion: number; buyerBusinessId: string; sellerBusinessId: string; totalPaise: number; paymentTermsDays: number };
+  PurchaseOrderAcknowledged: { purchaseOrderId: string; orderId: string; number: string; version: number; buyerBusinessId: string; sellerBusinessId: string; decision: "accepted" | "rejected"; reason: string | null };
+  PurchaseOrderCancelled: { purchaseOrderId: string; orderId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; cancelledByBusinessId: string; reason: string | null };
+  SupplierInvoiceRecorded: { supplierInvoiceId: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; invoiceNumber: string; totalPaise: number; dueDate: string | null; msmeCovered: boolean; hasIrn: boolean; hasEwayBill: boolean };
+  SupplierInvoicePaymentRecorded: { supplierInvoiceId: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; amountPaise: number; paidOn: string; fullyPaid: boolean; msmeCovered: boolean; late: boolean };
+  /** Scheduled MSME 43B(h) reminder: stage t7 = due in 7 days or less, t1 = due tomorrow or today, overdue = past due. Sent once per stage. */
+  SupplierInvoiceDueReminder: { supplierInvoiceId: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; invoiceNumber: string; stage: "t7" | "t1" | "overdue"; dueDate: string; outstandingPaise: number; daysOverdue: number };
+  SupplierInvoiceVoided: { supplierInvoiceId: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; invoiceNumber: string; reason: string; system: boolean };
+  BusinessMsmeDeclared: { businessId: string; category: "micro" | "small" | "medium" | null; udyamOnFile: boolean };
 }
 
 export type DomainEventType = keyof DomainEventPayloads;
@@ -401,6 +412,16 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   ApprovalApproved: 1,
   ApprovalRejected: 1,
   ApprovalReminder: 1,
+  // purchase orders / supplier invoices / MSME dues
+  PurchaseOrderIssued: 1,
+  PurchaseOrderAmended: 1,
+  PurchaseOrderAcknowledged: 1,
+  PurchaseOrderCancelled: 1,
+  SupplierInvoiceRecorded: 1,
+  SupplierInvoicePaymentRecorded: 1,
+  SupplierInvoiceDueReminder: 1,
+  SupplierInvoiceVoided: 1,
+  BusinessMsmeDeclared: 1,
 };
 
 export interface DomainEvent<T extends DomainEventType = DomainEventType> {

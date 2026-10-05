@@ -5,6 +5,8 @@ import { DomainError, emit } from "@cnote/core";
 import { prisma, type Order, type OrderStatus, type Tx } from "@cnote/db";
 import { profiles } from "./support";
 import { availableFulfilmentStages, type FulfilmentStage } from "./fulfilment";
+import { onOrderCancelledTx } from "./purchase-orders";
+import { onOrderDeliveredTx } from "./supplier-invoices";
 import type { Actor } from "./types";
 
 export type OrderRole = "buyer" | "seller";
@@ -333,15 +335,21 @@ async function loadLocked(tx: Tx, actor: Actor, orderId: string): Promise<{ orde
   return { order, role };
 }
 
-async function persist(tx: Tx, order: Order, next: OrderState): Promise<Order> {
+async function persist(tx: Tx, order: Order, next: OrderState, actorBusinessId: string = order.buyerBusinessId): Promise<Order> {
+  const now = new Date();
+  const deliveredNow = next.status === "delivered" && order.status !== "delivered";
   const updated = await tx.order.update({
     where: { id: order.id },
-    data: { status: next.status, buyerConfirmedAt: next.buyerConfirmedAt, sellerConfirmedAt: next.sellerConfirmedAt },
+    data: { status: next.status, buyerConfirmedAt: next.buyerConfirmedAt, sellerConfirmedAt: next.sellerConfirmedAt, ...(deliveredNow ? { deliveredAt: now } : {}) },
   });
   if (updated.status !== order.status) {
     await emit(tx, "OrderStatusChanged", { type: "order", id: order.id }, {
       orderId: order.id, buyerBusinessId: order.buyerBusinessId, sellerBusinessId: order.sellerBusinessId, from: order.status, to: updated.status,
     });
+    // Purchase orders / supplier invoices follow the order (docs/design/purchase-orders.md): delivery fixes the MSME acceptance date,
+    // cancellation cancels the PO and withdraws unpaid invoices.
+    if (deliveredNow) await onOrderDeliveredTx(tx, order.id, now);
+    if (updated.status === "cancelled") await onOrderCancelledTx(tx, order.id, actorBusinessId);
   }
   return updated;
 }
@@ -360,7 +368,7 @@ export async function confirmOrder(actor: Actor, orderId: string): Promise<Order
 export async function transitionOrder(actor: Actor, orderId: string, to: OrderMove): Promise<OrderView> {
   const updated = await prisma.$transaction(async (tx) => {
     const { order, role } = await loadLocked(tx, actor, orderId);
-    return persist(tx, order, applyMove(order, role, to));
+    return persist(tx, order, applyMove(order, role, to), actor.businessId);
   });
   return (await toViews([updated], actor))[0]!;
 }

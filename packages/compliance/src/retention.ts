@@ -6,7 +6,7 @@
 // (`RETENTION_<KEY>_DAYS`) with the safe defaults below. Consent ledger rows and admin audit logs are never purged.
 import { prisma } from "@cnote/db";
 import * as catalogue from "@cnote/catalogue";
-import { purgeAttachmentQuarantine, purgeEndedEnquiryAttachments, purgeEnquirySignals, purgeInactiveConversationMessages } from "@cnote/enquiry";
+import { purgeAttachmentQuarantine, purgeEndedEnquiryAttachments, purgeEnquirySignals, purgeInactiveConversationMessages, purgePurchaseOrderDocuments } from "@cnote/enquiry";
 import { purgeAuditPhotos, purgeErasedPersonResiduals, purgeExpiredAuthSessions, purgeKycDocuments } from "@cnote/identity";
 import { purgeAbandonedCaptures } from "@cnote/leadgen";
 import { purgeReadNotifications } from "@cnote/notifications";
@@ -233,6 +233,13 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     description: "Used, revoked and expired team invitations (they hold the invitee's email address).",
     legalBasis: "DPDP s.8(7)",
     run: (before, { dryRun }) => purgeOldInvites(before, { dryRun }),
+  },
+  // purchase orders / supplier invoices (docs/design/purchase-orders.md)
+  {
+    name: "enquiry.po_documents_7y", module: "enquiry", envKey: "PO_DOCUMENTS", defaultDays: 2555, supportsDryRun: true,
+    description: "Closed purchase orders (cancelled, or on a completed or cancelled order) and settled supplier invoices: delivery contact name/phone are blanked and the stored PDF / uploaded invoice copies are deleted. Numbers, amounts, versions, e-invoice references and payment records are kept.",
+    legalBasis: "DPDP s.8(7); the monetary record stays for GST s.36 / Income Tax Act record keeping, so only the personal data and document files go after 7 years",
+    run: (before, { dryRun }) => purgePurchaseOrderDocuments(before, { dryRun }),
   },
 ];
 

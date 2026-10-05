@@ -30,3 +30,10 @@ export * from "./awards";
 export { exportPersonalData } from "./privacy";
 export * from "./risk";
 export { rfqEstimatePaise } from "./approvals";
+
+// Purchase orders, supplier invoices, e-invoice / e-way bill references, MSME 43B(h) payment dues (docs/design/purchase-orders.md)
+export * from "./po-core";
+export * from "./purchase-orders";
+export * from "./supplier-invoices";
+export { getEInvoiceVerifier, setEInvoiceVerifier, mockEInvoiceVerifier, qrSvgDataUri, decodeSignedQr, type EInvoiceVerifier, type EInvoiceCheckInput, type EInvoiceCheckResult, type EInvoiceCheckStatus } from "./einvoice";
+export { purgePurchaseOrderDocuments } from "./po-retention";

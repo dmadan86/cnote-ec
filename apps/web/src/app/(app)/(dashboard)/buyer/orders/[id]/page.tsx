@@ -1,6 +1,6 @@
-import { getOrder } from "@cnote/enquiry";
+import { getOrder, purchaseOrderSummaries, purchaseOrdersEnabled } from "@cnote/enquiry";
 import { actorOf, requireBusiness } from "@cnote/next-kit";
-import { Alert, Card, CardBody, CardTitle, Container, Money, PageHeader } from "@cnote/ui";
+import { Alert, Badge, Card, CardBody, CardTitle, Container, Money, PageHeader, buttonClasses } from "@cnote/ui";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
@@ -13,6 +13,7 @@ import { EscrowPanel } from "@/features/escrow/escrow-panel";
 import { OrderStatusBadge } from "@/features/orders/status";
 import { RequestAgain } from "@/features/retention/request-again";
 import { ReportProblem } from "@/features/disputes/report-problem";
+import { PO_TONE } from "@/features/purchase-orders/po-view";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations({ locale: await getRequestLocale(), namespace: "titles" });
@@ -26,6 +27,8 @@ export default async function BuyerOrderPage(props: { params: Promise<{ id: stri
   if (!o || o.role !== "buyer") notFound();
   const locale = await getRequestLocale();
   const t = await getTranslations({ locale, namespace: "buyer" });
+  const tp = await getTranslations({ locale, namespace: "po" });
+  const poSummary = purchaseOrdersEnabled() && o.settlement !== "ondc" && o.status !== "cancelled" ? (await purchaseOrderSummaries(actorOf(s), [o.id])).get(o.id) ?? null : undefined;
   const dt = { format: (d: Date) => formatDate(d, locale, { dateStyle: "medium", timeStyle: "short" }) };
   return (
     <Container className="max-w-3xl py-8">
@@ -50,6 +53,22 @@ export default async function BuyerOrderPage(props: { params: Promise<{ id: stri
             </dl>
           </CardBody>
         </Card>
+        {poSummary !== undefined ? (
+          <Card>
+            <CardBody className="flex flex-col gap-3">
+              <CardTitle>{tp("panelTitle")}</CardTitle>
+              {poSummary ? (
+                <p className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="font-mono">{poSummary.number}</span>
+                  <Badge tone={PO_TONE[poSummary.status]}>{tp(`status.${poSummary.status}`)}</Badge>
+                </p>
+              ) : <p className="text-sm text-muted">{tp("panelNone")}</p>}
+              <div>
+                <Link href={`/buyer/orders/${o.id}/purchase-order`} className={buttonClasses(poSummary ? "outline" : "primary")}>{poSummary ? tp("panelOpen") : tp("panelIssue")}</Link>
+              </div>
+            </CardBody>
+          </Card>
+        ) : null}
         <TrackingTimeline actor={actorOf(s)} order={o} locale={locale} />
         <EscrowPanel actor={actorOf(s)} order={o} locale={locale} />
         <OrderActions orderId={o.id} actions={o.actions} />

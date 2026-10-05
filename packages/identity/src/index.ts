@@ -46,3 +46,6 @@ export * from "./registry";
 // Buyer team roles, invitations and owner transfer (docs/design/buyer-approvals.md).
 export * from "./team";
 export { exportTeamData, purgeOldInvites } from "./team-privacy";
+
+// MSME declaration + party profiles for purchase orders / supplier invoices (docs/design/purchase-orders.md)
+export * from "./msme";

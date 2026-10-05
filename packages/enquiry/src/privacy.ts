@@ -5,7 +5,7 @@ import { prisma } from "@cnote/db";
 
 export async function exportPersonalData(personId: string, ctx: PersonalExportContext): Promise<PersonalExport> {
   const biz = ctx.businessIds;
-  const [enquiries, messages, quotes, orders, dealReports, attachments, quarantined, signals, enquiryLines, quoteLines] = await Promise.all([
+  const [enquiries, messages, quotes, orders, dealReports, attachments, quarantined, signals, enquiryLines, quoteLines, purchaseOrders, supplierInvoices] = await Promise.all([
     prisma.enquiry.findMany({
       where: { buyerPersonId: personId },
       orderBy: { createdAt: "asc" },
@@ -59,6 +59,25 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
     prisma.enquiryLine.findMany({ where: { enquiry: { buyerPersonId: personId } }, orderBy: [{ enquiryId: "asc" }, { ordinal: "asc" }], take: EXPORT_TAKE }),
     // per-line prices the person's businesses quoted
     biz.length ? prisma.quoteLine.findMany({ where: { quote: { sellerBusinessId: { in: biz } } }, orderBy: { createdAt: "asc" }, take: EXPORT_TAKE }) : Promise.resolve([]),
+    // purchase orders (docs/design/purchase-orders.md): every version with lines, parties, delivery address (contact name/phone) and the seller's answers; never storage keys
+    biz.length
+      ? prisma.purchaseOrder.findMany({
+          where: { OR: [{ buyerBusinessId: { in: biz } }, { sellerBusinessId: { in: biz } }] },
+          orderBy: { createdAt: "asc" },
+          take: EXPORT_TAKE,
+          include: { versions: { orderBy: { version: "asc" }, omit: { pdfKey: true }, include: { lines: { orderBy: { lineNo: "asc" } }, acks: true } } },
+        })
+      : Promise.resolve([]),
+    // supplier invoices recorded by or against the person's businesses, with e-invoice / e-way bill references and payments
+    biz.length
+      ? prisma.supplierInvoice.findMany({
+          where: { OR: [{ buyerBusinessId: { in: biz } }, { sellerBusinessId: { in: biz } }] },
+          orderBy: { createdAt: "asc" },
+          take: EXPORT_TAKE,
+          omit: { fileKey: true },
+          include: { payments: { orderBy: { createdAt: "asc" } } },
+        })
+      : Promise.resolve([]),
   ]);
   return {
     enquiries: exportCollection(enquiries),
@@ -71,5 +90,7 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
     fakeLeadSignals: exportCollection(signals),
     enquiryLines: exportCollection(enquiryLines),
     quoteLines: exportCollection(quoteLines),
+    purchaseOrders: exportCollection(purchaseOrders),
+    supplierInvoices: exportCollection(supplierInvoices),
   };
 }

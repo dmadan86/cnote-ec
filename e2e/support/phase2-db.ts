@@ -129,3 +129,66 @@ export async function seedNegotiation(email: string, mandateId: string): Promise
     return { negotiationId: String(n.id) };
   });
 }
+
+// ---- purchase orders / supplier invoices (docs/design/purchase-orders.md) -------------------------------------------------------
+
+/**
+ * A delivered order for the buyer with an accepted purchase order (one line, intra-state) and two supplier invoices from a
+ * declared micro/small seller: one overdue with an e-invoice (IRN + signed QR) and an e-way bill, one due in 5 days.
+ * Also saves a default delivery address for the buyer.
+ */
+export async function seedPurchaseOrder(email: string): Promise<{ orderId: string; purchaseOrderId: string; overdueInvoiceId: string; openInvoiceId: string } & Principal> {
+  return withDb(async (c) => {
+    const me = await principalOf(c, email);
+    const seller = await otherSeller(c, me.businessId);
+    await c.query("update businesses set udyam = coalesce(udyam, 'UDYAM-MH-01-0000001'), msme_category = 'small', msme_declared_at = now() where id = $1", [seller]);
+    await c.query(
+      "insert into business_addresses (id, business_id, label, line1, city, state, state_code, pincode, is_default, updated_at) values (gen_random_uuid(), $1, 'Warehouse', '12 Industrial Area', 'Pune', 'Maharashtra', '27', '411001', true, now())",
+      [me.businessId],
+    );
+    const o = (
+      await c.query(
+        `insert into orders (id, buyer_business_id, seller_business_id, status, price_paise, quantity, unit, total_paise, buyer_confirmed_at, seller_confirmed_at, delivered_at, updated_at)
+         values (gen_random_uuid(), $1, $2, 'delivered', 25000, 100, 'pcs', 2500000, now(), now(), now() - interval '50 days', now()) returning id`,
+        [me.businessId, seller],
+      )
+    ).rows[0]!;
+    const fy = "2026-27";
+    await c.query("insert into purchase_order_sequences (buyer_business_id, financial_year, last_number) values ($1, $2, 1)", [me.businessId, fy]);
+    const po = (
+      await c.query(
+        "insert into purchase_orders (id, order_id, buyer_business_id, seller_business_id, number, financial_year, status, current_version, updated_at) values (gen_random_uuid(), $1, $2, $3, 'PO/26-27/000001', $4, 'acknowledged', 1, now()) returning id",
+        [o.id, me.businessId, seller, fy],
+      )
+    ).rows[0]!;
+    const party = (name: string) => JSON.stringify({ name, legalName: null, gstin: null, stateCode: "27" });
+    const v = (
+      await c.query(
+        `insert into purchase_order_versions (id, purchase_order_id, version, payment_terms_days, expected_delivery, buyer, seller, delivery_address, place_of_supply, intra_state, taxable_paise, cgst_paise, sgst_paise, igst_paise, total_paise, created_by_person_id)
+         values (gen_random_uuid(), $1, 1, 30, current_date + 7, $2::jsonb, $3::jsonb, $4::jsonb, '27', true, 2500000, 225000, 225000, 0, 2950000, $5) returning id`,
+        [po.id, party("E2E buyer"), party("E2E seller"), JSON.stringify({ label: "Warehouse", contactName: null, phone: null, line1: "12 Industrial Area", line2: null, city: "Pune", state: "Maharashtra", stateCode: "27", pincode: "411001" }), me.personId],
+      )
+    ).rows[0]!;
+    await c.query(
+      "insert into purchase_order_lines (id, version_id, line_no, description, hsn, quantity, unit, unit_price_paise, price_includes_gst, gst_rate_bps, taxable_paise, tax_paise, total_paise) values (gen_random_uuid(), $1, 1, 'Corrugated boxes', '4819', 100, 'pcs', 25000, false, 1800, 2500000, 450000, 2950000)",
+      [v.id],
+    );
+    await c.query("insert into purchase_order_acks (id, version_id, decision, by_person_id) values (gen_random_uuid(), $1, 'accepted', $2)", [v.id, me.personId]);
+    const inv = async (number: string, invoiceDaysAgo: number, due: string, extra: { irn?: string; qr?: string; ewb?: string } = {}) =>
+      String(
+        (
+          await c.query(
+            `insert into supplier_invoices (id, purchase_order_id, po_version, order_id, buyer_business_id, seller_business_id, invoice_number, invoice_date, financial_year, taxable_paise, gst_paise, total_paise,
+               irn, ack_no, ack_date, signed_qr, e_invoice_check, ewb_no, ewb_valid_until, msme_covered, agreement_basis, agreed_days, due_basis, acceptance_date, due_date, recorded_by_person_id, updated_at)
+             values (gen_random_uuid(), $1, 1, $2, $3, $4, $5, current_date - $6::int, $7, 1000000, 180000, 1180000,
+               $8, case when $8::text is null then null else '112010000012345' end, case when $8::text is null then null else now() end, $9, case when $8::text is null then null else 'unchecked' end, $10, case when $10::text is null then null else now() + interval '2 days' end,
+               true, 'written_agreement', 30, 'delivery', current_date - 50, current_date + $11::int, $12, now()) returning id`,
+            [po.id, o.id, me.businessId, seller, number, invoiceDaysAgo, fy, extra.irn ?? null, extra.qr ?? null, extra.ewb ?? null, Number(due), me.personId],
+          )
+        ).rows[0]!.id,
+      );
+    const overdue = await inv("INV/26-27/001", 45, "-20", { irn: "a".repeat(64), qr: "eyJhbGciOiJSUzI1NiJ9.eyJkYXRhIjoie30ifQ.c2ln", ewb: "123456789012" });
+    const open = await inv("INV/26-27/002", 2, "5");
+    return { ...me, orderId: String(o.id), purchaseOrderId: String(po.id), overdueInvoiceId: overdue, openInvoiceId: open };
+  });
+}
