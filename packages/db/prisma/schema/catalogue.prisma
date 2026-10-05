@@ -59,6 +59,11 @@ model Listing {
   packaging        String?
   sampleAvailable  Boolean          @default(false) @map("sample_available")
   samplePricePaise BigInt?          @map("sample_price_paise")
+  /// Sample workflow settings (docs/design/samples.md); only meaningful when sampleAvailable
+  sampleMaxQty       Int?           @map("sample_max_qty")
+  sampleDispatchDays Int?           @map("sample_dispatch_days")
+  /// sellers may require buyers at this verification tier or above (ADR-003); null/0 = any signed-in buyer
+  sampleMinBuyerTier Int?           @map("sample_min_buyer_tier")
   /// units (priceUnit) the seller can supply per month
   supplyCapacityPerMonth Int?       @map("supply_capacity_per_month")
   paymentTerms     String?          @map("payment_terms")

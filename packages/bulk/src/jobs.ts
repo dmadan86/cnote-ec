@@ -235,6 +235,19 @@ async function saveCheckpoint(jobId: string, row: number, o: Outcome): Promise<v
   }
 }
 
+/** Trade info for the sample columns merged over the listing's existing trade facts; null when the row sets no sample column. */
+function sampleTrade(r: ImportRow, existing: catalogue.TradeInfo | undefined): catalogue.TradeInfo | null {
+  const touched = [r.sampleAvailable, r.samplePricePaise, r.sampleMaxQty, r.sampleDispatchDays, r.sampleMinBuyerTier].some((x) => x !== undefined);
+  if (!touched) return null;
+  const t: catalogue.TradeInfo = { ...(existing ?? {}) };
+  if (r.sampleAvailable !== undefined) t.sampleAvailable = r.sampleAvailable;
+  if (r.samplePricePaise !== undefined) t.samplePricePaise = r.samplePricePaise;
+  if (r.sampleMaxQty !== undefined) t.sampleMaxQty = r.sampleMaxQty;
+  if (r.sampleDispatchDays !== undefined) t.sampleDispatchDays = r.sampleDispatchDays;
+  if (r.sampleMinBuyerTier !== undefined) t.sampleMinBuyerTier = r.sampleMinBuyerTier;
+  return t;
+}
+
 const baseName = (p: string) => p.split("/").pop() ?? p;
 
 async function processRow(job: JobRow, opts: ImportOptions, r: ImportRow, images: Map<string, Uint8Array>, entryOf: Map<string, string>): Promise<Outcome> {
@@ -255,12 +268,15 @@ async function processRow(job: JobRow, opts: ImportOptions, r: ImportRow, images
       if (r.hsn !== undefined) patch.hsn = r.hsn;
       if (r.language !== undefined) patch.language = r.language;
       if (r.imageUrls.length) patch.imageUrls = r.imageUrls;
+      const trade = sampleTrade(r, ex.trade);
+      if (trade) patch.trade = trade;
       listingId = (await catalogue.updateListing(bid, ex.id, patch)).id;
       kind = "u";
     } else {
       const created = await catalogue.createListing(bid, {
         sku: r.sku, categoryId: r.categoryId, title: r.title, description: r.description ?? "", attributes: r.attributes, pricePaise: r.pricePaise ?? null, priceUnit: r.priceUnit ?? null,
         moq: r.moq ?? null, moqUnit: r.moqUnit ?? null, hsn: r.hsn ?? null, language: r.language ?? "en", imageUrls: r.imageUrls,
+        ...(sampleTrade(r, undefined) ? { trade: sampleTrade(r, undefined)! } : {}),
       });
       listingId = created.id;
       kind = "c";
@@ -490,7 +506,10 @@ export async function buildExport(sellerBusinessId: string, opts: { format: "xls
     }
     const values: Record<string, Cell> = {
       sku, title: l.title, category: l.category.slug, description: l.description, price_rupees: l.pricePaise === null ? "" : l.pricePaise / 100, price_unit: l.priceUnit, moq: l.moq,
-      moq_unit: l.moqUnit, hsn: l.hsn, language: l.language, image_files: files.map((f) => f.name).join(", "), image_urls: l.imageUrls.filter((u) => u.startsWith("https://")).join(", "),
+      moq_unit: l.moqUnit, hsn: l.hsn, language: l.language,
+      sample_available: l.trade?.sampleAvailable ? "yes" : "", sample_price_rupees: l.trade?.samplePricePaise == null ? "" : l.trade.samplePricePaise / 100,
+      sample_max_qty: l.trade?.sampleMaxQty ?? "", sample_dispatch_days: l.trade?.sampleDispatchDays ?? "", sample_min_buyer_tier: l.trade?.sampleMinBuyerTier ?? "",
+      image_files: files.map((f) => f.name).join(", "), image_urls: l.imageUrls.filter((u) => u.startsWith("https://")).join(", "),
     };
     for (const [k, v] of Object.entries(l.attributes)) values[`attr:${k}`] = v;
     lines.push([

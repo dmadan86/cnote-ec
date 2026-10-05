@@ -73,6 +73,7 @@ const INSTRUCTIONS = [
   "",
   "OPTIONAL COLUMNS",
   "description (max 5000; at least 10 characters if you submit for review), price_rupees (e.g. 12.50; empty = ask for price), price_unit, moq (whole number >= 1), moq_unit, hsn (4-8 digits), language (en, hi, kn, ta, te, mr, gu, bn; default en).",
+  "sample_available (yes/no), sample_price_rupees (0 = free), sample_max_qty, sample_dispatch_days, sample_min_buyer_tier (0-3): let buyers request a sample before a bulk order. Empty cells leave the current setting unchanged.",
   "attr:<name> columns are the attributes of a category (for example attr:gsm). Fill them only for products in that category; see the Categories sheet for the list, units and allowed options.",
   "",
   "IMAGES",

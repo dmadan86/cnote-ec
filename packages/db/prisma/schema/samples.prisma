@@ -1,0 +1,131 @@
+// Owned by @cnote/samples. Sample request and approval workflow before a bulk order (docs/design/samples.md). Flag SAMPLES_ENABLED.
+// No relations to foreign models: business, person, listing, enquiry, quote and match ids are plain ids. Sample payment is OFF-PLATFORM
+// in Phase 1 (we record the amount and whether it is adjustable against the bulk order; no money moves). Photos live in the PRIVATE
+// media bucket under samples/<sampleId>/.
+
+enum SampleStatus {
+  requested // waiting for the seller (48h SLA, then expired)
+  accepted
+  declined
+  dispatched
+  delivered
+  approved // buyer evaluation: approved => the "golden sample" quality reference for the bulk order
+  rejected // buyer evaluation: rejected with structured reasons
+  expired // seller did not respond within the SLA
+  cancelled // buyer withdrew before dispatch
+
+  @@map("sample_status")
+}
+
+model SampleRequest {
+  id               String       @id @default(uuid()) @db.Uuid
+  buyerBusinessId  String       @map("buyer_business_id") @db.Uuid
+  buyerPersonId    String       @map("buyer_person_id") @db.Uuid
+  sellerBusinessId String       @map("seller_business_id") @db.Uuid
+  /// set when requested from a listing page
+  listingId        String?      @map("listing_id") @db.Uuid
+  /// listing title or requirement title at request time (so history survives an unpublished listing)
+  subject          String
+  /// set when requested inside a matched conversation / against a quote
+  matchId          String?      @map("match_id") @db.Uuid
+  enquiryId        String?      @map("enquiry_id") @db.Uuid
+  quoteId          String?      @map("quote_id") @db.Uuid
+  quantity         Int
+  unit             String?
+  buyerNote        String?      @map("buyer_note")
+  language         String       @default("en")
+  /// buyer verification tier when requested (ADR-003)
+  buyerTier        Int          @default(0) @map("buyer_tier")
+  status           SampleStatus @default(requested)
+
+  /// Ship-to details. PERSONAL DATA: shown to the seller only once the request is accepted; blanked by the retention purge.
+  shipName         String?      @map("ship_name")
+  shipPhone        String?      @map("ship_phone")
+  shipLine1        String?      @map("ship_line1")
+  shipLine2        String?      @map("ship_line2")
+  shipCity         String?      @map("ship_city")
+  shipPincode      String?      @map("ship_pincode")
+
+  /// Payment is recorded only (Phase 1, off-platform). Defaults come from the listing's sample price; the seller can set them on accept.
+  amountPaise           BigInt    @default(0) @map("amount_paise")
+  adjustableAgainstBulk Boolean   @default(false) @map("adjustable_against_bulk")
+  paymentNote           String?   @map("payment_note")
+  paymentReceivedAt     DateTime? @map("payment_received_at") @db.Timestamptz
+
+  /// createdAt + SAMPLES_RESPONSE_HOURS (48h)
+  respondBy           DateTime  @map("respond_by") @db.Timestamptz
+  respondedAt         DateTime? @map("responded_at") @db.Timestamptz
+  respondedByPersonId String?   @map("responded_by_person_id") @db.Uuid
+  declineReason       String?   @map("decline_reason")
+  declineNote         String?   @map("decline_note")
+  /// acceptedAt + the listing's dispatch days when known
+  expectedDispatchBy  DateTime? @map("expected_dispatch_by") @db.Timestamptz
+
+  courier      String?
+  trackingRef  String?   @map("tracking_ref")
+  dispatchedAt DateTime? @map("dispatched_at") @db.Timestamptz
+  deliveredAt  DateTime? @map("delivered_at") @db.Timestamptz
+  /// buyer | seller
+  deliveredBy  String?   @map("delivered_by")
+
+  evaluatedAt         DateTime? @map("evaluated_at") @db.Timestamptz
+  evaluatedByPersonId String?  @map("evaluated_by_person_id") @db.Uuid
+  /// structured reasons (codes from the module's EVALUATION_REASONS), required for a rejection
+  evaluationReasons   String[] @default([]) @map("evaluation_reasons")
+  evaluationNotes     String?  @map("evaluation_notes")
+
+  /// "Request bulk quote" follow-up: the RFQ created from this approved sample (the sample is its golden-sample quality reference)
+  bulkEnquiryId   String?   @map("bulk_enquiry_id") @db.Uuid
+  bulkRequestedAt DateTime? @map("bulk_requested_at") @db.Timestamptz
+
+  /// "<buyerBusinessId>:<listingId>" while the request is open (requested/accepted/dispatched/delivered); unique, so a buyer cannot stack
+  /// several open requests for one product. Cleared on any terminal status.
+  activeKey            String?   @unique @map("active_key")
+  /// retention purge marker (ship-to, notes, photos removed)
+  personalDataPurgedAt DateTime? @map("personal_data_purged_at") @db.Timestamptz
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  media SampleMedia[]
+  log   SampleStatusLog[]
+
+  @@index([buyerBusinessId, createdAt(sort: Desc)])
+  @@index([sellerBusinessId, status, createdAt(sort: Desc)])
+  @@index([status, respondBy])
+  @@index([bulkEnquiryId])
+  @@index([quoteId])
+  @@map("sample_requests")
+}
+
+/// Buyer evaluation photos (private bucket). Deleted by the retention purge.
+model SampleMedia {
+  id                String    @id @default(uuid()) @db.Uuid
+  sampleId          String    @map("sample_id") @db.Uuid
+  key               String    @unique
+  mimeType          String    @map("mime_type")
+  sizeBytes         Int       @map("size_bytes")
+  createdByPersonId String    @map("created_by_person_id") @db.Uuid
+  purgedAt          DateTime? @map("purged_at") @db.Timestamptz
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  sample SampleRequest @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+
+  @@index([sampleId])
+  @@map("sample_media")
+}
+
+/// Append-only history of status moves (drives the tracking timeline). Never updated by the app.
+model SampleStatusLog {
+  id        String       @id @default(uuid()) @db.Uuid
+  sampleId  String       @map("sample_id") @db.Uuid
+  status    SampleStatus
+  /// buyer | seller | system
+  actor     String
+  note      String?
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  sample SampleRequest @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+
+  @@index([sampleId, createdAt])
+  @@map("sample_status_log")
+}
