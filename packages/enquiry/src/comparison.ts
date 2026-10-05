@@ -1,6 +1,8 @@
 // Buyer-side quote comparison and the "My requirements" board status (ADR-002 transparency, ADR-007 lifecycle).
+import { getSubjectStatuses, recordSpend } from "@cnote/approvals";
 import { DomainError } from "@cnote/core";
 import { prisma } from "@cnote/db";
+import { assertCan, consult } from "./approvals";
 import { quoteAttachments, type AttachmentView } from "./attachments";
 import { reportDeal } from "./messaging";
 import { getQuote, toQuoteView, type QuoteView } from "./quotes";
@@ -48,6 +50,8 @@ export interface ComparisonRow {
   decision: "won" | "lost" | "pending" | null;
   /** Earlier quotes this seller replaced (only the latest is compared). */
   earlierQuotes: number;
+  /** Approval status of accepting this quote (docs/design/buyer-approvals.md); null when no approval was ever asked. */
+  approval: { status: "pending" | "approved" | "rejected" | "cancelled" | "expired"; requestId: string } | null;
 }
 
 export interface QuoteComparison {
@@ -100,9 +104,12 @@ export async function getQuoteComparison(actor: Actor, enquiryId: string): Promi
         // a seller-reported "won" is an unconfirmed claim, never the buyer's decision (security audit M7)
         decision: m.dealReports.find((r) => !(r.outcome === "won" && r.reportedByBusinessId === m.sellerBusinessId))?.outcome ?? null,
         earlierQuotes: quotes.length - 1,
+        approval: null,
       };
     })
     .sort((a, b) => a.rank - b.rank);
+  const approvalOf = await getSubjectStatuses(actor.businessId, "quote", rows.map((r) => r.quote.id));
+  for (const r of rows) r.approval = approvalOf.get(r.quote.id) ?? null;
   return {
     enquiryId: enq.id,
     quantity: enq.quantity,
@@ -126,11 +133,52 @@ export async function setQuoteShortlisted(actor: Actor, quoteId: string, shortli
  * report (ADR-007): accept = "won" at the quote's total for the requested quantity (an Order record is created),
  * decline = "lost". The value is computed here from the stored quote, never taken from the client.
  */
-export async function decideQuote(actor: Actor, quoteId: string, decision: "accept" | "decline"): Promise<void> {
+export async function decideQuote(actor: Actor, quoteId: string, decision: "accept" | "decline"): Promise<DecideQuoteResult> {
   const q = await getQuote(actor, quoteId);
   if (!q || q.role !== "buyer") throw new DomainError("not_found", "Quote not found");
   if (decision !== "accept" && decision !== "decline") throw new DomainError("validation", "Invalid decision");
-  if (decision === "decline") { await reportDeal(actor, q.matchId, "lost"); return; }
+  const isMember = await assertCan(actor, "quote.decide");
+  if (decision === "decline") { await reportDeal(actor, q.matchId, "lost"); return { status: "declined", requestId: null }; }
+  const total = await quoteTotalPaise(q);
+  // docs/design/buyer-approvals.md: a matching rule (or the member's spend limit) holds the acceptance until the chain signs off;
+  // the held acceptance then completes from the ApprovalApproved event (resumeApprovedQuote).
+  const gate = await consult(actor, { action: "quote_accept", amountPaise: total, subject: { type: "quote", id: quoteId, summary: `${q.enquiryTitle} (₹${(total / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })})`.slice(0, 190) } }, isMember);
+  if (gate.status === "pending") return { status: "pending_approval", requestId: gate.requestId };
+  if (gate.status === "rejected") throw new DomainError("conflict", "The approval for this quote was rejected.");
+  await completeAcceptance(actor, q.matchId, quoteId, total, isMember);
+  return { status: "accepted", requestId: gate.requestId };
+}
+
+export interface DecideQuoteResult {
+  status: "accepted" | "declined" | "pending_approval";
+  requestId: string | null;
+}
+
+/** Per-unit price x the requested quantity (the quote's own quantity when none was requested), from stored data only. */
+async function quoteTotalPaise(q: { enquiryId: string; pricePaise: number; quantity: number }): Promise<number> {
   const enq = await prisma.enquiry.findUnique({ where: { id: q.enquiryId }, select: { quantity: true } });
-  await reportDeal(actor, q.matchId, "won", q.pricePaise * (enq?.quantity ?? q.quantity));
+  return q.pricePaise * (enq?.quantity ?? q.quantity);
+}
+
+/** Records the buyer's "won" (creating the order record) and the spend. Idempotent: a repeated call or event redelivery changes nothing. */
+async function completeAcceptance(actor: Actor, matchId: string, quoteId: string, total: number, isMember: boolean): Promise<void> {
+  const already = await prisma.dealReport.findFirst({ where: { matchId, reportedByBusinessId: actor.businessId, outcome: "won" }, select: { id: true } });
+  if (!already) await reportDeal(actor, matchId, "won", total);
+  if (isMember) await recordSpend({ businessId: actor.businessId, personId: actor.personId, amountPaise: total, action: "quote_accept", subject: { type: "quote", id: quoteId } });
+}
+
+/**
+ * ApprovalApproved for a quote: completes the acceptance the requester asked for, as the requester. Quietly ignores a quote that is
+ * no longer acceptable (the lead closed meanwhile): retrying could never succeed.
+ */
+export async function resumeApprovedQuote(p: { businessId: string; subjectId: string; requesterPersonId: string }): Promise<void> {
+  const actor: Actor = { personId: p.requesterPersonId, businessId: p.businessId };
+  const q = await getQuote(actor, p.subjectId);
+  if (!q || q.role !== "buyer") return;
+  try {
+    await completeAcceptance(actor, q.matchId, p.subjectId, await quoteTotalPaise(q), true);
+  } catch (e) {
+    if (e instanceof DomainError && (e.code === "conflict" || e.code === "not_found")) return;
+    throw e;
+  }
 }

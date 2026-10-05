@@ -25,3 +25,4 @@ export * from "./comparison";
 
 // DPDP access right: registered with @cnote/compliance's export registry (security audit M10).
 export { exportPersonalData } from "./privacy";
+export { rfqEstimatePaise } from "./approvals";

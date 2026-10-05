@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@cnote/ai": "workspace:*",
+    "@cnote/approvals": "workspace:*",
     "@cnote/billing": "workspace:*",
     "@cnote/catalogue": "workspace:*",
     "@cnote/core": "workspace:*",
