@@ -6,8 +6,9 @@ export type BestColumn = "rank" | "price" | "total" | "leadTime" | "tier";
 
 const num: Record<SortKey, (r: ComparisonRow) => number> = {
   rank: (r) => r.rank,
-  price: (r) => r.quote.pricePaise,
-  total: (r) => r.totalPaise,
+  // A per-line quote has no single unit price, and a partial quote's lower total is not comparable: neither can be "best" here (the line matrix compares per line).
+  price: (r) => (r.coverage ? Number.POSITIVE_INFINITY : r.quote.pricePaise),
+  total: (r) => (r.coverage && r.coverage.quoted < r.coverage.of ? Number.POSITIVE_INFINITY : r.totalPaise),
   // A missing lead time sorts last rather than looking "fastest".
   leadTime: (r) => r.quote.leadTimeDays ?? Number.POSITIVE_INFINITY,
   tier: (r) => -r.verificationTier,

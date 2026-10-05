@@ -5,7 +5,7 @@ import { prisma } from "@cnote/db";
 
 export async function exportPersonalData(personId: string, ctx: PersonalExportContext): Promise<PersonalExport> {
   const biz = ctx.businessIds;
-  const [enquiries, messages, quotes, orders, dealReports, attachments, quarantined, signals] = await Promise.all([
+  const [enquiries, messages, quotes, orders, dealReports, attachments, quarantined, signals, enquiryLines, quoteLines] = await Promise.all([
     prisma.enquiry.findMany({
       where: { buyerPersonId: personId },
       orderBy: { createdAt: "asc" },
@@ -55,6 +55,10 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
       take: EXPORT_TAKE,
       select: { enquiryId: true, uaFamily: true, velocityPerson1h: true, velocityPerson24h: true, velocityIp24h: true, riskScore: true, riskReasons: true, label: true, createdAt: true },
     }),
+    // bill-of-materials lines on the person's requirements
+    prisma.enquiryLine.findMany({ where: { enquiry: { buyerPersonId: personId } }, orderBy: [{ enquiryId: "asc" }, { ordinal: "asc" }], take: EXPORT_TAKE }),
+    // per-line prices the person's businesses quoted
+    biz.length ? prisma.quoteLine.findMany({ where: { quote: { sellerBusinessId: { in: biz } } }, orderBy: { createdAt: "asc" }, take: EXPORT_TAKE }) : Promise.resolve([]),
   ]);
   return {
     enquiries: exportCollection(enquiries),
@@ -65,5 +69,7 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
     attachments: exportCollection(attachments),
     quarantinedAttachments: exportCollection(quarantined),
     fakeLeadSignals: exportCollection(signals),
+    enquiryLines: exportCollection(enquiryLines),
+    quoteLines: exportCollection(quoteLines),
   };
 }

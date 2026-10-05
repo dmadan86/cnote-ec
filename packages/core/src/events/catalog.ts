@@ -30,8 +30,8 @@ export interface DomainEventPayloads {
   ListingAvailabilityChanged: { listingId: string; sellerBusinessId: string; fromAvailability: "in_stock" | "made_to_order" | "out_of_stock"; toAvailability: "in_stock" | "made_to_order" | "out_of_stock"; availableQty: number | null; variantId: string | null };
   ListingImageModerated: { imageId: string; listingId: string; sellerBusinessId: string; status: "approved" | "rejected"; moderatedBy: string };
   // enquiry & matching
-  /** v2 adds the RFQ depth fields (all optional, absent on v1 rows): attachment count (files are never in the event), preferred minimum seller tier and the quote expiry. */
-  EnquiryCreated: { enquiryId: string; buyerBusinessId: string; categoryId: string | null; attachmentCount?: number; minSellerTier?: number | null; expiresAt?: string | null };
+  /** v2 adds the RFQ depth fields (all optional, absent on v1 rows): attachment count (files are never in the event), preferred minimum seller tier and the quote expiry. v3 (rfq-multiline) adds `lineCount`, the number of bill-of-materials lines (1..50); absent on v1/v2 rows. */
+  EnquiryCreated: { enquiryId: string; buyerBusinessId: string; categoryId: string | null; attachmentCount?: number; minSellerTier?: number | null; expiresAt?: string | null; lineCount?: number };
   EnquiryScored: { enquiryId: string; intentScore: number; needsReview: boolean };
   LeadMatched: { enquiryId: string; matchId: string; sellerBusinessId: string; rank: number; matchScore: number };
   LeadAccepted: { enquiryId: string; matchId: string; sellerBusinessId: string; creditTxnId: string | null; responseMs: number };
@@ -43,7 +43,8 @@ export interface DomainEventPayloads {
   LeadRefundReviewed: { enquiryId: string; matchId: string; sellerBusinessId: string; decision: "approved" | "rejected"; decidedBy: string };
   ConversationStarted: { conversationId: string; matchId: string };
   MessageSent: { conversationId: string; messageId: string; senderPersonId: string };
-  QuoteSent: { quoteId: string; conversationId: string; sellerBusinessId: string; pricePaise: number; quantity: number };
+  /** v2 (rfq-multiline) adds per-line quote summary, absent on v1 rows: `lineCount` priced lines and the server-computed `totalPaise` (lines, GST per line). `pricePaise`/`quantity` mirror the first priced line. */
+  QuoteSent: { quoteId: string; conversationId: string; sellerBusinessId: string; pricePaise: number; quantity: number; lineCount?: number; totalPaise?: number };
   DealReportedOffPlatform: { matchId: string; reportedByBusinessId: string; outcome: "won" | "lost" | "pending"; valuePaise?: number };
   /** the seller reports the deal as won: advisory only, the buyer is asked to confirm (security audit M7) */
   DealClaimedBySeller: { matchId: string; sellerBusinessId: string; buyerBusinessId: string; conversationId: string | null; valuePaise?: number };
@@ -81,6 +82,8 @@ export interface DomainEventPayloads {
   SupplierContacted: { buyerPersonId: string; sellerBusinessId: string; listingId: string; enquiryId: string; channel: "call" | "whatsapp" | "email" | "enquiry" };
   // orders (ADR-007 stub; off-platform in Phase 1)
   OrderRecorded: { orderId: string; matchId: string; enquiryId: string; buyerBusinessId: string; sellerBusinessId: string; totalPaise: number | null };
+  /** The buyer awarded requirement lines to one supplier's quote (rfq-multiline): one event per supplier, emitted with the Order that is recorded for it. */
+  LinesAwarded: { enquiryId: string; quoteId: string; orderId: string; matchId: string; buyerBusinessId: string; sellerBusinessId: string; enquiryLineIds: string[]; totalPaise: number };
   OrderStatusChanged: { orderId: string; buyerBusinessId: string; sellerBusinessId: string; from: string; to: string };
   // compliance (ADR-010)
   GrievanceFiled: { ticketId: string; personId: string | null; category: string; dueAt: string };
@@ -240,7 +243,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   ListingUnpublished: 1,
   ListingPriceChanged: 1,
   ListingAvailabilityChanged: 1,
-  EnquiryCreated: 2,
+  EnquiryCreated: 3,
   EnquiryScored: 1,
   LeadMatched: 1,
   LeadAccepted: 1,
@@ -251,7 +254,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   LeadRefundReviewed: 1,
   ConversationStarted: 1,
   MessageSent: 1,
-  QuoteSent: 1,
+  QuoteSent: 2,
   DealReportedOffPlatform: 1,
   DealClaimedBySeller: 1,
   ReviewSubmitted: 1,
@@ -275,6 +278,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   LeadCaptureConverted: 1,
   SupplierContacted: 1,
   OrderRecorded: 1,
+  LinesAwarded: 1,
   OrderStatusChanged: 1,
   GrievanceFiled: 1,
   GrievanceResolved: 1,

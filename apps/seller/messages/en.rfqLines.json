@@ -1,0 +1,26 @@
+{
+  "rfqLines": {
+    "formTitle": "Price each line",
+    "formIntro": "Price the lines you can supply. Leave a line empty to skip it, or mark it as can't supply. The buyer can award lines to different suppliers, so a partial quote is fine.",
+    "lineN": "Line {n}: {item}",
+    "lineQty": "Quantity {qty} {unit}",
+    "hsn": "HSN {hsn}",
+    "target": "Target {price}",
+    "cantSupply": "I can't supply this line",
+    "price": "Unit price (₹ per {unit})",
+    "skipHint": "Leave empty to skip this line.",
+    "gstRate": "GST rate",
+    "gstNone": "No GST",
+    "leadTime": "Delivery time (days)",
+    "lineNote": "Note for this line (optional)",
+    "summary": "{quoted} of {total} lines priced. Estimated total {amount}.",
+    "summaryHint": "The final total, with GST per line, is calculated when you send.",
+    "errPrice": "Enter a valid price for line {n}.",
+    "errNeedOne": "Price at least one line.",
+    "perLineQuote": "Per-line quote: {count} lines priced, total {amount}",
+    "rowCant": "Line {n}, {item}: can't supply",
+    "rowPriced": "Line {n}, {item}: {price} x {qty}",
+    "itemsHeading": "Items ({count})",
+    "lineLabel": "{n}. {item}"
+  }
+}

@@ -22,6 +22,7 @@ export default async function ConversationPage({ params }: PageProps<"/conversat
   const { id } = await params;
   const session = await requireSeller(`/conversations/${id}`);
   const t = await getTranslations("leads.conversation");
+  const tl = await getTranslations("rfqLines");
   const loc = await getLocale();
   const locale = isLocale(loc) ? loc : "en";
   const res = await load(() => enquiry.getConversation(actorOf(session), id));
@@ -71,8 +72,20 @@ export default async function ConversationPage({ params }: PageProps<"/conversat
             <ul className="space-y-2" aria-label={t("quotesSent")}>
               {c.quotes.map((q) => (
                 <li key={q.id} className="rounded-lg border border-line p-3 text-sm">
-                  {t.rich("quoteFor", { price: el(<Money paise={q.pricePaise} unit={q.unit} />), quantity: q.quantity, unit: q.unit })}
-                  {q.leadTimeDays != null ? `, ${t("quoteDelivery", { days: q.leadTimeDays })}` : ""}
+                  {q.lineTotals ? (
+                    <>
+                      <p className="font-medium text-ink">{tl("perLineQuote", { count: q.lineTotals.quotedLineCount, amount: `₹${(q.lineTotals.totalPaise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}` })}</p>
+                      <ul className="mt-1 list-disc pl-5 text-xs text-muted">
+                        {(q.lines ?? []).map((l) => {
+                          const item = c.lines.find((x) => x.id === l.enquiryLineId)?.itemName ?? "";
+                          return <li key={l.id}>{l.cantSupply || l.unitPricePaise === null ? tl("rowCant", { n: l.ordinal, item }) : tl("rowPriced", { n: l.ordinal, item, price: `₹${(l.unitPricePaise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`, qty: l.quantity })}</li>;
+                        })}
+                      </ul>
+                    </>
+                  ) : (
+                    t.rich("quoteFor", { price: el(<Money paise={q.pricePaise} unit={q.unit} />), quantity: q.quantity, unit: q.unit })
+                  )}
+                  {q.leadTimeDays != null && !q.lineTotals ? `, ${t("quoteDelivery", { days: q.leadTimeDays })}` : ""}
                   {q.validUntil ? `, ${t("quoteValid", { date: formatDate(q.validUntil, locale) })}` : ""}
                   <QuoteTerms q={q} />
                   {q.notes ? <p className="mt-1 text-muted">{q.notes}</p> : null}
@@ -81,7 +94,7 @@ export default async function ConversationPage({ params }: PageProps<"/conversat
               ))}
             </ul>
           ) : null}
-          <QuoteForm conversationId={c.id} />
+          <QuoteForm conversationId={c.id} lines={c.lines} />
         </CardBody>
       </Card>
 

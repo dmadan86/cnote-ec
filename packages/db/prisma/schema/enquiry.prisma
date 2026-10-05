@@ -70,6 +70,8 @@ model Enquiry {
   category    Category? @relation(fields: [categoryId], references: [id])
   matches     Match[]
   attachments EnquiryAttachment[]
+  lines       EnquiryLine[]
+  lineAwards  EnquiryLineAward[]
 
   @@index([buyerBusinessId, createdAt])
   @@map("enquiries")
@@ -152,11 +154,19 @@ model Quote {
   gstIncluded         Boolean? @map("gst_included")
   /// Set when the buyer shortlists this quote on the comparison table; null = not shortlisted. Buyer-only state.
   shortlistedAt    DateTime? @map("shortlisted_at") @db.Timestamptz
+  /// Per-line quotes (docs/design/rfq-multiline.md): server-computed from QuoteLine rows. Null on single-field legacy quotes.
+  /// subtotal = sum of line amounts (ex GST), gst = sum of line GST, total = subtotal + gst (or subtotal when prices include GST).
+  lineSubtotalPaise BigInt? @map("line_subtotal_paise")
+  lineGstPaise      BigInt? @map("line_gst_paise")
+  lineTotalPaise    BigInt? @map("line_total_paise")
+  /// How many requirement lines this quote prices (can't-supply lines excluded); null on legacy quotes.
+  quotedLineCount   Int?    @map("quoted_line_count")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   conversation Conversation @relation(fields: [conversationId], references: [id])
   seller       Business     @relation(fields: [sellerBusinessId], references: [id])
   attachments  EnquiryAttachment[]
+  lines        QuoteLine[]
 
   /// Seller quote history, keyset-paged (createdAt desc, id desc).
   @@index([sellerBusinessId, createdAt(sort: Desc), id(sort: Desc)])
@@ -299,4 +309,91 @@ model EnquirySignals {
   @@index([label, createdAt])
   @@index([ipHash, createdAt])
   @@map("enquiry_signals")
+}
+
+/// One line of a multi-line RFQ / bill of materials (1..50 per enquiry). Line 1 mirrors Enquiry.quantity/unit for backward
+/// compatibility. `categoryId` is a plain uuid (catalogue owns categories; no cross-module relation).
+model EnquiryLine {
+  id               String   @id @default(uuid()) @db.Uuid
+  enquiryId        String   @map("enquiry_id") @db.Uuid
+  /// 1-based position, unique per enquiry
+  ordinal          Int
+  itemName         String   @map("item_name")
+  spec             String?
+  quantity         Int
+  unit             String
+  targetPricePaise BigInt?  @map("target_price_paise")
+  categoryId       String?  @map("category_id") @db.Uuid
+  hsn              String?
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  enquiry    Enquiry            @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+  quoteLines QuoteLine[]
+  award      EnquiryLineAward?
+
+  @@unique([enquiryId, ordinal])
+  @@map("enquiry_lines")
+}
+
+/// A seller's price for one requirement line. Partial quotes simply have no row (or a cantSupply row) for a line.
+/// Amounts are server-computed: lineSubtotal = unitPrice x line quantity; GST per `gstRatePct` (inclusive or exclusive per Quote.gstIncluded).
+model QuoteLine {
+  id                String   @id @default(uuid()) @db.Uuid
+  quoteId           String   @map("quote_id") @db.Uuid
+  enquiryLineId     String   @map("enquiry_line_id") @db.Uuid
+  /// per unit, paise; null when cantSupply
+  unitPricePaise    BigInt?  @map("unit_price_paise")
+  gstRatePct        Int?     @map("gst_rate_pct")
+  leadTimeDays      Int?     @map("lead_time_days")
+  cantSupply        Boolean  @default(false) @map("cant_supply")
+  notes             String?
+  /// quantity the amounts were computed for (the requirement line's quantity at quote time)
+  quantity          Int
+  lineSubtotalPaise BigInt?  @map("line_subtotal_paise")
+  lineGstPaise      BigInt?  @map("line_gst_paise")
+  lineTotalPaise    BigInt?  @map("line_total_paise")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  quote Quote             @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  line  EnquiryLine       @relation(fields: [enquiryLineId], references: [id], onDelete: Cascade)
+  award EnquiryLineAward?
+
+  @@unique([quoteId, enquiryLineId])
+  @@index([enquiryLineId])
+  @@map("quote_lines")
+}
+
+/// Per-line award: the buyer gave this requirement line to one supplier's quote. A line is awarded at most once. The
+/// price/spec columns are an immutable snapshot (what a purchase order consumes via getAwardedLines); `orderId` is the
+/// off-platform Order recorded for that supplier (plain uuid, one order per match).
+model EnquiryLineAward {
+  id                String   @id @default(uuid()) @db.Uuid
+  enquiryId         String   @map("enquiry_id") @db.Uuid
+  enquiryLineId     String   @unique @map("enquiry_line_id") @db.Uuid
+  quoteId           String   @map("quote_id") @db.Uuid
+  quoteLineId       String   @unique @map("quote_line_id") @db.Uuid
+  sellerBusinessId  String   @map("seller_business_id") @db.Uuid
+  orderId           String?  @map("order_id") @db.Uuid
+  ordinal           Int
+  itemName          String   @map("item_name")
+  spec              String?
+  hsn               String?
+  quantity          Int
+  unit              String
+  unitPricePaise    BigInt   @map("unit_price_paise")
+  gstRatePct        Int?     @map("gst_rate_pct")
+  leadTimeDays      Int?     @map("lead_time_days")
+  lineSubtotalPaise BigInt   @map("line_subtotal_paise")
+  lineGstPaise      BigInt   @map("line_gst_paise")
+  lineTotalPaise    BigInt   @map("line_total_paise")
+  gstIncluded       Boolean? @map("gst_included")
+  awardedAt         DateTime @default(now()) @map("awarded_at") @db.Timestamptz
+
+  enquiry   Enquiry     @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+  line      EnquiryLine @relation(fields: [enquiryLineId], references: [id], onDelete: Cascade)
+  quoteLine QuoteLine   @relation(fields: [quoteLineId], references: [id], onDelete: Cascade)
+
+  @@index([enquiryId])
+  @@index([orderId])
+  @@map("enquiry_line_awards")
 }

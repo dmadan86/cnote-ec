@@ -16,3 +16,5 @@ export {
 } from "./jobs";
 export { setBulkStore, getBulkStore, MemoryBulkStore, type BulkStore } from "./store";
 export { worker } from "./worker";
+// rfq-multiline: generic small-sheet reader (also importable as @cnote/bulk/sheet without the import-job machinery)
+export { readSheetMatrix, type SheetLimits, type SheetMatrix } from "./sheet";

@@ -1,10 +1,13 @@
 // Public view/input types of @cnote/enquiry (re-exported from index.ts).
 import type { AttachmentUpload, AttachmentView } from "./attachments";
+import type { EnquiryLineInput, EnquiryLineView } from "./lines";
 import type { QuoteView } from "./quotes";
 
 export interface EnquiryInput {
-  title: string;
-  requirement: string;
+  /** Required unless `lines` is given (then derived from the lines). */
+  title?: string;
+  /** Required unless `lines` is given. */
+  requirement?: string;
   categorySlug?: string | null;
   quantity?: number | null;
   quantityUnit?: string | null;
@@ -23,6 +26,11 @@ export interface EnquiryInput {
   minSellerTier?: number | null;
   /** Up to 5 drawings/specs (PDF/JPG/PNG, 10 MB each). Stored privately; never sent to an AI model. */
   attachments?: AttachmentUpload[] | null;
+  /**
+   * Multi-line RFQ / bill of materials (1..50 lines). When given, the RFQ `title` is optional (derived), and
+   * `quantity`/`quantityUnit`/`targetPricePaise` mirror line 1. Without it the enquiry is a one-line RFQ made from the single fields.
+   */
+  lines?: EnquiryLineInput[] | null;
   /** Optional: enquiry started from a listing page — that seller is ranked first if eligible. */
   preferredListingId?: string | null;
   /** Optional: enquiry started from a seller's storefront — that seller is ranked first if eligible. */
@@ -91,6 +99,8 @@ export interface EnquiryView {
   expiresAt: string | null;
   minSellerTier: number | null;
   attachments: AttachmentView[];
+  /** Requirement lines (always at least one; line 1 mirrors quantity/unit above). */
+  lines: EnquiryLineView[];
   /** Quotes received across all matched sellers (buyer board only). */
   quoteCount?: number;
   /** buyerPicks enquiry with no sellers picked yet (status stays "scoring"; there is no dedicated status). */
@@ -135,6 +145,8 @@ export interface ConversationView {
   seller: { businessId: string; name: string };
   messages: { id: string; senderPersonId: string; body: string; createdAt: string }[];
   quotes: QuoteView[];
+  /** Requirement lines (so a seller can quote line by line). */
+  lines: EnquiryLineView[];
   dealReported: "won" | "lost" | "pending" | null;
   /** The seller says the deal closed; only the buyer's own "won" report makes it an order (security audit M7). */
   sellerClaimedWon?: boolean;

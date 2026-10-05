@@ -73,8 +73,17 @@ export const TOOLS: ToolDef[] = [
     description:
       "Post a buyer requirement. It is intent-scored and, if it passes, matched exclusively to at most N sellers (N is in `sellerCap`), ranked by relevance and trust. Low-intent enquiries are held for review; prohibited categories are rejected. Not idempotent: calling twice creates two enquiries. Money is in integer paise.",
     input: {
-      title: z.string().min(5).max(140),
-      requirement: z.string().min(10).max(4000).describe("Specs, standards, certifications, delivery constraints"),
+      title: z.string().min(5).max(140).optional().describe("Required unless `lines` is given"),
+      requirement: z.string().min(10).max(4000).optional().describe("Specs, standards, certifications, delivery constraints. Required unless `lines` is given"),
+      lines: z.array(z.object({
+        itemName: z.string().min(1).max(140),
+        spec: z.string().max(1000).optional(),
+        quantity: z.number().int().positive(),
+        unit: z.string().min(1).max(20),
+        targetPricePaise: z.number().int().positive().optional().describe("Target unit price in paise"),
+        categorySlug: z.string().optional(),
+        hsn: z.string().optional().describe("4, 6 or 8 digit HSN"),
+      })).min(1).max(50).optional().describe("Bill of materials: 1-50 lines for a multi-line RFQ. quantity/quantityUnit/targetPricePaise then mirror line 1"),
       categorySlug: z.string().optional(),
       quantity: z.number().int().positive().optional(),
       quantityUnit: z.string().max(20).optional(),
@@ -180,17 +189,33 @@ export const TOOLS: ToolDef[] = [
   }),
   tool({
     name: "send_quote", scope: "messages:write", title: "Send quote (seller)", annotations: write(),
-    description: "Seller: send a price quote in a conversation. Only the seller side can quote. pricePaise is the UNIT price in integer paise. A quote is a commercial offer; confirm terms with the human first.",
+    description: "Seller: send a price quote in a conversation. Only the seller side can quote. pricePaise is the UNIT price in integer paise. For a multi-line RFQ (enquiry.lines has more than one line) send `lines` instead: one entry per line you can supply (skip or mark cantSupply the rest); the server computes totals. A quote is a commercial offer; confirm terms with the human first.",
     input: {
       conversationId: id("Conversation id"),
-      pricePaise: z.number().int().positive(),
-      quantity: z.number().int().positive(),
-      unit: z.string().min(1).max(20),
+      pricePaise: z.number().int().positive().optional().describe("Unit price in paise; not needed when `lines` is given"),
+      quantity: z.number().int().positive().optional(),
+      unit: z.string().min(1).max(20).optional(),
+      gstIncluded: z.boolean().optional().describe("Unit prices already include GST"),
+      lines: z.array(z.object({
+        ordinal: z.number().int().positive().describe("1-based line number of the enquiry line"),
+        unitPricePaise: z.number().int().positive().optional(),
+        gstRatePct: z.number().int().min(0).max(40).optional(),
+        leadTimeDays: z.number().int().min(0).max(730).optional(),
+        cantSupply: z.boolean().optional(),
+        notes: z.string().max(300).optional(),
+      })).min(1).max(50).optional(),
       leadTimeDays: z.number().int().min(0).max(730).optional(),
       notes: z.string().max(2000).optional(),
       validUntil: z.string().optional().describe("ISO date"),
     },
     run: (p, { conversationId, ...q }) => ops.quote(p, conversationId, q),
+  }),
+  tool({
+    name: "award_lines", scope: "enquiries:write", title: "Award RFQ lines to supplier quotes (buyer)", annotations: write(),
+    description:
+      "Buyer: award requirement lines of a multi-line RFQ to supplier quotes (the supplier's latest quote on get_enquiry's conversations). Lines can go to different suppliers; each supplier gets one order covering only its lines. A line can be awarded once. This records a won deal: confirm with the human first.",
+    input: { enquiryId: id("Enquiry id"), awards: z.array(z.object({ enquiryLineId: id("Requirement line id"), quoteId: id("Quote id") })).min(1).max(50) },
+    run: (p, a) => ops.awardEnquiryLines(p, a.enquiryId, a.awards),
   }),
   tool({
     name: "list_wishlists", scope: "wishlist:read", title: "List wishlists", annotations: read,

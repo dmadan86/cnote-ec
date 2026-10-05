@@ -16,6 +16,7 @@
     "@cnote/ai": "workspace:*",
     "@cnote/alerts": "workspace:*",
     "@cnote/billing": "workspace:*",
+    "@cnote/bulk": "workspace:*",
     "@cnote/catalogue": "workspace:*",
     "@cnote/compliance": "workspace:*",
     "@cnote/consent": "workspace:*",

@@ -6,6 +6,7 @@ import { clientIp } from "@cnote/security/client-ip";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { attributeEnquiryFromCookie } from "@/features/ads/slots";
+import { linesFromForm } from "./bom";
 
 /** Whole-request cap for the upload route: every allowed attachment at full size plus form fields and multipart framing. */
 export const RFQ_UPLOAD_MAX_BYTES = MAX_RFQ_ATTACHMENTS * MAX_RFQ_ATTACHMENT_BYTES + 512 * 1024;
@@ -39,6 +40,7 @@ export async function postRfq(f: FormData, s: SessionWithBusiness, opts: { withF
     {
       title: str(f, "title") ?? "",
       requirement: str(f, "requirement") ?? "",
+      lines: linesFromForm(f),
       categorySlug: str(f, "categorySlug"),
       quantity: num(f, "quantity"),
       quantityUnit: str(f, "quantityUnit"),
