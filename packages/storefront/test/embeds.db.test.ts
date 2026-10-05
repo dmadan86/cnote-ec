@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   fetchCalls: 0,
   profile: { verificationTier: 1, trustScore: 70, createdAt: new Date(Date.now() - 400 * 86_400_000).toISOString() } as { verificationTier: number; trustScore: number; createdAt?: string },
   purged: [] as string[][],
+  purgeThrows: false,
 }));
 
 vi.mock("@cnote/ai", async (orig) => ({
@@ -30,7 +31,7 @@ vi.mock("@cnote/ai", async (orig) => ({
 vi.mock("@cnote/identity", () => ({
   getTrustProfiles: async (ids: string[]) => new Map(ids.map((i) => [i, { businessId: i, name: "Acme", city: null, state: null, pincode: null, languages: [], badgeActive: true, ...state.profile }])),
 }));
-vi.mock("../src/cache", async (orig) => ({ ...(await orig<typeof import("../src/cache")>()), purgeStorefront: async (slugs: string[]) => { state.purged.push(slugs); } }));
+vi.mock("../src/cache", async (orig) => ({ ...(await orig<typeof import("../src/cache")>()), purgeStorefront: async (slugs: string[]) => { if (state.purgeThrows) throw new Error("cache down"); state.purged.push(slugs); } }));
 
 import { documentRemoteEmbeds, blankDocument } from "../src/document";
 import {
@@ -64,7 +65,7 @@ beforeEach(() => {
   vi.stubEnv("LISTING_AUTO_APPROVE_SAMPLE_RATE", "0");
   state.verdict = "allow"; state.deterministic = "clean"; state.needsReview = false; state.moderationThrows = false; state.moderated = [];
   state.meta = { title: "Factory tour", authorName: "Acme Steel", description: "Our plant in Pune", thumbnailUrl: "https://i.ytimg.com/vi/a/hq.jpg" };
-  state.fetchThrows = null; state.fetchCalls = 0; state.purged = [];
+  state.fetchThrows = null; state.fetchCalls = 0; state.purged = []; state.purgeThrows = false;
   state.profile = { verificationTier: 1, trustScore: 70, createdAt: new Date(Date.now() - 400 * 86_400_000).toISOString() };
   setOembedFetcherForTests(async () => {
     state.fetchCalls++;
@@ -268,5 +269,36 @@ describe("recheckEmbeds", () => {
     state.moderationThrows = true;
     await expect(recheckEmbeds()).resolves.toBeTruthy();
     vi.restoreAllMocks();
+  });
+
+  it("logs and moves on when an embed's decision cannot be written (retry and re-check paths), and still counts the rows", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const sf = await storefront();
+    await history(sf.id);
+    state.fetchThrows = { message: "timeout", permanent: false };
+    await ensureEmbedReviews(sf, docWith(yt()));
+    state.fetchThrows = null;
+    await prisma.storefrontEmbedReview.updateMany({ where: { storefrontId: sf.id }, data: { nextCheckAt: new Date(Date.now() - 1000) } });
+    const tx = vi.spyOn(prisma, "$transaction").mockRejectedValue(new Error("db down"));
+    const r = await recheckEmbeds({ limit: 100 });
+    expect(r.retried).toBeGreaterThanOrEqual(1);
+    expect(err.mock.calls.some((c) => String(c[0]).includes("embed retry failed"))).toBe(true);
+    tx.mockRestore();
+
+    const ok = await approved();
+    const tx2 = vi.spyOn(prisma, "$transaction").mockRejectedValue(new Error("db down"));
+    await recheckEmbeds({ limit: 100 });
+    expect(err.mock.calls.some((c) => String(c[0]).includes("embed recheck failed"))).toBe(true);
+    tx2.mockRestore();
+    expect((await row(ok.id)).status).toBe("approved");
+    err.mockRestore();
+  });
+
+  it("a cache purge failure after a decision is swallowed", async () => {
+    const sf = await approved();
+    state.purgeThrows = true;
+    state.verdict = "block";
+    await recheckEmbeds({ limit: 100 });
+    expect((await row(sf.id)).status).toBe("rejected");
   });
 });
