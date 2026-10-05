@@ -1,3 +1,4 @@
+import { getSubjectTrail } from "@cnote/approvals";
 import { getBuyerEnquiry, getQuoteComparison, listCandidatesForBuyer } from "@cnote/enquiry";
 import { actorOf, requireBusiness } from "@cnote/next-kit";
 import { Alert, Card, CardBody, CardTitle, Container, Money, PageHeader } from "@cnote/ui";
@@ -12,6 +13,7 @@ import { MatchedSellers } from "@/features/enquiry/matched-sellers";
 import { NegotiationAssist } from "@/features/negotiation/negotiation-assist";
 import { PickSellersForm } from "@/features/enquiry/pick-sellers-form";
 import { EnquiryStatusBadge } from "@/features/enquiry/status";
+import { ApprovalTrail } from "@/features/approvals/trail";
 import { canRequestAgain, RequestAgain } from "@/features/retention/request-again";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -30,6 +32,12 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
   const t2 = await getTranslations({ locale, namespace: "rfq2" });
   const tc = await getTranslations({ locale, namespace: "cards" });
   const comparison = await getQuoteComparison(actorOf(s), e.id);
+  const ta = await getTranslations({ locale, namespace: "approvals" });
+  // docs/design/buyer-approvals.md: the audit trail of every approval asked for this requirement and its quotes
+  const trail = [
+    ...(await getSubjectTrail(s.business.id, "enquiry", e.id)),
+    ...(await Promise.all((comparison?.rows ?? []).filter((r) => r.approval).map((r) => getSubjectTrail(s.business.id, "quote", r.quote.id)))).flat(),
+  ];
   const money = (p: number) => `₹${(p / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
   const cap = e.sellerCap ?? 3;
@@ -42,6 +50,7 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
       <PageHeader title={e.title} description={t("posted", { date: formatDate(e.createdAt, locale) })} actions={<>{canRequestAgain(e) ? <RequestAgain enquiryId={e.id} locale={locale} /> : null}<EnquiryStatusBadge enquiry={e} /></>} />
 
       <div className="mt-6 flex flex-col gap-6">
+        {e.status === "pending_approval" ? <Alert tone="warning">{ta("badge.heldNotice")}</Alert> : null}
         {e.status === "review" ? <Alert tone="warning">{t("detailReview")}</Alert> : null}
         {e.status === "rejected" ? <Alert tone="danger">{t("detailRejected")}</Alert> : null}
         {e.status === "unmatched" && !canPick ? <Alert tone="warning">{t("detailUnmatched")}</Alert> : null}
@@ -98,6 +107,8 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
         ) : null}
 
         {comparison ? <QuoteCompare comparison={comparison} /> : null}
+
+        <ApprovalTrail requests={trail} locale={locale} />
 
         {e.matches.length ? (
           <section className="flex flex-col gap-3">

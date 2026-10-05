@@ -10,6 +10,7 @@ const ENQUIRY_TONE: Record<EnquiryView["status"], BadgeTone> = {
   unmatched: "warning",
   closed: "neutral",
   rejected: "danger",
+  pending_approval: "warning",
 };
 
 const MATCH_TONE: Record<MatchView["status"], BadgeTone> = {
@@ -22,6 +23,8 @@ const MATCH_TONE: Record<MatchView["status"], BadgeTone> = {
 
 export function EnquiryStatusBadge({ enquiry }: { enquiry: Pick<EnquiryView, "status" | "awaitingPick"> }) {
   const t = useTranslations("buyer");
+  const ta = useTranslations("approvals");
+  if (enquiry.status === "pending_approval") return <Badge tone="warning">{ta("badge.awaiting")}</Badge>;
   return enquiry.awaitingPick ? <Badge tone="brand">{t("enquiryStatus.pick")}</Badge> : <Badge tone={ENQUIRY_TONE[enquiry.status]}>{t(`enquiryStatus.${enquiry.status}`)}</Badge>;
 }
 

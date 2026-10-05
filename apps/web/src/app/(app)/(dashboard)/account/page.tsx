@@ -18,6 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AccountPage() {
   const s = await requireSession("/account");
   const locale = await getRequestLocale();
+  const ta = await getTranslations({ locale, namespace: "approvals" });
   const [t, t2, tc, consents, sessions] = await Promise.all([getTranslations({ locale, namespace: "account" }), getTranslations({ locale, namespace: "account2" }), getTranslations({ locale, namespace: "consent" }), getConsents(s.personId), listAuthSessions(s.personId, s.sessionId, "web")]);
   const when = (iso: string) => formatDate(iso, locale, { dateStyle: "medium", timeStyle: "short" });
 
@@ -35,6 +36,18 @@ export default async function AccountPage() {
           <CardBody className="flex flex-col gap-3">
             <p className="text-sm text-muted">{t2("businessNavBody")}</p>
             <Link href="/account/business" className={buttonClasses("outline", "md", "self-start")}>{t2("businessNavLink")}</Link>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>{ta("account.title")}</CardTitle></CardHeader>
+          <CardBody className="flex flex-col gap-3">
+            <p className="text-sm text-muted">{ta("account.body")}</p>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/account/team" className={buttonClasses("outline", "md")}>{ta("team.title")}</Link>
+              <Link href="/account/approvals" className={buttonClasses("outline", "md")}>{ta("rules.title")}</Link>
+              <Link href="/buyer/approvals" className={buttonClasses("outline", "md")}>{ta("inbox.title")}</Link>
+            </div>
           </CardBody>
         </Card>
 
