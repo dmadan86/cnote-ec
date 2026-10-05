@@ -25,13 +25,13 @@ export const BASE_COLUMNS: Column[] = [
   { key: "moq_unit", header: "moq_unit", required: false, width: 12, hint: "Unit of the minimum order quantity." },
   { key: "hsn", header: "hsn", required: false, width: 10, hint: "HSN code, 4 to 8 digits (text; keep leading zeros)." },
   { key: "language", header: "language", required: false, width: 10, hint: "Language of title and description: en, hi, kn, ta, te, mr, gu, bn. Default en." },
+  { key: "image_files", header: "image_files", required: false, width: 30, hint: "ZIP uploads only: comma-separated image file names inside the images/ folder, e.g. box-1.jpg, box-2.jpg (max 8)." },
+  { key: "image_urls", header: "image_urls", required: false, width: 30, hint: "Optional https:// image links, comma-separated. Kept as reference images; uploaded files (image_files) go through staff approval." },
   { key: "sample_available", header: "sample_available", required: false, width: 14, hint: "yes if buyers may request a sample of this product, no to switch it off. Leave empty to keep the current setting. The other sample_ columns only apply when this is yes." },
   { key: "sample_price_rupees", header: "sample_price_rupees", required: false, width: 16, hint: "Price of one sample in rupees, e.g. 150. 0 = free sample. Leave empty if you will quote it per request." },
   { key: "sample_max_qty", header: "sample_max_qty", required: false, width: 12, hint: "Most units one sample request may ask for, whole number 1 or more." },
   { key: "sample_dispatch_days", header: "sample_dispatch_days", required: false, width: 14, hint: "Days from accepting a sample request to dispatching it, 0 to 90." },
   { key: "sample_min_buyer_tier", header: "sample_min_buyer_tier", required: false, width: 14, hint: "Lowest buyer verification tier that may request a sample: 0 (any signed-in buyer), 1, 2 or 3." },
-  { key: "image_files", header: "image_files", required: false, width: 30, hint: "ZIP uploads only: comma-separated image file names inside the images/ folder, e.g. box-1.jpg, box-2.jpg (max 8)." },
-  { key: "image_urls", header: "image_urls", required: false, width: 30, hint: "Optional https:// image links, comma-separated. Kept as reference images; uploaded files (image_files) go through staff approval." },
 ];
 
 /** Columns written after the editable ones on export only. Ignored on import. */

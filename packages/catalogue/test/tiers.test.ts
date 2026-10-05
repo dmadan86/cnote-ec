@@ -34,6 +34,13 @@ describe("parsing + trade info", () => {
     expect(compactTrade({ leadTimeDays: 0, sampleAvailable: true, samplePricePaise: 500, certifications: ["ISO 9001"] })).toEqual({ leadTimeDays: 0, sampleAvailable: true, samplePricePaise: 500, certifications: ["ISO 9001"] });
     expect(parseTrade("junk")).toEqual({});
   });
+  it("sample workflow settings (max qty, dispatch days, minimum buyer tier) are kept only when samples are offered, and a zero tier is dropped", () => {
+    expect(compactTrade({ sampleAvailable: false, sampleMaxQty: 5, sampleDispatchDays: 2, sampleMinBuyerTier: 2 })).toEqual({});
+    expect(compactTrade({ sampleAvailable: true, sampleMaxQty: 5, sampleDispatchDays: 0, sampleMinBuyerTier: 0 })).toEqual({ sampleAvailable: true, sampleMaxQty: 5, sampleDispatchDays: 0 });
+    expect(parseTrade({ sampleAvailable: true, sampleMinBuyerTier: 2, sampleMaxQty: 9 })).toEqual({ sampleAvailable: true, sampleMinBuyerTier: 2, sampleMaxQty: 9 });
+    expect(parseTrade({ sampleAvailable: true, sampleMinBuyerTier: 7 })).toEqual({}); // out of range: the whole object is rejected
+    expect(tradeOfRow({ leadTimeDays: null, packaging: null, sampleAvailable: true, samplePricePaise: null, sampleMaxQty: 4, sampleDispatchDays: 3, sampleMinBuyerTier: 1, supplyCapacityPerMonth: null, paymentTerms: null, certifications: [] })).toEqual({ sampleAvailable: true, sampleMaxQty: 4, sampleDispatchDays: 3, sampleMinBuyerTier: 1 });
+  });
   it("tradeOfRow converts paise bigint to a number", () => {
     expect(tradeOfRow({ leadTimeDays: 7, packaging: null, sampleAvailable: true, samplePricePaise: 25000n, supplyCapacityPerMonth: null, paymentTerms: null, certifications: [] })).toEqual({ leadTimeDays: 7, sampleAvailable: true, samplePricePaise: 25000 });
   });
