@@ -35,7 +35,8 @@
       "prices": "भाव की जानकारी",
       "credit": "क्रेडिट",
       "agents": "कोटेशन एजेंट",
-      "questions": "सवाल"
+      "questions": "सवाल",
+      "returns": "वापसी"
     },
     "questionsUnanswered": "{count} बिना जवाब"
   }

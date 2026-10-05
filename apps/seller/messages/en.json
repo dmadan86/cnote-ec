@@ -35,7 +35,8 @@
       "prices": "Price insights",
       "credit": "Credit",
       "agents": "Quoting agent",
-      "questions": "Questions"
+      "questions": "Questions",
+      "returns": "Returns"
     },
     "questionsUnanswered": "{count} unanswered"
   }

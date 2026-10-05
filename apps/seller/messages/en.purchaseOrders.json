@@ -14,7 +14,11 @@
       "cancelled": "Cancelled"
     },
     "version": "Version {n}",
-    "ack": { "pending": "Waiting for your answer", "accepted": "Accepted", "rejected": "Rejected" },
+    "ack": {
+      "pending": "Waiting for your answer",
+      "accepted": "Accepted",
+      "rejected": "Rejected"
+    },
     "ackReason": "Your reason: {reason}",
     "cancelledReason": "Cancelled by the buyer: {reason}",
     "partiesTitle": "Parties and delivery",
@@ -35,11 +39,31 @@
     "notes": "Notes from the buyer",
     "linesTitle": "Items",
     "linesCaption": "Items on this purchase order",
-    "col": { "item": "Item", "hsn": "HSN", "qty": "Quantity", "rate": "Rate", "taxable": "Taxable value", "gst": "GST", "total": "Total" },
+    "col": {
+      "item": "Item",
+      "hsn": "HSN",
+      "qty": "Quantity",
+      "rate": "Rate",
+      "taxable": "Taxable value",
+      "gst": "GST",
+      "total": "Total"
+    },
     "priceIncludesGst": "price includes GST",
-    "totals": { "taxable": "Taxable value", "cgst": "CGST", "sgst": "SGST", "igst": "IGST", "total": "Total" },
+    "totals": {
+      "taxable": "Taxable value",
+      "cgst": "CGST",
+      "sgst": "SGST",
+      "igst": "IGST",
+      "total": "Total"
+    },
     "amountsTitle": "Purchase order against invoices",
-    "amounts": { "po": "Purchase order value", "invoiced": "You invoiced", "paid": "Paid by the buyer", "toInvoice": "Not yet invoiced", "outstanding": "Still to receive" },
+    "amounts": {
+      "po": "Purchase order value",
+      "invoiced": "You invoiced",
+      "paid": "Paid by the buyer",
+      "toInvoice": "Not yet invoiced",
+      "outstanding": "Still to receive"
+    },
     "pdf": "Download PDF (version {n})",
     "versionsTitle": "Versions",
     "versionRow": "Version {n}: {total}, {terms}",
@@ -75,7 +99,13 @@
       "ewbValid": "E-way bill valid until",
       "submit": "Record invoice",
       "pending": "Saving...",
-      "saved": "Invoice recorded."
+      "saved": "Invoice recorded.",
+      "linesTitle": "Bill by purchase order line (optional)",
+      "linesHint": "Fill quantity and price per unit (before GST) for the lines on this invoice. The buyer's goods receipt is then matched line by line. The lines must add up to the taxable value above.",
+      "lineQty": "Quantity billed ({unit})",
+      "lineQtyHint": "Ordered {qty}",
+      "linePrice": "Price per unit before GST (Rs)",
+      "linePriceHint": "Purchase order price {price}"
     },
     "invoices": {
       "title": "Your invoices",
