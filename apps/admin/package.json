@@ -49,7 +49,7 @@
     "@cnote/verticals": "workspace:*",
     "@cnote/whatsapp": "workspace:*",
     "@cnote/wishlist": "workspace:*",
-    "@sentry/nextjs": "^11.1.0",
+    "@sentry/nextjs": "^11.4.0",
     "@tiptap/extension-image": "^3.31.3",
     "@tiptap/extension-placeholder": "^3.31.3",
     "@tiptap/extension-text-align": "^3.31.3",

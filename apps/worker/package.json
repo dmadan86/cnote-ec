@@ -50,6 +50,6 @@
     "@cnote/verticals": "workspace:*",
     "@cnote/whatsapp": "workspace:*",
     "@cnote/wishlist": "workspace:*",
-    "@sentry/node": "^11.1.0"
+    "@sentry/node": "^11.4.0"
   }
 }

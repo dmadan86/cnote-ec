@@ -16,7 +16,7 @@
     "@cnote/core": "workspace:*",
     "@cnote/observability": "workspace:*",
     "@hono/node-server": "^2.1.3",
-    "@sentry/node": "^11.1.0",
+    "@sentry/node": "^11.4.0",
     "hono": "^4.13.11"
   }
 }
