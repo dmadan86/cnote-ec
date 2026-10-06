@@ -15,8 +15,8 @@
     "@cnote/ads": "workspace:*",
     "@cnote/ai": "workspace:*",
     "@cnote/alerts": "workspace:*",
-    "@cnote/approvals": "workspace:*",
     "@cnote/analytics": "workspace:*",
+    "@cnote/approvals": "workspace:*",
     "@cnote/billing": "workspace:*",
     "@cnote/bulk": "workspace:*",
     "@cnote/catalogue": "workspace:*",
@@ -50,6 +50,6 @@
     "@cnote/verticals": "workspace:*",
     "@cnote/whatsapp": "workspace:*",
     "@cnote/wishlist": "workspace:*",
-    "@sentry/node": "^11.1.0"
+    "@sentry/node": "^11.4.0"
   }
 }
