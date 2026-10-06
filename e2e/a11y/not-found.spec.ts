@@ -1,18 +1,22 @@
 /**
  * 404 pages (apps/web/src/app/not-found.tsx, [locale]/not-found.tsx): axe WCAG 2.2 AA, a single h1, and the page language.
- * /hi/<unknown> hits the root not-found, which derives its language from the URL after hydration (src/i18n/fatal-locale.ts).
+ * The root not-found derives its language after hydration (src/i18n/fatal-locale.ts): from the /<locale>/ prefix, else the cnote_locale cookie.
+ * /hi/<unknown> itself never reaches it: the proxy redirects a prefixed non-localised path to English (apps/web/src/proxy.ts), so the Hindi
+ * case here uses the cookie; a missing localised page under /hi is covered by the last test.
  */
 import { expect, test } from "../support/fixtures";
 import { expectNoBlockingViolations, settle } from "../support/a11y";
+import { setLocaleCookie } from "../support/a11y-extra";
 
 const CASES = [
   { locale: "en", path: "/this-page-does-not-exist", lang: /^en/, title: "We could not find that page", home: "Go to home", homeHref: "/" },
-  { locale: "hi", path: "/hi/this-page-does-not-exist", lang: /^hi/, title: "हमें वह पेज नहीं मिला", home: "होम पर जाएँ", homeHref: "/hi" },
+  { locale: "hi", path: "/this-page-does-not-exist", lang: /^hi/, title: "हमें वह पेज नहीं मिला", home: "होम पर जाएँ", homeHref: "/hi" },
 ] as const;
 
 for (const c of CASES) {
   test.describe(`404 (${c.locale})`, () => {
     test("renders in the page language with correct lang and no axe violations", async ({ page }, info) => {
+      if (c.locale === "hi") await setLocaleCookie(page.context(), "hi");
       const res = await page.goto(c.path);
       expect(res?.status()).toBe(404);
       await settle(page);

@@ -28,7 +28,7 @@ for (const locale of ["en", "hi"] as const) {
       await page.locator("#nr-name").fill("Test Nominee");
       await page.locator("#nr-contact").fill("test.nominee@example.com");
       await page.locator("#nr-message").fill("Please help me with my relative's account.");
-      await page.locator("form button[type=submit]").click();
+      await page.locator("main form button[type=submit]").last().click();
       await expect(page.getByRole("status")).toBeVisible();
       await expectNoBlockingViolations(page, info);
     });

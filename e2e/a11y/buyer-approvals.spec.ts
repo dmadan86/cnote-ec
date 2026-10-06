@@ -60,8 +60,8 @@ test.describe("buyer team and approvals", () => {
   });
 
   test("Hindi: team and inbox pages have no blocking violations", async ({ page, context }, info) => {
+    await signUpBuyer(page, "apprhi"); // the sign-up helper fills English labels, so switch language afterwards
     await context.addCookies([{ name: "cnote_locale", value: "hi", url: "http://localhost:3000" }]);
-    await signUpBuyer(page, "apprhi");
     for (const path of ["/account/team", "/account/approvals", "/buyer/approvals"]) {
       await page.goto(path);
       await settle(page);

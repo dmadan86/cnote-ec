@@ -10,6 +10,7 @@ import { expect, test, type Page } from "../support/fixtures";
 import { seedRateContract } from "../support/phase2-db";
 
 const LOCALES: Locale[] = ["en", "hi"];
+test.setTimeout(120_000); // many full page loads, each settled and scanned
 
 async function scan(page: Page, info: Parameters<typeof expectNoBlockingViolations>[1], locale: Locale) {
   await settle(page);

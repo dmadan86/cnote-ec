@@ -26,8 +26,12 @@ for (const locale of ["en", "hi"] as const) {
       const groups = page.getByTestId("pdp-variants").getByRole("group");
       await expect(groups).toHaveCount(2);
       await expect(groups.first().getByRole("radio")).toHaveCount(2);
-      // Stock is spelled out on the option itself, not only by colour.
-      await expect(page.getByTestId("pdp-variants")).toContainText(locale === "en" ? "Out of stock" : "स्टॉक में नहीं");
+      // Stock is spelled out on the option itself, not only by colour. Before any choice an option shows the best state its
+      // combinations offer (size L: made to order); after choosing size L the Blue colour is wholly out of stock.
+      const variants = page.getByTestId("pdp-variants");
+      await expect(variants).toContainText(locale === "en" ? "Made to order" : "ऑर्डर पर बनता है");
+      await variants.getByRole("radio", { name: /^L/ }).check({ force: true });
+      await expect(variants).toContainText(locale === "en" ? "Out of stock" : "स्टॉक में नहीं");
       await expectNoBlockingViolations(page, info);
     });
 
@@ -51,11 +55,15 @@ for (const locale of ["en", "hi"] as const) {
     });
 
     test("a shared ?v= link restores the choice, an unknown sku is ignored", async ({ page }) => {
-      await page.goto(`${seeded.href(locale)}?v=${seeded.skus.madeToOrder}`);
+      // The product URL redirects to its canonical slug and the page is static, so the redirect cannot carry a query: a shared
+      // link is always built from the canonical URL (the selector writes ?v= onto it). Resolve it first, as a visitor would.
+      await page.goto(seeded.href(locale));
+      const canonical = page.url().split("?")[0]!;
+      await page.goto(`${canonical}?v=${seeded.skus.madeToOrder}`);
       await settle(page);
       await expect(page.getByTestId("pdp-variants").getByRole("radio", { checked: true })).toHaveCount(2);
       await expect(page.getByTestId("pdp-stock")).toContainText(locale === "en" ? "Made to order" : "ऑर्डर पर बनता है");
-      await page.goto(`${seeded.href(locale)}?v=NOPE`);
+      await page.goto(`${canonical}?v=NOPE`);
       await settle(page);
       await expect(page.getByTestId("pdp-variants").getByRole("radio", { checked: true })).toHaveCount(0);
     });

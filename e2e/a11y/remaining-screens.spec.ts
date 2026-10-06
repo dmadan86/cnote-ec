@@ -100,7 +100,8 @@ for (const locale of LOCALES) {
       expect(res?.status()).toBe(404);
       await settle(page);
       await expectNoBlockingViolations(page, info);
-      await reachByKeyboard(page, page.locator("main a[href='/']").first());
+      // the 404 links home in the cookie language
+      await reachByKeyboard(page, page.locator(`main a[href='${locale === "hi" ? "/hi" : "/"}']`).first());
     });
 
     test("seller storefront", async ({ page }, info) => {
