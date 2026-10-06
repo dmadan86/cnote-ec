@@ -89,7 +89,7 @@ export const CLIENT_NAMESPACES = ["shell", "search", "rails", "consent", "unlock
  * Extra namespaces for client components of the dynamic routes (account, buyer, rfq, ...). Kept out of CLIENT_NAMESPACES
  * so the static public pages do not ship them; the (app) layout passes both lists.
  */
-export const APP_CLIENT_NAMESPACES = ["account", "account2", "buyer", "wishlist", "notif", "grievance", "nominee", "approvals", "po"] as const;
+export const APP_CLIENT_NAMESPACES = ["account", "account2", "buyer", "wishlist", "notif", "grievance", "nominee", "approvals", "po", "rfqLines", "contracts", "grn"] as const;
 
 export function pickClientMessages(all: Messages, extra: readonly string[] = []): Partial<Messages> {
   const out: Record<string, unknown> = {};

@@ -46,7 +46,15 @@ export function BomEditor({
     if (!focus) return;
     pendingFocus.current = null;
     if (focus.target === "add") document.getElementById(`${uid}-add`)?.focus();
-    else listRef.current?.querySelector<HTMLElement>(`[data-row="${focus.key}"] [data-action="${focus.target}"]`)?.focus();
+    else {
+      const row = listRef.current?.querySelector<HTMLElement>(`[data-row="${focus.key}"]`);
+      const btn = (a: string) => row?.querySelector<HTMLButtonElement>(`[data-action="${a}"]`) ?? null;
+      // A line moved to the top (or bottom) has that arrow disabled, and a disabled button cannot hold focus (it would fall back to
+      // <body>): continue with the opposite arrow so a keyboard user keeps their place.
+      const opposite = focus.target === "up" ? "down" : focus.target === "down" ? "up" : "item";
+      const target = btn(focus.target);
+      (target && !target.disabled ? target : btn(opposite))?.focus();
+    }
   }, [rows, uid]);
 
   const patch = (key: string, p: Partial<BomRow>) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...p } : r)));

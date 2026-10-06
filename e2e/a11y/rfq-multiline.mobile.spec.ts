@@ -41,7 +41,7 @@ test("lines are stacked cards and the matrix is one card per line (axe, 44px tar
   await expect(matrix.getByRole("group", { name: /^\d\. / })).toHaveCount(3);
   const radio = matrix.getByRole("radio", { name: /^Award line 1 \(Bolt\)/ }).first();
   await radio.check();
-  expect((await matrix.locator("label", { has: radio }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect((await matrix.locator("label:visible", { has: page.getByRole("radio", { name: /^Award line 1 \(Bolt\)/ }) }).first().boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectNoBlockingViolations(page, info);
 });

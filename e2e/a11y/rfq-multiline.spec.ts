@@ -35,7 +35,7 @@ test.describe("multi-line RFQ form", () => {
     await expect(map.getByLabel("Item name *")).not.toHaveValue("");
     await expectNoBlockingViolations(page, info);
     await map.getByRole("button", { name: "Replace my items" }).click();
-    await expect(page.getByText("Lines imported: 3")).toBeVisible();
+    await expect(page.getByText("Lines imported: 3").first()).toBeVisible(); // also announced in a sr-only live region
     await expect(page.getByTestId("bom-count")).toHaveText("3 of 50 lines");
     // the formula-looking cell is imported as plain text, never as a formula
     await expect(page.getByLabel("Item name *").nth(2)).toHaveValue('HYPERLINK("http://x")');
