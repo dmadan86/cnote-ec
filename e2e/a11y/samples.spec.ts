@@ -4,6 +4,7 @@
  */
 import { expect, test } from "../support/fixtures";
 import { expectNoBlockingViolations, settle } from "../support/a11y";
+import { setLocaleCookie } from "../support/a11y-extra";
 import { signUpBuyer } from "../support/auth";
 import { seedSample } from "../support/samples-db";
 
@@ -43,7 +44,7 @@ test.describe("buyer samples", () => {
     await expectNoBlockingViolations(page, info);
     // no reason chosen: the server refuses with an announced error
     await page.getByRole("button", { name: "Save my verdict" }).click();
-    await expect(page.getByRole("alert")).toContainText("at least one reason");
+    await expect(page.locator("[role=alert]:not(#__next-route-announcer__)")).toContainText("at least one reason");
     await group.getByRole("checkbox", { name: "Finish or workmanship defect" }).check();
     await page.getByLabel("Photos (optional)").setInputFiles([JPEG]);
     await page.getByLabel("Notes (optional)").fill("Rough edges on three of the five cartons.");
@@ -75,7 +76,7 @@ test.describe("buyer samples", () => {
     await page.goto("/buyer/samples/new?listing=00000000-0000-4000-8000-000000000000");
     // an unknown product is a 404, not a crash
     await expect(page.getByText(/not found|404/i).first()).toBeVisible();
-    await page.context().addCookies([{ name: "cnote_locale", value: "hi", url: page.url() }]);
+    await setLocaleCookie(page.context(), "hi");
     await page.goto("/buyer/samples");
     await settle(page);
     await expect(page.getByRole("heading", { name: "सैंपल" })).toBeVisible();

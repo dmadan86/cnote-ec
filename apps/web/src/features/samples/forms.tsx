@@ -2,19 +2,26 @@
 import type { ActionResult } from "@cnote/next-kit";
 import { hasFileEntries, submitFormAsAction } from "@cnote/next-kit/upload-client";
 import { Alert, Button, Field, Input, Textarea } from "@cnote/ui";
-import { useActionState, useId, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useId, useState, useTransition } from "react";
 import { sampleAction } from "./actions";
 import type { SampleLabels } from "./labels";
 
 const REJECT_REASONS = ["quality_below_spec", "dimensions_off", "material_mismatch", "finish_defect", "colour_mismatch", "packaging_damaged", "not_as_described", "other"] as const;
 
 // Text-only intents use the server action; an evaluation WITH photos goes to POST /api/samples (server actions are capped at 2 MB app-wide).
-const useSample = () =>
-  useActionState<ActionResult | null, FormData>(async (prev, fd) => {
+// A route handler cannot revalidate the page the way the server action does, so after a successful upload the page is refreshed
+// to show the saved verdict (otherwise the form just resets and looks as if nothing happened).
+const useSample = () => {
+  const router = useRouter();
+  return useActionState<ActionResult | null, FormData>(async (prev, fd) => {
     if (!hasFileEntries(fd)) return sampleAction(prev, fd);
     const r = await submitFormAsAction<{ created: string | null }>("/api/samples", fd, { refreshUrl: "/api/me" });
-    return r.ok ? { ok: true, data: undefined } : r;
+    if (!r.ok) return r;
+    router.refresh();
+    return { ok: true, data: undefined };
   }, null);
+};
 
 const Errors = ({ state, generic }: { state: ActionResult | null; generic: string }) =>
   state && !state.ok ? <Alert tone="danger">{state.error || generic}</Alert> : null;
@@ -84,13 +91,23 @@ export function IntentButton({ sampleId, intent, label, variant = "outline", lab
 
 /** Verdict + structured reasons + notes + photos (Zillow-style structured review, GetYourGuide-style photo strip: docs/design/samples.md). */
 export function EvaluateForm({ sampleId, labels: l }: { sampleId: string; labels: SampleLabels }) {
-  const [state, action, pending] = useSample();
+  const [state, action, actionPending] = useSample();
+  const [submitting, startTransition] = useTransition();
+  const pending = actionPending || submitting;
   const [verdict, setVerdict] = useState<"approve" | "reject">("approve");
   const uid = useId();
   const photosId = `${uid}-photos`;
   const reasonsId = `${uid}-reasons`;
+  // Not `action={action}`: React resets a form after its action finishes, which put the controlled verdict radio back on "approve"
+  // (while the state said "reject") and wiped the reasons and notes after a validation error, so the next submit approved the sample.
+  // Submitting through a transition keeps what the buyer entered.
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    startTransition(() => action(fd));
+  };
   return (
-    <form action={action} className="flex flex-col gap-4" aria-busy={pending}>
+    <form onSubmit={onSubmit} className="flex flex-col gap-4" aria-busy={pending}>
       <input type="hidden" name="intent" value="evaluate" />
       <input type="hidden" name="sampleId" value={sampleId} />
       <Errors state={state} generic={l.errorGeneric} />

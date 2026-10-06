@@ -7,6 +7,7 @@ import errEn from "../messages/en.errors.json";
 import errHi from "../messages/hi.errors.json";
 
 vi.mock("@/features/samples/actions", () => ({ sampleAction: async () => ({ ok: true, data: undefined }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
 vi.mock("server-only", () => ({}));
 vi.mock("next-intl/server", () => ({ getTranslations: async () => ({ raw: () => "" }) }));
 vi.mock("@/lib/samples", () => ({}));
