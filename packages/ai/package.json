@@ -16,7 +16,7 @@
     "eval:manifest": "tsx evals/prompt-manifest.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.129.0",
+    "@anthropic-ai/sdk": "^0.131.0",
     "@cnote/core": "workspace:*",
     "@cnote/db": "workspace:*",
     "zod": "^4.6.5"
