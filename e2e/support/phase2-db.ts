@@ -4,6 +4,7 @@
  * written straight into the isolated `*_e2e` database. Refuses any database whose name does not end in `_e2e`.
  * Everything is fictional test data.
  */
+import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { e2eEnv } from "./env";
@@ -187,8 +188,9 @@ export async function seedPurchaseOrder(email: string): Promise<{ orderId: strin
           )
         ).rows[0]!.id,
       );
-    const overdue = await inv("INV/26-27/001", 45, "-20", { irn: "a".repeat(64), qr: "eyJhbGciOiJSUzI1NiJ9.eyJkYXRhIjoie30ifQ.c2ln", ewb: "123456789012" });
-    const open = await inv("INV/26-27/002", 2, "5");
+    const tag = randomBytes(4).toString("hex"); // invoice numbers are unique per seller and year, and the e2e DB is shared across specs
+    const overdue = await inv(`INV/26-27/${tag}1`, 45, "-20", { irn: randomBytes(32).toString("hex"), qr: "eyJhbGciOiJSUzI1NiJ9.eyJkYXRhIjoie30ifQ.c2ln", ewb: "123456789012" });
+    const open = await inv(`INV/26-27/${tag}2`, 2, "5");
     return { ...me, orderId: String(o.id), purchaseOrderId: String(po.id), overdueInvoiceId: overdue, openInvoiceId: open };
   });
 }

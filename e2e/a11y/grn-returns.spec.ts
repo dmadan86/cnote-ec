@@ -10,6 +10,7 @@ import { expect, test, type Page } from "../support/fixtures";
 import { seedGoodsReceipt, seedOrder } from "../support/phase2-db";
 
 const LOCALES: Locale[] = ["en", "hi"];
+test.setTimeout(120_000); // many full page loads, each settled and scanned
 
 async function scan(page: Page, info: Parameters<typeof expectNoBlockingViolations>[1], locale: Locale) {
   await settle(page);
@@ -63,7 +64,8 @@ for (const locale of LOCALES) {
       // payables: the mismatching invoice asks for a reason before it can be paid
       await page.goto("/buyer/payables");
       await scan(page, info, locale);
-      await page.locator("main details summary:visible").first().click();
+      // open the disclosure that holds the override field (the first one may belong to an invoice the match does not block)
+      await page.locator("main details", { has: page.locator("input[name='overrideReason']") }).first().locator("summary").click();
       await expect(page.locator("input[name='overrideReason']").first()).toBeVisible();
       await expectNoBlockingViolations(page, info);
     });

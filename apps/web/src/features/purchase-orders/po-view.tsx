@@ -74,12 +74,14 @@ export async function InvoiceCard({ inv, locale, orderId, today, canPay, match }
           <section aria-label={t("eInvoice")} className="rounded-lg border border-line p-3">
             <h4 className="text-sm font-semibold text-ink">{t("eInvoice")}</h4>
             <div className="mt-2 flex flex-wrap gap-4">
-              <dl className="min-w-0 flex-1 space-y-1 text-sm">
-                <div><dt className="text-xs text-muted">{t("irn")}</dt><dd className="break-all font-mono text-xs">{e.irn}</dd></div>
-                {e.ackNo ? <div><dt className="text-xs text-muted">{t("ackNo")}</dt><dd className="font-mono text-xs">{e.ackNo}</dd></div> : null}
-                {e.ackDate ? <div><dt className="text-xs text-muted">{t("ackDate")}</dt><dd>{instant(e.ackDate, locale)}</dd></div> : null}
+              <div className="min-w-0 flex-1 space-y-1 text-sm">
+                <dl className="space-y-1">
+                  <div><dt className="text-xs text-muted">{t("irn")}</dt><dd className="break-all font-mono text-xs">{e.irn}</dd></div>
+                  {e.ackNo ? <div><dt className="text-xs text-muted">{t("ackNo")}</dt><dd className="font-mono text-xs">{e.ackNo}</dd></div> : null}
+                  {e.ackDate ? <div><dt className="text-xs text-muted">{t("ackDate")}</dt><dd>{instant(e.ackDate, locale)}</dd></div> : null}
+                </dl>
                 <p className={e.check === "mismatch" ? "font-medium text-danger" : "text-xs text-muted"}>{t(`check.${e.check}`)}</p>
-              </dl>
+              </div>
               {e.qrDataUri ? (
                 <Image src={e.qrDataUri} alt={t("qrAlt")} width={132} height={132} unoptimized className="shrink-0 rounded bg-white" />
               ) : null}
