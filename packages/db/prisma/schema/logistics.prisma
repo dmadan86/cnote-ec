@@ -1,0 +1,19 @@
+// Owned by @cnote/logistics. Freight ESTIMATOR (docs/design/freight-estimator.md): the platform never books or owns logistics.
+
+/// Versioned heuristic rate card (zone x weight slab prices, fuel surcharge, GST). Append-only by convention: an edit creates
+/// the next version and activates it; rollback re-activates an older one. The row with isActive = true is in force; with none
+/// the code default (DEFAULT_RATE_CARD) applies. Every change goes through admin `audited()`.
+model FreightRateCard {
+  id          String   @id @default(uuid()) @db.Uuid
+  version     Int      @unique
+  /// validated against rateCardSchema (@cnote/logistics) on write and on read
+  card        Json
+  note        String?
+  isActive    Boolean  @default(false) @map("is_active")
+  /// staff person id (plain uuid, no relation)
+  createdBy   String?  @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([isActive])
+  @@map("freight_rate_cards")
+}

@@ -32,6 +32,11 @@ async function main() {
   const sf = await prisma.storefront.create({ data: { sellerBusinessId: business.id, slug, status: "live" } });
   const version = await prisma.storefrontVersion.create({ data: { storefrontId: sf.id, version: 1, document: doc, status: "published", publishedAt: new Date() } });
   await prisma.storefront.update({ where: { id: sf.id }, data: { publishedVersionId: version.id } });
+  // Embed moderation (docs/design/storefront-embed-moderation.md): a video is shown only once its review row is approved (fail closed),
+  // so the seed records the staff decision the real flow would produce. Maps carry no review.
+  await prisma.storefrontEmbedReview.create({
+    data: { storefrontId: sf.id, provider: "youtube", mediaId: "dQw4w9WgXcQ", status: "approved", title: "Factory tour", decidedBy: "staff", reviewedAt: new Date(), checkedAt: new Date() },
+  });
   console.log(JSON.stringify({ slug }));
   await prisma.$disconnect();
 }

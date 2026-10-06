@@ -3,7 +3,7 @@
 export type EscrowStatus = "created" | "awaiting_funding" | "funded" | "accepted" | "released" | "refunded" | "cancelled";
 export type Milestone = "funded" | "confirmed" | "dispatched" | "delivered" | "accepted" | "released" | "refunded";
 export type ReleaseCause = "buyer_accepted" | "auto_release" | "dispute_resolution" | "staff";
-export type RefundCause = "cancelled" | "dispute_resolution" | "funding_expired" | "staff";
+export type RefundCause = "cancelled" | "dispute_resolution" | "funding_expired" | "staff" | "return_credit";
 
 export const TRANSITIONS: Record<EscrowStatus, readonly EscrowStatus[]> = {
   created: ["awaiting_funding", "cancelled"],

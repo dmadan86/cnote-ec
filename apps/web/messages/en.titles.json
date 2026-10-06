@@ -16,6 +16,8 @@
     "order": "Order",
     "dispute": "Dispute",
     "conversation": "Conversation",
-    "rfq": "Post your requirement"
+    "rfq": "Post your requirement",
+    "samples": "Samples",
+    "sample": "Samples"
   }
 }

@@ -1,0 +1,111 @@
+{
+  "goodsReturns": {
+    "metaTitle": "Returns",
+    "title": "Returns",
+    "description": "Return requests from buyers, goods received against your purchase orders and credit notes.",
+    "disabled": "Purchase orders, goods receipts and returns are switched off.",
+    "actionNeeded": "{count} returns need your attention.",
+    "tabsLabel": "Filter returns",
+    "tab": { "open": "Open", "all": "All" },
+    "emptyTitle": "No returns",
+    "emptyDescription": "When a buyer asks to send goods back, the request shows up here.",
+    "meta": "{units} units, about {amount} before GST, requested {date}, purchase order {po}",
+    "paginationLabel": "More returns",
+    "older": "Older returns",
+    "status": {
+      "requested": "Waiting for you",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "cancelled": "Withdrawn by buyer",
+      "shipped": "On its way back",
+      "received": "Received by you",
+      "credited": "Credit note recorded"
+    },
+    "reasons": {
+      "damaged": "Damaged",
+      "short": "Short quantity",
+      "wrong_spec": "Wrong specification",
+      "quality_fail": "Failed quality check",
+      "not_as_ordered": "Not as ordered",
+      "other": "Other"
+    },
+    "source": { "rejected": "Rejected at receipt", "accepted": "Accepted at receipt" },
+    "detail": {
+      "metaTitle": "Return",
+      "back": "All returns",
+      "title": "Return {number}",
+      "subtitle": "From goods receipt {grn} on purchase order {po}",
+      "rejectedNote": "You rejected this return. Your reason: {reason}",
+      "disputed": "The buyer opened a dispute about it.",
+      "approvedNote": "You approved this return. Wait for the goods, then confirm receipt and record your credit note.",
+      "shipped": "The buyer sent the goods back: {ref}",
+      "credited": "Credit note {number} for {amount} dated {date} was recorded. It reduces the buyer's payable on the invoice.",
+      "details": "Return details",
+      "buyer": "Buyer",
+      "reason": "Reason",
+      "estimated": "Estimated credit before GST",
+      "requestedOn": "Requested on",
+      "note": "Buyer's note",
+      "linesCaption": "Items in this return",
+      "item": "Item",
+      "quantity": "Quantity",
+      "from": "From",
+      "toPo": "Open the purchase order"
+    },
+    "decide": {
+      "title": "Approve or reject",
+      "hint": "Approving tells the buyer to send the goods back. If you reject, give a reason: the buyer can open a dispute.",
+      "note": "Note to the buyer",
+      "noteHint": "Required if you reject.",
+      "pending": "Saving...",
+      "approve": "Approve return",
+      "reject": "Reject return"
+    },
+    "receive": {
+      "title": "Goods back with you",
+      "hint": "Confirm when the returned goods reach you. You can also record the credit note without waiting.",
+      "pending": "Saving...",
+      "submit": "Confirm goods received"
+    },
+    "credit": {
+      "title": "Record your credit note",
+      "noInvoice": "Record your invoice for this purchase order first. A credit note reduces what the buyer owes on an invoice.",
+      "hint": "Enter the credit note you issued to the buyer for this return (estimated {estimate} before GST). It reduces the buyer's payable. The platform does not issue credit notes.",
+      "invoice": "Against invoice",
+      "invoiceOption": "{number} (up to {amount})",
+      "number": "Credit note number",
+      "numberHint": "Up to 16 characters: letters, digits, hyphen, slash.",
+      "date": "Credit note date",
+      "irn": "IRN (optional)",
+      "irnHint": "64-character e-invoice reference, if you reported the credit note to the portal.",
+      "taxable": "Taxable value (Rs)",
+      "gst": "GST (Rs)",
+      "pending": "Saving...",
+      "submit": "Record credit note"
+    },
+    "panel": {
+      "title": "Goods received",
+      "none": "The buyer has not recorded a goods receipt yet.",
+      "meta": "Received on {date} by {receiver}",
+      "tableCaption": "Quantities on receipt {number}",
+      "item": "Item",
+      "received": "Received",
+      "accepted": "Accepted",
+      "rejected": "Rejected",
+      "photos": "Photos",
+      "matchTitle": "Invoice match",
+      "matchIntro": "Each invoice is compared with the quantity the buyer accepted and the purchase order price. Differences up to {qty}% in quantity and {price}% in price are within tolerance.",
+      "invoice": "Invoice {number}",
+      "unknownLine": "Line {n}",
+      "lineFacts": "billed {billed}, accepted {accepted}, price {price} against {poPrice}",
+      "amountFacts": "{billed} billed against {accepted} accepted, before GST",
+      "mismatchHint": "The buyer may hold payment until this is resolved. Void and re-record the invoice, or agree a return and credit note.",
+      "status": {
+        "matched": "Matched",
+        "within_tolerance": "Within tolerance",
+        "mismatch": "Mismatch",
+        "pending_grn": "Waiting for goods receipt"
+      }
+    }
+  }
+}

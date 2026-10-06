@@ -17,6 +17,7 @@
       "leads": "लीड्स",
       "listings": "लिस्टिंग्ज",
       "orders": "ऑर्डर्स",
+      "contracts": "करार",
       "disputes": "वाद",
       "reviews": "रिव्ह्यू",
       "storefront": "स्टोअरफ्रंट",
@@ -35,7 +36,9 @@
       "prices": "दर माहिती",
       "credit": "क्रेडिट",
       "agents": "कोटेशन एजंट",
-      "questions": "प्रश्न"
+      "questions": "प्रश्न",
+      "samples": "नमुने",
+      "returns": "माल परत"
     },
     "questionsUnanswered": "{count} अनुत्तरित"
   }

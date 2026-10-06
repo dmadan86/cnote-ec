@@ -1,13 +1,13 @@
 // Generic object keys shared by every driver and every module (listings, template assets, storefronts).
 // Lowercase only, so keys behave identically on case-insensitive disks and case-sensitive object stores.
 
-const MEDIA_KEY_RE = /^(listings|templates|storefronts|bulk|invoices|kyc|disputes|quality|rfq)\/[a-z0-9/_.-]+$/;
+const MEDIA_KEY_RE = /^(listings|templates|storefronts|bulk|invoices|kyc|disputes|quality|rfq|grn|samples)\/[a-z0-9/_.-]+$/;
 
 /**
  * Prefixes that may only ever live in the PRIVATE bucket: product sheets (prices/SKUs), voice recordings, GST invoices
  * KYC documents, dispute evidence and dispatch-quality photos are personal or commercially sensitive and must never be publicly addressable.
  */
-const PRIVATE_ONLY = ["bulk/", "listings/_voice/", "invoices/", "kyc/", "disputes/", "quality/", "rfq/"];
+const PRIVATE_ONLY = ["bulk/", "listings/_voice/", "invoices/", "kyc/", "disputes/", "quality/", "rfq/", "grn/", "samples/"];
 
 /**
  * Safe key: allowed prefix, restricted charset, no empty/dot segments (no traversal), bounded length, has an extension.

@@ -5,6 +5,7 @@ import { requireSeller } from "@/lib/auth";
 import { load } from "@/lib/safe";
 import { identity } from "@/lib/services";
 import { CompanyForm } from "@/features/company/company-form";
+import { MsmeForm } from "@/features/purchase-orders/forms";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("settings.company");
@@ -20,6 +21,8 @@ export default async function CompanyPage() {
   const when = (iso: string) => f.dateTime(new Date(iso), { dateStyle: "medium", timeStyle: "short" });
   const res = await load(() => identity.getCompanyProfile(session.business.id));
   const p = res.ok ? res.data : null;
+  const tm = await getTranslations("purchaseOrders.msme");
+  const msme = await load(() => identity.getMsmeStatus(session.business.id));
   const gstTone = p?.gstStatus === "Active" ? "success" : p?.gstStatus ? "danger" : "neutral";
   return (
     <div className="max-w-2xl space-y-6">
@@ -37,6 +40,12 @@ export default async function CompanyPage() {
           {p?.gstLastCheckedAt ? <p>{t("lastChecked", { date: when(p.gstLastCheckedAt) })}</p> : null}
         </CardBody>
       </Card>
+      {msme.ok && msme.data ? (
+        <Card>
+          <CardHeader><CardTitle>{tm("title")}</CardTitle></CardHeader>
+          <CardBody><MsmeForm category={msme.data.category} udyamOnFile={msme.data.udyamOnFile} covered={msme.data.covered} /></CardBody>
+        </Card>
+      ) : null}
       <Card>
         <CardHeader><CardTitle>{t("details")}</CardTitle></CardHeader>
         <CardBody>

@@ -255,7 +255,8 @@
       "filesDeletedAfterDays": "ಫೈಲ್‌ಗಳನ್ನು {retentionDays} ದಿನಗಳ ನಂತರ ಅಳಿಸಲಾಗುತ್ತದೆ",
       "nothingDownloadJob": "ಈ ಜಾಬ್‌ಗೆ ಡೌನ್‌ಲೋಡ್ ಮಾಡಲು ಏನೂ ಇಲ್ಲ",
       "fileNoLongerAvailable": "ಫೈಲ್ ಇನ್ನು ಲಭ್ಯವಿಲ್ಲ",
-      "unknownCategory": "ಗೊತ್ತಿಲ್ಲದ ವರ್ಗ \"{categorySlug}\""
+      "unknownCategory": "ಗೊತ್ತಿಲ್ಲದ ವರ್ಗ \"{categorySlug}\"",
+      "skuNotFound": "SKU \"{sku}\" ಅಸ್ತಿತ್ವದಲ್ಲಿಲ್ಲ"
     },
     "catalogue": {
       "notImage": "ಇದು ನಿಮ್ಮ ಚಿತ್ರವಲ್ಲ",
@@ -278,7 +279,8 @@
       "voiceNoteNotFound": "ವಾಯ್ಸ್ ನೋಟ್ ಕಂಡುಬಂದಿಲ್ಲ",
       "notVoiceNote": "ಇದು ನಿಮ್ಮ ವಾಯ್ಸ್ ನೋಟ್ ಅಲ್ಲ",
       "recordingAlreadyBeenDeleted": "ರೆಕಾರ್ಡಿಂಗ್ ಅನ್ನು ಈಗಾಗಲೇ ಅಳಿಸಲಾಗಿದೆ",
-      "recordingNoLongerAvailable": "ರೆಕಾರ್ಡಿಂಗ್ ಇನ್ನು ಲಭ್ಯವಿಲ್ಲ"
+      "recordingNoLongerAvailable": "ರೆಕಾರ್ಡಿಂಗ್ ಇನ್ನು ಲಭ್ಯವಿಲ್ಲ",
+      "noVariants": "ಈ ಲಿಸ್ಟಿಂಗ್‌ನಲ್ಲಿ ವೇರಿಯಂಟ್‌ಗಳಿಲ್ಲ"
     },
     "compliance": {
       "signAppeal": "ಮೇಲ್ಮನವಿ ಸಲ್ಲಿಸಲು ಸೈನ್ ಇನ್ ಮಾಡಿ",
@@ -349,7 +351,9 @@
       "videoKycNotStartedSession": "ಈ ಸೆಷನ್‌ಗೆ ವಿಡಿಯೋ KYC ಪ್ರಾರಂಭವಾಗಿಲ್ಲ.",
       "noteRequired": "ಟಿಪ್ಪಣಿ ಅಗತ್ಯ.",
       "sessionAlreadyDecided": "ಈ ಸೆಷನ್ ಬಗ್ಗೆ ಈಗಾಗಲೇ ನಿರ್ಧಾರ ತೆಗೆದುಕೊಳ್ಳಲಾಗಿದೆ.",
-      "startEnrollmentFirst": "ಮೊದಲು ನೋಂದಣಿಯನ್ನು ಪ್ರಾರಂಭಿಸಿ."
+      "startEnrollmentFirst": "ಮೊದಲು ನೋಂದಣಿಯನ್ನು ಪ್ರಾರಂಭಿಸಿ.",
+      "auditReviewNoteRequired": "ಪರಿಶೀಲನಾ ಟಿಪ್ಪಣಿ ಅಗತ್ಯ.",
+      "auditPartnerNoteRequired": "ಪಾಲುದಾರರಿಗೆ ಟಿಪ್ಪಣಿ ಅಗತ್ಯ."
     },
     "leadgen": {
       "requestExpiredStartAgain": "ಈ ವಿನಂತಿಯ ಅವಧಿ ಮುಗಿದಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಾರಂಭಿಸಿ.",
@@ -474,6 +478,21 @@
       "upSearches": "ನೀವು ಗರಿಷ್ಠ {max} ಹುಡುಕಾಟಗಳನ್ನು ಉಳಿಸಬಹುದು",
       "searchNotFound": "ಉಳಿಸಿದ ಹುಡುಕಾಟ ಸಿಗಲಿಲ್ಲ",
       "invalidFrequency": "ಆಫ್, ಪ್ರತಿದಿನ ಅಥವಾ ಸಾಪ್ತಾಹಿಕ ಆಯ್ಕೆಮಾಡಿ"
+    },
+    "samples": {
+      "notEnabled": "ಮಾದರಿ ವಿನಂತಿಗಳು ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ.",
+      "notOffered": "ಈ ಪೂರೈಕೆದಾರರು ಈ ಉತ್ಪನ್ನದ ಮಾದರಿ ನೀಡುವುದಿಲ್ಲ.",
+      "ownProduct": "ನಿಮ್ಮ ಸ್ವಂತ ಉತ್ಪನ್ನದ ಮಾದರಿಯನ್ನು ಕೇಳಲು ಸಾಧ್ಯವಿಲ್ಲ.",
+      "tierRequired": "ಈ ಪೂರೈಕೆದಾರರು ಹಂತ {tier} ಅಥವಾ ಹೆಚ್ಚಿನ ಪರಿಶೀಲಿತ ಖರೀದಿದಾರರ ಮಾದರಿ ವಿನಂತಿಗಳನ್ನು ಮಾತ್ರ ಒಪ್ಪುತ್ತಾರೆ.",
+      "tooManyOpen": "ನಿಮ್ಮಲ್ಲಿ ಈಗಾಗಲೇ {max} ತೆರೆದ ಮಾದರಿ ವಿನಂತಿಗಳಿವೆ. ಇನ್ನೊಂದು ಕೇಳುವ ಮೊದಲು ಒಂದು ಮುಗಿಯುವವರೆಗೆ ಕಾಯಿರಿ.",
+      "duplicate": "ಇದಕ್ಕಾಗಿ ನಿಮ್ಮ ಮಾದರಿ ವಿನಂತಿ ಈಗಾಗಲೇ ತೆರೆದಿದೆ.",
+      "quantityTooHigh": "ಈ ಪೂರೈಕೆದಾರರು ಪ್ರತಿ ಮಾದರಿ ವಿನಂತಿಗೆ ಗರಿಷ್ಠ {max} ಯೂನಿಟ್ ಅನುಮತಿಸುತ್ತಾರೆ.",
+      "rateLimited": "ನೀವು ತುಂಬಾ ವೇಗವಾಗಿ ಮಾದರಿ ಕೇಳುತ್ತಿದ್ದೀರಿ. ನಾಳೆ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "expired": "ಈ ವಿನಂತಿಯ ಉತ್ತರ ಗಡುವು ಮುಗಿದಿದೆ ಮತ್ತು ಅವಧಿ ಮುಗಿದಿದೆ.",
+      "invalidTransition": "ವಿನಂತಿಯ ಪ್ರಸ್ತುತ ಸ್ಥಿತಿಯಲ್ಲಿ ಈ ಹಂತ ಲಭ್ಯವಿಲ್ಲ.",
+      "reasonsRequired": "ಮಾದರಿಯನ್ನು ತಿರಸ್ಕರಿಸಲು ಕನಿಷ್ಠ ಒಂದು ಕಾರಣವನ್ನು ಆರಿಸಿ.",
+      "photoType": "ಫೋಟೋಗಳು JPEG, PNG ಅಥವಾ WebP ಆಗಿರಬೇಕು, ಪ್ರತಿಯೊಂದು 5 MB ವರೆಗೆ.",
+      "tooManyPhotos": "ಗರಿಷ್ಠ {max} ಫೋಟೋಗಳನ್ನು ಲಗತ್ತಿಸಿ."
     }
   }
 }

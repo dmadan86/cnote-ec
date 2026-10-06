@@ -255,7 +255,8 @@
       "filesDeletedAfterDays": "फाइल {retentionDays} दिवसांनंतर हटवल्या जातात",
       "nothingDownloadJob": "या जॉबसाठी डाउनलोड करण्यासारखे काही नाही",
       "fileNoLongerAvailable": "ही फाइल आता उपलब्ध नाही",
-      "unknownCategory": "अज्ञात श्रेणी \"{categorySlug}\""
+      "unknownCategory": "अज्ञात श्रेणी \"{categorySlug}\"",
+      "skuNotFound": "SKU \"{sku}\" अस्तित्वात नाही"
     },
     "catalogue": {
       "notImage": "हा तुमचा फोटो नाही",
@@ -278,7 +279,8 @@
       "voiceNoteNotFound": "व्हॉइस नोट सापडली नाही",
       "notVoiceNote": "ही तुमची व्हॉइस नोट नाही",
       "recordingAlreadyBeenDeleted": "हे रेकॉर्डिंग आधीच हटवले गेले आहे",
-      "recordingNoLongerAvailable": "हे रेकॉर्डिंग आता उपलब्ध नाही"
+      "recordingNoLongerAvailable": "हे रेकॉर्डिंग आता उपलब्ध नाही",
+      "noVariants": "या लिस्टिंगमध्ये कोणतेही व्हेरिएंट नाहीत"
     },
     "compliance": {
       "signAppeal": "अपील करण्यासाठी साइन इन करा",
@@ -349,7 +351,9 @@
       "videoKycNotStartedSession": "या सत्रासाठी व्हिडिओ KYC सुरू झालेले नाही.",
       "noteRequired": "टीप आवश्यक आहे.",
       "sessionAlreadyDecided": "या सत्रावर आधीच निर्णय झाला आहे.",
-      "startEnrollmentFirst": "आधी नोंदणी सुरू करा."
+      "startEnrollmentFirst": "आधी नोंदणी सुरू करा.",
+      "auditReviewNoteRequired": "पुनरावलोकन टीप आवश्यक आहे.",
+      "auditPartnerNoteRequired": "भागीदारासाठी टीप आवश्यक आहे."
     },
     "leadgen": {
       "requestExpiredStartAgain": "या विनंतीची मुदत संपली आहे. कृपया पुन्हा सुरू करा.",
@@ -474,6 +478,21 @@
       "upSearches": "तुम्ही जास्तीत जास्त {max} शोध जतन करू शकता",
       "searchNotFound": "जतन केलेला शोध सापडला नाही",
       "invalidFrequency": "बंद, रोज किंवा साप्ताहिक निवडा"
+    },
+    "samples": {
+      "notEnabled": "नमुना विनंत्या अद्याप उपलब्ध नाहीत.",
+      "notOffered": "हा पुरवठादार या उत्पादनाचा नमुना देत नाही.",
+      "ownProduct": "तुम्ही तुमच्या स्वतःच्या उत्पादनाचा नमुना मागू शकत नाही.",
+      "tierRequired": "हा पुरवठादार फक्त स्तर {tier} किंवा त्यावरील पडताळलेल्या खरेदीदारांच्या नमुना विनंत्या स्वीकारतो.",
+      "tooManyOpen": "तुमच्याकडे आधीच {max} खुल्या नमुना विनंत्या आहेत. दुसरी मागण्यापूर्वी एक पूर्ण होईपर्यंत थांबा.",
+      "duplicate": "यासाठी तुमची नमुना विनंती आधीच खुली आहे.",
+      "quantityTooHigh": "हा पुरवठादार प्रत्येक नमुना विनंतीसाठी जास्तीत जास्त {max} युनिट परवानगी देतो.",
+      "rateLimited": "तुम्ही खूप वेगाने नमुने मागत आहात. उद्या पुन्हा प्रयत्न करा.",
+      "expired": "या विनंतीची उत्तराची मुदत संपली असून ती समाप्त झाली आहे.",
+      "invalidTransition": "विनंतीच्या सध्याच्या स्थितीत ही पायरी उपलब्ध नाही.",
+      "reasonsRequired": "नमुना नामंजूर करण्याचे किमान एक कारण निवडा.",
+      "photoType": "फोटो JPEG, PNG किंवा WebP असावेत, प्रत्येकी 5 MB पर्यंत.",
+      "tooManyPhotos": "जास्तीत जास्त {max} फोटो जोडा."
     }
   }
 }

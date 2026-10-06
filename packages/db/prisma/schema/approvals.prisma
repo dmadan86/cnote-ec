@@ -1,0 +1,168 @@
+// Owned by @cnote/approvals: buyer-side approval policies, requests and the append-only decision log (docs/design/buyer-approvals.md).
+// Subjects (RFQ, quote, order, PO) are opaque {type, id, summary} so this module never depends on the modules that call it.
+// Personal data (DPDP): the requester/decider ids and decision comments are exported with the person; comments are nulled on erasure.
+
+enum ApprovalAction {
+  rfq_publish
+  quote_accept
+  order_confirm
+  po_issue
+
+  @@map("approval_action")
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+  cancelled
+  expired
+
+  @@map("approval_status")
+}
+
+enum ApprovalDecisionKind {
+  approved
+  rejected
+  cancelled
+  expired
+  /// nobody else in the business can approve (e.g. a one-person business): resolved by the system, still logged
+  auto_approved
+
+  @@map("approval_decision_kind")
+}
+
+/// "Quote acceptance above ₹X needs an approver": the policy with the highest threshold at or below the amount applies.
+model ApprovalPolicy {
+  id                String         @id @default(uuid()) @db.Uuid
+  businessId        String         @map("business_id") @db.Uuid
+  name              String
+  action            ApprovalAction
+  /// paise; the policy applies when amount >= this
+  minAmountPaise    BigInt         @default(0) @map("min_amount_paise")
+  enabled           Boolean        @default(true)
+  createdByPersonId String         @map("created_by_person_id") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  levels ApprovalPolicyLevel[]
+
+  @@index([businessId, action])
+  @@map("approval_policies")
+}
+
+/// Sequential chain, levels 1..3 (enforced in code). `approverPersonIds` (specific members) wins over `approverRole`.
+model ApprovalPolicyLevel {
+  id                String   @id @default(uuid()) @db.Uuid
+  policyId          String   @map("policy_id") @db.Uuid
+  level             Int
+  /// owner | admin | approver | finance: members of that role or above (owner > admin) may decide
+  approverRole      String   @map("approver_role")
+  approverPersonIds String[] @default([]) @map("approver_person_ids") @db.Uuid
+  /// this level only applies when the amount is at or above it (0 = always)
+  minAmountPaise    BigInt   @default(0) @map("min_amount_paise")
+
+  policy ApprovalPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@unique([policyId, level])
+  @@map("approval_policy_levels")
+}
+
+model ApprovalRequest {
+  id                String         @id @default(uuid()) @db.Uuid
+  businessId        String         @map("business_id") @db.Uuid
+  action            ApprovalAction
+  subjectType       String         @map("subject_type")
+  subjectId         String         @map("subject_id")
+  /// short human label shown in the inbox and notifications
+  subjectSummary    String         @map("subject_summary")
+  amountPaise       BigInt         @map("amount_paise")
+  requesterPersonId String         @map("requester_person_id") @db.Uuid
+  policyId          String?        @map("policy_id") @db.Uuid
+  /// "policy" | "spend_limit"
+  reason            String         @default("policy")
+  status            ApprovalStatus @default(pending)
+  currentLevel      Int            @default(1) @map("current_level")
+  /// snapshot of the resolved chain: [{ level, role, personIds }]
+  levels            Json
+  /// set while pending so only one open request exists per subject+action; null afterwards
+  activeKey         String?        @unique @map("active_key")
+  /// SLA deadline of the current level
+  dueAt             DateTime       @map("due_at") @db.Timestamptz
+  reminderCount     Int            @default(0) @map("reminder_count")
+  lastReminderAt    DateTime?      @map("last_reminder_at") @db.Timestamptz
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  resolvedAt        DateTime?      @map("resolved_at") @db.Timestamptz
+
+  decisions ApprovalDecision[]
+
+  @@index([businessId, status, createdAt])
+  @@index([status, dueAt])
+  @@index([businessId, subjectType, subjectId])
+  @@index([requesterPersonId])
+  @@map("approval_requests")
+}
+
+/// Append-only (Postgres trigger): one row per decision. Only `comment` may be nulled afterwards (DPDP erasure).
+model ApprovalDecision {
+  id                 String               @id @default(uuid()) @db.Uuid
+  requestId          String               @map("request_id") @db.Uuid
+  level              Int
+  kind               ApprovalDecisionKind
+  /// null for system decisions (expiry, auto-approval)
+  deciderPersonId    String?              @map("decider_person_id") @db.Uuid
+  /// set when a delegate decided for an out-of-office approver
+  onBehalfOfPersonId String?              @map("on_behalf_of_person_id") @db.Uuid
+  comment            String?
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz
+
+  request ApprovalRequest @relation(fields: [requestId], references: [id])
+
+  @@index([requestId, createdAt])
+  @@index([deciderPersonId])
+  @@map("approval_decisions")
+}
+
+/// Out of office: the delegate may decide on the delegator's behalf between startsAt and endsAt.
+model ApprovalDelegation {
+  id                String    @id @default(uuid()) @db.Uuid
+  businessId        String    @map("business_id") @db.Uuid
+  delegatorPersonId String    @map("delegator_person_id") @db.Uuid
+  delegatePersonId  String    @map("delegate_person_id") @db.Uuid
+  startsAt          DateTime  @map("starts_at") @db.Timestamptz
+  endsAt            DateTime  @map("ends_at") @db.Timestamptz
+  revokedAt         DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([businessId, delegatePersonId, endsAt])
+  @@index([delegatorPersonId])
+  @@map("approval_delegations")
+}
+
+/// Per-member monthly cap (IST calendar month). Exceeding it forces an admin/owner approval; it never hard-blocks.
+model MemberSpendLimit {
+  businessId        String   @map("business_id") @db.Uuid
+  personId          String   @map("person_id") @db.Uuid
+  monthlyCapPaise   BigInt   @map("monthly_cap_paise")
+  updatedByPersonId String   @map("updated_by_person_id") @db.Uuid
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@id([businessId, personId])
+  @@map("member_spend_limits")
+}
+
+/// Committed spend (an accepted quote, an issued PO) attributed to the member who committed it; idempotent per subject.
+model SpendRecord {
+  id          String         @id @default(uuid()) @db.Uuid
+  businessId  String         @map("business_id") @db.Uuid
+  personId    String         @map("person_id") @db.Uuid
+  amountPaise BigInt         @map("amount_paise")
+  action      ApprovalAction
+  subjectType String         @map("subject_type")
+  subjectId   String         @map("subject_id")
+  occurredAt  DateTime       @default(now()) @map("occurred_at") @db.Timestamptz
+
+  @@unique([businessId, subjectType, subjectId])
+  @@index([businessId, personId, occurredAt])
+  @@map("spend_records")
+}

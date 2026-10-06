@@ -252,7 +252,8 @@
       "filesDeletedAfterDays": "फ़ाइलें {retentionDays} दिन बाद हटा दी जाती हैं",
       "nothingDownloadJob": "इस जॉब के लिए डाउनलोड करने को कुछ नहीं है",
       "fileNoLongerAvailable": "फ़ाइल अब उपलब्ध नहीं है",
-      "unknownCategory": "अज्ञात श्रेणी \"{categorySlug}\""
+      "unknownCategory": "अज्ञात श्रेणी \"{categorySlug}\"",
+      "skuNotFound": "SKU \"{sku}\" मौजूद नहीं है"
     },
     "catalogue": {
       "notImage": "यह आपकी फ़ोटो नहीं है",
@@ -275,7 +276,8 @@
       "voiceNoteNotFound": "वॉइस नोट नहीं मिला",
       "notVoiceNote": "यह आपका वॉइस नोट नहीं है",
       "recordingAlreadyBeenDeleted": "यह रिकॉर्डिंग पहले ही हटा दी गई है",
-      "recordingNoLongerAvailable": "यह रिकॉर्डिंग अब उपलब्ध नहीं है"
+      "recordingNoLongerAvailable": "यह रिकॉर्डिंग अब उपलब्ध नहीं है",
+      "noVariants": "इस लिस्टिंग में कोई वेरिएंट नहीं है"
     },
     "compliance": {
       "signAppeal": "अपील करने के लिए साइन इन करें",
@@ -346,7 +348,9 @@
       "videoKycNotStartedSession": "इस सत्र के लिए वीडियो KYC शुरू नहीं हुआ है।",
       "noteRequired": "टिप्पणी लिखना ज़रूरी है।",
       "sessionAlreadyDecided": "इस सत्र पर पहले ही निर्णय हो चुका है।",
-      "startEnrollmentFirst": "पहले नामांकन शुरू करें।"
+      "startEnrollmentFirst": "पहले नामांकन शुरू करें।",
+      "auditReviewNoteRequired": "समीक्षा टिप्पणी लिखना ज़रूरी है।",
+      "auditPartnerNoteRequired": "पार्टनर के लिए टिप्पणी लिखना ज़रूरी है।"
     },
     "leadgen": {
       "requestExpiredStartAgain": "यह अनुरोध समाप्त हो चुका है। कृपया फिर से शुरू करें।",
@@ -471,6 +475,21 @@
       "upSearches": "आप अधिकतम {max} खोजें सहेज सकते हैं",
       "searchNotFound": "सहेजी गई खोज नहीं मिली",
       "invalidFrequency": "बंद, रोज़ या साप्ताहिक चुनें"
+    },
+    "samples": {
+      "notEnabled": "सैंपल अनुरोध अभी उपलब्ध नहीं हैं।",
+      "notOffered": "यह आपूर्तिकर्ता इस उत्पाद का सैंपल नहीं देता।",
+      "ownProduct": "आप अपने ही उत्पाद का सैंपल नहीं मांग सकते।",
+      "tierRequired": "यह आपूर्तिकर्ता केवल स्तर {tier} या उससे ऊपर सत्यापित खरीदारों के सैंपल अनुरोध स्वीकार करता है।",
+      "tooManyOpen": "आपके पास पहले से {max} खुले सैंपल अनुरोध हैं। नया मांगने से पहले किसी के पूरा होने की प्रतीक्षा करें।",
+      "duplicate": "इसके लिए आपका एक सैंपल अनुरोध पहले से खुला है।",
+      "quantityTooHigh": "यह आपूर्तिकर्ता प्रति सैंपल अनुरोध अधिकतम {max} यूनिट की अनुमति देता है।",
+      "rateLimited": "आप बहुत तेज़ी से सैंपल मांग रहे हैं। कल फिर कोशिश करें।",
+      "expired": "यह अनुरोध उत्तर की अंतिम तिथि पार कर चुका है और समाप्त हो गया है।",
+      "invalidTransition": "अनुरोध की वर्तमान स्थिति में यह चरण उपलब्ध नहीं है।",
+      "reasonsRequired": "सैंपल अस्वीकार करने का कम से कम एक कारण चुनें।",
+      "photoType": "फ़ोटो JPEG, PNG या WebP होनी चाहिए, प्रत्येक 5 MB तक।",
+      "tooManyPhotos": "अधिकतम {max} फ़ोटो जोड़ें।"
     }
   }
 }

@@ -26,10 +26,42 @@ export interface FilterState {
   priced: boolean;
   /** opt-in: the 6-digit pincode to deliver to (taken from the "Deliver to" picker by the toggle, then carried in the URL). null = off. */
   deliver: string | null;
+  /** only listings that are in stock today (a filter, never a ranking signal) */
+  inStock: boolean;
+  /** variant axis -> lower-cased values (OR within an axis, AND across axes); URL form `variant=size:m` */
+  variants: Record<string, string[]>;
   sort: SearchSort;
 }
 
-export const EMPTY_FILTERS: FilterState = { tier: 0, states: [], cities: [], categories: [], pmin: null, pmax: null, moq: null, priced: false, deliver: null, sort: "relevance" };
+export const EMPTY_FILTERS: FilterState = { tier: 0, states: [], cities: [], categories: [], pmin: null, pmax: null, moq: null, priced: false, deliver: null, inStock: false, variants: {}, sort: "relevance" };
+
+const MAX_VARIANT_AXES = 6;
+const MAX_VARIANT_VALUES = 20;
+const AXIS_RE = /^[a-z][a-z0-9_]{0,29}$/;
+
+/** `variant=size:m&variant=size:l&variant=colour:red` -> { colour: ["red"], size: ["l","m"] }. Anything malformed is dropped. */
+export function parseVariantParams(v: string | string[] | undefined): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const raw of all(v).flatMap((x) => x.split("|"))) {
+    const i = raw.indexOf(":");
+    if (i < 1) continue;
+    const axis = raw.slice(0, i).trim().toLowerCase();
+    const value = raw.slice(i + 1).trim().toLowerCase();
+    if (!AXIS_RE.test(axis) || !value || value.length > 60) continue;
+    if (!(axis in out) && Object.keys(out).length >= MAX_VARIANT_AXES) continue;
+    const arr = (out[axis] ??= []);
+    if (!arr.includes(value) && arr.length < MAX_VARIANT_VALUES) arr.push(value);
+  }
+  return Object.fromEntries(Object.entries(out).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, vs]) => [k, [...vs].sort()]));
+}
+
+/** "size:xl" -> axis "size", value "xl" (null for a malformed facet key). */
+export function splitVariantKey(key: string): { axis: string; value: string } | null {
+  const i = key.indexOf(":");
+  return i > 0 && i < key.length - 1 ? { axis: key.slice(0, i), value: key.slice(i + 1) } : null;
+}
+
+const variantCount = (v: Record<string, string[]>): number => Object.values(v).reduce((a, x) => a + x.length, 0);
 
 /** Price buckets of the facet, in rupees, keyed as in the search facets. Shared by the panel and the URL parser. */
 export const PRICE_BUCKETS: { key: string; min: number | null; max: number | null }[] = [
@@ -74,6 +106,8 @@ export function parseFilterState(sp: Params): FilterState {
     moq: whole(sp.moq, 1),
     priced: first(sp.priced) === "1",
     deliver: validPincode(first(sp.deliver)),
+    inStock: first(sp.instock) === "1",
+    variants: parseVariantParams(sp.variant),
     sort: isSort(sort) ? sort : "relevance",
   };
 }
@@ -97,16 +131,18 @@ export function toSearchArgs(s: FilterState): { filters: SearchFilters; sort: Se
   if (s.pmax !== null) filters.priceMaxPaise = s.pmax * 100;
   if (s.moq !== null) filters.maxMoq = s.moq;
   if (s.priced) filters.hasPrice = true;
+  if (s.inStock) filters.inStockOnly = true;
+  if (Object.keys(s.variants).length) filters.variantOptions = s.variants;
   return { filters, sort: s.sort };
 }
 
 /** `lockCategories`: the category is the page itself (/c/[slug]), not something the buyer chose, so it does not count. */
 export const hasFilters = (s: FilterState, lockCategories = false): boolean =>
-  s.tier > 0 || s.states.length > 0 || s.cities.length > 0 || (!lockCategories && s.categories.length > 0) || s.pmin !== null || s.pmax !== null || s.moq !== null || s.priced || s.deliver !== null;
+  s.tier > 0 || s.states.length > 0 || s.cities.length > 0 || (!lockCategories && s.categories.length > 0) || s.pmin !== null || s.pmax !== null || s.moq !== null || s.priced || s.deliver !== null || s.inStock || variantCount(s.variants) > 0;
 
 /** Number of independent constraints, for the "Filters (n)" button. Sort is not a filter. */
 export function activeCount(s: FilterState, lockCategories = false): number {
-  return (s.tier > 0 ? 1 : 0) + s.states.length + s.cities.length + (lockCategories ? 0 : s.categories.length) + (s.pmin !== null || s.pmax !== null ? 1 : 0) + (s.moq !== null ? 1 : 0) + (s.priced ? 1 : 0) + (s.deliver !== null ? 1 : 0);
+  return (s.tier > 0 ? 1 : 0) + s.states.length + s.cities.length + (lockCategories ? 0 : s.categories.length) + (s.pmin !== null || s.pmax !== null ? 1 : 0) + (s.moq !== null ? 1 : 0) + (s.priced ? 1 : 0) + (s.deliver !== null ? 1 : 0) + (s.inStock ? 1 : 0) + variantCount(s.variants);
 }
 
 /** Canonical query string for a state (+ the non-filter params q/tab). Empty values are omitted, so default URLs stay clean. */
@@ -123,6 +159,8 @@ export function toSearchParams(base: { q?: string; tab?: string }, s: FilterStat
   if (s.moq !== null) p.set("moq", String(s.moq));
   if (s.priced) p.set("priced", "1");
   if (s.deliver) p.set("deliver", s.deliver);
+  if (s.inStock) p.set("instock", "1");
+  for (const [axis, vs] of Object.entries(s.variants)) for (const v of vs) p.append("variant", `${axis}:${v}`);
   if (s.sort !== "relevance") p.set("sort", s.sort);
   return p;
 }
@@ -132,7 +170,7 @@ export function hrefFor(path: string, base: { q?: string; tab?: string }, s: Fil
   return qs ? `${path}?${qs}` : path;
 }
 
-export type ChipKey = "tier" | "state" | "city" | "category" | "price" | "moq" | "priced" | "deliver";
+export type ChipKey = "tier" | "state" | "city" | "category" | "price" | "moq" | "priced" | "deliver" | "instock" | "variant";
 export interface ChipSpec {
   kind: ChipKey;
   value: string;
@@ -152,6 +190,15 @@ export function chipSpecs(s: FilterState, lockCategories = false): ChipSpec[] {
   if (s.moq !== null) out.push({ kind: "moq", value: String(s.moq), without: drop({ moq: null }) });
   if (s.priced) out.push({ kind: "priced", value: "1", without: drop({ priced: false }) });
   if (s.deliver) out.push({ kind: "deliver", value: s.deliver, without: drop({ deliver: null }) });
+  if (s.inStock) out.push({ kind: "instock", value: "1", without: drop({ inStock: false }) });
+  for (const [axis, vs] of Object.entries(s.variants)) {
+    for (const v of vs) {
+      const left = vs.filter((x) => x !== v);
+      const variants = { ...s.variants, [axis]: left };
+      if (!left.length) delete variants[axis];
+      out.push({ kind: "variant", value: `${axis}:${v}`, without: drop({ variants }) });
+    }
+  }
   return out;
 }
 

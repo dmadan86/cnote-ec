@@ -392,4 +392,19 @@ describe("edge paths", () => {
     expect(await purgeKycDocuments(new Date(Date.now() - KYC_RETENTION_DAYS * day))).toBeGreaterThanOrEqual(1);
     expect((await prisma.kycDocument.findFirstOrThrow({ where: { sessionId: sess.id } })).extracted).toEqual({ pan: "XXXXX1234F" });
   });
+  it("accepts the name a passed Udyam / MCA registry returned as the declared name", async () => {
+    const s = await seed({ name: "Sharma Steel" });
+    await prisma.verificationRecord.createMany({
+      data: [
+        { businessId: s.actor.businessId, tier: 1, kind: "udyam", status: "passed", provider: "t", details: { snapshot: { enterpriseName: "Registry Enterprise Name" } } },
+        { businessId: s.actor.businessId, tier: 1, kind: "mca", status: "passed", provider: "t", details: { snapshot: { companyName: "Registry Company Name Pvt Ltd" } } },
+        { businessId: s.actor.businessId, tier: 1, kind: "mca", status: "passed", provider: "t", details: {} },
+      ],
+    });
+    setKycPorts(makePorts(s));
+    const sess = await startKyc(s.actor);
+    extraction = (t, g, p) => ({ ...good(t, g, p), fields: { ...good(t, g, p).fields, name: "Registry Company Name Pvt Ltd" } });
+    const out = await upload(s, sess.id, "gst_certificate");
+    expect(out.document.verdict).toBe("pass");
+  });
 });

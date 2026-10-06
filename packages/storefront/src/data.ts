@@ -4,6 +4,7 @@ import { listPublicSellerListings, listSellerListingImages, listSellerListings }
 import { DomainError } from "@cnote/core";
 import { getTrustProfiles } from "@cnote/identity";
 import { getRatingSummaries, listApprovedReviews } from "@cnote/reviews";
+import { approvedEmbedKeys } from "./embeds";
 import type { RenderData, RenderTestimonial } from "./render/types";
 
 const MAX_PRODUCTS = 60;
@@ -61,6 +62,7 @@ export async function loadRenderData(sellerBusinessId: string): Promise<RenderDa
     })),
     categories: [...categories].map(([slug, name]) => ({ slug, name })),
     testimonials,
+    approvedEmbeds: await approvedEmbedKeys(sellerBusinessId),
   };
 }
 

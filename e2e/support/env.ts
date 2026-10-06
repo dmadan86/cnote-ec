@@ -38,6 +38,9 @@ export const e2eEnv: Record<string, string> = {
   // webhook secret of every enabled provider (escrow is on below). The OTP echo opt-out is for e2e/dev only: never set it on a real deployment.
   ALLOW_OTP_ECHO_IN_PRODUCTION: "1",
   ESCROW_WEBHOOK_SECRET: "e2e-escrow-webhook-secret-not-for-production-0123456789",
+  // RFQ/quote uploads need a malware scanner in production (packages/security/src/secrets.ts). The e2e servers use the mock scanner
+  // (detects the EICAR test string only) and waive the check explicitly: never set the waiver on a real deployment.
+  ATTACHMENT_SCAN_WAIVER: "1",
   // Lets a spec purge the web ISR cache the way the cache worker would (POST /api/revalidate), e.g. e2e/a11y/product-qa.spec.ts.
   REVALIDATE_SECRET: "e2e-revalidate-secret-not-for-production",
   JWT_SECRET: "q7Xk2mP9vLr4Tn8Bw3Zc6Hd1Fy5Js0Ag-e2e-signing-key",
@@ -56,6 +59,8 @@ export const e2eEnv: Record<string, string> = {
   ESCROW_PARTNER: "mock",
   DISPUTES_ENABLED: "true",
   A2A_ENABLED: "true",
+  // Sample requests (docs/design/samples.md): the buyer samples screens and the product-page request dialog render only with this on (a11y gate: e2e/a11y/samples.spec.ts). Nothing here moves money.
+  SAMPLES_ENABLED: "true",
   // The servers run in production mode, where the mock payment gateway is refused. The seller billing spec cancels a seeded
   // annual plan and needs the mock provider's refund to succeed (ADR-005); nothing here charges money.
   PAYMENTS_ALLOW_MOCK_IN_PRODUCTION: "1",

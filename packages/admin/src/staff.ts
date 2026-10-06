@@ -35,6 +35,14 @@ export async function getStaff(personId: string): Promise<StaffView | null> {
   return toView(row);
 }
 
+/** Role codes per person id, for attributing an action to a role without exposing who did it. Missing persons are absent from the map. */
+export async function staffRolesByPerson(personIds: string[]): Promise<Map<string, string[]>> {
+  const ids = personIds.filter((id) => z.uuid().safeParse(id).success);
+  if (ids.length === 0) return new Map();
+  const rows = await prisma.staffMember.findMany({ where: { personId: { in: ids } }, select: { personId: true, roles: true } });
+  return new Map(rows.map((r) => [r.personId, r.roles.filter(isRole)]));
+}
+
 export interface StaffListItem extends StaffView {
   active: boolean;
   createdBy: string | null;

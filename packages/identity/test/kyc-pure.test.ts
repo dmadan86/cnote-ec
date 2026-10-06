@@ -30,6 +30,16 @@ describe("image forensics", () => {
 });
 
 describe("evaluateKycDocument", () => {
+  it("bank proof, address proof and shop & establishment need their key fields", () => {
+    const decl = { gstin: null, names: ["Sharma Steel"], pan: null, udyam: null };
+    const doc = (docType: DocEvaluationInput["docType"], fields: DocEvaluationInput["fields"]) => evaluateKycDocument(base({ docType, fields, declared: decl }));
+    expect(ids(doc("bank_proof", { name: "Sharma Steel" }), "warn")).toContain("account");
+    expect(ids(doc("bank_proof", { name: "Sharma Steel", accountLast4: "1234" }), "warn")).not.toContain("account");
+    expect(ids(doc("address_proof", { name: "Sharma Steel" }), "warn")).toContain("address");
+    expect(ids(doc("address_proof", { name: "Sharma Steel", address: "12 MIDC Road, Pune" }), "warn")).not.toContain("address");
+    expect(ids(doc("shop_establishment", { name: "Sharma Steel" }), "warn").sort()).toEqual(["address", "issueDate"]);
+    expect(ids(doc("shop_establishment", { name: "Sharma Steel", address: "x", issueDate: "2020-01-01" }), "warn")).toEqual([]);
+  });
   it("passes a clean matching GST certificate", () => {
     const r = evaluateKycDocument(base());
     expect(r.verdict).toBe("pass");
@@ -146,7 +156,7 @@ describe("KYC providers", () => {
     expect(() => getKycProvider({ KYC_PROVIDER: "mock", NODE_ENV: "production" })).toThrow(/production/);
     expect(getKycProvider({ KYC_PROVIDER: "signzy", KYC_API_KEY: "a", KYC_BASE_URL: "b", KYC_WEBHOOK_SECRET: "c" }).name).toBe("signzy");
     expect(() => getKycProvider({ KYC_PROVIDER: "hyperverge" })).toThrow(/required/);
-    expect(() => getKycProvider({ KYC_PROVIDER: "idfy" })).toThrow(/Unknown/);
+    expect(() => getKycProvider({ KYC_PROVIDER: "nope" })).toThrow(/Unknown/);
     const m = new MockKycProvider();
     setKycProvider(m);
     expect(getKycProvider({})).toBe(m);

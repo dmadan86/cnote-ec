@@ -62,6 +62,9 @@ export function addProductsSheet(wb: ExcelJS.Workbook, opts: ProductsSheetOption
     addList("price_unit", `"${UNITS.join(",")}"`, false);
     addList("moq_unit", `"${UNITS.join(",")}"`, false);
     addList("language", `"${LANGUAGES.join(",")}"`);
+    addList("sample_available", '"yes,no"');
+    addList("sample_min_buyer_tier", '"0,1,2,3"');
+    addList("availability", '"in_stock,made_to_order,out_of_stock"');
     // select attributes: dropdown only when every category defining the key agrees on the options
     const byKey = new Map<string, Set<string>>();
     for (const c of usable) for (const f of c.attributeSchema.fields) if (f.type === "select") byKey.set(f.key, new Set([...(byKey.get(f.key) ?? []), ...(f.options ?? [])]));

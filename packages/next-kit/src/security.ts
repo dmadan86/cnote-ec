@@ -35,7 +35,7 @@ export function withSecurityHeaders<R extends Response>(res: R, opts: SecurityOp
 }
 
 /** Paths whose URL carries a secret; they always get `Referrer-Policy: no-referrer`, whatever the app-wide policy is. */
-export const NO_REFERRER_PATHS: readonly string[] = ["/reset-password", "/grievance/verify"];
+export const NO_REFERRER_PATHS: readonly string[] = ["/reset-password", "/grievance/verify", "/partner/audit"];
 
 /**
  * Clone the request with the nonce and CSP on its headers. Next reads the CSP request header during

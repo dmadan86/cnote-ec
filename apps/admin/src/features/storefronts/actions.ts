@@ -3,7 +3,7 @@ import { audited, hasPrivilege } from "@cnote/admin";
 import { DomainError } from "@cnote/core";
 import { runAction, type ActionResult } from "@cnote/next-kit";
 import {
-  reinstateStorefront, reorderTemplates, reviewStorefrontVersion, seedStorefrontTemplates, setTemplateActive, suspendStorefront, upsertTemplate, validateTemplateInput,
+  reinstateStorefront, reorderTemplates, reviewEmbed, reviewStorefrontVersion, seedStorefrontTemplates, setTemplateActive, suspendStorefront, upsertTemplate, validateTemplateInput,
 } from "@cnote/storefront";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -25,6 +25,19 @@ export async function reviewVersionAction(_prev: ActionResult | null, fd: FormDa
     await audited(ctx, "storefronts.review", `storefront.version.${outcome}`, { type: "storefront_version", id: versionId }, () => reviewStorefrontVersion(versionId, ctx.staff.id, outcome, note), { note });
   });
   if (r.ok) refresh();
+  return r;
+}
+
+/** Ops queue for third-party video embeds (YouTube / Vimeo) held in pending. A rejection needs a note the seller sees in Studio. */
+export async function reviewEmbedAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const r = await runAction(async () => {
+    const ctx = await actionContext();
+    const id = uuid.parse(fd.get("embedId"));
+    const outcome = z.enum(["approved", "rejected"]).parse(fd.get("outcome"));
+    const note = z.string().max(500).parse(fd.get("note") ?? "");
+    await audited(ctx, "storefronts.review", `storefront.embed.${outcome}`, { type: "storefront_embed_review", id }, () => reviewEmbed(id, ctx.staff.id, outcome, note), { note });
+  });
+  if (r.ok) revalidatePath("/storefronts/embeds");
   return r;
 }
 

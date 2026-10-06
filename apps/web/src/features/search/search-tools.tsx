@@ -236,15 +236,36 @@ export function SearchTools({ inputId }: { inputId: string }) {
             <p id="photo-title" className="font-semibold">{t("photoTitle")}</p>
             <p className="mt-1 text-muted">{t("photoNotice")}</p>
             <TurnstileWidget className="mt-3" />
-            <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-brand-600 px-4 font-semibold text-brand-700 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand-600 hover:bg-brand-50">
-              <Camera className="size-4" aria-hidden />
-              {t("photoChoose")}
-              <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={busy} onChange={(e) => void onPhoto(e.target.files?.[0])} />
-            </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {/* capture="environment" opens the rear camera directly on phones; the second control is the gallery / file picker */}
+              <PhotoPicker label={t("photoTake")} capture busy={busy} onFile={(f) => void onPhoto(f)} />
+              <PhotoPicker label={t("photoChoose")} busy={busy} onFile={(f) => void onPhoto(f)} />
+            </div>
           </div>
         ) : null}
-        <p role="status" aria-live="polite" className={cn("text-sm text-muted", status && "mt-2")}>{status}</p>
+        <p id="search-tools-status" role="status" aria-live="polite" className={cn("text-sm text-muted", status && "mt-2")}>{status}</p>
       </div>
     </>
+  );
+}
+
+/** A real labelled file control styled as a button (Tab reaches the input, Enter/Space opens the picker; the focus ring shows on the label). */
+export function PhotoPicker({ label, capture, busy, onFile }: { label: string; capture?: boolean; busy: boolean; onFile: (f: File | undefined) => void }) {
+  return (
+    <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-brand-600 px-4 font-semibold text-brand-700 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand-600 hover:bg-brand-50 has-[:disabled]:opacity-60">
+      <Camera className="size-4" aria-hidden />
+      {label}
+      <input
+        type="file"
+        accept="image/*"
+        {...(capture ? { capture: "environment" as const } : {})}
+        className="sr-only"
+        disabled={busy}
+        onChange={(e) => {
+          onFile(e.target.files?.[0]);
+          e.target.value = ""; // choosing the same photo again must fire change
+        }}
+      />
+    </label>
   );
 }

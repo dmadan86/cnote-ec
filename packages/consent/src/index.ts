@@ -4,3 +4,4 @@
 // The React UI (banner, dialog) lives in @cnote/next-kit/consent; receipts are written by @cnote/compliance.
 export * from "./state";
 export * from "./registry";
+export * from "./account-sync";

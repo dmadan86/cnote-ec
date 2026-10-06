@@ -6,13 +6,16 @@
 // (`RETENTION_<KEY>_DAYS`) with the safe defaults below. Consent ledger rows and admin audit logs are never purged.
 import { prisma } from "@cnote/db";
 import * as catalogue from "@cnote/catalogue";
-import { purgeInactiveConversationMessages } from "@cnote/enquiry";
-import { purgeErasedPersonResiduals, purgeExpiredAuthSessions, purgeKycDocuments } from "@cnote/identity";
+import { purgeAttachmentQuarantine, purgeEndedEnquiryAttachments, purgeEnquirySignals, purgeGoodsReceiptPhotos, purgeInactiveConversationMessages, purgePurchaseOrderDocuments, purgeRateContracts } from "@cnote/enquiry";
+import { purgeAuditPhotos, purgeErasedPersonResiduals, purgeExpiredAuthSessions, purgeKycDocuments } from "@cnote/identity";
 import { purgeAbandonedCaptures } from "@cnote/leadgen";
 import { purgeReadNotifications } from "@cnote/notifications";
 import { purgeRejectedUgc } from "@cnote/reviews";
+import { purgeClosedSamplePersonalData } from "@cnote/samples";
 import * as whatsapp from "@cnote/whatsapp";
 import { purgeOldDispatches } from "@cnote/alerts";
+import { purgeEndedDelegations, purgeResolvedRequests } from "@cnote/approvals";
+import { purgeOldInvites } from "@cnote/identity";
 import { purgeStaleEmptyWishlists } from "@cnote/wishlist";
 import { purgeClosedCreditData } from "@cnote/credit";
 import { purgeResolvedDisputeEvidence } from "@cnote/disputes";
@@ -20,6 +23,8 @@ import { purgeOldMessages, purgeOndcOrderPayloads } from "@cnote/ondc";
 import { purgeOldQualityMedia } from "@cnote/quality";
 import { numFromEnv } from "./config";
 import { purgeCookieConsentReceipts } from "./consent";
+import { INACTIVITY_DEFAULT_DAYS, runInactivityErasure } from "./inactivity";
+import { purgeDecidedNomineeRequests } from "./nominee";
 
 const DAY = 86_400_000;
 
@@ -35,7 +40,7 @@ export interface RetentionPolicy {
   /** false when the owning purge cannot count without deleting (dry-run then reports 0 and does nothing) */
   supportsDryRun: boolean;
   /** purge everything older than `before`; returns rows affected (dry-run: rows that WOULD be affected) */
-  run(before: Date, opts: { dryRun: boolean }): Promise<number>;
+  run(before: Date, opts: { dryRun: boolean; now?: Date; windowDays?: number }): Promise<number>;
 }
 
 export const windowDays = (p: Pick<RetentionPolicy, "envKey" | "defaultDays">, env: NodeJS.ProcessEnv = process.env): number =>
@@ -104,6 +109,19 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     legalBasis: "DPDP s.8(7) storage limitation; ADR-003 verification evidence is retained in minimised form",
     run: (before, { dryRun }) => purgeKycDocuments(before, { dryRun }),
   },
+  // trust_verif (ADR-002/003)
+  {
+    name: "identity.audit_photos_365d", module: "identity", envKey: "AUDIT_PHOTOS", defaultDays: 365, supportsDryRun: true,
+    description: "Geotagged site photos submitted by T3 audit partners, one year after the audit is decided; the checklist, summary, flags and result are kept as the audit record.",
+    legalBasis: "DPDP s.8(7) storage limitation; ADR-003 audit evidence retained in minimised form for the validity period plus a year",
+    run: (before, { dryRun }) => purgeAuditPhotos(before, { dryRun }),
+  },
+  {
+    name: "enquiry.fake_lead_signals_90d", module: "enquiry", envKey: "ENQUIRY_SIGNALS", defaultDays: 90, supportsDryRun: true,
+    description: "The keyed hash of the buyer's network prefix on fake-lead signals. The risk score, coarse user-agent family, velocity counts and ops label stay for precision/recall.",
+    legalBasis: "DPDP s.8(7) storage limitation; the hash is only needed for the 24-hour velocity window (ADR-002)",
+    run: (before, { dryRun }) => purgeEnquirySignals(before, { dryRun }),
+  },
   {
     name: "disputes.evidence_after_resolution", module: "disputes", envKey: "DISPUTE_EVIDENCE", defaultDays: 1095, supportsDryRun: false,
     description: "Dispute evidence files and statements after the dispute is resolved or withdrawn; decisions and the AI brief summary are kept.",
@@ -135,6 +153,12 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     run: (before, { dryRun }) => purgeOndcOrderPayloads(before, { dryRun }),
   },
   {
+    name: "samples.closed_request_personal_data", module: "samples", envKey: "SAMPLE_PERSONAL_DATA", defaultDays: 365, supportsDryRun: true,
+    description: "Ship-to details, buyer notes and evaluation photos of sample requests that reached a final status; statuses, reasons and amounts are kept (trust record).",
+    legalBasis: "DPDP s.8(7); the address is needed only to send the sample, photos only as quality evidence for the bulk order that follows (docs/design/samples.md)",
+    run: (before, { dryRun }) => purgeClosedSamplePersonalData(before, { dryRun }),
+  },
+  {
     name: "leadgen.abandoned_captures_90d", module: "leadgen", envKey: "ABANDONED_CAPTURES", defaultDays: 90, supportsDryRun: true,
     description: "Lead captures that never verified (started, otp_sent, abandoned).",
     legalBasis: "DPDP s.8(7); data minimisation for unconverted funnel data",
@@ -145,6 +169,21 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     description: "Cookie-consent receipts (random consent id, policy version, per-category choices, GPC flag, action, language, time; no IP or user agent).",
     legalBasis: "DPDP s.6(10) burden of proof on the Data Fiduciary + s.8(7); 3 years matches the general limitation period (Limitation Act 1963, art. 113) within which a consent dispute could be raised, pending counsel review",
     run: (before, { dryRun }) => purgeCookieConsentReceipts(before, { dryRun }),
+  },
+  {
+    name: "identity.inactive_accounts_erasure", module: "compliance", envKey: "INACTIVE_ACCOUNTS", defaultDays: INACTIVITY_DEFAULT_DAYS, supportsDryRun: true,
+    description: "Buyer-side personal accounts with no sign-in for the window are noticed by e-mail at least 48 hours ahead, then erased unless the person came back. Off until INACTIVITY_ERASURE_ENABLED=true.",
+    legalBasis: "DPDP Act s.8(7); DPDP Rules 2025 r.8 and Third Schedule (3 years for e-commerce entities above the user threshold; 48-hour prior notice)",
+    run: async (_before, { dryRun, now = new Date(), windowDays: days = INACTIVITY_DEFAULT_DAYS }) => {
+      const r = await runInactivityErasure({ now, windowMs: days * DAY, dryRun });
+      return r.noticed + r.erased + r.cancelled;
+    },
+  },
+  {
+    name: "compliance.nominee_requests_decided", module: "compliance", envKey: "NOMINEE_REQUESTS", defaultDays: 1095, supportsDryRun: true,
+    description: "Completed or rejected nominee requests (encrypted requester name, contact and message) after the window; revoked nominations are deleted with them.",
+    legalBasis: "DPDP s.8(7); 3 years covers the limitation period within which a decision on a deceased or incapacitated principal's data could be challenged, pending counsel review",
+    run: (before, { dryRun }) => purgeDecidedNomineeRequests(before, { dryRun }),
   },
   {
     name: "notifications.read_90d", module: "notifications", envKey: "READ_NOTIFICATIONS", defaultDays: 90, supportsDryRun: true,
@@ -169,6 +208,59 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     description: "Alert dedupe ledger rows (no content); they only need to outlive event redelivery.",
     legalBasis: "DPDP s.8(7)",
     run: (before, { dryRun }) => purgeOldDispatches(before, { dryRun }),
+  },
+  // ai_ops: RFQ / quote attachments
+  {
+    name: "enquiry.attachments_after_close_365d", module: "enquiry", envKey: "ENQUIRY_ATTACHMENTS", defaultDays: 365, supportsDryRun: true,
+    description: "RFQ drawings/specs and quote attachments (bytes and rows) 365 days after the requirement's quote deadline (or, for legacy rows, once it ended). Requirements that became an order keep theirs 2 more years for disputes.",
+    legalBasis: "DPDP s.8(7) storage limitation; one year covers follow-up quotes and repeat orders, and orders keep their drawings for the 3-year limitation period (ADR-013)",
+    run: (before, { dryRun }) => purgeEndedEnquiryAttachments(before, { dryRun }),
+  },
+  {
+    name: "enquiry.attachment_quarantine_30d", module: "enquiry", envKey: "ATTACHMENT_QUARANTINE", defaultDays: 30, supportsDryRun: true,
+    description: "Bytes of uploads the malware scanner flagged; the record (who, when, signature) stays as the audit trail.",
+    legalBasis: "DPDP s.8(7); infected files are kept only long enough for security review",
+    run: (before, { dryRun }) => purgeAttachmentQuarantine(before, { dryRun }),
+  },
+  // --- buyer approvals + team (docs/design/buyer-approvals.md) ---
+  {
+    name: "approvals.resolved_requests", module: "approvals", envKey: "APPROVAL_RECORDS", defaultDays: 2920, supportsDryRun: true,
+    description: "Resolved approval requests and their append-only decision log. Business records: kept 8 years by default, then purged (pending requests are never purged).",
+    legalBasis: "Companies Act 2013 s.128 / GST records horizon; DPDP s.8(7)",
+    run: (before, { dryRun }) => purgeResolvedRequests(before, { dryRun }),
+  },
+  {
+    name: "approvals.ended_delegations_12m", module: "approvals", envKey: "APPROVAL_DELEGATIONS", defaultDays: 365, supportsDryRun: true,
+    description: "Out-of-office delegations that ended or were revoked.",
+    legalBasis: "DPDP s.8(7)",
+    run: (before, { dryRun }) => purgeEndedDelegations(before, { dryRun }),
+  },
+  {
+    name: "identity.team_invites_30d", module: "identity", envKey: "TEAM_INVITES", defaultDays: 30, supportsDryRun: true,
+    description: "Used, revoked and expired team invitations (they hold the invitee's email address).",
+    legalBasis: "DPDP s.8(7)",
+    run: (before, { dryRun }) => purgeOldInvites(before, { dryRun }),
+  },
+  // purchase orders / supplier invoices (docs/design/purchase-orders.md)
+  {
+    name: "enquiry.po_documents_7y", module: "enquiry", envKey: "PO_DOCUMENTS", defaultDays: 2555, supportsDryRun: true,
+    description: "Closed purchase orders (cancelled, or on a completed or cancelled order) and settled supplier invoices: delivery contact name/phone are blanked and the stored PDF / uploaded invoice copies are deleted. Numbers, amounts, versions, e-invoice references and payment records are kept.",
+    legalBasis: "DPDP s.8(7); the monetary record stays for GST s.36 / Income Tax Act record keeping, so only the personal data and document files go after 7 years",
+    run: (before, { dryRun }) => purgePurchaseOrderDocuments(before, { dryRun }),
+  },
+  // goods receipt notes (docs/design/grn-returns.md)
+  {
+    name: "enquiry.grn_photos_7y", module: "enquiry", envKey: "GRN_PHOTOS", defaultDays: 2555, supportsDryRun: true,
+    description: "Goods receipt notes on completed or cancelled orders: delivery / damage photos are deleted and the receiver's name is erased. Quantities, reason codes, numbers and dates are kept.",
+    legalBasis: "DPDP s.8(7); the quantity record stays for GST / Income Tax record keeping, so only the personal data and photos go after 7 years",
+    run: (before, { dryRun }) => purgeGoodsReceiptPhotos(before, { dryRun }),
+  },
+  // rate contracts (docs/design/rate-contracts.md)
+  {
+    name: "enquiry.rate_contracts_7y", module: "enquiry", envKey: "RATE_CONTRACTS", defaultDays: 2555, supportsDryRun: true,
+    description: "Expired or terminated rate contracts: the person who proposed, accepted or placed each step is cleared and notes, change notes, decline reasons and the termination reason are blanked. Numbers, parties, dates, prices, quantities and call-offs are kept.",
+    legalBasis: "DPDP s.8(7); the commercial record stays because the orders, purchase orders and invoices it backs are kept for GST / Income Tax record keeping",
+    run: (before, { dryRun }) => purgeRateContracts(before, { dryRun }),
   },
 ];
 
@@ -199,7 +291,7 @@ export async function runRetention(opts: RunOptions = {}): Promise<RetentionResu
     let purged = 0;
     let error: string | null = null;
     try {
-      purged = await p.run(before, { dryRun });
+      purged = await p.run(before, { dryRun, now, windowDays: windowDays(p, env) });
     } catch (e) {
       error = (e instanceof Error ? e.message : String(e)).slice(0, 500);
       console.error(`[compliance] retention ${p.name} failed`, e);

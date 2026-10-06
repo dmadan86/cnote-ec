@@ -115,6 +115,11 @@ export type SecurityEventType =
   | "mfa.verified"
   | "mfa.failed"
   | "mfa.recovery_used"
+  | "passkey.registered"
+  | "passkey.verified"
+  | "passkey.failed"
+  | "passkey.revoked"
+  | "passkey.clone_suspected"
   | "ssrf.blocked"
   | "secrets.invalid"
   | (string & {});
@@ -127,7 +132,7 @@ export interface SecurityEvent {
 export type SecurityEventSink = (event: SecurityEvent) => void;
 
 const SECRET_KEY = /pass(word)?|token|secret|authorization|cookie|otp|code|api[-_]?key|jwt/i;
-const EMAIL = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+const EMAIL = /[A-Z0-9._%+-]{1,64}@[A-Z0-9.-]{1,255}\.[A-Z]{2,24}/gi;
 
 function redact(v: unknown, depth = 0): unknown {
   if (v == null) return v;
@@ -166,8 +171,10 @@ function isPrivateV4(a: number, b: number, c: number): boolean {
 
 /** Expand an IPv6 literal (compressed, dotted-tail, zone id) into eight 16-bit groups; null if unparseable. */
 function ipv6Groups(ip: string): number[] | null {
-  let s = ip.toLowerCase().replace(/%.*$/, "");
-  const tail = s.match(/(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  let s = ip.toLowerCase();
+  const zone = s.indexOf("%");
+  if (zone >= 0) s = s.slice(0, zone);
+  const tail = s.match(/(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (tail) {
     const [, a, b, c, d] = tail.map(Number) as [number, number, number, number, number];
     s = `${s.slice(0, tail.index)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;

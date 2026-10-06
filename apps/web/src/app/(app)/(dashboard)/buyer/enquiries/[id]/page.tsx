@@ -1,4 +1,6 @@
+import { getSubjectTrail } from "@cnote/approvals";
 import { getBuyerEnquiry, getQuoteComparison, listCandidatesForBuyer } from "@cnote/enquiry";
+import { landedForQuotes } from "@cnote/logistics";
 import { actorOf, requireBusiness } from "@cnote/next-kit";
 import { Alert, Card, CardBody, CardTitle, Container, Money, PageHeader } from "@cnote/ui";
 import type { Metadata } from "next";
@@ -12,6 +14,7 @@ import { MatchedSellers } from "@/features/enquiry/matched-sellers";
 import { NegotiationAssist } from "@/features/negotiation/negotiation-assist";
 import { PickSellersForm } from "@/features/enquiry/pick-sellers-form";
 import { EnquiryStatusBadge } from "@/features/enquiry/status";
+import { ApprovalTrail } from "@/features/approvals/trail";
 import { canRequestAgain, RequestAgain } from "@/features/retention/request-again";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -29,7 +32,24 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
   const t = await getTranslations({ locale, namespace: "buyer" });
   const t2 = await getTranslations({ locale, namespace: "rfq2" });
   const tc = await getTranslations({ locale, namespace: "cards" });
+  const tl = await getTranslations({ locale, namespace: "rfqLines" });
   const comparison = await getQuoteComparison(actorOf(s), e.id);
+  // Landed cost per supplier (goods + GST + freight; an estimate where the seller states no delivery charge). Never blocks the page.
+  const landed = comparison?.rows.length
+    ? Object.fromEntries(
+        await landedForQuotes(
+          comparison.rows.map((r) => ({ key: r.matchId, sellerBusinessId: r.sellerBusinessId, quantity: r.quantity, goodsPaise: r.totalPaise, gstIncluded: r.quote.gstIncluded, deliveryChargePaise: r.quote.deliveryChargePaise, deliveryTerms: r.quote.deliveryTerms })),
+          e.deliveryPincode,
+          e.category?.slug ?? null,
+        ).catch(() => new Map()),
+      )
+    : undefined;
+  const ta = await getTranslations({ locale, namespace: "approvals" });
+  // docs/design/buyer-approvals.md: the audit trail of every approval asked for this requirement and its quotes
+  const trail = [
+    ...(await getSubjectTrail(s.business.id, "enquiry", e.id)),
+    ...(await Promise.all((comparison?.rows ?? []).filter((r) => r.approval).map((r) => getSubjectTrail(s.business.id, "quote", r.quote.id)))).flat(),
+  ];
   const money = (p: number) => `₹${(p / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
   const cap = e.sellerCap ?? 3;
@@ -42,6 +62,7 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
       <PageHeader title={e.title} description={t("posted", { date: formatDate(e.createdAt, locale) })} actions={<>{canRequestAgain(e) ? <RequestAgain enquiryId={e.id} locale={locale} /> : null}<EnquiryStatusBadge enquiry={e} /></>} />
 
       <div className="mt-6 flex flex-col gap-6">
+        {e.status === "pending_approval" ? <Alert tone="warning">{ta("badge.heldNotice")}</Alert> : null}
         {e.status === "review" ? <Alert tone="warning">{t("detailReview")}</Alert> : null}
         {e.status === "rejected" ? <Alert tone="danger">{t("detailRejected")}</Alert> : null}
         {e.status === "unmatched" && !canPick ? <Alert tone="warning">{t("detailUnmatched")}</Alert> : null}
@@ -81,6 +102,43 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
           </CardBody>
         </Card>
 
+        {e.lines.length > 1 ? (
+          <Card>
+            <CardBody className="flex flex-col gap-3">
+              <CardTitle>{tl("itemsHeading", { count: e.lines.length })}</CardTitle>
+              <div role="region" aria-label={tl("itemsHeading", { count: e.lines.length })} tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-brand-600">
+                <table className="w-full min-w-[32rem] border-collapse text-left text-sm">
+                  <caption className="sr-only">{tl("itemsHeading", { count: e.lines.length })}</caption>
+                  <thead className="text-xs text-muted">
+                    <tr>
+                      <th scope="col" className="py-1 pr-3 font-semibold">{tl("lineCol")}</th>
+                      <th scope="col" className="py-1 pr-3 font-semibold">{tl("field.itemName")}</th>
+                      <th scope="col" className="py-1 pr-3 font-semibold">{tl("field.quantity")}</th>
+                      <th scope="col" className="py-1 pr-3 font-semibold">{tl("field.targetPrice")}</th>
+                      <th scope="col" className="py-1 font-semibold">{tl("field.hsn")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {e.lines.map((l) => (
+                      <tr key={l.id} className="border-t border-line align-top">
+                        <td className="py-2 pr-3 text-muted">{l.ordinal}</td>
+                        <th scope="row" className="py-2 pr-3 font-medium text-ink">
+                          {l.itemName}
+                          {l.spec ? <span className="block text-xs font-normal text-muted">{l.spec}</span> : null}
+                          {l.category ? <span className="block text-xs font-normal text-muted">{l.category.name}</span> : null}
+                        </th>
+                        <td className="py-2 pr-3">{l.quantity} {l.unit}</td>
+                        <td className="py-2 pr-3">{l.targetPricePaise ? <Money paise={l.targetPricePaise} unit={l.unit} /> : "—"}</td>
+                        <td className="py-2">{l.hsn ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardBody>
+          </Card>
+        ) : null}
+
         {e.intentScore !== null ? (
           <Card>
             <CardBody className="flex flex-col gap-2">
@@ -97,7 +155,9 @@ export default async function EnquiryDetailPage(props: PageProps<"/buyer/enquiri
           </Card>
         ) : null}
 
-        {comparison ? <QuoteCompare comparison={comparison} /> : null}
+        {comparison ? <QuoteCompare comparison={comparison} landed={landed} /> : null}
+
+        <ApprovalTrail requests={trail} locale={locale} />
 
         {e.matches.length ? (
           <section className="flex flex-col gap-3">

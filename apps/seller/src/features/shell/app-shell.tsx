@@ -4,7 +4,7 @@ import { signOutAction } from "@cnote/next-kit";
 import { Button, TrustBadge } from "@cnote/ui";
 import type { SessionWithBusiness } from "@cnote/next-kit";
 import { getTranslations } from "next-intl/server";
-import { CookieSettingsLink } from "@/features/consent/settings-link";
+import { CookieLinks } from "@/features/consent/settings-link";
 import { LanguageSwitcher } from "@/i18n/language-switcher";
 import { Logo } from "./logo";
 import { BottomNav, SidebarNav } from "./nav";
@@ -50,7 +50,7 @@ export function AppShell({ session, unansweredQuestions = 0, children }: { sessi
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
         <footer className="mx-auto w-full max-w-5xl px-4 pb-4 sm:px-6 lg:px-8">
-          <CookieSettingsLink />
+          <CookieLinks />
         </footer>
       </div>
       <BottomNav />

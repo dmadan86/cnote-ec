@@ -71,7 +71,7 @@ test.describe("seller onboarding", () => {
 
     // The listing is in the portal, awaiting review or approved
     await page.goto("/listings");
-    await expect(page.getByText("E2E Corrugated Shipping Boxes")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "E2E Corrugated Shipping Boxes" })).toBeVisible(); // not getByText: the stock select has an sr-only label with the title
     // Version status badge: waiting for review, or already cleared by the automatic checks.
     await expect(page.getByText(/Pending: v1|Live: v1/).first()).toBeVisible();
   });
@@ -115,7 +115,7 @@ test.describe("seller portal", () => {
     await page.getByRole("button", { name: "Save and submit for review" }).click();
     await expect(page.getByRole("heading", { level: 2, name: /Submitted for review|Approved: going live shortly/ })).toBeVisible();
     await page.getByRole("link", { name: /Back to listings|listings/i }).first().click();
-    await expect(page.getByText(title)).toBeVisible();
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
   });
 
   test("language switch translates the portal and is remembered across pages", async ({ page }) => {

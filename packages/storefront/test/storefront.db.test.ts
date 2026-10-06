@@ -16,6 +16,9 @@ vi.mock("@cnote/catalogue", () => ({
   listPublicSellerListings: async () => [],
   listSellerListings: async () => [{ id: "l1", title: "Box", status: "published" }],
   listSellerListingImages: async () => state.approvedImages.map((id) => ({ id, url: `/media/listing-images/${id}`, status: "approved", altText: "x" })),
+  // used by the embed moderation (listing-style auto-approval): nobody is trusted enough in these tests
+  autoApprovePolicy: () => ({ minTier: 1, minTrust: 60, minAccountAgeDays: 30, minHumanApproved: 3, sampleRate: 0 }),
+  mayAutoApprove: () => false,
 }));
 vi.mock("@cnote/identity", () => ({ getTrustProfiles: async (ids: string[]) => new Map(ids.flatMap((i) => (state.profiles.has(i) ? [[i, state.profiles.get(i)!]] : []))) }));
 vi.mock("@cnote/reviews", () => ({ getRatingSummaries: async () => new Map(), listApprovedReviews: async () => ({ items: [], nextCursor: null }) }));
@@ -25,6 +28,7 @@ import { DomainError } from "@cnote/core";
 import {
   applyTemplate, getDraft, getOrCreateStorefront, getPublishedStorefront, listStorefrontReviews, listTemplates, previewDraft, getDraftByPreviewToken, publish, resolveStorefrontBySlug,
   restoreVersion, reviewStorefrontVersion, saveDraft, seedStorefrontTemplates, setSlug, suspendStorefront, reinstateStorefront, listVersions, worker, blankDocument, isSlugAvailable,
+  setOembedFetcherForTests, loadRenderData, listEmbedReviews, reviewEmbed,
 } from "../src";
 
 const tag = Math.random().toString(36).slice(2, 8);
@@ -46,6 +50,7 @@ afterAll(async () => {
   const sfs = await prisma.storefront.findMany({ where: { sellerBusinessId: { in: created } }, select: { id: true } });
   const ids = sfs.map((s) => s.id);
   await prisma.domainEvent.deleteMany({ where: { aggregateId: { in: ids } } });
+  await prisma.storefrontEmbedReview.deleteMany({ where: { storefrontId: { in: ids } } });
   await prisma.storefront.updateMany({ where: { id: { in: ids } }, data: { publishedVersionId: null } });
   await prisma.storefrontVersion.deleteMany({ where: { storefrontId: { in: ids } } });
   await prisma.storefront.deleteMany({ where: { id: { in: ids } } });
@@ -204,6 +209,30 @@ describe("storefront lifecycle", () => {
     const v = (await listVersions(b)).find((x) => x.id === saved.versionId)!;
     await expect(restoreVersion(b, person, v.id)).rejects.toMatchObject({ code: "validation" });
     vi.unstubAllEnvs();
+  });
+
+  it("publish holds an unapproved third-party video (not rendered) while the rest goes live; staff approval releases it", async () => {
+    setOembedFetcherForTests(async () => ({ title: "Plant tour", authorName: "Acme", description: null, thumbnailUrl: "https://i.ytimg.com/vi/a/b.jpg" }));
+    vi.stubEnv("STOREFRONT_EMBEDS_ENABLED", "1");
+    try {
+      const { b } = await fresh();
+      const d = await getDraft(b);
+      const withEmbed = structuredClone(d.document);
+      withEmbed.pages[0]!.sections.push({ id: "v1", type: "embed", tone: "default", title: "Tour", source: { kind: "youtube", videoId: "dQw4w9WgXcQ" } });
+      withEmbed.pages[0]!.sections.push({ id: "m1", type: "embed", tone: "default", title: "Map", source: { kind: "map", lat: 18.5, lng: 73.8, zoom: 12 } });
+      await saveDraft(b, person, withEmbed, d.etag);
+      const out = await publish(b, person);
+      expect(out).toMatchObject({ outcome: "published", heldEmbeds: 1 });
+      expect((await loadRenderData(b)).approvedEmbeds).toEqual([]);
+      const item = (await listEmbedReviews()).find((i) => i.sellerBusinessId === b)!;
+      expect(item).toMatchObject({ status: "pending", title: "Plant tour", mediaId: "dQw4w9WgXcQ" });
+      await reviewEmbed(item.id, staff, "approved", "ok");
+      expect((await loadRenderData(b)).approvedEmbeds).toEqual(["youtube:dQw4w9WgXcQ"]);
+      expect((await publish(b, person)).heldEmbeds).toBe(0);
+    } finally {
+      setOembedFetcherForTests(undefined);
+      vi.unstubAllEnvs();
+    }
   });
 
   it("worker handlers purge without throwing for unknown sellers", async () => {

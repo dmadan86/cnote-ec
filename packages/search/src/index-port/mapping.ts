@@ -3,9 +3,9 @@ import { readFileSync } from "node:fs";
 
 export const ALIAS = "listings";
 export const EMBEDDING_DIM = 256;
-export const indexName = (version: number) => `${ALIAS}_v${version}`;
-export const parseIndexVersion = (name: string): number => {
-  const m = /^listings_v(\d+)$/.exec(name);
+export const indexName = (version: number, alias = ALIAS) => `${alias}_v${version}`;
+export const parseIndexVersion = (name: string, alias = ALIAS): number => {
+  const m = new RegExp(`^${alias.replace(/[^\w]/g, "\\$&")}_v(\\d+)$`).exec(name);
   return m ? Number(m[1]) : 0;
 };
 
@@ -78,6 +78,8 @@ export function buildIndexBody(o: MappingOptions) {
         badgeActive: { type: "boolean" },
         pricePaise: { type: "long" },
         moq: { type: "long" },
+        availability: { type: "keyword" },
+        variantValues: { type: "keyword" },
         updatedAt: { type: "date" },
         embedding: {
           type: "knn_vector",
@@ -110,6 +112,8 @@ export function toSourceDoc(d: import("./types").IndexDoc) {
     badgeActive: d.badgeActive,
     pricePaise: d.pricePaise,
     moq: d.moq,
+    availability: d.availability ?? "in_stock",
+    variantValues: d.variantValues ?? [],
     updatedAt: d.updatedAt,
     ...(d.embedding && d.embedding.length === EMBEDDING_DIM ? { embedding: d.embedding } : {}),
   };

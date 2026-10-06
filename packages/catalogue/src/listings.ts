@@ -9,7 +9,9 @@ import { unpublishFromLive } from "./live";
 import { isUuid, listingInclude, liveToListingView, toListingView, type ListingRow } from "./mappers";
 import { LANGS, coerceAttributes, listingInputSchema, listingPatchSchema, parseOrThrow } from "./validate";
 import { compactTrade, parsePriceTiers, validatePriceTiers, type PriceTier, type TradeInfo } from "./tiers";
-import { reviewListingVersion, submitListingVersion } from "./versions";
+import { reviewListingVersion, submitListingVersion, stockAndVariantProblems } from "./versions";
+import { validateStock } from "./availability";
+import { updateListingStock } from "./stock";
 import type { ListingInput, ListingView } from "./index";
 
 async function loadOwned(sellerBusinessId: string, listingId: string): Promise<ListingRow> {
@@ -149,21 +151,34 @@ function tradeColumns(t: TradeInfo | undefined): Prisma.ListingUncheckedUpdateIn
     packaging: c.packaging ?? null,
     sampleAvailable: c.sampleAvailable ?? false,
     samplePricePaise: c.samplePricePaise == null ? null : BigInt(c.samplePricePaise),
+    sampleMaxQty: c.sampleMaxQty ?? null,
+    sampleDispatchDays: c.sampleDispatchDays ?? null,
+    sampleMinBuyerTier: c.sampleMinBuyerTier ?? null,
     supplyCapacityPerMonth: c.supplyCapacityPerMonth ?? null,
     paymentTerms: c.paymentTerms ?? null,
     certifications: c.certifications ?? [],
+    unitWeightGrams: c.unitWeightGrams ?? null,
+    unitLengthMm: c.unitLengthMm ?? null,
+    unitWidthMm: c.unitWidthMm ?? null,
+    unitHeightMm: c.unitHeightMm ?? null,
   };
 }
 
 export async function createListing(sellerBusinessId: string, input: ListingInput): Promise<ListingView> {
   const { trade, ...data } = parseOrThrow(listingInputSchema, input);
   assertTiers(data.priceTiers, data.moq);
+  const stated = data.availability !== undefined || data.availableQty !== undefined;
+  if (stated) {
+    const errs = validateStock({ availability: data.availability ?? "in_stock", availableQty: data.availableQty, leadTimeDays: trade?.leadTimeDays }, "Stock");
+    if (errs.length) throw new DomainError("validation", errs.join("; "), errs);
+  }
   const category = await requireCategory(data.categoryId);
   try {
     const row = await prisma.listing.create({
       data: {
         ...data,
         ...(tradeColumns(trade) as Prisma.ListingUncheckedCreateInput),
+        stockUpdatedAt: stated ? new Date() : null,
         priceTiers: data.priceTiers ?? [],
         sku: data.sku ?? null,
         sellerBusinessId,
@@ -241,8 +256,18 @@ export async function updateListing(sellerBusinessId: string, listingId: string,
     return JSON.stringify(next) !== JSON.stringify(prev);
   });
 
-  const { attributes: _a, pricePaise, trade, ...rest } = patch;
+  const { attributes: _a, pricePaise, trade, availability: nextAvailability, availableQty: nextQty, ...rest } = patch;
   void _a;
+  // stock is operational: it takes the stock fast path below (no review) and is validated against the lead time as it will be stored
+  const nextLead = trade ? (trade.leadTimeDays ?? null) : cur.leadTimeDays;
+  if (!cur.variants.length && (nextAvailability !== undefined || nextQty !== undefined || trade)) {
+    const errs = validateStock({ availability: nextAvailability ?? cur.availability, availableQty: nextQty !== undefined ? nextQty : cur.availableQty, leadTimeDays: nextLead }, "Stock");
+    if (errs.length) throw new DomainError("validation", errs.join("; "), errs);
+  }
+  if (patch.categoryId !== undefined && patch.categoryId !== cur.categoryId && cur.variants.length) {
+    const errs = stockAndVariantProblems({ ...cur, categoryId: patch.categoryId }, category);
+    if (errs.length) throw new DomainError("validation", `Variants do not fit the new category: ${errs.join("; ")}`, errs);
+  }
   if (patch.priceTiers !== undefined || patch.moq !== undefined) assertTiers(patch.priceTiers ?? parsePriceTiers(cur.priceTiers), patch.moq !== undefined ? patch.moq : cur.moq);
   const data: Prisma.ListingUncheckedUpdateInput = { ...rest, attributes, ...tradeColumns(trade) };
   if (pricePaise !== undefined) data.pricePaise = pricePaise === null ? null : BigInt(pricePaise);
@@ -258,6 +283,9 @@ export async function updateListing(sellerBusinessId: string, listingId: string,
     throw e;
   }
   await bustListingCaches(cur.id, cur.sellerBusinessId); // seller-facing lists; buyers are unaffected until a version is published
+  if (nextAvailability !== undefined || nextQty !== undefined) {
+    return updateListingStock(sellerBusinessId, cur.id, { ...(nextAvailability !== undefined ? { availability: nextAvailability } : {}), ...(nextQty !== undefined ? { availableQty: nextQty } : {}) });
+  }
   return toListingView(row);
 }
 

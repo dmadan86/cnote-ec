@@ -15,6 +15,7 @@ export const PRIVILEGES = [
   "billing.adjust", // FUTURE: manual credit adjustments; reserved, no UI yet
   "staff.read", // list staff and their roles
   "staff.manage", // grant / change roles / deactivate staff
+  "staff.passkeys.reset", // owner-level recovery: revoke another staff member's passkeys (they re-enroll at next sign-in); audited
   "audit.read", // read the admin audit log
   "ai.decisions.read", // inspect AI decisions (may contain redacted personal data)
   "ugc.read", // see the user-generated content moderation queue (reviews, comments, seller replies)
@@ -64,6 +65,15 @@ export const PRIVILEGES = [
   "agents.read", // standing agent mandates, negotiation transcripts (structured terms)
   "agents.suspend", // suspend a mandate or an external agent integration (abuse)
   "prices.manage", // benchmark publication, k-anonymity thresholds, premium analytics access
+  // Search tuning (ADR-004/009): vernacular synonym dictionary + relevance judgements
+  "search.read", // view the synonym dictionary, its history, and recorded relevance judgements
+  "search.manage", // publish/rollback synonym versions, record/delete relevance judgements (all audited)
+  // AI ops (labels export)
+  "ai.labels.export", // export labelled ops decisions as training data (redacted inputs; every export is audited)
+  // Freight estimator
+  "logistics.manage", // edit/activate the heuristic freight rate card (versioned, audited)
+  // purchase orders / MSME payment dues (docs/design/purchase-orders.md)
+  "payables.read", // read-only view of overdue MSME supplier invoices (IT Act s.43B(h)); business names and amounts, no documents
 ] as const;
 export type Privilege = (typeof PRIVILEGES)[number];
 
@@ -81,16 +91,16 @@ export const ROLE_PRIVILEGES: Record<Role, readonly Privilege[]> = {
     "ugc.read", "ugc.moderate", "images.moderate", "api_keys.read", "api_keys.revoke", "queues.read",
     "storefronts.review", "metrics.read", "compliance.read", "compliance.manage", "compliance.consent",
     "ads.read", "ads.review", "ads.suspend", "ads.fraud.review", "offers.review", "promotions.read", "kyc.review",
-    "disputes.read", "quality.review", "verticals.manage", "ondc.manage", "agents.read", "agents.suspend",
+    "disputes.read", "quality.review", "verticals.manage", "ondc.manage", "agents.read", "agents.suspend", "search.read", "search.manage",
   ],
   /** Business verification (ADR-003). Sees the queue read-only for context. */
   verification_officer: ["businesses.read", "businesses.verify", "reviews.read", "kyc.review", "audits.manage"],
   /** Customer support: look up businesses and their credit ledger; cannot change anything. */
-  support: ["businesses.read", "billing.read", "reviews.read", "ugc.read", "api_keys.read", "templates.read", "queues.read", "compliance.read", "ads.read", "promotions.read", "coupons.read", "referrals.review", "payments.read"],
+  support: ["businesses.read", "billing.read", "reviews.read", "ugc.read", "api_keys.read", "templates.read", "queues.read", "compliance.read", "ads.read", "promotions.read", "coupons.read", "referrals.review", "payments.read", "payables.read"],
   /** Marketing/CRM: owns email + notification copy and layouts (publishing goes live to users). */
   marketing: ["templates.read", "templates.manage", "templates.publish", "businesses.read", "storefronts.templates", "leadgen.read", "metrics.read", "promotions.read", "promotions.manage", "promotions.publish", "coupons.read", "coupons.manage", "ads.read"],
   /** Finance: ledger visibility and (future) credit adjustments, plus audit visibility for reconciliation. */
-  finance: ["billing.read", "billing.adjust", "businesses.read", "audit.read", "metrics.read", "ads.read", "ads.fraud.review", "coupons.read", "payments.read", "payments.refund", "escrow.read", "escrow.manage", "disputes.read", "credit.read", "credit.manage", "prices.manage"],
+  finance: ["billing.read", "billing.adjust", "businesses.read", "audit.read", "metrics.read", "ads.read", "ads.fraud.review", "coupons.read", "payments.read", "payments.refund", "escrow.read", "escrow.manage", "disputes.read", "credit.read", "credit.manage", "prices.manage", "logistics.manage", "payables.read"],
   /** Dispute adjudication (ADR-013): decides cases using the AI brief; sees escrow state but cannot move money directly. */
   adjudicator: ["disputes.read", "disputes.adjudicate", "escrow.read", "businesses.read", "quality.review", "ai.decisions.read"],
   /** Read-only observer: queue, directory, AI decisions. No billing, staff or audit data. */

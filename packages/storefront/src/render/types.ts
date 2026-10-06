@@ -35,6 +35,11 @@ export interface RenderData {
   products: RenderProduct[];
   categories: { slug: string; name: string }[];
   testimonials: RenderTestimonial[];
+  /**
+   * Embed keys (`youtube:<id>`, `vimeo:<id>`) staff or the auto-approver have cleared. A third-party video is only rendered when its
+   * key is here; absent means none are (fail closed). Maps need no approval.
+   */
+  approvedEmbeds?: string[];
 }
 
 export interface LinkProps {
@@ -60,7 +65,7 @@ export interface ImageProps {
  * wraps it in a consent gate (nothing loads before consent); Studio's preview and any host without one shows only a link.
  */
 export interface EmbedProps {
-  kind: "youtube" | "map";
+  kind: "youtube" | "vimeo" | "map";
   /** privacy-enhanced iframe URL on an origin from EMBED_FRAME_ORIGINS */
   src: string;
   /** accessible name of the frame */

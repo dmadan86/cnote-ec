@@ -53,6 +53,10 @@
     "noMatch": "No listings match these filters.",
     "noMatchHint": "Try removing a filter to see more results.",
     "deliverTitle": "Delivery location",
-    "deliverLabelAny": "Only suppliers who deliver to my pincode"
+    "deliverLabelAny": "Only suppliers who deliver to my pincode",
+    "stockTitle": "Availability",
+    "inStockOnly": "In stock only",
+    "chipInStock": "In stock only",
+    "chipVariant": "{axis}: {value}"
   }
 }

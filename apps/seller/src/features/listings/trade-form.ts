@@ -34,14 +34,24 @@ export interface TradeFields {
   packaging: string;
   sampleAvailable: boolean;
   samplePriceRupees: string;
+  /** sample workflow settings (docs/design/samples.md); blank = not set */
+  sampleMaxQty?: string;
+  sampleDispatchDays?: string;
+  sampleMinBuyerTier?: string;
   supplyCapacityPerMonth: string;
   paymentTerms: string;
   certifications: string;
+  /** shipping facts per unit (freight estimator): grams and centimetres as typed; all optional */
+  unitWeightGrams?: string;
+  lengthCm?: string;
+  widthCm?: string;
+  heightCm?: string;
 }
 
 /** Returns the trade info for the catalogue plus whether any numeric field was not a whole non-negative number. */
-export function parseTradeFields(f: TradeFields): { trade: TradeInfo; invalid: boolean } {
+export function parseTradeFields(f: TradeFields): { trade: TradeInfo; invalid: boolean; shippingInvalid: boolean } {
   let invalid = false;
+  let shippingInvalid = false;
   const whole = (s: string): number | null => {
     if (blank(s)) return null;
     const n = Number(s);
@@ -54,14 +64,37 @@ export function parseTradeFields(f: TradeFields): { trade: TradeInfo; invalid: b
   const samplePrice = blank(f.samplePriceRupees) ? null : Number(f.samplePriceRupees);
   if (samplePrice !== null && (!Number.isFinite(samplePrice) || samplePrice < 0)) invalid = true;
   const capacity = whole(f.supplyCapacityPerMonth);
+  const maxQty = whole(f.sampleMaxQty ?? "");
+  const dispatchDays = whole(f.sampleDispatchDays ?? "");
+  const minTier = whole(f.sampleMinBuyerTier ?? "");
+  if (minTier !== null && minTier > 3) invalid = true;
+  if (maxQty !== null && maxQty < 1) invalid = true;
+  const positiveInt = (s: string | undefined, scale = 1): number | null => {
+    if (!s || blank(s)) return null;
+    const n = Number(s);
+    if (!Number.isFinite(n) || n <= 0) {
+      shippingInvalid = true;
+      return null;
+    }
+    return Math.max(1, Math.round(n * scale));
+  };
+  const weight = positiveInt(f.unitWeightGrams);
+  if (weight !== null && !Number.isInteger(Number(f.unitWeightGrams))) shippingInvalid = true;
   const trade: TradeInfo = {
     leadTimeDays: whole(f.leadTimeDays),
     packaging: f.packaging.trim() || null,
     sampleAvailable: f.sampleAvailable,
     samplePricePaise: f.sampleAvailable && samplePrice !== null && Number.isFinite(samplePrice) && samplePrice >= 0 ? rupeesToPaise(samplePrice) : null,
+    sampleMaxQty: f.sampleAvailable && maxQty !== null && maxQty >= 1 ? maxQty : null,
+    sampleDispatchDays: f.sampleAvailable ? dispatchDays : null,
+    sampleMinBuyerTier: f.sampleAvailable && minTier !== null && minTier <= 3 ? minTier : null,
     supplyCapacityPerMonth: capacity === 0 ? null : capacity,
     paymentTerms: f.paymentTerms.trim() || null,
     certifications: f.certifications.split(/[,\n]+/).map((s) => s.trim()).filter(Boolean).slice(0, 12),
+    unitWeightGrams: weight,
+    unitLengthMm: positiveInt(f.lengthCm, 10),
+    unitWidthMm: positiveInt(f.widthCm, 10),
+    unitHeightMm: positiveInt(f.heightCm, 10),
   };
-  return { trade, invalid };
+  return { trade, invalid, shippingInvalid };
 }

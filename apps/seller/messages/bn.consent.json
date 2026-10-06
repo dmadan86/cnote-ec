@@ -1,7 +1,7 @@
 {
   "consent": {
     "aria": "কুকি বিজ্ঞপ্তি",
-    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie.",
+    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie. <link>কুকি নীতি</link>",
     "acceptAll": "সব গ্রহণ করুন",
     "rejectAll": "সব প্রত্যাখ্যান করুন",
     "customise": "পছন্দ বেছে নিন",
@@ -53,7 +53,23 @@
       "onboardingSkip": "Remembers an onboarding step you chose to skip.",
       "onboardingStart": "Records when you created your business, to measure how long onboarding takes.",
       "onboardingFirstListing": "Remembers that you submitted your first listing, so onboarding can show you the result.",
-      "referral": "Remembers the referral code from the link you followed until you create your business."
-    }
+      "referral": "Remembers the referral code from the link you followed until you create your business.",
+      "consentSync": "শুধু এই ভিজিটের জন্য, মনে রাখে যে আপনার কুকি পছন্দ আপনার অ্যাকাউন্টের সঙ্গে মিলিয়ে দেখা হয়েছে।"
+    },
+    "policyTitle": "কুকি নীতি",
+    "policyDescription": "{site} কোন কুকি ও অনুরূপ স্টোরেজ কেন এবং কত সময়ের জন্য ব্যবহার করে, আর আপনার পছন্দ কীভাবে বদলাবেন।",
+    "versionLine": "নীতির সংস্করণ {version}, সর্বশেষ হালনাগাদ {date}।",
+    "whatTitle": "কুকি কী?",
+    "whatBody": "কুকি হলো ছোট টেক্সট ফাইল, যা ওয়েবসাইট আপনার ব্রাউজারে সংরক্ষণ করে। আমরা অনুরূপ ব্রাউজার স্টোরেজও (লোকাল ও সেশন স্টোরেজ) ব্যবহার করি। কিছু প্রয়োজনীয়; বাকিগুলো কেবল আপনি সম্মতি দিলেই ব্যবহার করা হয়।",
+    "categoriesTitle": "বিভাগ",
+    "categoriesBody": "আমরা এগুলোকে তিনটি বিভাগে ভাগ করি। প্রয়োজনীয় কুকি সবসময় চালু থাকে। অ্যানালিটিক্স ও মার্কেটিং আপনি গ্রহণ না করা পর্যন্ত বন্ধ থাকে, এবং সেগুলো প্রত্যাখ্যান করলে {site}-এ আপনার কাজে কোনো বাধা হয় না।",
+    "tableTitle": "আমরা যে কুকি ও স্টোরেজ ব্যবহার করি",
+    "changeTitle": "আপনার পছন্দ বদলান বা প্রত্যাহার করুন",
+    "changeBody": "আপনি যেকোনো সময় পছন্দ বদলাতে পারেন; সম্মতি প্রত্যাহার করা দেওয়ার মতোই সহজ। প্রত্যাহার করলে আমরা সেই ব্যবহার বন্ধ করি এবং সংশ্লিষ্ট কুকি ও স্টোরেজ মুছে ফেলি।",
+    "gpcTitle": "গ্লোবাল প্রাইভেসি কন্ট্রোল",
+    "gpcBody": "আপনার ব্রাউজার গ্লোবাল প্রাইভেসি কন্ট্রোল সিগন্যাল পাঠালে আমরা মার্কেটিংকে ডিফল্টরূপে বন্ধ ধরি। চাইলে পছন্দ পাতায় আপনি নিজেই সেটি চালু করতে পারেন।",
+    "grievanceTitle": "প্রশ্ন বা অভিযোগ",
+    "grievanceBody": "কুকি বা আপনার ব্যক্তিগত তথ্য ব্যবহার নিয়ে কোনো প্রশ্ন বা অভিযোগ থাকলে আমাদের অভিযোগ কর্মকর্তার সঙ্গে যোগাযোগ করুন।",
+    "grievanceLink": "অভিযোগ নিষ্পত্তি"
   }
 }

@@ -2,8 +2,12 @@ import "server-only";
 // "Post your requirement", shared by the text-only server action (actions.ts) and the multipart route handler (app/api/rfq/route.ts).
 import { createEnquiry, MAX_RFQ_ATTACHMENTS, MAX_RFQ_ATTACHMENT_BYTES, type AttachmentUpload, type EnquiryView } from "@cnote/enquiry";
 import { actorOf, type SessionWithBusiness } from "@cnote/next-kit";
+import { clientIp } from "@cnote/security/client-ip";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { attributeEnquiryFromCookie } from "@/features/ads/slots";
+import { linkBulkEnquiry, samplesEnabled } from "@/lib/samples";
+import { linesFromForm } from "./bom";
 
 /** Whole-request cap for the upload route: every allowed attachment at full size plus form fields and multipart framing. */
 export const RFQ_UPLOAD_MAX_BYTES = MAX_RFQ_ATTACHMENTS * MAX_RFQ_ATTACHMENT_BYTES + 512 * 1024;
@@ -37,6 +41,7 @@ export async function postRfq(f: FormData, s: SessionWithBusiness, opts: { withF
     {
       title: str(f, "title") ?? "",
       requirement: str(f, "requirement") ?? "",
+      lines: linesFromForm(f),
       categorySlug: str(f, "categorySlug"),
       quantity: num(f, "quantity"),
       quantityUnit: str(f, "quantityUnit"),
@@ -54,9 +59,15 @@ export async function postRfq(f: FormData, s: SessionWithBusiness, opts: { withF
       preferredSellerId: str(f, "preferredSellerId"),
       language: s.preferredLanguage,
     },
-    { buyerPhoneVerified: s.phoneVerified },
+    // ADR-002 fake-lead signals: server-side only (hashed /24, UA family, velocity). Nothing is set in the browser.
+    { buyerPhoneVerified: s.phoneVerified, ip: clientIp(await headers()), userAgent: (await headers()).get("user-agent") },
   );
   await attributeEnquiryFromCookie({ enquiryId: enquiry.id, buyerBusinessId: s.business.id, listingId: str(f, "preferredListingId") });
+  // Raised from an approved sample: link it as the requirement's quality reference. A failure never loses the posted requirement.
+  const sampleId = str(f, "sampleId");
+  if (sampleId && samplesEnabled()) {
+    await linkBulkEnquiry(actorOf(s), sampleId, enquiry.id).catch((err) => console.error("[samples] linking the bulk requirement failed", err instanceof Error ? err.message : err));
+  }
   revalidatePath("/buyer/enquiries");
   return enquiry;
 }

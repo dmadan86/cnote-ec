@@ -4,6 +4,7 @@ import { formatINR } from "@cnote/core";
 import { buttonClasses, Label, Select } from "@cnote/ui";
 import type { Locale } from "@/i18n/config";
 import { LocaleLink as Link } from "@/i18n/link";
+import { variantAxisLabel, variantValueLabel } from "./variant-labels";
 import { chipSpecs, hasFilters, hrefFor, toSearchParams, type FilterState } from "./filter-state";
 
 type Base = { q?: string; tab?: string };
@@ -67,12 +68,16 @@ export async function AppliedFilters({ path, base, state, locale, tierNames, cat
         return t("chipMoq", { n: value });
       case "priced":
         return t("chipPriced");
+      case "instock":
+        return t("chipInStock");
+      case "variant":
+        return t("chipVariant", { axis: variantAxisLabel(value.split(":")[0] ?? ""), value: variantValueLabel(value.split(":").slice(1).join(":")) });
       default:
         return t("chipDeliver", { pincode: value });
     }
   };
   const specs = chipSpecs(state, lockCategories);
-  const cleared: FilterState = { ...state, tier: 0, states: [], cities: [], categories: lockCategories ? state.categories : [], pmin: null, pmax: null, moq: null, priced: false, deliver: null };
+  const cleared: FilterState = { ...state, tier: 0, states: [], cities: [], categories: lockCategories ? state.categories : [], pmin: null, pmax: null, moq: null, priced: false, deliver: null, inStock: false, variants: {} };
   return (
     <ul aria-label={t("applied")} className="flex flex-wrap items-center gap-2">
       {specs.map((c) => {

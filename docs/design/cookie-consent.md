@@ -244,7 +244,7 @@ e2e: the flag is on only for `e2e/a11y/storefront-embed.spec.ts`, which runs in 
 
 ### Moderation follow-up (before the flag is turned on)
 
-1. Resolve the video's title (YouTube oEmbed: `https://www.youtube.com/oembed?url=...`, title + author, no API key) when the seller saves the block and
+0. DONE (see docs/design/storefront-embed-moderation.md). Original plan: 1. Resolve the video title (YouTube oEmbed: `https://www.youtube.com/oembed?url=...`, title + author, no API key) when the seller saves the block and
    run it, with the block title, through `ai.moderate` (ADR-008: log prompt version and model, route low confidence to the ops queue). Block saving on a
    `block` verdict; map blocks need only the title.
 2. Add the embed block to `collectText` for the publish pre-screen (title is already there) and send any storefront with an embed to **staff review**
@@ -436,3 +436,9 @@ marketplace origin it links to `${APP_URL}/cookies` instead (`ConsentManager sit
 
 Added with the buyer convenience features. Cookie format gains `f=0|1`; a cookie without `f` parses as "not granted" (and the version bump to 3 re-prompts everybody anyway). Policy version 2 was prepared in the PR but never released, so there is no `v2.json`: the snapshots are v1 and v3.
 End to end: `ConsentState`/`ConsentChoices.functional`, the registry (`cnote_recent_v1`), a third optional switch in the preferences dialog and on `/cookies` (rendered from `CATEGORIES`), `POST /api/consent` (`functional` optional, default false, for receipts queued by an older build), `cookie_consent_receipts.functional` (boolean, default false), identity purpose `functional_cookies` with account sync, the admin consent log (column, CSV column, grant counts), `requireConsent(req, "functional")`, and the cookie-audit e2e (a "preferences only" state).
+
+### Seller app: policy page and account sync (policy v2, 2026-10-06)
+
+- **`/cookies` on the seller app** (public, 8 languages): generated from `SELLER_STORAGE_REGISTRY` with the shared `CookieTable`, so the page, the dialog and the receipts cannot disagree. Linked from the banner (`<link>` in `consent.bannerText`), from the preferences dialog (note under the intro, text `consent.policyTitle`) and from every footer (`CookieLinks`). Copy reuses the buyer web's translations of the same sections. The grievance section links to the marketplace `/grievance` (`APP_URL`).
+- **Policy version 2** (`SELLER_POLICY_VERSION`, `SELLER_POLICY_UPDATED`): the banner text gained the policy link, `policyTitle` joined the snapshotted notice keys and the registry gained the necessary key `seller_consent_sync` (sessionStorage). Snapshot `policy-snapshots/v2.json` was generated and registered; `v1.json` is untouched. Every seller is asked once more.
+- **Account sync** (same mechanism as the buyer web, see "Account sync" above): `POST /api/consent` mirrors a signed-in seller's choice into the identity ledger with source `seller_cookie_banner`; `GET /api/consent/account` returns it; `ConsentManager` runs `syncFromAccount` once per page load/visit; the newer of cookie and ledger wins per purpose. **Separate ledger purposes** `seller_analytics_cookies` / `seller_marketing_cookies` (not the buyer web's `analytics_cookies` / `marketing_cookies`): onboarding timing and referral attribution are different purposes from Clarity analytics, and one app's choice must not change what the other may do. The seller offers no functional switch (its ledger value is always null). Shared pure logic (`reconcileAccountConsent`, `effectiveChoiceTime`, `syncFromAccount`) now lives in `@cnote/consent`; the buyer web re-exports it.

@@ -1,7 +1,7 @@
 {
   "consent": {
     "aria": "ಕುಕಿ ಸೂಚನೆ",
-    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie.",
+    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie. <link>ಕುಕಿ ನೀತಿ</link>",
     "acceptAll": "ಎಲ್ಲವನ್ನೂ ಒಪ್ಪಿ",
     "rejectAll": "ಎಲ್ಲವನ್ನೂ ತಿರಸ್ಕರಿಸಿ",
     "customise": "ಆಯ್ಕೆ ಮಾಡಿ",
@@ -53,7 +53,23 @@
       "onboardingSkip": "Remembers an onboarding step you chose to skip.",
       "onboardingStart": "Records when you created your business, to measure how long onboarding takes.",
       "onboardingFirstListing": "Remembers that you submitted your first listing, so onboarding can show you the result.",
-      "referral": "Remembers the referral code from the link you followed until you create your business."
-    }
+      "referral": "Remembers the referral code from the link you followed until you create your business.",
+      "consentSync": "ಈ ಭೇಟಿಗೆ ಮಾತ್ರ, ನಿಮ್ಮ ಕುಕೀ ಆಯ್ಕೆಯನ್ನು ನಿಮ್ಮ ಖಾತೆಯೊಂದಿಗೆ ಹೊಂದಿಸಲಾಗಿದೆ ಎಂದು ನೆನಪಿಡುತ್ತದೆ."
+    },
+    "policyTitle": "ಕುಕಿ ನೀತಿ",
+    "policyDescription": "{site} ಯಾವ ಕುಕಿಗಳನ್ನು ಮತ್ತು ಅಂತಹುದೇ ಸಂಗ್ರಹಣೆಯನ್ನು ಏಕೆ, ಎಷ್ಟು ಕಾಲ ಬಳಸುತ್ತದೆ ಮತ್ತು ನಿಮ್ಮ ಆಯ್ಕೆಯನ್ನು ಹೇಗೆ ಬದಲಾಯಿಸುವುದು.",
+    "versionLine": "ನೀತಿ ಆವೃತ್ತಿ {version}, ಕೊನೆಯ ಬಾರಿ ನವೀಕರಿಸಿದ್ದು {date}.",
+    "whatTitle": "ಕುಕಿಗಳು ಎಂದರೇನು?",
+    "whatBody": "ಕುಕಿಗಳು ವೆಬ್‌ಸೈಟ್ ನಿಮ್ಮ ಬ್ರೌಸರ್‌ನಲ್ಲಿ ಉಳಿಸುವ ಸಣ್ಣ ಪಠ್ಯ ಫೈಲ್‌ಗಳು. ನಾವು ಅಂತಹುದೇ ಬ್ರೌಸರ್ ಸಂಗ್ರಹಣೆಯನ್ನೂ (ಲೋಕಲ್ ಮತ್ತು ಸೆಷನ್ ಸ್ಟೋರೇಜ್) ಬಳಸುತ್ತೇವೆ. ಕೆಲವು ಅತ್ಯಗತ್ಯ; ಉಳಿದವನ್ನು ನೀವು ಒಪ್ಪಿದರೆ ಮಾತ್ರ ಬಳಸಲಾಗುತ್ತದೆ.",
+    "categoriesTitle": "ವರ್ಗಗಳು",
+    "categoriesBody": "ನಾವು ಇವುಗಳನ್ನು ಮೂರು ವರ್ಗಗಳಾಗಿ ವಿಂಗಡಿಸುತ್ತೇವೆ. ಅಗತ್ಯ ಕುಕಿಗಳು ಯಾವಾಗಲೂ ಆನ್ ಆಗಿರುತ್ತವೆ. ಅನಾಲಿಟಿಕ್ಸ್ ಮತ್ತು ಮಾರ್ಕೆಟಿಂಗ್ ಅನ್ನು ನೀವು ಒಪ್ಪುವವರೆಗೆ ಆಫ್ ಆಗಿರುತ್ತವೆ, ಮತ್ತು ಅವನ್ನು ನಿರಾಕರಿಸಿದರೂ {site} ನಲ್ಲಿ ನಿಮ್ಮ ಕೆಲಸಕ್ಕೆ ಯಾವುದೇ ಅಡ್ಡಿಯಾಗುವುದಿಲ್ಲ.",
+    "tableTitle": "ನಾವು ಬಳಸುವ ಕುಕಿಗಳು ಮತ್ತು ಸಂಗ್ರಹಣೆ",
+    "changeTitle": "ನಿಮ್ಮ ಆಯ್ಕೆಯನ್ನು ಬದಲಾಯಿಸಿ ಅಥವಾ ಹಿಂಪಡೆಯಿರಿ",
+    "changeBody": "ನಿಮ್ಮ ಆಯ್ಕೆಯನ್ನು ಯಾವಾಗ ಬೇಕಾದರೂ ಬದಲಾಯಿಸಬಹುದು; ಒಪ್ಪಿಗೆ ನೀಡುವಷ್ಟೇ ಸುಲಭವಾಗಿ ಹಿಂಪಡೆಯಬಹುದು. ನೀವು ಹಿಂಪಡೆದಾಗ, ನಾವು ಆ ಬಳಕೆಯನ್ನು ನಿಲ್ಲಿಸಿ ಸಂಬಂಧಿತ ಕುಕಿಗಳು ಮತ್ತು ಸಂಗ್ರಹಣೆಯನ್ನು ಅಳಿಸುತ್ತೇವೆ.",
+    "gpcTitle": "ಗ್ಲೋಬಲ್ ಪ್ರೈವಸಿ ಕಂಟ್ರೋಲ್",
+    "gpcBody": "ನಿಮ್ಮ ಬ್ರೌಸರ್ ಗ್ಲೋಬಲ್ ಪ್ರೈವಸಿ ಕಂಟ್ರೋಲ್ ಸಿಗ್ನಲ್ ಕಳುಹಿಸಿದರೆ, ನಾವು ಮಾರ್ಕೆಟಿಂಗ್ ಅನ್ನು ಡೀಫಾಲ್ಟ್ ಆಗಿ ಆಫ್ ಎಂದು ಪರಿಗಣಿಸುತ್ತೇವೆ. ಬೇಕಿದ್ದರೆ ಆದ್ಯತೆಗಳಲ್ಲಿ ನೀವೇ ಅದನ್ನು ಆನ್ ಮಾಡಬಹುದು.",
+    "grievanceTitle": "ಪ್ರಶ್ನೆಗಳು ಅಥವಾ ದೂರುಗಳು",
+    "grievanceBody": "ಕುಕಿಗಳು ಅಥವಾ ನಿಮ್ಮ ವೈಯಕ್ತಿಕ ಡೇಟಾ ಬಳಕೆಯ ಬಗ್ಗೆ ಪ್ರಶ್ನೆ ಅಥವಾ ದೂರು ಇದ್ದರೆ ನಮ್ಮ ಕುಂದುಕೊರತೆ ಅಧಿಕಾರಿಯನ್ನು ಸಂಪರ್ಕಿಸಿ.",
+    "grievanceLink": "ಕುಂದುಕೊರತೆ ನಿವಾರಣೆ"
   }
 }

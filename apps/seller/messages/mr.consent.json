@@ -1,7 +1,7 @@
 {
   "consent": {
     "aria": "कुकी सूचना",
-    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie.",
+    "bannerText": "{site}, as data fiduciary, uses essential cookies to run this seller portal. With your permission we also use analytics cookies to measure how long onboarding takes and marketing cookies to remember the referral link you came from. Nothing optional is used unless you accept. Choose Customise to see every cookie. <link>कुकी धोरण</link>",
     "acceptAll": "सर्व स्वीकारा",
     "rejectAll": "सर्व नाकारा",
     "customise": "निवड करा",
@@ -53,7 +53,23 @@
       "onboardingSkip": "Remembers an onboarding step you chose to skip.",
       "onboardingStart": "Records when you created your business, to measure how long onboarding takes.",
       "onboardingFirstListing": "Remembers that you submitted your first listing, so onboarding can show you the result.",
-      "referral": "Remembers the referral code from the link you followed until you create your business."
-    }
+      "referral": "Remembers the referral code from the link you followed until you create your business.",
+      "consentSync": "फक्त या भेटीसाठी, तुमची कुकी निवड तुमच्या खात्याशी जुळवली गेल्याचे लक्षात ठेवते."
+    },
+    "policyTitle": "कुकी धोरण",
+    "policyDescription": "{site} कोणत्या कुकी आणि तत्सम स्टोरेज का, किती काळ वापरते आणि तुमची निवड कशी बदलायची.",
+    "versionLine": "धोरण आवृत्ती {version}, शेवटचे अद्यतन {date}.",
+    "whatTitle": "कुकी म्हणजे काय?",
+    "whatBody": "कुकी या लहान मजकूर फाइल्स आहेत ज्या वेबसाइट तुमच्या ब्राउझरमध्ये जतन करते. आम्ही तत्सम ब्राउझर स्टोरेज (लोकल आणि सेशन स्टोरेज) देखील वापरतो. काही आवश्यक आहेत; बाकीच्या फक्त तुम्ही संमती दिल्यासच वापरल्या जातात.",
+    "categoriesTitle": "श्रेण्या",
+    "categoriesBody": "आम्ही त्यांची तीन श्रेण्यांमध्ये विभागणी करतो. आवश्यक कुकी नेहमी चालू असतात. अ‍ॅनालिटिक्स आणि मार्केटिंग तुम्ही स्वीकारेपर्यंत बंद असतात, आणि त्या नाकारल्याने {site} वर तुमच्या कामात कोणताही अडथळा येत नाही.",
+    "tableTitle": "आम्ही वापरत असलेल्या कुकी आणि स्टोरेज",
+    "changeTitle": "तुमची निवड बदला किंवा मागे घ्या",
+    "changeBody": "तुम्ही तुमची निवड केव्हाही बदलू शकता; संमती मागे घेणे ती देण्याइतकेच सोपे आहे. तुम्ही मागे घेतल्यावर आम्ही तो वापर थांबवतो आणि संबंधित कुकी व स्टोरेज हटवतो.",
+    "gpcTitle": "ग्लोबल प्रायव्हसी कंट्रोल",
+    "gpcBody": "तुमचा ब्राउझर ग्लोबल प्रायव्हसी कंट्रोल सिग्नल पाठवत असेल, तर आम्ही मार्केटिंग डिफॉल्ट म्हणून बंद मानतो. हवे असल्यास तुम्ही प्राधान्यांमध्ये ते स्वतः चालू करू शकता.",
+    "grievanceTitle": "प्रश्न किंवा तक्रारी",
+    "grievanceBody": "कुकी किंवा तुमच्या वैयक्तिक डेटाच्या वापराबद्दल प्रश्न किंवा तक्रार असल्यास आमच्या तक्रार निवारण अधिकाऱ्याशी संपर्क साधा.",
+    "grievanceLink": "तक्रार निवारण"
   }
 }

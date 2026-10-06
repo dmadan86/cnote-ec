@@ -53,6 +53,27 @@
     "copyFailed": "লিংক কপি করা যায়নি। অ্যাড্রেস বার থেকে কপি করুন।",
     "shareText": "{title} দেখুন",
     "report": "এই লিস্টিং রিপোর্ট করুন",
-    "stickyBar": "দ্রুত কাজ"
+    "stickyBar": "দ্রুত কাজ",
+    "availability": {
+      "in_stock": "স্টকে আছে",
+      "made_to_order": "অর্ডারে তৈরি",
+      "out_of_stock": "স্টক নেই",
+      "madeToOrderLead": "অর্ডারে তৈরি, ডেলিভারিতে {days, plural, one {# দিন} other {# দিন}}",
+      "qty": "{qty} উপলব্ধ",
+      "updated": "স্টক হালনাগাদ: {date}",
+      "outNote": "এখন স্টকে নেই। তবুও আপনি কোটেশন চাইতে পারেন; উপলব্ধ হলে সরবরাহকারী জানাবেন।"
+    },
+    "variants": {
+      "title": "বিকল্প বেছে নিন",
+      "choose": "সঠিক দাম ও প্রাপ্যতা দেখতে {axes} বেছে নিন।",
+      "reset": "বাছাই রিসেট করুন",
+      "sku": "SKU {sku}",
+      "changesOthers": "অন্য বাছাইও বদলাবে",
+      "pricesVary": "দাম ও ন্যূনতম অর্ডার আপনার বাছাই করা বিকল্পের উপর নির্ভর করে।",
+      "minOrder": "ন্যূনতম অর্ডার: {value}",
+      "announce": "নির্বাচিত: {name}। {availability}। {price}।",
+      "priceOnRequest": "দাম জানতে চান",
+      "requirementLine": "ভ্যারিয়েন্ট: {label} (SKU {sku})"
+    }
   }
 }

@@ -7,7 +7,14 @@ import { BADGE_THRESHOLD } from "@cnote/identity";
 import { defineTemplates, type TemplateDefinition } from "@cnote/templates";
 import { cleanName, envInt, fan, HREF, inr, kind, membersOf, RECIPIENT_NAME, v } from "./kind-helpers";
 import { ALERT_KINDS } from "./kinds-alerts";
+import { DEVELOPER_KINDS } from "./kinds-developer";
+import { DPDP_KINDS } from "./kinds-dpdp";
+import { APPROVAL_KINDS } from "./kinds-approvals";
+import { GRN_KINDS } from "./kinds-grn";
+import { CONTRACT_KINDS } from "./kinds-contracts";
+import { PAYABLE_KINDS } from "./kinds-payables";
 import { PHASE23_KINDS } from "./kinds-phase23";
+import { SAMPLE_KINDS } from "./kinds-samples";
 import type { NotificationCategory, NotificationKind } from "./types";
 
 export const KINDS: NotificationKind[] = [
@@ -509,8 +516,36 @@ export const KINDS: NotificationKind[] = [
       return fan(await membersOf(dir, sellerBusinessId), { businessId: sellerBusinessId, vars: { outcome }, href: "/leads" });
     },
   }),
+  // ai_ops: attachment malware scanning
+  kind({
+    key: "attachment.quarantined",
+    name: "Attachment blocked by security scan",
+    description: "An RFQ or quote attachment the uploader sent was flagged by the malware scanner and quarantined; the requirement or quote was not created.",
+    category: "messages",
+    app: "web",
+    event: "AttachmentQuarantined",
+    variables: [v("uploadKind", "What was being sent: \"requirement\" or \"quote\"", "requirement"), RECIPIENT_NAME, HREF],
+    defaults: {
+      in_app: { subject: "An attachment was blocked", body: "A file you tried to attach to your {{uploadKind}} failed our virus scan, so it was not sent. Scan the file on your device, remove it and try again." },
+      email: { subject: "An attachment was blocked by our security scan", body: "Hi {{recipientName}},\n\nA file you tried to attach to your {{uploadKind}} failed our virus scan, so nothing was sent and the file was not shared with anyone. Please scan the file on your device, remove it and try again.\n\nTry again: {{href}}" },
+    },
+    async resolve(e: DomainEvent<"AttachmentQuarantined">) {
+      const quote = e.payload.kind === "quote";
+      return fan([e.payload.uploadedByPersonId], {
+        businessId: e.payload.uploadedByBusinessId, app: quote ? "seller" : "web",
+        vars: { uploadKind: quote ? "quote" : "requirement" }, href: quote ? "/conversations" : "/buyer/enquiries",
+      });
+    },
+  }),
   ...PHASE23_KINDS,
   ...ALERT_KINDS,
+  ...DEVELOPER_KINDS, // polish: API key expiry notices
+  ...DPDP_KINDS, // polish: DPDP inactivity erasure notice + nominee change
+  ...APPROVAL_KINDS,
+  ...PAYABLE_KINDS,
+  ...GRN_KINDS,
+  ...CONTRACT_KINDS,
+  ...SAMPLE_KINDS,
 ];
 
 const KEY_INDEX = new Map(KINDS.map((k) => [k.key, k]));

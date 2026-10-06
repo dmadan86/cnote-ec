@@ -53,6 +53,27 @@
     "copyFailed": "લિંક કૉપિ થઈ શકી નહીં. એડ્રેસ બારમાંથી કૉપિ કરો.",
     "shareText": "{title} જુઓ",
     "report": "આ લિસ્ટિંગની જાણ કરો",
-    "stickyBar": "ઝડપી ક્રિયાઓ"
+    "stickyBar": "ઝડપી ક્રિયાઓ",
+    "availability": {
+      "in_stock": "સ્ટોકમાં ઉપલબ્ધ",
+      "made_to_order": "ઓર્ડર પર બને છે",
+      "out_of_stock": "સ્ટોકમાં નથી",
+      "madeToOrderLead": "ઓર્ડર પર બને છે, ડિલિવરીમાં {days, plural, one {# દિવસ} other {# દિવસ}}",
+      "qty": "{qty} ઉપલબ્ધ",
+      "updated": "સ્ટોક અપડેટ: {date}",
+      "outNote": "હાલમાં સ્ટોકમાં નથી. તમે છતાં ક્વોટ માગી શકો છો; ઉપલબ્ધ થતાં સપ્લાયર જણાવશે."
+    },
+    "variants": {
+      "title": "વિકલ્પ પસંદ કરો",
+      "choose": "ચોક્કસ કિંમત અને ઉપલબ્ધતા જોવા {axes} પસંદ કરો.",
+      "reset": "પસંદગી રીસેટ કરો",
+      "sku": "SKU {sku}",
+      "changesOthers": "બીજી પસંદગી પણ બદલાશે",
+      "pricesVary": "કિંમત અને ન્યૂનતમ ઓર્ડર તમે પસંદ કરેલા વિકલ્પ પર આધાર રાખે છે.",
+      "minOrder": "ન્યૂનતમ ઓર્ડર: {value}",
+      "announce": "પસંદ કર્યું: {name}. {availability}. {price}.",
+      "priceOnRequest": "કિંમત પૂછો",
+      "requirementLine": "વેરિઅન્ટ: {label} (SKU {sku})"
+    }
   }
 }

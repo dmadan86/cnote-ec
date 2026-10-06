@@ -14,6 +14,8 @@ const m = vi.hoisted(() => ({
   getConversation: vi.fn(),
   sendMessage: vi.fn(),
   sendQuote: vi.fn(),
+  awardLines: vi.fn(),
+  listAwardedLines: vi.fn(),
   reportDeal: vi.fn(),
   getBalance: vi.fn(),
   getActiveSubscription: vi.fn(),
@@ -21,6 +23,7 @@ const m = vi.hoisted(() => ({
   getListing: vi.fn(),
   archiveListing: vi.fn(), createListing: vi.fn(), getCategoryBySlug: vi.fn(), listCategories: vi.fn(async () => [] as unknown[]),
   listSellerListings: vi.fn(async () => [] as unknown[]), publishListing: vi.fn(), updateListing: vi.fn(),
+  updateListingStock: vi.fn(), setListingVariants: vi.fn(),
   getPersonBusinesses: vi.fn(async () => [] as unknown[]), getPersonSummaries: vi.fn(async () => new Map()),
   getRatingSummary: vi.fn(), listApprovedReviews: vi.fn(), submitReview: vi.fn(),
   searchListings: vi.fn(async () => ({ hits: [] as unknown[] })),
@@ -40,11 +43,12 @@ vi.mock("@cnote/billing", () => ({ getBalance: m.getBalance, getActiveSubscripti
 vi.mock("@cnote/catalogue", () => ({
   archiveListing: m.archiveListing, createListing: m.createListing, getCategoryBySlug: m.getCategoryBySlug, getListing: m.getListing,
   listCategories: m.listCategories, listSellerListings: m.listSellerListings, publishListing: m.publishListing, updateListing: m.updateListing,
+  updateListingStock: m.updateListingStock, setListingVariants: m.setListingVariants,
 }));
 vi.mock("@cnote/enquiry", () => ({
   acceptLead: m.acceptLead, createEnquiry: m.createEnquiry, declineLead: m.declineLead, getBuyerEnquiry: m.getBuyerEnquiry,
   getConversation: m.getConversation, getSellerLead: m.getSellerLead, listBuyerEnquiries: m.listBuyerEnquiries, listSellerLeads: m.listSellerLeads,
-  reportDeal: m.reportDeal, sendMessage: m.sendMessage, sendQuote: m.sendQuote,
+  reportDeal: m.reportDeal, sendMessage: m.sendMessage, sendQuote: m.sendQuote, awardLines: m.awardLines, listAwardedLines: m.listAwardedLines,
 }));
 vi.mock("@cnote/identity", () => ({ getPersonBusinesses: m.getPersonBusinesses, getPersonSummaries: m.getPersonSummaries, getTrustProfiles: m.getTrustProfiles }));
 vi.mock("@cnote/reviews", () => ({ getRatingSummary: m.getRatingSummary, listApprovedReviews: m.listApprovedReviews, submitReview: m.submitReview }));
@@ -172,8 +176,13 @@ describe("validation (422) shape", () => {
   });
   it("bad body: missing fields, wrong types, malformed JSON", async () => {
     const o = find("createEnquiry");
-    const e = await expect422(await send(o, undefined, { title: 1 }));
+    const e = await expect422(await send(o, undefined, { title: 1, requirement: 2 }));
     expect(e.issues.map((i: { path: string }) => i.path)).toEqual(expect.arrayContaining(["title", "requirement"]));
+    // title/requirement are only optional together with lines (multi-line RFQ)
+    const none = await expect422(await send(o, undefined, {}));
+    expect(none.issues.map((i: { path: string }) => i.path)).toContain("title");
+    await expect422(await send(o, undefined, { lines: [] }));
+    await expect422(await send(o, undefined, { lines: [{ itemName: "x", quantity: 0, unit: "pcs" }] }));
     const bad = await app.request(o.url, { method: "POST", headers: { authorization: `Bearer ${KEY}`, "content-type": "application/json" }, body: "{nope" });
     expect(bad.status).toBe(400); // regression: hono's malformed-JSON HTTPException used to surface as 500
     expect((await bad.json()).error).toMatchObject({ code: "invalid_request" });
@@ -450,6 +459,42 @@ describe("REST happy paths", () => {
     expect(m.listSellerListings).toHaveBeenCalledWith("b1");
   });
 
+  it("listings always carry stock + variants on the wire, with defaults for older rows", async () => {
+    m.getListing.mockResolvedValue(listingRow);
+    expect(await (await call("getListing")).json()).toMatchObject({ availability: "in_stock", availableQty: null, stockUpdatedAt: null, variantAxes: [], variants: [] });
+    const variant = { id: UUID, sku: "B-M", axisValues: { size: "M" }, pricePaise: null, priceTiers: [], moq: null, availability: "made_to_order", availableQty: null, leadTimeDays: 9, imageId: null, sortOrder: 0 };
+    m.getListing.mockResolvedValue({ ...listingRow, availability: "made_to_order", variantAxes: [{ key: "size", label: "Size" }], variants: [variant] });
+    expect(await (await call("getListing")).json()).toMatchObject({ availability: "made_to_order", variantAxes: [{ key: "size", label: "Size" }], variants: [variant] });
+  });
+
+  it("stock PATCH and variants PUT act as the key's business (listings:write)", async () => {
+    m.updateListingStock.mockResolvedValue({ ...listingRow, availability: "out_of_stock" });
+    const r = await call("updateSellerListingStock", { body: { availability: "out_of_stock", variants: [{ sku: "B-M", availability: "in_stock" }] } });
+    expect(r.status).toBe(200);
+    expect((await r.json()).availability).toBe("out_of_stock");
+    expect(m.updateListingStock).toHaveBeenCalledWith("b1", UUID, { availability: "out_of_stock", variants: [{ sku: "B-M", availability: "in_stock" }] });
+    expect((await call("updateSellerListingStock", { body: { availability: "gone" } })).status).toBe(422);
+    m.updateListingStock.mockRejectedValueOnce(new DomainError("validation", "Stock: lead time (days) is required for made-to-order"));
+    expect((await call("updateSellerListingStock", { body: { availability: "made_to_order" } })).status).toBe(422);
+
+    m.setListingVariants.mockResolvedValue([]);
+    m.getListing.mockResolvedValue({ ...listingRow, variants: [] });
+    const put = await call("setSellerListingVariants", { body: { variants: [{ sku: "B-M", axisValues: { size: "M" }, pricePaise: 1500 }] } });
+    expect(put.status).toBe(200);
+    expect(m.setListingVariants).toHaveBeenCalledWith("b1", UUID, [{ sku: "B-M", axisValues: { size: "M" }, pricePaise: 1500 }]);
+    expect((await call("setSellerListingVariants", { body: { variants: [{ sku: "bad sku", axisValues: {} }] } })).status).toBe(422);
+    expect((await call("setSellerListingVariants", { body: {} })).status).toBe(422);
+  });
+
+  it("search passes in_stock and variant filters through to the search module and returns facets", async () => {
+    m.searchListings.mockResolvedValue({ hits: [], facets: { variant: [{ key: "size:m", count: 2 }] } } as never);
+    const r = await (await call("searchListings", { query: "q=bolt&in_stock=true&variant=size:M,size:l,colour:Red,junk" })).json();
+    expect(m.searchListings).toHaveBeenLastCalledWith(expect.objectContaining({ filters: { inStockOnly: true, variantOptions: { size: ["M", "l"], colour: ["Red"] } } }));
+    expect(r.facets.variant).toEqual([{ key: "size:m", count: 2 }]);
+    await call("searchListings", { query: "q=bolt" });
+    expect(((m.searchListings.mock.calls.at(-1) as unknown as [{ filters?: unknown }])[0]).filters).toBeUndefined();
+  });
+
   it("categories hide prohibited ones and internal fields", async () => {
     m.listCategories.mockResolvedValue([
       { id: "c1", slug: "a", name: "A", leadCap: 3, prohibited: false, attributeSchema: { fields: [] } },
@@ -543,6 +588,18 @@ describe("REST happy paths", () => {
     const q = { pricePaise: 20500, quantity: 5, unit: "kg" };
     expect((await call("sendQuote", { body: q })).status).toBe(201);
     expect(m.sendQuote).toHaveBeenCalledWith(A, UUID, expect.objectContaining(q));
+    // multi-line: per-line quote, per-line award, lines on read
+    const lq = { gstIncluded: false, lines: [{ ordinal: 1, unitPricePaise: 100, gstRatePct: 18 }, { ordinal: 2, cantSupply: true }] };
+    expect((await call("sendQuote", { body: lq })).status).toBe(201);
+    expect(m.sendQuote).toHaveBeenLastCalledWith(A, UUID, expect.objectContaining(lq));
+    expect((await call("sendQuote", { body: { notes: "no price, no lines" } })).status).toBe(422);
+    m.awardLines.mockResolvedValue({ results: [{ orderId: UUID, quoteId: UUID, matchId: UUID, sellerBusinessId: UUID, enquiryLineIds: [UUID], totalPaise: 5 }] });
+    const aw = { awards: [{ enquiryLineId: UUID, quoteId: UUID }] };
+    expect((await call("awardEnquiryLines", { body: aw })).status).toBe(201);
+    expect(m.awardLines).toHaveBeenCalledWith(A, UUID, aw.awards);
+    expect((await call("awardEnquiryLines", { body: { awards: [] } })).status).toBe(422);
+    m.listAwardedLines.mockResolvedValue([]);
+    expect(await (await call("listEnquiryAwards")).json()).toEqual({ items: [] });
     expect((await call("reportDeal", { body: { outcome: "won", valuePaise: 100 } })).status).toBe(201);
     expect(m.reportDeal).toHaveBeenCalledWith(A, UUID, "won", 100);
   });
@@ -612,6 +669,8 @@ describe("MCP tools happy paths", () => {
     m.getCategoryBySlug.mockResolvedValue(cat);
     m.createListing.mockResolvedValue(listingRow);
     m.publishListing.mockResolvedValue(listingRow);
+    m.updateListingStock.mockResolvedValue(listingRow);
+    m.setListingVariants.mockResolvedValue([]);
     m.listLists.mockResolvedValue([]);
     m.addItem.mockResolvedValue({ added: true, listId: UUID });
     m.listApprovedReviews.mockResolvedValue({ items: [], nextCursor: null });
@@ -625,17 +684,21 @@ describe("MCP tools happy paths", () => {
       list_my_enquiries: {}, get_enquiry: { enquiryId: UUID }, list_leads: {}, accept_lead: { matchId: UUID },
       decline_lead: { matchId: UUID, reason: "no" }, list_my_listings: {},
       create_listing: { categorySlug: "s", title: "Hex bolt", description: "d" }, publish_listing: { listingId: UUID },
+      update_listing_stock: { listingId: UUID, availability: "out_of_stock" },
+      set_listing_variants: { listingId: UUID, variants: [{ sku: "A", axisValues: { size: "M" } }] },
       send_message: { conversationId: UUID, body: "hi" }, send_quote: { conversationId: UUID, pricePaise: 5, quantity: 2, unit: "kg" },
       list_wishlists: {}, add_to_wishlist: { wishlistId: UUID, listingId: UUID }, list_reviews: { listingId: UUID },
       submit_review: { listingId: UUID, rating: 4, body: "Solid quality, prompt delivery." }, get_credit_balance: {},
+      award_lines: { enquiryId: UUID, awards: [{ enquiryLineId: UUID, quoteId: UUID }] },
     };
+    m.awardLines.mockResolvedValue({ results: [] });
     expect(Object.keys(args).sort()).toEqual(TOOLS.map((t) => t.name).sort());
     for (const t of TOOLS) {
       const res = await callTool(t.name, args[t.name]);
       expect(res.isError, `${t.name}: ${res.content?.[0]?.text}`).toBeFalsy();
       expect(res.structuredContent, t.name).toBeTruthy();
     }
-    expect(m.createEnquiry).toHaveBeenCalledWith(A, expect.objectContaining({ language: "en" }), { ip: null });
+    expect(m.createEnquiry).toHaveBeenCalledWith(A, expect.objectContaining({ language: "en" }), { ip: null, userAgent: null });
     expect(m.declineLead).toHaveBeenCalledWith(A, UUID, "no");
     expect(m.sendQuote).toHaveBeenCalledWith(A, UUID, { pricePaise: 5, quantity: 2, unit: "kg" });
     expect(m.submitReview).toHaveBeenCalledWith(A, UUID, expect.objectContaining({ rating: 4, language: "en" }));

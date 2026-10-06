@@ -49,4 +49,15 @@ describe("getVerificationEvidence (db)", () => {
     expect(b.checks.every((c) => !c.passed)).toBe(true);
     expect(b.gstinMasked).toBeNull();
   });
+  it("uses the earliest phone verification among several verified members", async () => {
+    const biz = await prisma.business.create({ data: { name: `${tag} Multi`, isSeller: true } });
+    bizIds.push(biz.id);
+    const a = await prisma.person.create({ data: { name: tag, phoneVerifiedAt: new Date("2024-05-01T00:00:00Z") } });
+    const b = await prisma.person.create({ data: { name: tag, phoneVerifiedAt: new Date("2022-05-01T00:00:00Z") } });
+    const c = await prisma.person.create({ data: { name: tag, phoneVerifiedAt: new Date("2023-05-01T00:00:00Z") } });
+    personIds.push(a.id, b.id, c.id);
+    await prisma.businessMember.createMany({ data: [a, b, c].map((p) => ({ businessId: biz.id, personId: p.id })) });
+    const e = (await getVerificationEvidence([biz.id])).get(biz.id)!;
+    expect(e.checks.find((k) => k.key === "phone")).toMatchObject({ passed: true, at: "2022-05-01T00:00:00.000Z" });
+  });
 });

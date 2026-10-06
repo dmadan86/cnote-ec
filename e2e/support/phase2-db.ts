@@ -4,6 +4,7 @@
  * written straight into the isolated `*_e2e` database. Refuses any database whose name does not end in `_e2e`.
  * Everything is fictional test data.
  */
+import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { e2eEnv } from "./env";
@@ -127,5 +128,172 @@ export async function seedNegotiation(email: string, mandateId: string): Promise
     );
     await c.query("insert into agent_activity (id, principal_business_id, principal_side, action, mandate_id, negotiation_id, summary) values (gen_random_uuid(), $1, 'buyer', 'negotiation_agreed', $2, $3, 'Your agent agreed terms with the seller.')", [me.businessId, mandateId, n.id]);
     return { negotiationId: String(n.id) };
+  });
+}
+
+// ---- purchase orders / supplier invoices (docs/design/purchase-orders.md) -------------------------------------------------------
+
+/**
+ * A delivered order for the buyer with an accepted purchase order (one line, intra-state) and two supplier invoices from a
+ * declared micro/small seller: one overdue with an e-invoice (IRN + signed QR) and an e-way bill, one due in 5 days.
+ * Also saves a default delivery address for the buyer.
+ */
+export async function seedPurchaseOrder(email: string): Promise<{ orderId: string; purchaseOrderId: string; overdueInvoiceId: string; openInvoiceId: string } & Principal> {
+  return withDb(async (c) => {
+    const me = await principalOf(c, email);
+    const seller = await otherSeller(c, me.businessId);
+    await c.query("update businesses set udyam = coalesce(udyam, 'UDYAM-MH-01-0000001'), msme_category = 'small', msme_declared_at = now() where id = $1", [seller]);
+    await c.query(
+      "insert into business_addresses (id, business_id, label, line1, city, state, state_code, pincode, is_default, updated_at) values (gen_random_uuid(), $1, 'Warehouse', '12 Industrial Area', 'Pune', 'Maharashtra', '27', '411001', true, now())",
+      [me.businessId],
+    );
+    const o = (
+      await c.query(
+        `insert into orders (id, buyer_business_id, seller_business_id, status, price_paise, quantity, unit, total_paise, buyer_confirmed_at, seller_confirmed_at, delivered_at, updated_at)
+         values (gen_random_uuid(), $1, $2, 'delivered', 25000, 100, 'pcs', 2500000, now(), now(), now() - interval '50 days', now()) returning id`,
+        [me.businessId, seller],
+      )
+    ).rows[0]!;
+    const fy = "2026-27";
+    await c.query("insert into purchase_order_sequences (buyer_business_id, financial_year, last_number) values ($1, $2, 1)", [me.businessId, fy]);
+    const po = (
+      await c.query(
+        "insert into purchase_orders (id, order_id, buyer_business_id, seller_business_id, number, financial_year, status, current_version, updated_at) values (gen_random_uuid(), $1, $2, $3, 'PO/26-27/000001', $4, 'acknowledged', 1, now()) returning id",
+        [o.id, me.businessId, seller, fy],
+      )
+    ).rows[0]!;
+    const party = (name: string) => JSON.stringify({ name, legalName: null, gstin: null, stateCode: "27" });
+    const v = (
+      await c.query(
+        `insert into purchase_order_versions (id, purchase_order_id, version, payment_terms_days, expected_delivery, buyer, seller, delivery_address, place_of_supply, intra_state, taxable_paise, cgst_paise, sgst_paise, igst_paise, total_paise, created_by_person_id)
+         values (gen_random_uuid(), $1, 1, 30, current_date + 7, $2::jsonb, $3::jsonb, $4::jsonb, '27', true, 2500000, 225000, 225000, 0, 2950000, $5) returning id`,
+        [po.id, party("E2E buyer"), party("E2E seller"), JSON.stringify({ label: "Warehouse", contactName: null, phone: null, line1: "12 Industrial Area", line2: null, city: "Pune", state: "Maharashtra", stateCode: "27", pincode: "411001" }), me.personId],
+      )
+    ).rows[0]!;
+    await c.query(
+      "insert into purchase_order_lines (id, version_id, line_no, description, hsn, quantity, unit, unit_price_paise, price_includes_gst, gst_rate_bps, taxable_paise, tax_paise, total_paise) values (gen_random_uuid(), $1, 1, 'Corrugated boxes', '4819', 100, 'pcs', 25000, false, 1800, 2500000, 450000, 2950000)",
+      [v.id],
+    );
+    await c.query("insert into purchase_order_acks (id, version_id, decision, by_person_id) values (gen_random_uuid(), $1, 'accepted', $2)", [v.id, me.personId]);
+    const inv = async (number: string, invoiceDaysAgo: number, due: string, extra: { irn?: string; qr?: string; ewb?: string } = {}) =>
+      String(
+        (
+          await c.query(
+            `insert into supplier_invoices (id, purchase_order_id, po_version, order_id, buyer_business_id, seller_business_id, invoice_number, invoice_date, financial_year, taxable_paise, gst_paise, total_paise,
+               irn, ack_no, ack_date, signed_qr, e_invoice_check, ewb_no, ewb_valid_until, msme_covered, agreement_basis, agreed_days, due_basis, acceptance_date, due_date, recorded_by_person_id, updated_at)
+             values (gen_random_uuid(), $1, 1, $2, $3, $4, $5, current_date - $6::int, $7, 1000000, 180000, 1180000,
+               $8, case when $8::text is null then null else '112010000012345' end, case when $8::text is null then null else now() end, $9, case when $8::text is null then null else 'unchecked' end, $10, case when $10::text is null then null else now() + interval '2 days' end,
+               true, 'written_agreement', 30, 'delivery', current_date - 50, current_date + $11::int, $12, now()) returning id`,
+            [po.id, o.id, me.businessId, seller, number, invoiceDaysAgo, fy, extra.irn ?? null, extra.qr ?? null, extra.ewb ?? null, Number(due), me.personId],
+          )
+        ).rows[0]!.id,
+      );
+    const tag = randomBytes(4).toString("hex"); // invoice numbers are unique per seller and year, and the e2e DB is shared across specs
+    const overdue = await inv(`INV/26-27/${tag}1`, 45, "-20", { irn: randomBytes(32).toString("hex"), qr: "eyJhbGciOiJSUzI1NiJ9.eyJkYXRhIjoie30ifQ.c2ln", ewb: "123456789012" });
+    const open = await inv(`INV/26-27/${tag}2`, 2, "5");
+    return { ...me, orderId: String(o.id), purchaseOrderId: String(po.id), overdueInvoiceId: overdue, openInvoiceId: open };
+  });
+}
+
+/**
+ * GRN / three-way match / returns (docs/design/grn-returns.md): builds on seedPurchaseOrder. Adds one goods receipt (100 received, 90 accepted,
+ * 10 rejected as damaged, received 5 days ago so the return window is open) and a REJECTED return with a reason (the dispute entry point).
+ * The two seeded invoices are amount-only and together bill Rs 24,000 before GST against Rs 22,500 accepted, so the match is a mismatch.
+ */
+export async function seedGoodsReceipt(email: string): Promise<{ orderId: string; purchaseOrderId: string; receiptId: string; returnId: string } & Principal> {
+  const seeded = await seedPurchaseOrder(email);
+  return withDb(async (c) => {
+    await c.query("update supplier_invoices set taxable_paise = 1200000 where purchase_order_id = $1", [seeded.purchaseOrderId]);
+    const order = (await c.query("select seller_business_id from orders where id = $1", [seeded.orderId])).rows[0]!;
+    const fy = "2026-27";
+    await c.query("insert into document_sequences (buyer_business_id, kind, financial_year, last_number) values ($1, 'grn', $2, 1), ($1, 'rma', $2, 1)", [seeded.businessId, fy]);
+    const grn = (
+      await c.query(
+        `insert into goods_receipts (id, purchase_order_id, order_id, buyer_business_id, seller_business_id, number, financial_year, received_on, receiver_name, confirmed_delivery, created_by_person_id)
+         values (gen_random_uuid(), $1, $2, $3, $4, 'GRN/26-27/000001', $5, current_date - 5, 'E2E Receiver', true, $6) returning id`,
+        [seeded.purchaseOrderId, seeded.orderId, seeded.businessId, order.seller_business_id, fy, seeded.personId],
+      )
+    ).rows[0]!;
+    const line = (
+      await c.query(
+        `insert into goods_receipt_lines (id, receipt_id, po_line_no, description, unit, received_qty, accepted_qty, rejected_qty, reject_reason, unit_price_paise)
+         values (gen_random_uuid(), $1, 1, 'Corrugated boxes', 'pcs', 100, 90, 10, 'damaged', 25000) returning id`,
+        [grn.id],
+      )
+    ).rows[0]!;
+    const ret = (
+      await c.query(
+        `insert into goods_returns (id, number, financial_year, receipt_id, purchase_order_id, order_id, buyer_business_id, seller_business_id, status, reason_code, reason_note, estimated_paise,
+           requested_by_person_id, decided_at, decision_note, updated_at)
+         values (gen_random_uuid(), 'RMA/26-27/000001', $1, $2, $3, $4, $5, $6, 'rejected', 'damaged', 'Wet cartons', 250000, $7, now(), 'Goods match the purchase order', now()) returning id`,
+        [fy, grn.id, seeded.purchaseOrderId, seeded.orderId, seeded.businessId, order.seller_business_id, seeded.personId],
+      )
+    ).rows[0]!;
+    await c.query(
+      `insert into goods_return_lines (id, return_id, receipt_line_id, po_line_no, description, unit, quantity, source, unit_price_paise)
+       values (gen_random_uuid(), $1, $2, 1, 'Corrugated boxes', 'pcs', 10, 'rejected', 25000)`,
+      [ret.id, line.id],
+    );
+    return { ...seeded, receiptId: String(grn.id), returnId: String(ret.id) };
+  });
+}
+
+/**
+ * Rate contracts (docs/design/rate-contracts.md) for the buyer with the given email: one ACTIVE contract (a capped item at 80% used, an
+ * indexed item, a value cap, one call-off) and one contract whose seller revision 2 waits for the buyer's answer. Also saves a default
+ * delivery address so the call-off form shows. Returns the ids the specs open.
+ */
+export async function seedRateContract(email: string): Promise<{ activeId: string; pendingId: string; sellerBusinessId: string } & Principal> {
+  return withDb(async (c) => {
+    const me = await principalOf(c, email);
+    const seller = await otherSeller(c, me.businessId);
+    await c.query(
+      "insert into business_addresses (id, business_id, label, line1, city, state, state_code, pincode, is_default, updated_at) values (gen_random_uuid(), $1, 'Warehouse', '12 Industrial Area', 'Pune', 'Maharashtra', '27', '411001', true, now())",
+      [me.businessId],
+    );
+    const contract = async (number: string, title: string, status: string, active: number | null, latest: number): Promise<string> =>
+      String((await c.query(
+        "insert into rate_contracts (id, number, financial_year, buyer_business_id, seller_business_id, title, status, latest_revision, active_revision, updated_at) values (gen_random_uuid(), $1, '2026-27', $2, $3, $4, $5::rate_contract_status, $6, $7, now()) returning id",
+        [number, me.businessId, seller, title, status, latest, active],
+      )).rows[0]!.id);
+    const revision = async (contractId: string, n: number, by: string, price: number, from: string, to: string): Promise<string> => {
+      const r = String((await c.query(
+        `insert into rate_contract_revisions (id, contract_id, revision, proposed_by_business_id, valid_from, valid_to, payment_terms_days, price_basis, value_cap_paise, change_note)
+         values (gen_random_uuid(), $1, $2, $3, ${from}, ${to}, 30, 'delivered', 5000000, $4) returning id`,
+        [contractId, n, by, n > 1 ? "Board price rose" : null],
+      )).rows[0]!.id);
+      await c.query(
+        "insert into rate_contract_items (id, revision_id, item_key, line_no, description, hsn, unit, unit_price_paise, gst_rate_bps, moq, quantity_cap) values (gen_random_uuid(), $1, '11111111-1111-4111-8111-111111111111', 1, 'Corrugated box 12x10', '4819', 'pcs', $2, 1800, 100, 1000)",
+        [r, price],
+      );
+      await c.query(
+        "insert into rate_contract_items (id, revision_id, item_key, line_no, description, unit, unit_price_paise, gst_rate_bps, variation_kind, variation_cap_bps, variation_note) values (gen_random_uuid(), $1, '22222222-2222-4222-8222-222222222222', 2, 'Copper wire 2.5mm', 'kg', 80000, 1800, 'indexed', 500, 'LME copper monthly average')",
+        [r],
+      );
+      return r;
+    };
+    const accept = (rev: string, biz: string, person: string | null) =>
+      c.query("insert into rate_contract_acceptances (id, revision_id, business_id, person_id, decision) values (gen_random_uuid(), $1, $2, $3, 'accepted')", [rev, biz, person]);
+
+    const activeId = await contract("RC/26-27/000001", "Packaging 2026-27", "active", 1, 1);
+    const r1 = await revision(activeId, 1, me.businessId, 2500, "current_date - 10", "current_date + 355");
+    await accept(r1, me.businessId, me.personId);
+    await accept(r1, seller, null);
+    const o = (await c.query(
+      "insert into orders (id, buyer_business_id, seller_business_id, status, total_paise, buyer_confirmed_at, updated_at) values (gen_random_uuid(), $1, $2, 'recorded', 2000000, now(), now()) returning id",
+      [me.businessId, seller],
+    )).rows[0]!;
+    const co = (await c.query("insert into rate_contract_call_offs (id, contract_id, revision, call_off_no, order_id, taxable_paise) values (gen_random_uuid(), $1, 1, 1, $2, 2000000) returning id", [activeId, o.id])).rows[0]!;
+    await c.query(
+      "insert into rate_contract_call_off_lines (id, call_off_id, item_key, line_no, description, unit, quantity, contract_price_paise, applied_price_paise, taxable_paise) values (gen_random_uuid(), $1, '11111111-1111-4111-8111-111111111111', 1, 'Corrugated box 12x10', 'pcs', 800, 2500, 2500, 2000000)",
+      [co.id],
+    );
+
+    const pendingId = await contract("RC/26-27/000002", "Labels 2026-27", "proposed", null, 2);
+    const p1 = await revision(pendingId, 1, me.businessId, 2500, "current_date", "current_date + 364");
+    await accept(p1, me.businessId, me.personId);
+    const p2 = await revision(pendingId, 2, seller, 2700, "current_date", "current_date + 364");
+    await accept(p2, seller, null);
+    return { ...me, activeId, pendingId, sellerBusinessId: seller };
   });
 }

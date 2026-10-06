@@ -30,6 +30,7 @@ vi.mock("@cnote/catalogue", () => ({
   findSellerCandidates: async (o: { excludeSellerIds?: string[] }) => state.candidates.filter((c) => !o.excludeSellerIds?.includes(c.sellerBusinessId)),
 }));
 vi.mock("@cnote/identity", () => ({
+  getMemberRole: async () => null, // legacy fixtures are not team members: approvals/roles do not apply (docs/design/buyer-approvals.md)
   getTrustProfiles: async (ids: string[]) => new Map(ids.filter((i) => state.profiles.has(i)).map((i) => [i, state.profiles.get(i)])),
   hasConsent: async () => true,
   getPersonContact: async () => ({ phone: "+919999900000" }),
@@ -128,10 +129,10 @@ describe("attachment checks", () => {
     };
     const eid = randomUUID();
     const good = [{ fileName: "a.pdf", bytes: PDF, mime: "application/pdf" as const, ext: "pdf" as const }, { fileName: "b.pdf", bytes: PDF, mime: "application/pdf" as const, ext: "pdf" as const }];
-    await expect(storeAttachmentBytes(eid, good)).rejects.toThrow("disk full");
+    await expect(storeAttachmentBytes(eid, good, { actor: buyer, kind: "rfq" })).rejects.toThrow("disk full");
     store.put = real;
     expect(n).toBe(2);
-    const stored = await storeAttachmentBytes(eid, good.slice(0, 1));
+    const stored = await storeAttachmentBytes(eid, good.slice(0, 1), { actor: buyer, kind: "rfq" });
     expect(await store.exists(stored[0]!.key)).toBe(true);
     await discardStored(stored);
     expect(await store.exists(stored[0]!.key)).toBe(false);
@@ -170,7 +171,7 @@ describe("createEnquiry RFQ depth", () => {
     expect(sent).not.toMatch(/bracket drawing\.pdf|photo\.png|sketch\.jpg|rfq\//);
 
     const [ev] = await prisma.$queryRaw<{ version: number; payload: Record<string, unknown> }[]>`SELECT version, payload FROM domain_events WHERE type = 'EnquiryCreated' AND aggregate_id = ${e.id}`;
-    expect(ev!.version).toBe(2);
+    expect(ev!.version).toBe(3);
     expect(ev!.payload).toMatchObject({ enquiryId: e.id, attachmentCount: 3, minSellerTier: 2 });
     expect(JSON.stringify(ev!.payload)).not.toContain("drawing");
 

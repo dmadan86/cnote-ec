@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { actorOf } from "@cnote/next-kit";
-import { Alert, Card, CardBody, CardHeader, CardTitle, Money, PageHeader } from "@cnote/ui";
+import { Alert, Badge, Card, CardBody, CardHeader, CardTitle, Money, PageHeader, buttonClasses } from "@cnote/ui";
 import { requireSeller } from "@/lib/auth";
 import { isLocale } from "@/i18n/config";
 import { formatDateTime } from "@/lib/format";
@@ -11,9 +11,11 @@ import { load } from "@/lib/safe";
 import { enquiry } from "@/lib/services";
 import { DispatchPhotosPanel } from "@/features/quality/dispatch-photos";
 import { EscrowPanel } from "@/features/escrow/escrow-panel";
+import { GoldenSample } from "@/features/samples/golden-sample";
 import { FulfilmentPanel } from "@/features/orders/fulfilment-panel";
 import { OrderActions } from "@/features/orders/order-actions";
 import { OrderStatusBadge } from "@/features/orders/status";
+import { PO_TONE } from "@/features/purchase-orders/views";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("orders"))("detailMetaTitle") };
@@ -34,6 +36,10 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   if (!res.ok) return <div className="space-y-4">{back}<Alert tone="danger">{res.error}</Alert></div>;
   const o = res.data;
   if (!o || o.role !== "seller") return <div className="space-y-4">{back}<Alert tone="warning">{t("notFound")}</Alert></div>;
+  const tp = await getTranslations("purchaseOrders");
+  const tc = await getTranslations("contracts");
+  const rcLink = enquiry.rateContractsEnabled() ? await enquiry.rateContractLinkForOrder(actorOf(session), o.id) : null;
+  const poSummary = enquiry.purchaseOrdersEnabled() && o.settlement !== "ondc" ? (await enquiry.purchaseOrderSummaries(actorOf(session), [o.id])).get(o.id) ?? null : undefined;
   return (
     <div className="space-y-6">
       {back}
@@ -56,6 +62,24 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
           </dl>
         </CardBody>
       </Card>
+      <GoldenSample orderId={o.id} actor={actorOf(session)} />
+      {rcLink ? (
+        <Alert tone="info">
+          {tc("orderPanel", { number: rcLink.number })}{" "}
+          <Link href={`/contracts/${rcLink.contractId}`} className="font-medium underline">{tc("orderPanelOpen")}</Link>
+        </Alert>
+      ) : null}
+      {poSummary !== undefined ? (
+        <Card>
+          <CardHeader><CardTitle>{tp("panelTitle")}</CardTitle></CardHeader>
+          <CardBody className="space-y-3">
+            {poSummary ? (
+              <p className="flex flex-wrap items-center gap-2 text-sm"><span className="font-mono">{poSummary.number}</span><Badge tone={PO_TONE[poSummary.status]}>{tp(`status.${poSummary.status}`)}</Badge></p>
+            ) : <p className="text-sm text-muted">{tp("panelNone")}</p>}
+            {poSummary ? <div><Link href={`/orders/${o.id}/purchase-order`} className={buttonClasses("outline")}>{tp("panelOpen")}</Link></div> : null}
+          </CardBody>
+        </Card>
+      ) : null}
       <EscrowPanel actor={actorOf(session)} orderId={o.id} />
       <OrderActions orderId={o.id} actions={o.actions} />
       <FulfilmentPanel actor={actorOf(session)} order={o} />

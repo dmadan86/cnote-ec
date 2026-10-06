@@ -1,5 +1,5 @@
 "use client";
-import { Bell, Bot, ClipboardList, LogOut, Store, User } from "lucide-react";
+import { Bell, Bot, ClipboardList, FileSignature, LogOut, Store, User } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Avatar } from "@cnote/ui";
 import { LocaleLink as Link } from "@/i18n/link";
@@ -10,6 +10,7 @@ const A2A_ON = ["1", "true", "yes"].includes((process.env.NEXT_PUBLIC_A2A_ENABLE
 
 export function AccountMenu({ name, email, isSeller }: { name: string | null; email: string | null; isSeller: boolean }) {
   const t = useTranslations("shell");
+  const tc = useTranslations("contracts");
   const display = name ?? email ?? t("account");
   return (
     <Popover
@@ -36,6 +37,11 @@ export function AccountMenu({ name, email, isSeller }: { name: string | null; em
         <li>
           <Link href="/buyer/orders" className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-600">
             <ClipboardList className="size-4" aria-hidden /> {t("myOrders")}
+          </Link>
+        </li>
+        <li>
+          <Link href="/buyer/contracts" className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-600">
+            <FileSignature className="size-4" aria-hidden /> {tc("menu")}
           </Link>
         </li>
         {A2A_ON ? (

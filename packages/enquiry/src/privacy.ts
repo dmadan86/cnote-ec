@@ -5,7 +5,7 @@ import { prisma } from "@cnote/db";
 
 export async function exportPersonalData(personId: string, ctx: PersonalExportContext): Promise<PersonalExport> {
   const biz = ctx.businessIds;
-  const [enquiries, messages, quotes, orders, dealReports, attachments] = await Promise.all([
+  const [enquiries, messages, quotes, orders, dealReports, attachments, quarantined, signals, enquiryLines, quoteLines, purchaseOrders, supplierInvoices, goodsReceipts, goodsReturns, matchOverrides, matchSettings, rateContracts] = await Promise.all([
     prisma.enquiry.findMany({
       where: { buyerPersonId: personId },
       orderBy: { createdAt: "asc" },
@@ -38,7 +38,79 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
           where: { uploadedByBusiness: { in: biz } },
           orderBy: { createdAt: "asc" },
           take: EXPORT_TAKE,
-          select: { id: true, enquiryId: true, quoteId: true, fileName: true, mimeType: true, sizeBytes: true, createdAt: true }, // metadata only, never the storage key
+          select: { id: true, enquiryId: true, quoteId: true, fileName: true, mimeType: true, sizeBytes: true, scannedAt: true, scanner: true, createdAt: true }, // metadata only, never the storage key
+        })
+      : Promise.resolve([]),
+    // uploads the malware scanner blocked (metadata only: never the storage key; the bytes are deleted by retention)
+    prisma.attachmentQuarantine.findMany({
+      where: { uploadedByPerson: personId },
+      orderBy: { detectedAt: "asc" },
+      take: EXPORT_TAKE,
+      select: { id: true, enquiryId: true, kind: true, fileName: true, mimeType: true, sizeBytes: true, signature: true, scanner: true, detectedAt: true, purgedAt: true },
+    }),
+    // ADR-002 profiling transparency: the fake-lead risk score and the coarse signals behind it (no raw IP is ever stored)
+    prisma.enquirySignals.findMany({
+      where: { enquiryId: { in: (await prisma.enquiry.findMany({ where: { buyerPersonId: personId }, select: { id: true }, take: EXPORT_TAKE })).map((e) => e.id) } },
+      orderBy: { createdAt: "asc" },
+      take: EXPORT_TAKE,
+      select: { enquiryId: true, uaFamily: true, velocityPerson1h: true, velocityPerson24h: true, velocityIp24h: true, riskScore: true, riskReasons: true, label: true, createdAt: true },
+    }),
+    // bill-of-materials lines on the person's requirements
+    prisma.enquiryLine.findMany({ where: { enquiry: { buyerPersonId: personId } }, orderBy: [{ enquiryId: "asc" }, { ordinal: "asc" }], take: EXPORT_TAKE }),
+    // per-line prices the person's businesses quoted
+    biz.length ? prisma.quoteLine.findMany({ where: { quote: { sellerBusinessId: { in: biz } } }, orderBy: { createdAt: "asc" }, take: EXPORT_TAKE }) : Promise.resolve([]),
+    // purchase orders (docs/design/purchase-orders.md): every version with lines, parties, delivery address (contact name/phone) and the seller's answers; never storage keys
+    biz.length
+      ? prisma.purchaseOrder.findMany({
+          where: { OR: [{ buyerBusinessId: { in: biz } }, { sellerBusinessId: { in: biz } }] },
+          orderBy: { createdAt: "asc" },
+          take: EXPORT_TAKE,
+          include: { versions: { orderBy: { version: "asc" }, omit: { pdfKey: true }, include: { lines: { orderBy: { lineNo: "asc" } }, acks: true } } },
+        })
+      : Promise.resolve([]),
+    // supplier invoices recorded by or against the person's businesses, with e-invoice / e-way bill references and payments
+    biz.length
+      ? prisma.supplierInvoice.findMany({
+          where: { OR: [{ buyerBusinessId: { in: biz } }, { sellerBusinessId: { in: biz } }] },
+          orderBy: { createdAt: "asc" },
+          take: EXPORT_TAKE,
+          omit: { fileKey: true },
+          include: { payments: { orderBy: { createdAt: "asc" } } },
+        })
+      : Promise.resolve([]),
+    // goods receipt notes (docs/design/grn-returns.md): receiver name, quantities and reason codes; photo metadata only, never storage keys
+    biz.length
+      ? prisma.goodsReceipt.findMany({
+          where: { OR: [{ buyerBusinessId: { in: biz } }, { sellerBusinessId: { in: biz } }] },
+          orderBy: { createdAt: "asc" },
+          take: EXPORT_TAKE,
+          include: { lines: { orderBy: { poLineNo: "asc" } }, photos: { omit: { key: true }, orderBy: { createdAt: "asc" } } },
+        })
+      : Promise.resolve([]),
+    // returns with their lines and credit notes
+    biz.length
+      ? prisma.goodsReturn.findMany({
+          where: { OR: [{ buyerBusinessId: { in: biz } }, { sellerBusinessId: { in: biz } }] },
+          orderBy: { createdAt: "asc" },
+          take: EXPORT_TAKE,
+          include: { lines: { orderBy: { poLineNo: "asc" } }, creditNote: true },
+        })
+      : Promise.resolve([]),
+    // reasons the person gave when paying an invoice whose three-way match was blocking
+    prisma.invoiceMatchOverride.findMany({ where: { byPersonId: personId }, orderBy: { createdAt: "asc" }, take: EXPORT_TAKE }),
+    biz.length ? prisma.buyerMatchSettings.findMany({ where: { buyerBusinessId: { in: biz } }, take: EXPORT_TAKE }) : Promise.resolve([]),
+    // rate contracts (docs/design/rate-contracts.md): every revision with items and answers, and the call-offs placed against them
+    biz.length
+      ? prisma.rateContract.findMany({
+          // same visibility rule as the screens: the seller side never sees a buyer's unsent draft
+          where: { OR: [{ buyerBusinessId: { in: biz } }, { sellerBusinessId: { in: biz }, status: { not: "draft" } }] },
+          orderBy: { createdAt: "asc" },
+          take: EXPORT_TAKE,
+          include: {
+            // answers are exported only for the requester's own businesses (the counterparty's answer is theirs)
+            revisions: { orderBy: { revision: "asc" }, include: { items: { orderBy: { lineNo: "asc" } }, acceptances: { where: { businessId: { in: biz } } } } },
+            callOffs: { orderBy: { callOffNo: "asc" }, include: { lines: { orderBy: { lineNo: "asc" } } } },
+          },
         })
       : Promise.resolve([]),
   ]);
@@ -49,5 +121,16 @@ export async function exportPersonalData(personId: string, ctx: PersonalExportCo
     orders: exportCollection(orders),
     dealReports: exportCollection(dealReports),
     attachments: exportCollection(attachments),
+    quarantinedAttachments: exportCollection(quarantined),
+    fakeLeadSignals: exportCollection(signals),
+    enquiryLines: exportCollection(enquiryLines),
+    quoteLines: exportCollection(quoteLines),
+    purchaseOrders: exportCollection(purchaseOrders),
+    supplierInvoices: exportCollection(supplierInvoices),
+    goodsReceipts: exportCollection(goodsReceipts),
+    goodsReturns: exportCollection(goodsReturns),
+    invoiceMatchOverrides: exportCollection(matchOverrides),
+    matchSettings: exportCollection(matchSettings),
+    rateContracts: exportCollection(rateContracts),
   };
 }

@@ -8,7 +8,7 @@ import {
 } from "../src";
 import { issueInvoiceTx, nextInvoiceNumber } from "../src/invoices";
 import { mockSign } from "../src/payment-providers";
-import { decodeRef } from "../src/payments";
+import { REFUND_POLL_MAX, decodeRef, pollPendingRefunds, refundPollAfterMs, refundPollBackoffMs } from "../src/payments";
 
 const created: string[] = [];
 async function biz(o: { gstin?: string; stateCode?: string } = {}): Promise<string> {
@@ -325,6 +325,95 @@ describe("refunds + credit notes", () => {
     expect(await prisma.paymentRefund.count({ where: { paymentOrderId: id, status: "processed" } })).toBe(2);
     await expect(refundPayment(id, 1, "x")).rejects.toMatchObject({ code: "conflict" });
   });
+  describe("refund polling (backs up webhooks)", () => {
+    const old = (m: number) => new Date(Date.now() - m * 60_000);
+    async function pendingRefund() {
+      process.env.PAYMENTS_MOCK_REFUND_PENDING = "1";
+      const { id } = await paid("credits_20");
+      const r = await refundPayment(id, 5_000, "poll test", "staff-1");
+      delete process.env.PAYMENTS_MOCK_REFUND_PENDING;
+      expect(r.status).toBe("pending");
+      return { id, refundId: r.refundId };
+    }
+    const age = (refundId: string, minutes: number) => prisma.paymentRefund.update({ where: { id: refundId }, data: { createdAt: old(minutes) } });
+
+    it("ignores young refunds, completes an old one the provider confirms, and a later webhook is a no-op", async () => {
+      const { id, refundId } = await pendingRefund();
+      await pollPendingRefunds();
+      expect((await prisma.paymentRefund.findUniqueOrThrow({ where: { id: refundId } })).pollAttempts).toBe(0); // brand new: not polled
+      await age(refundId, 45);
+      const out = await pollPendingRefunds();
+      expect(out.completed).toBeGreaterThanOrEqual(1);
+      const row = await prisma.paymentRefund.findUniqueOrThrow({ where: { id: refundId } });
+      expect(row).toMatchObject({ status: "processed", pollAttempts: 1 });
+      expect(await events(id, "RefundCompleted")).toBe(1);
+      // the webhook for the same refund arrives afterwards: idempotent, no second event
+      const body = JSON.stringify({ id: `t_${refundId}_rf`, type: "refund.processed", providerRefundId: row.providerRefundId, refundId });
+      expect(await handlePaymentWebhook("mock", body, { "x-mock-signature": mockSign(body) })).toMatchObject({ status: 200 });
+      expect(await events(id, "RefundCompleted")).toBe(1);
+    });
+
+    it("webhook first, then the poller finds nothing to do", async () => {
+      const { id, refundId } = await pendingRefund();
+      const row = await prisma.paymentRefund.findUniqueOrThrow({ where: { id: refundId } });
+      const body = JSON.stringify({ id: `t_${refundId}_rf2`, type: "refund.processed", providerRefundId: row.providerRefundId, refundId });
+      await handlePaymentWebhook("mock", body, { "x-mock-signature": mockSign(body) });
+      await age(refundId, 90);
+      await pollPendingRefunds();
+      expect(await events(id, "RefundCompleted")).toBe(1);
+    });
+
+    it("provider says failed -> dead letter; still pending -> backoff, stops after the max and never completes", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const failed = await pendingRefund();
+      await age(failed.refundId, 60);
+      process.env.PAYMENTS_MOCK_REFUND_STATUS = "failed";
+      expect((await pollPendingRefunds()).failed).toBeGreaterThanOrEqual(1);
+      expect((await prisma.paymentRefund.findUniqueOrThrow({ where: { id: failed.refundId } })).status).toBe("dead");
+      expect(await events(failed.id, "RefundDeadLettered")).toBe(1);
+
+      const slow = await pendingRefund();
+      await age(slow.refundId, 60);
+      process.env.PAYMENTS_MOCK_REFUND_STATUS = "pending";
+      const t0 = new Date();
+      expect((await pollPendingRefunds(t0)).stillPending).toBeGreaterThanOrEqual(1);
+      const r1 = await prisma.paymentRefund.findUniqueOrThrow({ where: { id: slow.refundId } });
+      expect(r1).toMatchObject({ status: "pending", pollAttempts: 1 });
+      expect(r1.nextPollAt!.getTime()).toBeGreaterThan(t0.getTime() + 25 * 60_000); // backing off
+      await pollPendingRefunds(new Date(t0.getTime() + 60_000)); // not due yet
+      expect((await prisma.paymentRefund.findUniqueOrThrow({ where: { id: slow.refundId } })).pollAttempts).toBe(1);
+      // exhaust the polls
+      await prisma.paymentRefund.update({ where: { id: slow.refundId }, data: { pollAttempts: REFUND_POLL_MAX - 1, nextPollAt: null } });
+      await pollPendingRefunds();
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining("still pending at the provider"));
+      await prisma.paymentRefund.update({ where: { id: slow.refundId }, data: { nextPollAt: null } });
+      await pollPendingRefunds();
+      const done = await prisma.paymentRefund.findUniqueOrThrow({ where: { id: slow.refundId } });
+      expect(done).toMatchObject({ status: "pending", pollAttempts: REFUND_POLL_MAX }); // gave up polling
+    });
+
+    it("a provider error is counted, logged and retried later (the row is not lost)", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const { refundId } = await pendingRefund();
+      await age(refundId, 60);
+      const row = await prisma.paymentRefund.findUniqueOrThrow({ where: { id: refundId } });
+      await prisma.paymentOrder.update({ where: { id: row.paymentOrderId }, data: { provider: "cashfree" } });
+      process.env.CASHFREE_APP_ID = "id";
+      process.env.CASHFREE_SECRET_KEY = "secret";
+      vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("down"); }));
+      const out = await pollPendingRefunds();
+      expect(out.errors).toBeGreaterThanOrEqual(1);
+      expect((await prisma.paymentRefund.findUniqueOrThrow({ where: { id: refundId } })).status).toBe("pending");
+    });
+
+    it("REFUND_POLL_AFTER_MINUTES / backoff helpers", () => {
+      expect(refundPollAfterMs({})).toBe(30 * 60_000);
+      expect(refundPollAfterMs({ REFUND_POLL_AFTER_MINUTES: "5" } as never)).toBe(5 * 60_000);
+      expect(refundPollAfterMs({ REFUND_POLL_AFTER_MINUTES: "0" } as never)).toBe(30 * 60_000);
+      expect([1, 2, 3, 10].map(refundPollBackoffMs)).toEqual([30 * 60_000, 60 * 60_000, 120 * 60_000, 12 * 3_600_000]);
+    });
+  });
+
   it("concurrent refunds cannot exceed the amount paid", async () => {
     const { id, total } = await paid("credits_20");
     const half = Math.floor(total * 0.6);

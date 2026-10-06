@@ -23,6 +23,7 @@
     "dev:admin": "pnpm --filter @cnote/admin-app dev",
     "admin:grant": "pnpm --filter @cnote/admin grant",
     "check:boundaries": "tsx scripts/check-boundaries.ts",
+    "csp:hashes": "tsx scripts/csp-hashes.ts",
     "test:boundaries": "vitest run scripts/check-boundaries.test.ts",
     "test:coverage": "bash scripts/test-coverage.sh",
     "dev:studio": "pnpm --filter @cnote/studio-app dev",

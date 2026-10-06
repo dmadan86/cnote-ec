@@ -10,7 +10,7 @@ describe("parseFilterState (URL -> state)", () => {
   it("no params is the empty state", () => expect(parse("")).toEqual(EMPTY_FILTERS));
   it("reads every filter", () => {
     const s = parse("tier=2&state=Gujarat&state=delhi&city=Surat&category=a&category=b&pmin=500&pmax=2,000&moq=100&priced=1&deliver=560001&sort=price_asc");
-    expect(s).toEqual({ tier: 2, states: ["gujarat", "delhi"], cities: ["surat"], categories: ["a", "b"], pmin: 500, pmax: 2000, moq: 100, priced: true, deliver: "560001", sort: "price_asc" });
+    expect(s).toEqual({ tier: 2, states: ["gujarat", "delhi"], cities: ["surat"], categories: ["a", "b"], pmin: 500, pmax: 2000, moq: 100, priced: true, deliver: "560001", inStock: false, variants: {}, sort: "price_asc" });
   });
   it("accepts a comma list and repeated keys alike, de-duplicates and caps at 10", () => {
     expect(parse("state=a,b,a").states).toEqual(["a", "b"]);
@@ -43,7 +43,7 @@ describe("state -> URL", () => {
     expect(hrefFor("/search", {}, EMPTY_FILTERS)).toBe("/search");
   });
   it("round-trips: parse(toSearchParams(state)) === state", () => {
-    const s: FilterState = { tier: 3, states: ["delhi", "gujarat"], cities: ["surat"], categories: ["a"], pmin: 10, pmax: 900, moq: 5, priced: true, deliver: "400069", sort: "trust" };
+    const s: FilterState = { tier: 3, states: ["delhi", "gujarat"], cities: ["surat"], categories: ["a"], pmin: 10, pmax: 900, moq: 5, priced: true, deliver: "400069", inStock: true, variants: { colour: ["red"], size: ["l", "m"] }, sort: "trust" };
     expect(parse(toSearchParams({ q: "x" }, s).toString())).toEqual(s);
   });
   it("keeps non-default tabs, drops the default one", () => {
@@ -117,4 +117,39 @@ describe("chips and counts", () => {
     expect(activeCount({ ...EMPTY_FILTERS, sort: "newest" })).toBe(0);
   });
   it("title-cases state keys", () => expect(titleCase("tamil nadu")).toBe("Tamil Nadu"));
+});
+
+describe("in stock + variant filters", () => {
+  it("parses instock and variant=axis:value, lower-cases, de-duplicates and drops junk", () => {
+    const s = parseFilterState({ instock: "1", variant: ["Size:M", "size:m", "size:XL", "colour:Red", "nocolon", ":x", "Bad Axis:1", "size:"] });
+    expect(s.inStock).toBe(true);
+    expect(s.variants).toEqual({ colour: ["red"], size: ["m", "xl"] });
+    expect(parseFilterState({ instock: "0" }).inStock).toBe(false);
+  });
+  it("caps axes and values", () => {
+    const many = Array.from({ length: 9 }, (_, i) => `a${i}:x`);
+    expect(Object.keys(parseFilterState({ variant: many }).variants)).toHaveLength(6);
+    expect(parseFilterState({ variant: Array.from({ length: 30 }, (_, i) => `size:v${i}`) }).variants.size).toHaveLength(20);
+  });
+  it("maps to SearchFilters and counts as active filters", () => {
+    const s = parseFilterState({ instock: "1", variant: "size:m" });
+    expect(toSearchArgs(s).filters).toEqual({ inStockOnly: true, variantOptions: { size: ["m"] } });
+    expect(hasFilters(s)).toBe(true);
+    expect(activeCount(s)).toBe(2);
+    expect(toSearchArgs(EMPTY_FILTERS).filters).toEqual({});
+  });
+  it("URL round-trips and every chip removes exactly its own constraint", () => {
+    const s = parseFilterState({ instock: "1", variant: ["size:m", "size:l", "colour:red"] });
+    expect(toSearchParams({}, s).toString()).toBe("instock=1&variant=colour%3Ared&variant=size%3Al&variant=size%3Am");
+    const chips = chipSpecs(s);
+    expect(chips.map((c) => c.kind + ":" + c.value)).toEqual(["instock:1", "variant:colour:red", "variant:size:l", "variant:size:m"]);
+    expect(chips[1]!.without.variants).toEqual({ size: ["l", "m"] });
+    expect(chips[2]!.without.variants).toEqual({ colour: ["red"], size: ["m"] });
+  });
+  it("a saved search keeps them (SearchFilters -> state -> URL)", async () => {
+    const { filtersToState } = await import("@/features/retention/search-url");
+    const st = filtersToState({ inStockOnly: true, variantOptions: { size: ["m"] } }, "relevance");
+    expect(st.inStock).toBe(true);
+    expect(st.variants).toEqual({ size: ["m"] });
+  });
 });

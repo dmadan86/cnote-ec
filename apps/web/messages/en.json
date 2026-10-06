@@ -334,7 +334,8 @@
     "searchProducts": "Search products",
     "errorTitle": "Something went wrong",
     "errorText": "We could not load this page. Please try again. If it keeps happening, come back in a few minutes.",
-    "tryAgain": "Try again"
+    "tryAgain": "Try again",
+    "reference": "Reference"
   },
   "consent": {
     "aria": "Cookie notice",

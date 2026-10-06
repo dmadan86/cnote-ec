@@ -28,6 +28,9 @@ export interface ParsedWebhook {
 export interface ProviderPayment { status: "paid" | "failed" | "pending"; providerPaymentId?: string; amountPaise?: number }
 export interface RefundInput { orderId: string; providerOrderId: string | null; providerPaymentId: string | null; amountPaise: number; refundId: string; reason: string }
 export interface RefundResult { providerRefundId: string; status: "processed" | "pending" }
+/** Where the provider says a refund we sent stands. "failed" = cancelled/rejected/failed by the provider. */
+export interface RefundLookup { orderId: string; providerOrderId: string | null; providerPaymentId: string | null; providerRefundId: string; refundId: string }
+export interface ProviderRefundState { status: "processed" | "pending" | "failed" }
 
 export interface PaymentProvider {
   name: ProviderName;
@@ -36,6 +39,8 @@ export interface PaymentProvider {
   verifyWebhook(raw: Uint8Array | string, headers: Headers | Record<string, string | undefined>): ParsedWebhook | null;
   fetchPayment(o: { id: string; providerOrderId: string | null }): Promise<ProviderPayment>;
   refund(i: RefundInput): Promise<RefundResult>;
+  /** Poll the provider for a refund's state (backs up the refund webhooks; billing.refund-poll). Throws when the provider cannot be reached. */
+  fetchRefund(i: RefundLookup): Promise<ProviderRefundState>;
 }
 
 // ---- helpers -----------------------------------------------------------------------------------------------------
@@ -154,6 +159,11 @@ export function razorpay(env: NodeJS.ProcessEnv = process.env): PaymentProvider 
       }, "razorpay refund");
       return { providerRefundId: str(r.id) ?? i.refundId, status: r.status === "processed" ? "processed" : "pending" };
     },
+    async fetchRefund(i) {
+      // GET /refunds/:id -> { status: "pending" | "processed" | "failed" }
+      const r = await call(`${base}/refunds/${encodeURIComponent(i.providerRefundId)}`, { headers: headers() }, "razorpay fetch refund");
+      return { status: r.status === "processed" ? "processed" : r.status === "failed" ? "failed" : "pending" };
+    },
   };
 }
 
@@ -228,6 +238,11 @@ export function cashfree(env: NodeJS.ProcessEnv = process.env): PaymentProvider 
       }, "cashfree refund");
       return { providerRefundId: str(r.cf_refund_id) ?? i.refundId, status: r.refund_status === "SUCCESS" ? "processed" : "pending" };
     },
+    async fetchRefund(i) {
+      // GET /orders/:order_id/refunds/:refund_id (the refund_id we sent: our row id without dashes) -> refund_status SUCCESS | PENDING | CANCELLED | ONHOLD
+      const r = await call(`${base}/orders/${encodeURIComponent(i.orderId)}/refunds/${encodeURIComponent(i.refundId.replace(/-/g, ""))}`, { headers: headers() }, "cashfree fetch refund");
+      return { status: r.refund_status === "SUCCESS" ? "processed" : r.refund_status === "CANCELLED" ? "failed" : "pending" };
+    },
   };
 }
 
@@ -260,7 +275,13 @@ export function mock(env: NodeJS.ProcessEnv = process.env): PaymentProvider {
       return { status: "pending" };
     },
     async refund(i) {
-      return { providerRefundId: `mock_rf_${i.refundId}`, status: "processed" };
+      // PAYMENTS_MOCK_REFUND_PENDING=1 makes the mock accept a refund without confirming it (dev/tests of the polling job).
+      return { providerRefundId: `mock_rf_${i.refundId}`, status: env.PAYMENTS_MOCK_REFUND_PENDING === "1" ? "pending" : "processed" };
+    },
+    async fetchRefund() {
+      // PAYMENTS_MOCK_REFUND_STATUS=pending|failed|processed (default processed)
+      const s = env.PAYMENTS_MOCK_REFUND_STATUS;
+      return { status: s === "pending" || s === "failed" ? s : "processed" };
     },
   };
 }

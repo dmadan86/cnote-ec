@@ -53,6 +53,8 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   // Phase 3 (ADR-019..022), each behind a flag. Credit sits above escrow + disputes (score inputs); a2a above negotiation.
   "@cnote/credit": ["@cnote/core", "@cnote/db", "@cnote/disputes", "@cnote/enquiry", "@cnote/escrow", "@cnote/identity"],
   "@cnote/a2a": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity", "@cnote/negotiation"],
+  // Freight ESTIMATOR (never booking): rate-card heuristic + Shiprocket/Delhivery adapters. PIN->state reuses the one India Post table in prices; live calls use security pinnedFetch.
+  "@cnote/logistics": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/prices", "@cnote/security"],
   "@cnote/prices": ["@cnote/billing", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/escrow", "@cnote/identity"],
   "@cnote/admin": ["@cnote/core", "@cnote/db", "@cnote/identity"],
   "@cnote/ai": ["@cnote/core", "@cnote/db"],
@@ -64,20 +66,27 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   // DPDP orchestrator (ADR-010 access/erasure/retention): sits ABOVE the domain modules and calls their public
   // export/erase functions, so it may depend on many of them. Nothing may depend on it except apps.
   "@cnote/compliance": [
-    "@cnote/alerts", "@cnote/catalogue", "@cnote/core", "@cnote/credit", "@cnote/db", "@cnote/disputes", "@cnote/enquiry", "@cnote/identity", "@cnote/leadgen", "@cnote/notifications",
-    "@cnote/ondc", "@cnote/quality", "@cnote/reviews", "@cnote/storefront", "@cnote/whatsapp", "@cnote/wishlist",
+    "@cnote/alerts", "@cnote/approvals", "@cnote/catalogue", "@cnote/core", "@cnote/credit", "@cnote/db", "@cnote/disputes", "@cnote/enquiry", "@cnote/identity", "@cnote/leadgen", "@cnote/notifications",
+    "@cnote/developer", "@cnote/ondc", "@cnote/quality", "@cnote/reviews", "@cnote/samples", "@cnote/security", "@cnote/storefront", "@cnote/whatsapp", "@cnote/wishlist",
   ],
   "@cnote/developer": ["@cnote/core", "@cnote/db", "@cnote/identity"],
   "@cnote/catalogue": ["@cnote/ai", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media", "@cnote/live-db"],
-  "@cnote/search": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity"],
-  "@cnote/enquiry": ["@cnote/ai", "@cnote/billing", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media"],
+  // + live-db (DEV dependency only): the relevance harness (packages/search/relevance/, outside src/) writes its fixture corpus to the live read DB.
+  "@cnote/search": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/live-db"],
+  // Buyer approval chains + spend limits (docs/design/buyer-approvals.md). Callers depend on it, never the reverse: subjects are opaque {type,id,summary}.
+  "@cnote/approvals": ["@cnote/core", "@cnote/db", "@cnote/identity"],
+  // + approvals: RFQ publish and quote acceptance consult approval policies and resume from ApprovalApproved.
+  // + security: keyed ip-prefix hashing (risk.ts), formula-safe CSV, SSRF-safe telephony calls (reachability-provider.ts)
+  "@cnote/enquiry": ["@cnote/ai", "@cnote/approvals", "@cnote/billing", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media", "@cnote/security"],
   "@cnote/wishlist": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity"],
   // Buyer retention: follows, saved searches, opt-in alerts. Reads saved items via wishlist and new matches via search (public APIs only).
   "@cnote/alerts": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/search", "@cnote/wishlist"],
   "@cnote/bulk": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/media", "@cnote/security"],
+  // Sample request and approval workflow before a bulk order: listing settings via catalogue, parties/orders/quotes via enquiry, buyer tier via identity, private photos via media.
+  "@cnote/samples": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity", "@cnote/media"],
   "@cnote/reviews": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity"],
   "@cnote/leadgen": ["@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/enquiry", "@cnote/identity"],
-  "@cnote/storefront": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/reviews"],
+  "@cnote/storefront": ["@cnote/ai", "@cnote/catalogue", "@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/reviews", "@cnote/security"],
   "@cnote/domains": ["@cnote/core", "@cnote/db", "@cnote/security", "@cnote/storefront"],
   "@cnote/email": ["@cnote/core", "@cnote/db", "@cnote/identity", "@cnote/templates"],
   "@cnote/notifications": [

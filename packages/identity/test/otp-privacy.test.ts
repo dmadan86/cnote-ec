@@ -362,7 +362,7 @@ describe("DPDP export + erasure", () => {
     expect(await prisma.authSession.count({ where: { personId: t.personId, revokedAt: null } })).toBe(0);
     expect(await getSession(t.accessToken, "web")).toBeNull();
     expect(await getSession(seller.accessToken, "seller")).toBeNull();
-    expect(await getConsents(t.personId)).toEqual({ matching: false, marketing: false, voice_retention: false, counterparty_sharing: false, credit_underwriting: false, analytics_cookies: false, marketing_cookies: false, functional_cookies: false });
+    expect(await getConsents(t.personId)).toEqual({ matching: false, marketing: false, voice_retention: false, counterparty_sharing: false, credit_underwriting: false, analytics_cookies: false, marketing_cookies: false, functional_cookies: false, seller_analytics_cookies: false, seller_marketing_cookies: false });
     const erasureRows = await prisma.consent.findMany({ where: { personId: t.personId, source: "erasure" } });
     expect(erasureRows).toHaveLength(CONSENT_PURPOSES.length);
     // history is preserved (append-only), only withdrawn

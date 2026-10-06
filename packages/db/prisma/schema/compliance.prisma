@@ -110,3 +110,80 @@ model CookieConsentReceipt {
   @@index([createdAt])
   @@map("cookie_consent_receipts")
 }
+
+// ---- DPDP Rules 2025: inactivity erasure notice (r.8 / Third Schedule) and nominee (s.14, r.14) -----------------------------
+
+/// Notice that a personal account will be erased for inactivity, sent at least 48 hours before (DPDP Rules 2025 r.8(2) / Third
+/// Schedule). Erasure happens only after `eraseAfter` and only if the person has not signed in since `noticedAt`.
+model InactivityErasureNotice {
+  id           String    @id @default(uuid()) @db.Uuid
+  personId     String    @map("person_id") @db.Uuid
+  /// the last activity the decision was based on
+  lastActiveAt DateTime  @map("last_active_at") @db.Timestamptz
+  noticedAt    DateTime  @default(now()) @map("noticed_at") @db.Timestamptz
+  /// earliest moment erasure may run (>= noticedAt + the notice period, itself >= 48h)
+  eraseAfter   DateTime  @map("erase_after") @db.Timestamptz
+  /// "pending" | "erased" | "cancelled"
+  status       String    @default("pending")
+  /// "erased" | "activity_since_notice" | "already_erased" | "api_activity_since_notice"
+  resolution   String?
+  resolvedAt   DateTime? @map("resolved_at") @db.Timestamptz
+
+  @@index([status, eraseAfter])
+  @@index([personId])
+  @@map("inactivity_erasure_notices")
+}
+
+/// A person a data principal nominated to exercise their rights in the event of death or incapacity (DPDP Act s.14; Rules r.14).
+/// Name, contact and relationship are encrypted with @cnote/security field encryption; `contactIndex` is a blind index so staff can
+/// match a nominee's request to the nomination without decrypting every row.
+model DataNominee {
+  id              String    @id @default(uuid()) @db.Uuid
+  personId        String    @map("person_id") @db.Uuid
+  nameEnc         String    @map("name_enc")
+  contactEnc      String    @map("contact_enc")
+  relationshipEnc String    @map("relationship_enc")
+  contactIndex    String    @map("contact_index")
+  /// "active" | "revoked"
+  status          String    @default("active")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  revokedAt       DateTime? @map("revoked_at") @db.Timestamptz
+
+  @@index([personId, status])
+  @@index([contactIndex])
+  @@map("data_nominees")
+}
+
+/// A nominee's request to exercise the principal's rights (death / incapacity). Public intake, staff verification (the nominee
+/// must match an active nomination AND staff check the supporting documents offline), then an audited action.
+model NomineeRequest {
+  id               String    @id @default(uuid()) @db.Uuid
+  /// the principal; null when the email given matched no account (the requester is told the same thing either way)
+  personId         String?   @map("person_id") @db.Uuid
+  requesterNameEnc    String @map("requester_name_enc")
+  requesterContactEnc String @map("requester_contact_enc")
+  contactIndex     String    @map("contact_index")
+  /// "death" | "incapacity"
+  ground           String
+  messageEnc       String    @map("message_enc")
+  /// the requester's contact equals the contact of an active nomination of that person (computed at filing, re-checked at verification)
+  nomineeMatched   Boolean   @map("nominee_matched")
+  /// "received" | "verified" | "rejected" | "completed"
+  status           String    @default("received")
+  /// staff's note on the documents checked / the reason for rejection
+  reviewNote       String?   @map("review_note")
+  reviewedBy       String?   @map("reviewed_by") @db.Uuid
+  reviewedAt       DateTime? @map("reviewed_at") @db.Timestamptz
+  /// "erase_account" | "release_export" | "correct" | "other"
+  actionTaken      String?   @map("action_taken")
+  actionNote       String?   @map("action_note")
+  completedAt      DateTime? @map("completed_at") @db.Timestamptz
+  /// answer by (rights requests: 90 days, DPDP Rules 2025)
+  dueAt            DateTime  @map("due_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([status, dueAt])
+  @@index([personId])
+  @@map("nominee_requests")
+}

@@ -18,6 +18,9 @@ model ApiKey {
   lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz
   lastUsedIp  String?   @map("last_used_ip")
   revokedAt   DateTime? @map("revoked_at") @db.Timestamptz
+  /// idempotent markers: the owner was emailed once for the 7-day and the expiry-day threshold
+  expiryNotice7dAt  DateTime? @map("expiry_notice_7d_at") @db.Timestamptz
+  expiryNoticeDayAt DateTime? @map("expiry_notice_day_at") @db.Timestamptz
   /// staff id when revoked from the admin app
   revokedBy   String?   @map("revoked_by") @db.Uuid
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz

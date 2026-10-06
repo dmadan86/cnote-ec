@@ -27,4 +27,4 @@ export * from "./otp";
 export * from "./security";
 export * from "./upload";
 export * from "./human";
-export { getMfaPending, getMfaEnrollmentInfo, MFA_PATH, mfaPendingCookieName, type MfaPendingView, type MfaMode } from "./mfa-flow";
+export { getMfaPending, getMfaPendingAccount, afterSecondFactor, getMfaEnrollmentInfo, MFA_PATH, mfaPendingCookieName, type MfaPendingView, type MfaMode } from "./mfa-flow";

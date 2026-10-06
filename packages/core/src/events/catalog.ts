@@ -25,10 +25,13 @@ export interface DomainEventPayloads {
   /** The published price (or unit) of a live listing changed (emitted with the publish, in the same transaction). Null = "price on request". Drives wishlist price-drop alerts. */
   ListingPriceChanged: { listingId: string; sellerBusinessId: string; fromPricePaise: number | null; toPricePaise: number | null; fromPriceUnit: string | null; priceUnit: string | null };
   ListingImageProcessed: { imageId: string; listingId: string; variants: number };
+  // variants-stock (docs/design/variants-stock.md)
+  /** The listing's EFFECTIVE availability (best of its variants, or its own when it has none) changed. Operational data: emitted by the stock fast path and by a publish that carries a different stock state, never by a content edit. Drives the wishlist back-in-stock alert (out_of_stock -> in_stock | made_to_order). `variantId` is the variant that caused the change, null for a listing-level change. */
+  ListingAvailabilityChanged: { listingId: string; sellerBusinessId: string; fromAvailability: "in_stock" | "made_to_order" | "out_of_stock"; toAvailability: "in_stock" | "made_to_order" | "out_of_stock"; availableQty: number | null; variantId: string | null };
   ListingImageModerated: { imageId: string; listingId: string; sellerBusinessId: string; status: "approved" | "rejected"; moderatedBy: string };
   // enquiry & matching
-  /** v2 adds the RFQ depth fields (all optional, absent on v1 rows): attachment count (files are never in the event), preferred minimum seller tier and the quote expiry. */
-  EnquiryCreated: { enquiryId: string; buyerBusinessId: string; categoryId: string | null; attachmentCount?: number; minSellerTier?: number | null; expiresAt?: string | null };
+  /** v2 adds the RFQ depth fields (all optional, absent on v1 rows): attachment count (files are never in the event), preferred minimum seller tier and the quote expiry. v3 (rfq-multiline) adds `lineCount`, the number of bill-of-materials lines (1..50); absent on v1/v2 rows. */
+  EnquiryCreated: { enquiryId: string; buyerBusinessId: string; categoryId: string | null; attachmentCount?: number; minSellerTier?: number | null; expiresAt?: string | null; lineCount?: number };
   EnquiryScored: { enquiryId: string; intentScore: number; needsReview: boolean };
   LeadMatched: { enquiryId: string; matchId: string; sellerBusinessId: string; rank: number; matchScore: number };
   LeadAccepted: { enquiryId: string; matchId: string; sellerBusinessId: string; creditTxnId: string | null; responseMs: number };
@@ -40,7 +43,8 @@ export interface DomainEventPayloads {
   LeadRefundReviewed: { enquiryId: string; matchId: string; sellerBusinessId: string; decision: "approved" | "rejected"; decidedBy: string };
   ConversationStarted: { conversationId: string; matchId: string };
   MessageSent: { conversationId: string; messageId: string; senderPersonId: string };
-  QuoteSent: { quoteId: string; conversationId: string; sellerBusinessId: string; pricePaise: number; quantity: number };
+  /** v2 (rfq-multiline) adds per-line quote summary, absent on v1 rows: `lineCount` priced lines and the server-computed `totalPaise` (lines, GST per line). `pricePaise`/`quantity` mirror the first priced line. */
+  QuoteSent: { quoteId: string; conversationId: string; sellerBusinessId: string; pricePaise: number; quantity: number; lineCount?: number; totalPaise?: number };
   DealReportedOffPlatform: { matchId: string; reportedByBusinessId: string; outcome: "won" | "lost" | "pending"; valuePaise?: number };
   /** the seller reports the deal as won: advisory only, the buyer is asked to confirm (security audit M7) */
   DealClaimedBySeller: { matchId: string; sellerBusinessId: string; buyerBusinessId: string; conversationId: string | null; valuePaise?: number };
@@ -59,8 +63,9 @@ export interface DomainEventPayloads {
   WishlistItemRemoved: { wishlistId: string; personId: string; listingId: string };
   // buyer retention (docs/design/buyer-retention.md): following a supplier never affects ranking
   SupplierFollowChanged: { personId: string; businessId: string; following: boolean };
-  /** One opted-in alert for one buyer, ready to be delivered by @cnote/notifications. `label` is a listing title or saved-search name; `count` the number of listings. */
-  BuyerAlertTriggered: { personId: string; alertType: "price_drop" | "back_in_stock" | "followed_digest" | "saved_search"; subjectId: string | null; label: string; count: number; fromPricePaise: number | null; toPricePaise: number | null; href: string };
+  /** One opted-in alert for one buyer, ready to be delivered by @cnote/notifications. `label` is a listing title or saved-search name; `count` the number of listings.
+   *  v2 (variants-stock): `alertType` gains "listing_relisted" ("a saved listing is live again", formerly mislabelled back_in_stock); "back_in_stock" now means a real availability transition and carries the new `availability`. v1 rows have neither. */
+  BuyerAlertTriggered: { personId: string; alertType: "price_drop" | "back_in_stock" | "listing_relisted" | "followed_digest" | "saved_search"; availability?: "in_stock" | "made_to_order"; subjectId: string | null; label: string; count: number; fromPricePaise: number | null; toPricePaise: number | null; href: string };
   // storefronts (seller mini-sites)
   StorefrontPublished: { storefrontId: string; sellerBusinessId: string; slug: string; versionId: string };
   StorefrontVersionReviewed: { storefrontId: string; sellerBusinessId: string; versionId: string; status: "published" | "rejected"; reviewedBy: string };
@@ -77,6 +82,8 @@ export interface DomainEventPayloads {
   SupplierContacted: { buyerPersonId: string; sellerBusinessId: string; listingId: string; enquiryId: string; channel: "call" | "whatsapp" | "email" | "enquiry" };
   // orders (ADR-007 stub; off-platform in Phase 1)
   OrderRecorded: { orderId: string; matchId: string; enquiryId: string; buyerBusinessId: string; sellerBusinessId: string; totalPaise: number | null };
+  /** The buyer awarded requirement lines to one supplier's quote (rfq-multiline): one event per supplier, emitted with the Order that is recorded for it. */
+  LinesAwarded: { enquiryId: string; quoteId: string; orderId: string; matchId: string; buyerBusinessId: string; sellerBusinessId: string; enquiryLineIds: string[]; totalPaise: number };
   OrderStatusChanged: { orderId: string; buyerBusinessId: string; sellerBusinessId: string; from: string; to: string };
   // compliance (ADR-010)
   GrievanceFiled: { ticketId: string; personId: string | null; category: string; dueAt: string };
@@ -131,7 +138,7 @@ export interface DomainEventPayloads {
   EscrowFrozen:           { escrowId: string; orderId: string; disputeId: string };
   EscrowUnfrozen:         { escrowId: string; orderId: string; disputeId: string };
   EscrowReleased:         { escrowId: string; orderId: string; sellerBusinessId: string; amountPaise: number; feePaise: number; cause: "buyer_accepted" | "auto_release" | "dispute_resolution" | "staff" };
-  EscrowRefunded:         { escrowId: string; orderId: string; buyerBusinessId: string; amountPaise: number; cause: "cancelled" | "dispute_resolution" | "funding_expired" | "staff" };
+  EscrowRefunded:         { escrowId: string; orderId: string; buyerBusinessId: string; amountPaise: number; cause: "cancelled" | "dispute_resolution" | "funding_expired" | "staff" | "return_credit" };
   PayoutSettled:          { payoutId: string; escrowId: string; sellerBusinessId: string; amountPaise: number; partnerRef: string; latencyMs: number };
   /** seller proceeds assigned to an NBFC were paid to the lender first (ADR-019 invoice financing) */
   EscrowLenderRepaid:     { payoutId: string; escrowId: string; assignmentId: string; amountPaise: number; partnerRef: string };
@@ -177,7 +184,11 @@ export interface DomainEventPayloads {
   KycSubmitted: { sessionId: string; businessId: string; provider: string };
   KycDecided: { sessionId: string; businessId: string; status: "approved" | "rejected" | "review"; decidedBy: string | null };
   AuditCompleted: { auditId: string; businessId: string; result: "pass" | "fail" | "conditional"; validUntil: string | null };
+  // trust_verif: T3 partner submitted checklist + photos for staff review (ADR-003)
+  AuditSubmitted: { auditId: string; businessId: string; partner: string; photoCount: number; flagged: boolean };
   // buyer reachability (ADR-002)
+  // trust_verif: an ops label on an enquiry (fake-lead precision/recall, ADR-002)
+  EnquiryLabelled: { enquiryId: string; label: string; isFake: boolean; predictedFake: boolean; riskScore: number; intentScore: number | null };
   ReachabilityChecked: { checkId: string; enquiryId: string; matchId: string | null; channel: string; status: "responded" | "no_response" | "failed"; sellerBusinessId?: string };
   // billing
   CreditsGranted: { businessId: string; amount: number; reason: string; expiresAt: string };
@@ -187,7 +198,90 @@ export interface DomainEventPayloads {
   /** v2 (ADR-005): adds the interval, the pro-rated refund requested through the payment provider (paise, GST-inclusive) and the optional reason. v1 had only the first three fields. */
   SubscriptionCancelled: { businessId: string; subscriptionId: string; planCode: string; billingInterval: "monthly" | "annual"; refundPaise: number; unusedMonths: number; effectiveAt: string; reason: string | null };
   /** The paid period ends soon and will NOT renew by itself: asks the owner to confirm a renewal (ADR-005). */
+  // polish: DPDP (compliance)
+  /** 48-hour (or longer) notice that a personal account will be erased for inactivity (DPDP Rules 2025 r.8 / Third Schedule). */
+  InactivityErasureNoticeSent: { personId: string; noticeId: string; eraseAfter: string; lastActiveAt: string };
+  /** A data principal added, changed or revoked a nominee (DPDP s.14). Never carries the nominee's details. */
+  DataNomineeChanged: { personId: string; nomineeId: string; change: "added" | "changed" | "revoked" };
+  // polish: developer API keys
+  /** An active personal API key is about to expire (threshold "7d" = within 7 days, "expiry_day" = within 24h). Never carries the secret. */
+  ApiKeyExpiring: { keyId: string; personId: string; name: string; prefix: string; expiresAt: string; threshold: "7d" | "expiry_day" };
   SubscriptionRenewalDue: { businessId: string; subscriptionId: string; planCode: string; billingInterval: "monthly" | "annual"; periodEnd: string };
+  // samples (docs/design/samples.md): sample request and approval workflow before a bulk order. Business ids on every event so observers need no lookups.
+  SampleRequested: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string; listingId: string | null; quantity: number; amountPaise: number; respondBy: string };
+  SampleAccepted: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string; amountPaise: number; adjustableAgainstBulk: boolean; expectedDispatchBy: string | null; responseMs: number };
+  SampleDeclined: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string; reason: string; responseMs: number };
+  SampleDispatched: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string; courier: string; trackingRef: string | null };
+  SampleDelivered: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string; deliveredBy: "buyer" | "seller" };
+  /** The buyer's verdict. `approved` makes the sample the golden quality reference for the bulk order. Feeds the supplier trust read model (approval rate). */
+  SampleEvaluated: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string; approved: boolean; reasons: string[]; photoCount: number };
+  /** The seller did not respond within the SLA (48h by default). */
+  SampleExpired: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string };
+  SampleCancelled: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string };
+  /** An RFQ was created from an approved sample (the sample is its quality reference). */
+  SampleBulkQuoteRequested: { sampleId: string; buyerBusinessId: string; sellerBusinessId: string; enquiryId: string };
+  // passkeys (ADR-029/042, docs/design/admin-passkeys.md)
+  PasskeyRegistered: { personId: string; realm: string; passkeyId: string; aaguid: string; deviceType: string };
+  PasskeyRevoked: { personId: string; realm: string; passkeyId: string; reason: "user" | "reset" | "clone_suspected"; byStaffId?: string };
+  /** The authenticator's sign counter did not advance: the credential may have been cloned. It has been revoked. */
+  PasskeyCloneSuspected: { personId: string; realm: string; passkeyId: string; storedCount: number; receivedCount: number };
+  // ai_ops: attachment malware scanning
+  /** The malware scanner flagged an RFQ or quote attachment: bytes quarantined, never visible to the other party; the uploader is told. No file name or content in the payload. */
+  AttachmentQuarantined: { quarantineId: string; enquiryId: string; kind: "rfq" | "quote"; uploadedByBusinessId: string; uploadedByPersonId: string; signature: string; scanner: string };
+  // ai_ops: storefront embed moderation
+  /** A third-party video embed (YouTube / Vimeo) in a storefront was approved, rejected or put back to pending. `decidedBy`: auto (trusted-seller rules), staff, or recheck (periodic re-check of an approved embed). */
+  StorefrontEmbedDecided: { storefrontId: string; sellerBusinessId: string; provider: "youtube" | "vimeo"; mediaId: string; status: "approved" | "rejected" | "pending"; decidedBy: "auto" | "staff" | "recheck" };
+  // buyer team roles + approval chains (docs/design/buyer-approvals.md). The invitee's email and decision comments never travel in events.
+  BuyerMemberInvited:   { businessId: string; inviteId: string; role: string; invitedByPersonId: string; expiresAt: string };
+  BuyerMemberJoined:    { businessId: string; personId: string; role: string; inviteId: string };
+  BuyerMemberRoleChanged: { businessId: string; personId: string; from: string; to: string; changedByPersonId: string };
+  BuyerMemberRemoved:   { businessId: string; personId: string; removedByPersonId: string };
+  BusinessOwnershipTransferred: { businessId: string; fromPersonId: string; toPersonId: string };
+  /** A level of the chain became active: `approverPersonIds` are everyone who can decide it now (delegates not included). */
+  ApprovalRequested:    { requestId: string; businessId: string; action: string; subjectType: string; subjectId: string; subjectSummary: string; amountPaise: number; requesterPersonId: string; level: number; totalLevels: number; approverPersonIds: string[] };
+  ApprovalDecided:      { requestId: string; businessId: string; level: number; decision: "approved" | "rejected"; deciderPersonId: string; onBehalfOfPersonId: string | null };
+  /** The whole chain approved. Callers resume the held action from this event (a synchronous requireApproval "approved" emits nothing). */
+  ApprovalApproved:     { requestId: string; businessId: string; action: string; subjectType: string; subjectId: string; subjectSummary: string; amountPaise: number; requesterPersonId: string };
+  /** Chain ended without approval: a rejection, a withdrawal by the requester or the SLA expiry. */
+  ApprovalRejected:     { requestId: string; businessId: string; action: string; subjectType: string; subjectId: string; subjectSummary: string; amountPaise: number; requesterPersonId: string; cause: "rejected" | "cancelled" | "expired"; deciderPersonId: string | null };
+  ApprovalReminder:     { requestId: string; businessId: string; subjectSummary: string; level: number; reminderNo: number; approverPersonIds: string[] };
+  // purchase orders, supplier invoices and MSME payment dues (docs/design/purchase-orders.md)
+  PurchaseOrderIssued: { purchaseOrderId: string; orderId: string; number: string; version: 1; buyerBusinessId: string; sellerBusinessId: string; totalPaise: number; paymentTermsDays: number };
+  PurchaseOrderAmended: { purchaseOrderId: string; orderId: string; number: string; version: number; previousVersion: number; buyerBusinessId: string; sellerBusinessId: string; totalPaise: number; paymentTermsDays: number };
+  PurchaseOrderAcknowledged: { purchaseOrderId: string; orderId: string; number: string; version: number; buyerBusinessId: string; sellerBusinessId: string; decision: "accepted" | "rejected"; reason: string | null };
+  PurchaseOrderCancelled: { purchaseOrderId: string; orderId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; cancelledByBusinessId: string; reason: string | null };
+  SupplierInvoiceRecorded: { supplierInvoiceId: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; invoiceNumber: string; totalPaise: number; dueDate: string | null; msmeCovered: boolean; hasIrn: boolean; hasEwayBill: boolean };
+  SupplierInvoicePaymentRecorded: { supplierInvoiceId: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; amountPaise: number; paidOn: string; fullyPaid: boolean; msmeCovered: boolean; late: boolean };
+  /** Scheduled MSME 43B(h) reminder: stage t7 = due in 7 days or less, t1 = due tomorrow or today, overdue = past due. Sent once per stage. */
+  SupplierInvoiceDueReminder: { supplierInvoiceId: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; invoiceNumber: string; stage: "t7" | "t1" | "overdue"; dueDate: string; outstandingPaise: number; daysOverdue: number };
+  SupplierInvoiceVoided: { supplierInvoiceId: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; invoiceNumber: string; reason: string; system: boolean };
+  BusinessMsmeDeclared: { businessId: string; category: "micro" | "small" | "medium" | null; udyamOnFile: boolean };
+  // goods receipt notes, three-way match and returns (docs/design/grn-returns.md)
+  /** Buyer recorded a receipt against a PO. `deliveryConfirmed` = this receipt's accepted units confirmed delivery (day of acceptance, s.43B(h)); false when delivery was already confirmed. */
+  GoodsReceiptRecorded: { goodsReceiptId: string; number: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; receivedOn: string; acceptedUnits: number; rejectedUnits: number; deliveryConfirmed: boolean };
+  /** Buyer paid an invoice whose three-way match was blocking, with a logged reason (the reason text stays in invoice_match_overrides). */
+  InvoiceMatchOverridden: { supplierInvoiceId: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; invoiceNumber: string; matchStatus: "mismatch" | "pending_grn" };
+  GoodsReturnRequested: { goodsReturnId: string; number: string; goodsReceiptId: string; purchaseOrderId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; units: number; estimatedPaise: number; reasonCode: string };
+  GoodsReturnDecided: { goodsReturnId: string; number: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; decision: "approved" | "rejected" };
+  GoodsReturnCancelled: { goodsReturnId: string; number: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string };
+  GoodsReturnShipped: { goodsReturnId: string; number: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; hasTrackingRef: boolean };
+  GoodsReturnReceived: { goodsReturnId: string; number: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string };
+  /** Seller credit note for a return: `totalPaise` reduces the invoice payable; escrow refunds up to that amount from held funds. */
+  ReturnCreditNoteRecorded: { creditNoteId: string; goodsReturnId: string; returnNumber: string; supplierInvoiceId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string; creditNoteNumber: string; totalPaise: number; outstandingPaise: number; refundDuePaise: number; hasIrn: boolean };
+  GoodsReturnDisputeLinked: { goodsReturnId: string; number: string; disputeId: string; orderId: string; buyerBusinessId: string; sellerBusinessId: string };
+  // rate contracts and call-offs (docs/design/rate-contracts.md); payloads carry ids, numbers and paise, never terms text or addresses
+  RateContractProposed: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; revision: number; proposedByBusinessId: string; amendment: boolean; validFrom: string; validTo: string };
+  RateContractActivated: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; revision: number; amendment: boolean; validFrom: string; validTo: string };
+  RateContractRejected: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; revision: number; rejectedByBusinessId: string; reason: string | null };
+  RateContractTerminated: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; terminatedByBusinessId: string; reason: string | null };
+  RateContractExpired: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; validTo: string };
+  RateContractCallOffPlaced: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; callOffId: string; callOffNo: number; orderId: string; taxablePaise: number; lineCount: number };
+  /** A call-off's quantities were given back to the contract because its order was cancelled. */
+  RateContractCallOffReleased: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; callOffId: string; orderId: string };
+  /** Consumption crossed 80% or 100% of a quantity cap (scope item) or of the value cap (scope value). Sent once per scope and threshold. */
+  RateContractConsumptionWarning: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; scope: "item" | "value"; itemKey: string | null; itemDescription: string | null; threshold: 80 | 100; usedPercent: number };
+  /** Scheduled reminder 30 or 7 days before the active revision ends. The contract never renews by itself. */
+  RateContractExpiryReminder: { contractId: string; number: string; buyerBusinessId: string; sellerBusinessId: string; daysLeft: 30 | 7; validTo: string };
 }
 
 export type DomainEventType = keyof DomainEventPayloads;
@@ -212,7 +306,8 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   ListingVersionPublished: 1,
   ListingUnpublished: 1,
   ListingPriceChanged: 1,
-  EnquiryCreated: 2,
+  ListingAvailabilityChanged: 1,
+  EnquiryCreated: 3,
   EnquiryScored: 1,
   LeadMatched: 1,
   LeadAccepted: 1,
@@ -223,7 +318,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   LeadRefundReviewed: 1,
   ConversationStarted: 1,
   MessageSent: 1,
-  QuoteSent: 1,
+  QuoteSent: 2,
   DealReportedOffPlatform: 1,
   DealClaimedBySeller: 1,
   ReviewSubmitted: 1,
@@ -236,7 +331,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   WishlistItemAdded: 1,
   WishlistItemRemoved: 1,
   SupplierFollowChanged: 1,
-  BuyerAlertTriggered: 1,
+  BuyerAlertTriggered: 2,
   StorefrontPublished: 1,
   StorefrontVersionReviewed: 1,
   StorefrontSuspended: 1,
@@ -247,6 +342,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   LeadCaptureConverted: 1,
   SupplierContacted: 1,
   OrderRecorded: 1,
+  LinesAwarded: 1,
   OrderStatusChanged: 1,
   GrievanceFiled: 1,
   GrievanceResolved: 1,
@@ -288,6 +384,7 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   KycSubmitted: 1,
   KycDecided: 1,
   AuditCompleted: 1,
+  AuditSubmitted: 1,
   OrderFulfilmentUpdated: 1,
   CreditCancelled: 1,
   CreditScoreComputed: 1,
@@ -325,12 +422,74 @@ export const EVENT_VERSIONS: { [K in DomainEventType]: number } = {
   OndcCatalogPublished: 1,
   OndcOrderReceived: 1,
   ReachabilityChecked: 1,
+  EnquiryLabelled: 1,
   CreditsGranted: 1,
   CreditConsumed: 1,
   CreditRefunded: 1,
   SubscriptionStarted: 1,
   SubscriptionCancelled: 2,
   SubscriptionRenewalDue: 1,
+  SampleRequested: 1,
+  SampleAccepted: 1,
+  SampleDeclined: 1,
+  SampleDispatched: 1,
+  SampleDelivered: 1,
+  SampleEvaluated: 1,
+  SampleExpired: 1,
+  SampleCancelled: 1,
+  SampleBulkQuoteRequested: 1,
+  PasskeyRegistered: 1,
+  PasskeyRevoked: 1,
+  PasskeyCloneSuspected: 1,
+  // polish: DPDP (compliance)
+  InactivityErasureNoticeSent: 1,
+  DataNomineeChanged: 1,
+  // polish: developer API keys
+  ApiKeyExpiring: 1,
+  // ai_ops
+  AttachmentQuarantined: 1,
+  StorefrontEmbedDecided: 1,
+  // buyer team roles + approval chains
+  BuyerMemberInvited: 1,
+  BuyerMemberJoined: 1,
+  BuyerMemberRoleChanged: 1,
+  BuyerMemberRemoved: 1,
+  BusinessOwnershipTransferred: 1,
+  ApprovalRequested: 1,
+  ApprovalDecided: 1,
+  ApprovalApproved: 1,
+  ApprovalRejected: 1,
+  ApprovalReminder: 1,
+  // purchase orders / supplier invoices / MSME dues
+  PurchaseOrderIssued: 1,
+  PurchaseOrderAmended: 1,
+  PurchaseOrderAcknowledged: 1,
+  PurchaseOrderCancelled: 1,
+  SupplierInvoiceRecorded: 1,
+  SupplierInvoicePaymentRecorded: 1,
+  SupplierInvoiceDueReminder: 1,
+  SupplierInvoiceVoided: 1,
+  BusinessMsmeDeclared: 1,
+  // goods receipts / three-way match / returns
+  GoodsReceiptRecorded: 1,
+  InvoiceMatchOverridden: 1,
+  GoodsReturnRequested: 1,
+  GoodsReturnDecided: 1,
+  GoodsReturnCancelled: 1,
+  GoodsReturnShipped: 1,
+  GoodsReturnReceived: 1,
+  ReturnCreditNoteRecorded: 1,
+  GoodsReturnDisputeLinked: 1,
+  // rate contracts
+  RateContractProposed: 1,
+  RateContractActivated: 1,
+  RateContractRejected: 1,
+  RateContractTerminated: 1,
+  RateContractExpired: 1,
+  RateContractCallOffPlaced: 1,
+  RateContractCallOffReleased: 1,
+  RateContractConsumptionWarning: 1,
+  RateContractExpiryReminder: 1,
 };
 
 export interface DomainEvent<T extends DomainEventType = DomainEventType> {

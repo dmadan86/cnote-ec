@@ -1,11 +1,11 @@
 import { ROLES, ROLE_PRIVILEGES, hasPrivilege, listStaff } from "@cnote/admin";
-import { getPersonSummaries } from "@cnote/identity";
+import { countPasskeys, getPersonSummaries, passkeysEnabled } from "@cnote/identity";
 import { Alert, Badge, Card, CardBody, CardHeader, CardTitle, Field, Input, PageHeader } from "@cnote/ui";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Mono, Table, Td, Th } from "@/components/table";
 import { requireStaff } from "@/lib/auth";
 import { fmtDate, safe } from "@/lib/util";
-import { deactivateStaffAction, grantStaffAction, updateRolesAction } from "./actions";
+import { deactivateStaffAction, grantStaffAction, resetPasskeysAction, updateRolesAction } from "./actions";
 
 export const metadata = { title: "Staff" };
 
@@ -24,8 +24,10 @@ function RoleChecks({ current }: { current: string[] }) {
 export default async function StaffPage() {
   const { ctx, staff, staff: me } = await requireStaff("/staff", "staff.read");
   const canManage = hasPrivilege(staff, "staff.manage");
+  const canResetPasskeys = hasPrivilege(staff, "staff.passkeys.reset") && passkeysEnabled("admin");
   const list = await safe("listStaff", () => listStaff(ctx));
   const people = list ? await safe("identity.getPersonSummaries", () => getPersonSummaries(list.map((s) => s.personId), { unmasked: true })) : null;
+  const passkeyCounts = canResetPasskeys && list ? new Map(await Promise.all(list.map(async (s) => [s.personId, await countPasskeys("admin", s.personId)] as const))) : null;
   return (
     <>
       <PageHeader title="Staff" description="Who has back-office access and with which roles. Hover a role for its privileges." />
@@ -48,6 +50,12 @@ export default async function StaffPage() {
                         <SubmitButton size="sm" variant="outline">Save roles</SubmitButton>
                       </div>
                     </ActionForm>
+                    {passkeyCounts && s.personId !== me.personId ? (
+                      <ActionForm action={resetPasskeysAction} confirm="Revoke all passkeys of this staff member and sign them out everywhere? Use this when a security key is lost or stolen." className="mt-2" successMessage="Passkeys revoked.">
+                        <input type="hidden" name="personId" value={s.personId} />
+                        <SubmitButton size="sm" variant="outline" disabled={(passkeyCounts.get(s.personId) ?? 0) === 0}>Reset passkeys ({passkeyCounts.get(s.personId) ?? 0})</SubmitButton>
+                      </ActionForm>
+                    ) : null}
                     {s.active ? (
                       <ActionForm action={deactivateStaffAction} confirm="Deactivate this staff member? They lose access immediately." className="mt-2" successMessage="Deactivated.">
                         <input type="hidden" name="personId" value={s.personId} />

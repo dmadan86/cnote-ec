@@ -1,5 +1,6 @@
 import type { EventHandlers, ModuleWorker } from "@cnote/core";
 import { purgeStorefront } from "./cache";
+import { recheckEmbeds } from "./embeds";
 import { storefrontSlugById, storefrontSlugForBusiness } from "./service";
 
 /**
@@ -29,6 +30,8 @@ export const storefrontHandlers: EventHandlers = {
   ListingUnpublished: async (e) => bySeller(e.payload.sellerBusinessId, true),
   // Custom domain went active/inactive: the canonical URL (and JSON-LD @id) on every page changes.
   StorefrontDomainStatusChanged: async (e) => byStorefront(e.payload.storefrontId),
+  // ai_ops: a video embed was approved / rejected / put back to pending
+  StorefrontEmbedDecided: async (e) => byStorefront(e.payload.storefrontId),
   ListingModerated: async (e) => bySeller(e.payload.sellerBusinessId, true),
   ListingArchived: async (e) => bySeller(e.payload.sellerBusinessId, true),
   ListingImageModerated: async (e) => bySeller(e.payload.sellerBusinessId, true),
@@ -36,4 +39,18 @@ export const storefrontHandlers: EventHandlers = {
 };
 
 /** Register in apps/worker: `import { worker as storefrontWorker } from "@cnote/storefront"`. */
-export const worker: ModuleWorker = { name: "storefront", handlers: storefrontHandlers, jobs: [] };
+export const worker: ModuleWorker = {
+  name: "storefront",
+  handlers: storefrontHandlers,
+  jobs: [
+    {
+      // Embed moderation: retry oEmbed fetches that failed, and re-check approved videos (title/description can change after approval).
+      name: "storefront.embed-recheck",
+      everyMs: 3_600_000,
+      run: async () => {
+        const r = await recheckEmbeds();
+        if (r.retried || r.rechecked) console.log(`[storefront] embeds: retried ${r.retried}, re-checked ${r.rechecked}`);
+      },
+    },
+  ],
+};

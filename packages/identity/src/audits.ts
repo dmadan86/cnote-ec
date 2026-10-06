@@ -7,13 +7,19 @@ import { prisma, type Prisma } from "@cnote/db";
 import { bustSellerCaches } from "./business";
 import { kycPorts } from "./kyc";
 
-export type AuditStatus = "requested" | "scheduled" | "completed" | "failed" | "cancelled" | "expired";
+export type AuditStatus = "requested" | "scheduled" | "submitted" | "completed" | "failed" | "cancelled" | "expired";
 export type AuditResult = "pass" | "fail" | "conditional";
 export interface AuditView {
   id: string; businessId: string; businessName: string | null; partner: string; status: AuditStatus; scheduledFor: string | null;
   result: AuditResult | null; findings: unknown; validUntil: string | null; hasReport: boolean; requestedBy: string | null; createdAt: string;
+  partnerId: string | null; submittedAt: string | null; reAuditDueAt: string | null; reviewNote: string | null;
+  /** partner submission summary (counts + flags), never the photos' coordinates */
+  submission: { photoCount: number; flags: string[]; checklistPassed: boolean; inspector: string | null } | null;
 }
-const OPEN = ["requested", "scheduled"];
+/** "submitted" = the partner uploaded the checklist and photos; staff review then records the result. */
+export const OPEN = ["requested", "scheduled", "submitted"];
+/** The T3 badge asks for a re-audit this many days before it lapses. */
+export const REAUDIT_LEAD_DAYS = 30;
 
 const REPORT_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "application/zip": "zip", "application/pdf": "pdf" };
 export const auditReportKey = (businessId: string, auditId: string, ext: string) => `kyc/audit/${businessId}/${auditId}.${ext}`;
@@ -23,9 +29,15 @@ const view = (a: Row): AuditView => ({
   id: a.id, businessId: a.businessId, businessName: a.business?.name ?? null, partner: a.partner, status: a.status as AuditStatus,
   scheduledFor: a.scheduledFor?.toISOString() ?? null, result: (a.result as AuditResult | null) ?? null, findings: a.findings,
   validUntil: a.validUntil?.toISOString() ?? null, hasReport: !!a.reportKey, requestedBy: a.requestedBy, createdAt: a.createdAt.toISOString(),
+  partnerId: a.partnerId, submittedAt: a.submittedAt?.toISOString() ?? null, reAuditDueAt: a.reAuditDueAt?.toISOString() ?? null, reviewNote: a.reviewNote,
+  submission: summarise(a.submission),
 });
+function summarise(raw: unknown): AuditView["submission"] {
+  const x = raw as { photos?: unknown[]; flags?: string[]; checklistPassed?: boolean; inspector?: string } | null;
+  return x ? { photoCount: x.photos?.length ?? 0, flags: x.flags ?? [], checklistPassed: x.checklistPassed === true, inspector: x.inspector ?? null } : null;
+}
 
-async function load(auditId: string) {
+export async function load(auditId: string) {
   const a = await prisma.verificationAudit.findUnique({ where: { id: auditId } });
   if (!a) throw new DomainError("not_found", "Audit not found.", undefined, "account.auditNotFound");
   return a;
@@ -44,7 +56,7 @@ export async function requestAudit(businessId: string, partner: string, staffId:
 export async function scheduleAudit(auditId: string, scheduledFor: Date, staffId: string, now = new Date()): Promise<AuditView> {
   if (scheduledFor <= now) throw new DomainError("validation", "Schedule the audit in the future.", undefined, "account.scheduleAuditFuture");
   const a = await load(auditId);
-  if (!OPEN.includes(a.status)) throw new DomainError("conflict", "Only requested or scheduled audits can be scheduled.", undefined, "account.onlyRequestedScheduledAuditsScheduled");
+  if (a.status !== "requested" && a.status !== "scheduled") throw new DomainError("conflict", "Only requested or scheduled audits can be scheduled.", undefined, "account.onlyRequestedScheduledAuditsScheduled");
   const u = await prisma.verificationAudit.update({ where: { id: auditId }, data: { status: "scheduled", scheduledFor, requestedBy: a.requestedBy ?? staffId } });
   return view(u);
 }
@@ -62,6 +74,8 @@ export interface AuditResultInput {
   /** image/jpeg | image/png | image/webp | application/zip (| application/pdf once the media store allows it) */
   reportMime?: string;
   validUntil: Date;
+  /** staff note shown on the audit (partner-submission review) */
+  reviewNote?: string;
 }
 
 export async function recordAuditResult(auditId: string, input: AuditResultInput, staffId: string, now = new Date()): Promise<AuditView> {
@@ -80,7 +94,10 @@ export async function recordAuditResult(auditId: string, input: AuditResultInput
     const claimed = await tx.verificationAudit.updateMany({ where: { id: auditId, status: { in: OPEN } }, data: { status: input.result === "fail" ? "failed" : "completed" } });
     /* v8 ignore next */
     if (claimed.count === 0) throw new DomainError("conflict", "This audit already has a result.", undefined, "account.auditAlreadyResult");
-    const u = await tx.verificationAudit.update({ where: { id: auditId }, data: { result: input.result, findings: input.findings as Prisma.InputJsonValue, validUntil: input.validUntil, reportKey } });
+    const u = await tx.verificationAudit.update({ where: { id: auditId }, data: {
+      result: input.result, findings: input.findings as Prisma.InputJsonValue, validUntil: input.validUntil, reportKey, reviewedBy: staffId, reviewNote: input.reviewNote?.trim() || null,
+      reAuditDueAt: input.result === "pass" ? new Date(input.validUntil.getTime() - REAUDIT_LEAD_DAYS * 86_400_000) : null, uploadTokenHash: null, uploadTokenExpiresAt: null,
+    } });
     await tx.verificationRecord.create({ data: { businessId: a.businessId, tier: 3, kind: "audit", status: input.result === "pass" ? "passed" : input.result === "fail" ? "failed" : "pending", provider: a.partner, details } });
     if (input.result === "pass") {
       const cur = await tx.business.findUniqueOrThrow({ where: { id: a.businessId }, select: { verificationTier: true } });

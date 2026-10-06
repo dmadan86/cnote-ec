@@ -19,8 +19,8 @@ export function StoreEmbed({ kind, src, title, provider, category }: EmbedProps)
         referrerPolicy="strict-origin-when-cross-origin"
         // allow-same-origin is required for the providers' own player/tile scripts; they are on other origins, so this never grants ours.
         sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation"
-        allow={kind === "youtube" ? "encrypted-media; picture-in-picture; fullscreen" : undefined}
-        allowFullScreen={kind === "youtube"}
+        allow={kind !== "map" ? "encrypted-media; picture-in-picture; fullscreen" : undefined}
+        allowFullScreen={kind !== "map"}
       />
     </ConsentGate>
   );

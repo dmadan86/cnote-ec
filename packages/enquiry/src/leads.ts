@@ -4,6 +4,7 @@ import { DomainError, emit } from "@cnote/core";
 import { prisma, type Enquiry, type Match, type Tx } from "@cnote/db";
 import * as identity from "@cnote/identity";
 import { requirementAttachments } from "./attachments";
+import { linesByEnquiry } from "./lines";
 import { cascade } from "./matching";
 import { cascadeSafe } from "./safe";
 import { runMatching } from "./matching";
@@ -19,7 +20,9 @@ async function toLeadViews(rows: { match: Match; enquiry: Enquiry; conversationI
   const profs = await profiles(rows.map((r) => r.enquiry.buyerBusinessId));
   const out: LeadView[] = [];
   const pending = await pendingChecksByMatch(rows.map((r) => r.match.id));
-  const files = await requirementAttachments([...new Set(rows.map((r) => r.enquiry.id))]);
+  const enquiryIds = [...new Set(rows.map((r) => r.enquiry.id))];
+  const files = await requirementAttachments(enquiryIds);
+  const lineMap = await linesByEnquiry(enquiryIds);
   const held = new Set((await prisma.leadRefundReview.findMany({ where: { matchId: { in: rows.map((r) => r.match.id) }, status: "pending" }, select: { matchId: true } })).map((h) => h.matchId));
   for (const { match, enquiry, conversationId } of rows) {
     const buyer = profs.get(enquiry.buyerBusinessId);
@@ -34,7 +37,7 @@ async function toLeadViews(rows: { match: Match; enquiry: Enquiry; conversationI
     }
     out.push({
       matchId: match.id,
-      enquiry: enquiryBase(enquiry, cats.find((c) => c.id === enquiry.categoryId) ?? null, files.get(enquiry.id) ?? []),
+      enquiry: enquiryBase(enquiry, cats.find((c) => c.id === enquiry.categoryId) ?? null, files.get(enquiry.id) ?? [], lineMap.get(enquiry.id) ?? []),
       rank: match.rank,
       of: enquiry.sellerCap,
       status: match.status,

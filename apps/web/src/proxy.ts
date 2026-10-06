@@ -73,5 +73,5 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
 export const config = {
   // api/rfq and api/disputes are multipart upload routes with their own size caps (@cnote/next-kit readBoundedFormData): keeping them out
   // of the proxy stops Next from cloning/buffering (and silently truncating at proxyClientMaxBodySize) their large bodies.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|placeholders/|media/v/|api/rfq$|api/disputes$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|placeholders/|media/v/|api/rfq$|api/rfq/bom$|api/disputes$|api/goods-receipts$|api/samples$).*)"],
 };

@@ -9,3 +9,4 @@ export { SignInForm, SignUpForm, ForgotPasswordForm, ResetPasswordForm, GoogleBu
 export * from "./otp-client";
 export * from "./turnstile-client";
 export * from "./mfa-client";
+export { PasskeySignInButton, PasskeyEnrollPanel, PasskeySettings, DEFAULT_PASSKEY_LABELS, type PasskeyLabels } from "./passkey-client";

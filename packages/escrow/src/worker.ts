@@ -1,5 +1,5 @@
 import { type ModuleWorker } from "@cnote/core";
-import { expireUnfunded, onDisputeOpened, onDisputeResolved, onOrderStatusChanged, runAutoRelease } from "./escrow";
+import { expireUnfunded, onDisputeOpened, onDisputeResolved, onOrderStatusChanged, onReturnCreditNote, runAutoRelease } from "./escrow";
 import { processPayouts } from "./payouts";
 import { reconcile } from "./reconcile";
 
@@ -16,6 +16,8 @@ export const worker: ModuleWorker = {
     OrderStatusChanged: async (e) => onOrderStatusChanged(e.payload),
     DisputeOpened: async (e) => onDisputeOpened(e.payload),
     DisputeResolved: async (e) => onDisputeResolved(e.payload),
+    // goods returns (docs/design/grn-returns.md): a seller credit note refunds held funds up to the credited amount
+    ReturnCreditNoteRecorded: async (e) => onReturnCreditNote({ creditNoteId: e.payload.creditNoteId, orderId: e.payload.orderId, totalPaise: e.payload.totalPaise }),
   },
   jobs: [
     { name: "escrow.process-payouts", everyMs: MIN_MS, run: async () => void (await processPayouts()) },

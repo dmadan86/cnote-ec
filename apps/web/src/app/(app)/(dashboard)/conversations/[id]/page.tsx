@@ -9,6 +9,8 @@ import { getRequestLocale } from "@/lib/request-locale";
 import { DealReport } from "@/features/enquiry/deal-report";
 import { MessageForm } from "@/features/enquiry/message-form";
 import { MessageThread } from "@/features/enquiry/conversation";
+import { samplesEnabled } from "@/lib/samples";
+import { sampleLabels } from "@/features/samples/labels";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations({ locale: await getRequestLocale(), namespace: "titles" });
@@ -22,6 +24,10 @@ export default async function ConversationPage(props: PageProps<"/conversations/
   if (!convo) notFound();
   const t = await getTranslations({ locale: await getRequestLocale(), namespace: "buyer" });
   const other = convo.role === "seller" ? convo.buyer : convo.seller;
+  // Buyers can ask this supplier for a sample inside the conversation (optionally against the latest quote).
+  const askSample = convo.role === "buyer" && samplesEnabled();
+  const sl = askSample ? await sampleLabels(await getRequestLocale()) : null;
+  const latestQuote = convo.quotes[convo.quotes.length - 1];
 
   return (
     <Container className="max-w-3xl py-8">
@@ -43,6 +49,9 @@ export default async function ConversationPage(props: PageProps<"/conversations/
             <MessageForm conversationId={convo.id} />
           </CardBody>
         </Card>
+        {sl ? (
+          <Link href={`/buyer/samples/new?conversation=${convo.id}${latestQuote ? `&quote=${latestQuote.id}` : ""}`} className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-brand-700 underline">{sl.requestFromQuote}</Link>
+        ) : null}
         <DealReport conversationId={convo.id} matchId={convo.matchId} current={convo.dealReported} sellerClaimedWon={convo.sellerClaimedWon} />
       </div>
     </Container>

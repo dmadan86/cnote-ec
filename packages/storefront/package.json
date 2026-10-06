@@ -19,6 +19,7 @@
     "@cnote/db": "workspace:*",
     "@cnote/identity": "workspace:*",
     "@cnote/reviews": "workspace:*",
+    "@cnote/security": "workspace:*",
     "zod": "^4.6.5"
   },
   "peerDependencies": {

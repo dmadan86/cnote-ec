@@ -11,7 +11,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "reindex": "tsx --env-file=../../.env.local src/reindex-cli.ts",
-    "eval": "tsx --env-file=../../.env.local eval/run.ts"
+    "eval": "tsx --env-file=../../.env.local eval/run.ts",
+    "eval:relevance": "tsx --env-file=../../.env.local relevance/run.ts"
+  },
+  "devDependencies": {
+    "@cnote/live-db": "workspace:*"
   },
   "dependencies": {
     "@cnote/ai": "workspace:*",

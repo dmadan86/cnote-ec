@@ -41,7 +41,13 @@ export const TOOLS: ToolDef[] = [
     name: "search_products", scope: "search:read", title: "Search products", annotations: read,
     description:
       "Search published product listings. Results are ranked by relevance x seller trust (never by paid tier); `sponsored` is always false. Prices are integer paise in INR.",
-    input: { q: z.string().max(500).describe("What the buyer needs, e.g. 'M8 stainless hex bolts'"), category: z.string().optional().describe("Category slug"), limit: z.number().int().min(1).max(50).default(10) },
+    input: {
+      q: z.string().max(500).describe("What the buyer needs, e.g. 'M8 stainless hex bolts'"),
+      category: z.string().optional().describe("Category slug"),
+      limit: z.number().int().min(1).max(50).default(10),
+      inStock: z.boolean().optional().describe("Only listings in stock now (made-to-order excluded). A filter only: never affects ranking"),
+      variant: z.string().max(400).optional().describe("Variant filter as comma-separated axis:value pairs, e.g. 'size:m,size:l,colour:red' (OR within an axis, AND across axes)"),
+    },
     run: (_p, a) => ops.search(a),
   }),
   tool({
@@ -67,8 +73,17 @@ export const TOOLS: ToolDef[] = [
     description:
       "Post a buyer requirement. It is intent-scored and, if it passes, matched exclusively to at most N sellers (N is in `sellerCap`), ranked by relevance and trust. Low-intent enquiries are held for review; prohibited categories are rejected. Not idempotent: calling twice creates two enquiries. Money is in integer paise.",
     input: {
-      title: z.string().min(5).max(140),
-      requirement: z.string().min(10).max(4000).describe("Specs, standards, certifications, delivery constraints"),
+      title: z.string().min(5).max(140).optional().describe("Required unless `lines` is given"),
+      requirement: z.string().min(10).max(4000).optional().describe("Specs, standards, certifications, delivery constraints. Required unless `lines` is given"),
+      lines: z.array(z.object({
+        itemName: z.string().min(1).max(140),
+        spec: z.string().max(1000).optional(),
+        quantity: z.number().int().positive(),
+        unit: z.string().min(1).max(20),
+        targetPricePaise: z.number().int().positive().optional().describe("Target unit price in paise"),
+        categorySlug: z.string().optional(),
+        hsn: z.string().optional().describe("4, 6 or 8 digit HSN"),
+      })).min(1).max(50).optional().describe("Bill of materials: 1-50 lines for a multi-line RFQ. quantity/quantityUnit/targetPricePaise then mirror line 1"),
       categorySlug: z.string().optional(),
       quantity: z.number().int().positive().optional(),
       quantityUnit: z.string().max(20).optional(),
@@ -125,6 +140,40 @@ export const TOOLS: ToolDef[] = [
     run: (p, a) => ops.newListing(p, a),
   }),
   tool({
+    name: "update_listing_stock", scope: "listings:write", title: "Update stock / availability (seller)", annotations: write({ idempotent: true }),
+    description:
+      "Seller: set availability (in_stock | made_to_order | out_of_stock), available quantity and lead time for a listing and/or its variants (matched by id or sku). Takes effect on a live listing immediately, without moderation. made_to_order needs leadTimeDays. Buyers who saved the listing are alerted when it comes back in stock.",
+    input: {
+      listingId: id("Listing id"),
+      availability: z.enum(["in_stock", "made_to_order", "out_of_stock"]).optional(),
+      availableQty: z.number().int().min(0).nullable().optional(),
+      leadTimeDays: z.number().int().min(0).max(730).nullable().optional(),
+      variants: z
+        .array(z.object({ id: z.string().optional(), sku: z.string().optional(), availability: z.enum(["in_stock", "made_to_order", "out_of_stock"]).optional(), availableQty: z.number().int().min(0).nullable().optional(), leadTimeDays: z.number().int().min(0).max(730).nullable().optional() }))
+        .max(100)
+        .optional()
+        .describe("Per-variant stock changes"),
+    },
+    run: (p, { listingId, ...u }) => ops.patchStock(p, listingId, u),
+  }),
+  tool({
+    name: "set_listing_variants", scope: "listings:write", title: "Replace listing variants (seller)", annotations: write({ idempotent: true, destructive: true }),
+    description:
+      "Seller: replace the COMPLETE variant set (0-100) of a listing; variants not listed are deleted. Each variant needs a sku and a value for every variant axis of the listing's category (see list_categories attributeSchema.variantAxes) and may override pricePaise, priceTiers, moq and stock. Structure changes are reviewed when the listing is published; confirm with the human before deleting variants.",
+    input: {
+      listingId: id("Listing id"),
+      variants: z
+        .array(z.object({
+          id: z.string().optional(), sku: z.string(), axisValues: z.record(z.string(), z.string()),
+          pricePaise: z.number().int().min(0).nullable().optional(), priceTiers: z.array(z.object({ minQty: z.number().int().min(1), pricePaise: z.number().int().min(0) })).max(8).optional(),
+          moq: z.number().int().min(1).nullable().optional(), availability: z.enum(["in_stock", "made_to_order", "out_of_stock"]).optional(),
+          availableQty: z.number().int().min(0).nullable().optional(), leadTimeDays: z.number().int().min(0).max(730).nullable().optional(), imageId: z.string().nullable().optional(),
+        }))
+        .max(100),
+    },
+    run: (p, a) => ops.putVariants(p, a.listingId, a.variants),
+  }),
+  tool({
     name: "publish_listing", scope: "listings:write", title: "Publish listing (seller)", annotations: write({ idempotent: true }),
     description:
       "Seller: submit a draft listing for publication. It goes through automated + human moderation and is publicly visible only when moderationStatus is 'approved'; check the returned status.",
@@ -140,17 +189,33 @@ export const TOOLS: ToolDef[] = [
   }),
   tool({
     name: "send_quote", scope: "messages:write", title: "Send quote (seller)", annotations: write(),
-    description: "Seller: send a price quote in a conversation. Only the seller side can quote. pricePaise is the UNIT price in integer paise. A quote is a commercial offer; confirm terms with the human first.",
+    description: "Seller: send a price quote in a conversation. Only the seller side can quote. pricePaise is the UNIT price in integer paise. For a multi-line RFQ (enquiry.lines has more than one line) send `lines` instead: one entry per line you can supply (skip or mark cantSupply the rest); the server computes totals. A quote is a commercial offer; confirm terms with the human first.",
     input: {
       conversationId: id("Conversation id"),
-      pricePaise: z.number().int().positive(),
-      quantity: z.number().int().positive(),
-      unit: z.string().min(1).max(20),
+      pricePaise: z.number().int().positive().optional().describe("Unit price in paise; not needed when `lines` is given"),
+      quantity: z.number().int().positive().optional(),
+      unit: z.string().min(1).max(20).optional(),
+      gstIncluded: z.boolean().optional().describe("Unit prices already include GST"),
+      lines: z.array(z.object({
+        ordinal: z.number().int().positive().describe("1-based line number of the enquiry line"),
+        unitPricePaise: z.number().int().positive().optional(),
+        gstRatePct: z.number().int().min(0).max(40).optional(),
+        leadTimeDays: z.number().int().min(0).max(730).optional(),
+        cantSupply: z.boolean().optional(),
+        notes: z.string().max(300).optional(),
+      })).min(1).max(50).optional(),
       leadTimeDays: z.number().int().min(0).max(730).optional(),
       notes: z.string().max(2000).optional(),
       validUntil: z.string().optional().describe("ISO date"),
     },
     run: (p, { conversationId, ...q }) => ops.quote(p, conversationId, q),
+  }),
+  tool({
+    name: "award_lines", scope: "enquiries:write", title: "Award RFQ lines to supplier quotes (buyer)", annotations: write(),
+    description:
+      "Buyer: award requirement lines of a multi-line RFQ to supplier quotes (the supplier's latest quote on get_enquiry's conversations). Lines can go to different suppliers; each supplier gets one order covering only its lines. A line can be awarded once. This records a won deal: confirm with the human first.",
+    input: { enquiryId: id("Enquiry id"), awards: z.array(z.object({ enquiryLineId: id("Requirement line id"), quoteId: id("Quote id") })).min(1).max(50) },
+    run: (p, a) => ops.awardEnquiryLines(p, a.enquiryId, a.awards),
   }),
   tool({
     name: "list_wishlists", scope: "wishlist:read", title: "List wishlists", annotations: read,

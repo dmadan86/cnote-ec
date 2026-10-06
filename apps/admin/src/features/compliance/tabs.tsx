@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/compliance", label: "Grievances" },
   { href: "/compliance/appeals", label: "Appeals" },
+  { href: "/compliance/nominees", label: "Nominee requests" },
   { href: "/compliance/consent", label: "Cookie consent", needsConsent: true },
   { href: "/compliance/retention", label: "Retention" },
   { href: "/compliance/residency", label: "Residency" },

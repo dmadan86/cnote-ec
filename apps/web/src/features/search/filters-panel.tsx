@@ -4,10 +4,11 @@ import type { FacetCounts } from "@cnote/search";
 import { LocaleLink as Link } from "@/i18n/link";
 import type { Locale } from "@/i18n/config";
 import { formatNumber } from "@/i18n/config";
+import { variantAxisLabel, variantValueLabel } from "./variant-labels";
 import { DeliverToggle } from "./deliver-toggle";
-import { hasFilters, hrefFor, PRICE_BUCKETS, type FilterState } from "./filter-state";
+import { splitVariantKey, hasFilters, hrefFor, PRICE_BUCKETS, type FilterState } from "./filter-state";
 
-export type PanelFacets = Partial<Pick<FacetCounts, "category" | "city" | "state" | "verificationTier" | "price">>;
+export type PanelFacets = Partial<Pick<FacetCounts, "category" | "city" | "state" | "verificationTier" | "price" | "variant">>;
 
 export interface PanelProps {
   /** Distinguishes the sidebar copy from the sheet copy so element ids stay unique. */
@@ -95,6 +96,15 @@ export async function FiltersPanel(p: PanelProps) {
   const cats: Item[] = (f?.category ?? []).filter((b) => p.categoryNames[b.key]).map((b) => ({ key: b.key, label: p.categoryNames[b.key]!, count: b.count }));
   for (const k of s.categories) if (!cats.some((i) => i.key === k)) cats.push({ key: k, label: p.categoryNames[k] ?? k, count: 0 });
 
+  // One group per variant axis from the facet (keys are "axis:value"); selected values with no bucket stay visible with a zero count.
+  const byAxis = new Map<string, Item[]>();
+  for (const b of f?.variant ?? []) {
+    const kv = splitVariantKey(b.key);
+    if (kv) byAxis.set(kv.axis, [...(byAxis.get(kv.axis) ?? []), { key: b.key, label: variantValueLabel(kv.value), count: b.count }]);
+  }
+  for (const [axis, vals] of Object.entries(s.variants)) for (const v of vals) if (!(byAxis.get(axis) ?? []).some((i) => i.key === `${axis}:${v}`)) byAxis.set(axis, [...(byAxis.get(axis) ?? []), { key: `${axis}:${v}`, label: variantValueLabel(v), count: 0 }]);
+  const variantGroups = [...byAxis].sort(([a], [b]) => (a < b ? -1 : 1)).map(([axis, items]) => ({ axis, items, selected: (s.variants[axis] ?? []).map((v) => `${axis}:${v}`) }));
+
   const bucketLabel: Record<string, string> = { "under-1k": t("priceUnder1k"), "1k-10k": t("price1k10k"), "10k-1l": t("price10k1l"), "above-1l": t("priceAbove1l") };
   const priceCount = new Map((f?.price ?? []).map((b) => [b.key, b.count]));
   const bucketActive = (b: (typeof PRICE_BUCKETS)[number]) => s.pmin === b.min && s.pmax === b.max;
@@ -134,6 +144,23 @@ export async function FiltersPanel(p: PanelProps) {
           <Checks name="city" items={cities} selected={s.cities} more={t("showMore")} less={t("showFewer")} locale={p.locale} />
         </Group>
       ) : null}
+
+      {p.kind === "products" ? (
+        <Group legend={t("stockTitle")}>
+          <label className={ROW}>
+            <input type="checkbox" name="instock" value="1" defaultChecked={s.inStock} className={BOX} />
+            <span>{t("inStockOnly")}</span>
+          </label>
+        </Group>
+      ) : null}
+
+      {p.kind === "products"
+        ? variantGroups.map((g) => (
+            <Group key={g.axis} legend={variantAxisLabel(g.axis)}>
+              <Checks name="variant" items={g.items} selected={g.selected} more={t("showMore")} less={t("showFewer")} locale={p.locale} />
+            </Group>
+          ))
+        : null}
 
       {p.kind === "products" ? (
         <>
@@ -187,7 +214,7 @@ export async function FiltersPanel(p: PanelProps) {
           {t("apply")}
         </button>
         {hasFilters(s, !p.showCategories) ? (
-          <Link href={hrefFor(p.path, p.base, { ...s, tier: 0, states: [], cities: [], categories: p.showCategories ? [] : s.categories, pmin: null, pmax: null, moq: null, priced: false, deliver: null })} className="inline-flex min-h-11 items-center text-sm font-medium text-brand-700 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 lg:min-h-8">
+          <Link href={hrefFor(p.path, p.base, { ...s, tier: 0, states: [], cities: [], categories: p.showCategories ? [] : s.categories, pmin: null, pmax: null, moq: null, priced: false, deliver: null, inStock: false, variants: {} })} className="inline-flex min-h-11 items-center text-sm font-medium text-brand-700 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 lg:min-h-8">
             {t("clearAll")}
           </Link>
         ) : null}

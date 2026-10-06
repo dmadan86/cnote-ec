@@ -93,6 +93,7 @@ Write paths invalidate Redis **after commit** (never inside the transaction, whi
 | Event / write | Redis (hard unless noted) | Web tier (`/api/revalidate`) |
 |---|---|---|
 | `ListingPublished` | soft `featured`, `search`; hard `listing:<id>`, `seller-listings:<biz>`, `sitemap` on the write path | soft `listing:<id>`, `seller-listings:<biz>`, `featured`, `search`, `sitemap` |
+| `ListingAvailabilityChanged` (stock fast path, publish; docs/design/variants-stock.md) | soft `featured`, `search`; hard `listing:<id>`, `seller-listings:<biz>`, `sitemap` on the write path | soft `listing:<id>`, `seller-listings:<biz>`, `featured`, `search`, `sitemap` (quantity-only edits emit no event and reach the web tier by TTL) |
 | `ListingModerated`, `ListingArchived`, `ListingImageModerated` (+ update / image edit / reorder / delete write paths) | hard `listing:<id>`, `seller-listings:<biz>`, `sitemap`; soft `featured`, `search` | **hard** `listing:<id>`, `seller-listings:<biz>`, `featured`, `search`; soft `sitemap` |
 | `ReviewModerated`, `CommentModerated` (+ edit of an approved review, report auto-flag, seller reply) | `rating:<listing>`, `reviews:<listing>` | hard `reviews:<listing>`, `rating:<listing>` |
 | `TrustScoreChanged`, `BusinessVerified`, `BusinessCreated` (seller) | `seller:<biz>`, `sellers`, `sitemap` | soft `seller:<biz>`, `sellers`, `sitemap` |

@@ -9,6 +9,7 @@ import type { ActionResult } from "./action-result";
 import { localizeError } from "./error-catalogue";
 import { fillSlot } from "./fill-slot";
 import { DEFAULT_MFA_LABELS, type MfaLabels } from "./mfa-labels";
+import { DEFAULT_PASSKEY_LABELS, PasskeySignInButton, type PasskeyLabels } from "./passkey-client";
 
 import {
   mfaBeginAction, mfaCancelAction, mfaChallengeAction, mfaConfirmAction, mfaDisableAction, mfaEnrollConfirmAction, mfaFinishAction, mfaRegenerateAction,
@@ -72,16 +73,26 @@ function RecoveryCodes({ codes, L, children }: { codes: string[]; L: MfaLabels; 
   );
 }
 
-/** Sign-in step for a person with MFA enabled. */
-export function MfaChallengeForm({ labels, translateError }: MfaLocaleProps = {}) {
+/**
+ * Sign-in step for a person with MFA enabled. With `passkey` the passkey button leads and the code form is the fallback;
+ * with `passkeyRequired` as well (policy) the code form is not offered at all.
+ */
+export function MfaChallengeForm({ labels, translateError, passkey, passkeyRequired, passkeyLabels }: MfaLocaleProps & { passkey?: boolean; passkeyRequired?: boolean; passkeyLabels?: Partial<PasskeyLabels> }) {
   const L = mergeLabels(labels);
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(mfaChallengeAction, null);
+  const lockedToPasskey = !!passkey && !!passkeyRequired;
   return (
     <Panel title={L.title} error={errorOf(state, translateError)}>
-      <form action={action} className="flex flex-col gap-4" noValidate>
-        <CodeField label={L.codeLabel} hint={L.challengeHint} />
-        <Button type="submit" size="lg" disabled={pending}>{pending ? L.verifying : L.verify}</Button>
-      </form>
+      {passkey ? <PasskeySignInButton labels={passkeyLabels} /> : null}
+      {lockedToPasskey ? null : (
+        <>
+          {passkey ? <p className="text-center text-sm text-muted">{{ ...DEFAULT_PASSKEY_LABELS, ...passkeyLabels }.orCode}</p> : null}
+          <form action={action} className="flex flex-col gap-4" noValidate>
+            <CodeField label={L.codeLabel} hint={L.challengeHint} />
+            <Button type="submit" size="lg" variant={passkey ? "outline" : undefined} disabled={pending}>{pending ? L.verifying : L.verify}</Button>
+          </form>
+        </>
+      )}
       <form action={mfaCancelAction}>
         <Button type="submit" variant="ghost" className="w-full">{L.cancelSignIn}</Button>
       </form>

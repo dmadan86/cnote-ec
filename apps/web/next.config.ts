@@ -32,9 +32,13 @@ const nextConfig: NextConfig = {
   // Server actions share ONE body limit, and every page route accepts an action POST, so it stays small (security audit): file-bearing
   // forms (RFQ drawings, dispute evidence: 8-10 MB per file) post to dedicated route handlers with their own caps instead
   // (app/api/rfq, app/api/disputes; @cnote/next-kit readBoundedFormData). Those routes are excluded from the proxy matcher.
-  experimental: { serverActions: { bodySizeLimit: "2mb" } },
+  // Subresource Integrity (Next 16, hash-based CSP track): every external <script src> Next emits carries integrity="sha256-..." computed at
+  // build time, so a tampered chunk (CDN/proxy compromise) is refused by the browser even on static/ISR pages that cannot use a nonce.
+  // It does NOT remove 'unsafe-inline' (inline flight scripts are not covered by SRI): see docs/security/security-architecture.md
+  // "Static pages and CSP". NEXT_SRI=off disables it (e.g. if a CDN rewrites JS bodies, which breaks integrity).
+  experimental: { serverActions: { bodySizeLimit: "2mb" }, ...(process.env.NEXT_SRI === "off" ? {} : { sri: { algorithm: "sha256" as const } }) },
   // Workspace packages ship TypeScript source.
-  transpilePackages: ["@cnote/credit", "@cnote/a2a", "@cnote/prices", "@cnote/escrow", "@cnote/quality", "@cnote/disputes", "@cnote/negotiation", "@cnote/verticals", "@cnote/ondc", "@cnote/ads", "@cnote/promotions", "@cnote/compliance", "@cnote/metrics", "@cnote/whatsapp", "@cnote/storefront", "@cnote/domains", "@cnote/security", "@cnote/leadgen", "@cnote/templates", "@cnote/email", "@cnote/notifications", "@cnote/developer", "@cnote/observability", "@cnote/media", "@cnote/wishlist", "@cnote/reviews", "@cnote/next-kit", "@cnote/consent", "@cnote/ui", "@cnote/core", "@cnote/ai", "@cnote/identity", "@cnote/catalogue", "@cnote/billing", "@cnote/enquiry", "@cnote/search"],
+  transpilePackages: ["@cnote/samples", "@cnote/logistics", "@cnote/credit", "@cnote/a2a", "@cnote/prices", "@cnote/escrow", "@cnote/quality", "@cnote/disputes", "@cnote/negotiation", "@cnote/verticals", "@cnote/ondc", "@cnote/ads", "@cnote/promotions", "@cnote/compliance", "@cnote/metrics", "@cnote/whatsapp", "@cnote/storefront", "@cnote/domains", "@cnote/security", "@cnote/leadgen", "@cnote/templates", "@cnote/email", "@cnote/notifications", "@cnote/developer", "@cnote/observability", "@cnote/media", "@cnote/wishlist", "@cnote/reviews", "@cnote/next-kit", "@cnote/consent", "@cnote/ui", "@cnote/core", "@cnote/ai", "@cnote/identity", "@cnote/catalogue", "@cnote/billing", "@cnote/enquiry", "@cnote/search"],
   serverExternalPackages: ["pdf-lib", "@cnote/live-db", "juice", "sanitize-html", "mustache", "@cnote/db", "@prisma/client", "@prisma/adapter-pg", "pg", "ioredis"],
   poweredByHeader: false,
   images: {

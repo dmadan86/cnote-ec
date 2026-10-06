@@ -47,6 +47,8 @@ Missing or invalid key: `401` with `WWW-Authenticate`. Missing scope: `403` nami
 | `messages:write` | Send messages and quotes, report deal outcomes. |
 | `wishlist:read` | Read your wishlists. |
 | `wishlist:write` | Add and remove wishlist items. |
+| `samples:read` | Read sample requests you made (buyer) or received (seller). |
+| `samples:write` | Request, cancel, answer, dispatch and evaluate samples; link a bulk RFQ to an approved sample. |
 | `reviews:read` | Read approved reviews. |
 | `reviews:write` | Submit reviews (held for moderation). |
 | `billing:read` | Read your lead-credit balance (seller). |
@@ -79,9 +81,9 @@ Codes: `unauthenticated` (401), `insufficient_scope` / `forbidden` (403), `not_f
 |---|---|
 | `GET /v1/me` | profile:read |
 | `GET /v1/categories`, `GET /v1/categories/{slug}` | catalogue:read |
-| `GET /v1/search?q&category&limit` | search:read |
+| `GET /v1/search?q&category&limit&in_stock&variant` | search:read |
 | `GET /v1/listings/{id}`, `GET /v1/sellers/{id}` | catalogue:read |
-| `GET/POST /v1/seller/listings`, `PATCH /v1/seller/listings/{id}`, `POST …/{id}/publish`, `POST …/{id}/archive` | listings:read / listings:write |
+| `GET/POST /v1/seller/listings`, `PATCH /v1/seller/listings/{id}`, `POST …/{id}/publish`, `POST …/{id}/archive`, `PATCH …/{id}/stock`, `PUT …/{id}/variants` | listings:read / listings:write |
 | `GET /v1/seller/leads` | leads:read |
 | `POST /v1/seller/leads/{matchId}/accept` (1 credit), `…/decline` | leads:write |
 | `GET /v1/seller/billing/balance` | billing:read |
@@ -91,6 +93,9 @@ Codes: `unauthenticated` (401), `insufficient_scope` / `forbidden` (403), `not_f
 | `POST /v1/conversations/{id}/messages`, `…/quotes` (seller), `POST /v1/matches/{matchId}/deal-report` | messages:write |
 | `GET /v1/wishlists`, `GET /v1/wishlists/{id}` | wishlist:read |
 | `POST /v1/wishlists/{id}/items`, `DELETE /v1/wishlists/{id}/items/{listingId}` | wishlist:write |
+| `GET /v1/samples`, `GET /v1/samples/{id}`, `GET /v1/samples/{id}/bulk-prefill` | samples:read |
+| `POST /v1/samples`, `/v1/samples/{id}/(cancel\|accept\|decline\|dispatch\|delivered\|payment\|evaluate\|accept-quote\|bulk-enquiry)` | samples:write |
+| `GET /v1/sellers/{id}/sample-stats` | catalogue:read |
 | `GET /v1/listings/{id}/reviews` | reviews:read |
 | `POST /v1/listings/{id}/reviews` | reviews:write |
 
@@ -121,7 +126,7 @@ curl -s -X POST -H "Authorization: Bearer $CNOTE_KEY" "$API/v1/seller/leads/$MAT
 
 Endpoint: `POST {API_PUBLIC_URL}/mcp` (Streamable HTTP, stateless, same bearer key). Only tools whose scope the key holds are listed.
 
-Tools: `search_products`, `get_listing`, `list_categories`, `get_seller_profile` (catalogue/search), `create_enquiry`, `list_my_enquiries`, `get_enquiry`, `list_leads`, `accept_lead` (1 credit), `decline_lead`, `list_my_listings`, `create_listing`, `publish_listing`, `send_message`, `send_quote`, `list_wishlists`, `add_to_wishlist`, `list_reviews`, `submit_review` (moderated), `get_credit_balance`. Mutating tools carry `destructiveHint` / `idempotentHint` annotations; failures return `isError` with the domain message.
+Tools: `search_products`, `get_listing`, `list_categories`, `get_seller_profile` (catalogue/search), `create_enquiry`, `list_my_enquiries`, `get_enquiry`, `list_leads`, `accept_lead` (1 credit), `decline_lead`, `list_my_listings`, `create_listing`, `update_listing_stock`, `set_listing_variants`, `publish_listing`, `send_message`, `send_quote`, `list_wishlists`, `add_to_wishlist`, `list_reviews`, `submit_review` (moderated), `get_credit_balance`. Mutating tools carry `destructiveHint` / `idempotentHint` annotations; failures return `isError` with the domain message.
 
 **Claude Code**
 
@@ -151,3 +156,13 @@ npx @modelcontextprotocol/inspector
 # Transport: Streamable HTTP, URL: http://localhost:3003/mcp
 # Add header  Authorization: Bearer ck_live_...
 ```
+
+
+## Stock, availability and variants
+
+Every listing carries `availability` (`in_stock` | `made_to_order` | `out_of_stock`), `availableQty`, `stockUpdatedAt`, `variantAxes` and `variants` (0 to 100). `availability` is the best of the variants when there are any. Variant axes (size, colour, grade ...) are configured per category (`attributeSchema.variantAxes` on `GET /v1/categories`); a category without axes cannot have variants.
+
+- `GET /v1/search?...&in_stock=true` keeps only listings that are in stock now (made-to-order does not count). `&variant=size:m,size:l,colour:red` filters on variant values (OR within an axis, AND across axes, case-insensitive). Both are filters only and never change ranking. The response includes `facets` (with `variant` buckets such as `size:m`) when the search backend provides them.
+- `PATCH /v1/seller/listings/{id}/stock` (`listings:write`) sets availability, quantity and lead time for the listing and/or per variant (`variants[]`, matched by `id` or `sku`). Stock is operational: it takes effect on a live listing at once, without review. `made_to_order` needs `leadTimeDays`.
+- `PUT /v1/seller/listings/{id}/variants` (`listings:write`) replaces the complete variant set. Variants are matched by `id`, else `sku`; unlisted ones are deleted. Structure changes are content and are moderated when the listing is published; stock fields in the payload take effect at once.
+- Bulk CSV/XLSX: `availability`, `available_qty`, `lead_time_days` columns on product rows; variant rows have `variant_sku` filled, the product's `sku`, and one `variant:<axis>` column per axis (see the Instructions sheet of the template).

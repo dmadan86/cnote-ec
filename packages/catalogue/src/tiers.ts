@@ -13,10 +13,19 @@ export interface TradeInfo {
   packaging?: string | null;
   sampleAvailable?: boolean;
   samplePricePaise?: number | null;
+  /** Sample workflow (docs/design/samples.md): most units one sample request may ask for, days from accepting to dispatch, minimum buyer verification tier (0-3). */
+  sampleMaxQty?: number | null;
+  sampleDispatchDays?: number | null;
+  sampleMinBuyerTier?: number | null;
   /** units (the listing's price unit) per month */
   supplyCapacityPerMonth?: number | null;
   paymentTerms?: string | null;
   certifications?: string[];
+  /** Shipping facts per price unit (freight estimator): packed weight in grams, outer pack dimensions in mm. */
+  unitWeightGrams?: number | null;
+  unitLengthMm?: number | null;
+  unitWidthMm?: number | null;
+  unitHeightMm?: number | null;
 }
 
 export const MAX_TIERS = 8;
@@ -31,9 +40,16 @@ export const tradeInfoSchema = z.object({
   packaging: z.string().trim().max(500).nullable().optional(),
   sampleAvailable: z.boolean().optional(),
   samplePricePaise: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).nullable().optional(),
+  sampleMaxQty: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  sampleDispatchDays: z.number().int().min(0).max(90).nullable().optional(),
+  sampleMinBuyerTier: z.number().int().min(0).max(3).nullable().optional(),
   supplyCapacityPerMonth: z.number().int().min(1).max(2_000_000_000).nullable().optional(),
   paymentTerms: z.string().trim().max(500).nullable().optional(),
   certifications: z.array(z.string().trim().min(1).max(80)).max(12).optional(),
+  unitWeightGrams: z.number().int().min(1).max(50_000_000).nullable().optional(),
+  unitLengthMm: z.number().int().min(1).max(20_000).nullable().optional(),
+  unitWidthMm: z.number().int().min(1).max(20_000).nullable().optional(),
+  unitHeightMm: z.number().int().min(1).max(20_000).nullable().optional(),
 });
 
 /**
@@ -72,9 +88,16 @@ export function compactTrade(t: TradeInfo | null | undefined): TradeInfo {
   if (t.packaging) out.packaging = t.packaging;
   if (t.sampleAvailable) out.sampleAvailable = true;
   if (t.sampleAvailable && t.samplePricePaise != null) out.samplePricePaise = t.samplePricePaise;
+  if (t.sampleAvailable && t.sampleMaxQty != null) out.sampleMaxQty = t.sampleMaxQty;
+  if (t.sampleAvailable && t.sampleDispatchDays != null) out.sampleDispatchDays = t.sampleDispatchDays;
+  if (t.sampleAvailable && t.sampleMinBuyerTier) out.sampleMinBuyerTier = t.sampleMinBuyerTier;
   if (t.supplyCapacityPerMonth != null) out.supplyCapacityPerMonth = t.supplyCapacityPerMonth;
   if (t.paymentTerms) out.paymentTerms = t.paymentTerms;
   if (t.certifications?.length) out.certifications = t.certifications;
+  if (t.unitWeightGrams != null) out.unitWeightGrams = t.unitWeightGrams;
+  if (t.unitLengthMm != null) out.unitLengthMm = t.unitLengthMm;
+  if (t.unitWidthMm != null) out.unitWidthMm = t.unitWidthMm;
+  if (t.unitHeightMm != null) out.unitHeightMm = t.unitHeightMm;
   return out;
 }
 
@@ -89,17 +112,31 @@ export function tradeOfRow(l: {
   packaging: string | null;
   sampleAvailable: boolean;
   samplePricePaise: bigint | null;
+  sampleMaxQty?: number | null;
+  sampleDispatchDays?: number | null;
+  sampleMinBuyerTier?: number | null;
   supplyCapacityPerMonth: number | null;
   paymentTerms: string | null;
   certifications: string[];
+  unitWeightGrams: number | null;
+  unitLengthMm: number | null;
+  unitWidthMm: number | null;
+  unitHeightMm: number | null;
 }): TradeInfo {
   return compactTrade({
     leadTimeDays: l.leadTimeDays,
     packaging: l.packaging,
     sampleAvailable: l.sampleAvailable,
     samplePricePaise: l.samplePricePaise === null ? null : Number(l.samplePricePaise),
+    sampleMaxQty: l.sampleMaxQty ?? null,
+    sampleDispatchDays: l.sampleDispatchDays ?? null,
+    sampleMinBuyerTier: l.sampleMinBuyerTier ?? null,
     supplyCapacityPerMonth: l.supplyCapacityPerMonth,
     paymentTerms: l.paymentTerms,
     certifications: l.certifications,
+    unitWeightGrams: l.unitWeightGrams,
+    unitLengthMm: l.unitLengthMm,
+    unitWidthMm: l.unitWidthMm,
+    unitHeightMm: l.unitHeightMm,
   });
 }

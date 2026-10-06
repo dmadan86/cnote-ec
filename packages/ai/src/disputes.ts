@@ -9,6 +9,8 @@ import { userInputEnvelope } from "./envelope";
 import { z } from "zod";
 import { prisma, type Prisma } from "@cnote/db";
 import { createAnthropicClient, REASONING_MODEL, TIMEOUT_MS, type MessagesClient } from "./anthropic";
+import { startShadowRun } from "./decisions";
+import { shadowSettings } from "./registry";
 import { redactDeep } from "./redact";
 import { aiTransport, remoteDisputeProvider, remoteFallbackEnabled, sharedAiServiceClient } from "./remote";
 import type { AiResult } from "./index";
@@ -99,7 +101,7 @@ function classify(input: BriefDisputeInput): { type: DisputeKind; evidenceIds: s
 function receivedCount(texts: string[], ordered: number): number | null {
   const found: number[] = [];
   for (const t of texts) {
-    for (const m of t.matchAll(/(?:received|got|only|mila|milaa|आया|मिला)\D{0,12}(\d{1,7})|(\d{1,7})\s*(?:pcs|pieces|units|nos|boxes|cartons|kg)?\s*(?:only|received|mila)/gi)) {
+    for (const m of t.slice(0, 4000).matchAll(/(?:received|got|only|mila|milaa|आया|मिला)\D{0,12}(\d{1,7})|(\d{1,7})\s{0,8}(?:(?:pcs|pieces|units|nos|boxes|cartons|kg)\s{0,8})?(?:only|received|mila)/gi)) {
       const n = Number(m[1] ?? m[2]);
       if (Number.isFinite(n) && n >= 0 && n < ordered) found.push(n);
     }
@@ -207,12 +209,12 @@ const BriefSchema = z.object({
 });
 
 export class AnthropicDisputeBriefer implements DisputeBriefProvider {
-  constructor(private client: MessagesClient = createAnthropicClient()) {}
+  constructor(private client: MessagesClient = createAnthropicClient(), private model: string = REASONING_MODEL) {}
   async brief(input: BriefDisputeInput): Promise<ProviderResult<BriefDisputeOutput>> {
     const payload = redactDeep(input);
     const res = await this.client.messages.create(
       {
-        model: REASONING_MODEL,
+        model: this.model,
         max_tokens: 2048,
         system: [{ type: "text", text: BRIEF_SYSTEM, cache_control: { type: "ephemeral" } }],
         messages: [{ role: "user", content: userInputEnvelope(payload) }],
@@ -233,14 +235,14 @@ export class AnthropicDisputeBriefer implements DisputeBriefProvider {
         specChecks: out.specChecks, specVerdict: out.specVerdict,
         recommendation: { outcome: out.outcome, refundPaise, releasePaise, rationale: out.rationale },
       },
-      confidence: clamp01(out.confidence), provider: "anthropic", modelId: REASONING_MODEL, promptVersion: DISPUTE_PROMPT_VERSION.anthropic,
+      confidence: clamp01(out.confidence), provider: "anthropic", modelId: this.model, promptVersion: DISPUTE_PROMPT_VERSION.anthropic,
     };
   }
 }
 
 /** Anthropic with the heuristic as fallback on ANY failure (ADR-008). */
-export function anthropicDisputeProvider(client?: MessagesClient, fallback = true): DisputeBriefProvider {
-  const a = new AnthropicDisputeBriefer(client);
+export function anthropicDisputeProvider(client?: MessagesClient, fallback = true, model?: string): DisputeBriefProvider {
+  const a = new AnthropicDisputeBriefer(client, model);
   if (!fallback) return a;
   return {
     async brief(input) {
@@ -259,6 +261,19 @@ export const heuristicDisputeProvider: DisputeBriefProvider = { brief: async (i)
 let override: DisputeBriefProvider | null = null;
 /** Test hook: inject a provider (null restores env-based selection). */
 export function setDisputeBriefProviderForTests(p: DisputeBriefProvider | null) { override = p; }
+
+let shadowOverride: DisputeBriefProvider | null = null;
+let cachedShadow: { key: string; p: DisputeBriefProvider } | null = null;
+/** ADR-008 shadow mode: the candidate briefer (no heuristic fallback). Null when off. */
+export function getShadowDisputeProvider(): DisputeBriefProvider | null {
+  if (shadowOverride) return shadowOverride;
+  const s = shadowSettings();
+  if (!s) return null;
+  const key = JSON.stringify(s);
+  if (cachedShadow?.key !== key) cachedShadow = { key, p: s.provider === "anthropic" ? anthropicDisputeProvider(undefined, false, s.models.reasoning) : heuristicDisputeProvider };
+  return cachedShadow.p;
+}
+export function setShadowDisputeProviderForTests(p: DisputeBriefProvider | null) { shadowOverride = p; cachedShadow = null; }
 function provider(): DisputeBriefProvider {
   if (override) return override;
   if (aiTransport() === "http") return remoteDisputeProvider(sharedAiServiceClient(), remoteFallbackEnabled() ? heuristicDisputeProvider : null); // ADR-018
@@ -285,6 +300,8 @@ export async function briefDispute(input: BriefDisputeInput, subject: DisputeSub
     },
     select: { id: true },
   });
+  const candidate = getShadowDisputeProvider();
+  if (candidate) startShadowRun("dispute_brief", subject, redactDeep(input), row.id, () => candidate.brief(input));
   return { ...r.output, decisionId: row.id, confidence: r.confidence, needsReview: reason !== null };
 }
 

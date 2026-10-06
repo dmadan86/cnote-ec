@@ -1,6 +1,6 @@
 "use server";
 import { audited, requirePrivilege } from "@cnote/admin";
-import { releaseGstinClaim, resolveGstReview } from "@cnote/identity";
+import { releaseGstinClaim, resolveGstReview, resolveRegistryReview } from "@cnote/identity";
 import { type ActionResult, runAction } from "@cnote/next-kit";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -56,5 +56,21 @@ export async function releaseGstinClaimAction(_prev: ActionResult | null, fd: Fo
     revalidatePath("/businesses");
     revalidatePath(`/businesses/${fd.get("businessId")}`);
   }
+  return result;
+}
+
+/** Manual Udyam / MCA verification decision (ADR-003 T1). Requires businesses.verify; recorded in the audit log. */
+export async function resolveRegistryReviewAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const result = await runAction(async () => {
+    const input = schema.parse({ id: fd.get("id"), businessId: fd.get("businessId"), decision: fd.get("decision"), note: fd.get("note") || undefined });
+    const ctx = await actionContext();
+    requirePrivilege(ctx.staff, "businesses.verify");
+    await audited(
+      ctx, "businesses.verify", "business.registry_review", { type: "business", id: input.businessId },
+      () => resolveRegistryReview(input.id, input.decision, ctx.staff.id, input.note),
+      { decision: input.decision, verificationRecordId: input.id, note: input.note ?? null },
+    );
+  });
+  if (result.ok) revalidatePath("/businesses/registry-reviews");
   return result;
 }

@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import * as ops from "../../ops";
-import { Category, Id, Listing, Me, SearchHit, TrustProfile } from "../../schemas";
+import { Category, Facets, FreightEstimate, Id, Listing, Me, SearchHit, TrustProfile } from "../../schemas";
 import { api, json, router } from "../helpers";
 
 export const catalogueRoutes = router();
@@ -53,12 +53,17 @@ catalogueRoutes.openapi(
           q: z.string().max(500).openapi({ example: "stainless steel hex bolts", description: "Free-text query (any supported language)." }),
           category: z.string().optional().openapi({ description: "Category slug filter." }),
           limit: z.coerce.number().int().min(1).max(50).default(20),
+          in_stock: z.enum(["true", "false"]).optional().openapi({ description: "`true` = only listings that are in stock now (made-to-order does not count). A filter only: it never changes ranking." }),
+          variant: z.string().max(400).optional().openapi({ example: "size:m,size:l,colour:red", description: "Variant filter as comma-separated `axis:value` pairs: OR within an axis, AND across axes, case-insensitive. Axes come from the category's `attributeSchema.variantAxes`." }),
         }),
       },
-      responses: { 200: json(z.object({ items: z.array(SearchHit) }), "Ranked hits") },
+      responses: { 200: json(z.object({ items: z.array(SearchHit), facets: Facets.optional().openapi({ description: "Facet counts (incl. `variant` buckets) when the backend provides them." }) }), "Ranked hits") },
     },
   }),
-  async (c) => c.json(await ops.search(c.req.valid("query")), 200),
+  async (c) => {
+    const { in_stock, ...q } = c.req.valid("query");
+    return c.json(await ops.search({ ...q, inStock: in_stock === "true" }), 200);
+  },
 );
 
 catalogueRoutes.openapi(
@@ -85,4 +90,27 @@ catalogueRoutes.openapi(
     },
   }),
   async (c) => c.json(await ops.seller(c.req.valid("param").id), 200),
+);
+
+catalogueRoutes.openapi(
+  api({
+    scope: "catalogue:read", errors: [404, 422, 429],
+    cfg: {
+      method: "get", path: "/listings/{id}/freight-estimate", operationId: "estimateListingFreight", tags: ["Catalogue"], summary: "Estimate freight for a listing",
+      description:
+        "ESTIMATE ONLY: a low-high freight range (before GST), shipping mode, transit days and the assumptions used, from the seller's pincode to the delivery pincode. The final freight is always quoted by the seller; the platform does not book or own logistics.",
+      request: {
+        params: Id,
+        query: z.object({
+          quantity: z.coerce.number().int().min(1).max(1_000_000_000).openapi({ example: 500, description: "Units (the listing's price unit)." }),
+          pincode: z.string().regex(/^[1-9]\d{5}$/).openapi({ example: "400001", description: "6-digit delivery pincode." }),
+        }),
+      },
+      responses: { 200: json(FreightEstimate, "Freight estimate") },
+    },
+  }),
+  async (c) => {
+    const q = c.req.valid("query");
+    return c.json(await ops.listingFreightEstimate(c.get("principal"), c.req.valid("param").id, q.quantity, q.pincode), 200);
+  },
 );

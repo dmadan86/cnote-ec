@@ -18,6 +18,10 @@ export const SCOPES = [
   "billing:read",
   "agents:read",
   "agents:write",
+  "samples:read",
+  "samples:write",
+  "contracts:read",
+  "contracts:write",
 ] as const;
 export type Scope = (typeof SCOPES)[number];
 
@@ -28,7 +32,7 @@ export function isScope(v: unknown): v is Scope {
 /** Write scopes that act as the person themselves and need no business. */
 const PERSON_LEVEL_WRITES: readonly Scope[] = ["wishlist:write", "reviews:write", "messages:write"];
 /** Read scopes that expose business-owned data (need a business to be meaningful). */
-const BUSINESS_READS: readonly Scope[] = ["leads:read", "billing:read", "listings:read", "agents:read"];
+const BUSINESS_READS: readonly Scope[] = ["leads:read", "billing:read", "listings:read", "agents:read", "contracts:read", "samples:read"];
 
 /** True when holding `scope` requires the key to be bound to a business. */
 export function scopeNeedsBusiness(scope: Scope): boolean {
@@ -37,7 +41,7 @@ export function scopeNeedsBusiness(scope: Scope): boolean {
 }
 
 export type ScopeFeature =
-  | "profile" | "catalogue" | "search" | "listings" | "enquiries" | "leads" | "messages" | "wishlist" | "reviews" | "billing" | "agents";
+  | "profile" | "catalogue" | "search" | "listings" | "enquiries" | "leads" | "messages" | "wishlist" | "reviews" | "billing" | "agents" | "contracts" | "samples";
 
 export interface ScopeGroup {
   label: string;
@@ -69,11 +73,13 @@ export const SCOPE_GROUPS: Record<ScopeFeature, ScopeGroup> = {
   reviews: g("Reviews", "Reviews you wrote or received.", "reviews:read", "reviews:write"),
   billing: g("Billing", "Credits balance and invoices.", "billing:read"),
   agents: g("Agents", "Agent-to-agent negotiation for your business (ADR-020). Deals still need human confirmation.", "agents:read", "agents:write"),
+  samples: g("Samples", "Sample requests before a bulk order: ask for, answer, dispatch and evaluate samples (docs/design/samples.md).", "samples:read", "samples:write"),
+  contracts: g("Rate contracts", "Agreed-price contracts between your business and a counterparty: read them and place call-off orders at the contract prices (docs/design/rate-contracts.md).", "contracts:read", "contracts:write"),
 };
 
 /** Features offered on the buyer (web) and seller developer pages. */
-export const BUYER_FEATURES: ScopeFeature[] = ["profile", "catalogue", "search", "enquiries", "messages", "wishlist", "reviews", "agents"];
-export const SELLER_FEATURES: ScopeFeature[] = ["listings", "leads", "messages", "billing", "reviews", "catalogue", "search", "agents"];
+export const BUYER_FEATURES: ScopeFeature[] = ["profile", "catalogue", "search", "enquiries", "messages", "wishlist", "reviews", "agents", "contracts", "samples"];
+export const SELLER_FEATURES: ScopeFeature[] = ["listings", "leads", "messages", "billing", "reviews", "catalogue", "search", "agents", "contracts", "samples"];
 
 /** Scopes for a form's per-feature choice ("none" | "read" | "write"); write implies read. Unknown features ignored. */
 export function scopesFromAccess(access: Record<string, string | null | undefined>): Scope[] {

@@ -255,7 +255,8 @@
       "filesDeletedAfterDays": "ফাইল {retentionDays} দিন পরে মুছে ফেলা হয়",
       "nothingDownloadJob": "এই জবের জন্য ডাউনলোড করার মতো কিছু নেই",
       "fileNoLongerAvailable": "ফাইলটি আর পাওয়া যাচ্ছে না",
-      "unknownCategory": "অজানা বিভাগ \"{categorySlug}\""
+      "unknownCategory": "অজানা বিভাগ \"{categorySlug}\"",
+      "skuNotFound": "SKU \"{sku}\" বিদ্যমান নেই"
     },
     "catalogue": {
       "notImage": "এটি আপনার ছবি নয়",
@@ -278,7 +279,8 @@
       "voiceNoteNotFound": "ভয়েস নোট পাওয়া যায়নি",
       "notVoiceNote": "এটি আপনার ভয়েস নোট নয়",
       "recordingAlreadyBeenDeleted": "রেকর্ডিংটি আগেই মুছে ফেলা হয়েছে",
-      "recordingNoLongerAvailable": "রেকর্ডিংটি আর পাওয়া যাচ্ছে না"
+      "recordingNoLongerAvailable": "রেকর্ডিংটি আর পাওয়া যাচ্ছে না",
+      "noVariants": "এই লিস্টিংয়ে কোনো ভ্যারিয়েন্ট নেই"
     },
     "compliance": {
       "signAppeal": "আপিল করতে সাইন ইন করুন",
@@ -349,7 +351,9 @@
       "videoKycNotStartedSession": "এই সেশনের জন্য ভিডিও KYC শুরু হয়নি।",
       "noteRequired": "একটি নোট লিখতে হবে।",
       "sessionAlreadyDecided": "এই সেশনের সিদ্ধান্ত আগেই হয়ে গেছে।",
-      "startEnrollmentFirst": "আগে নথিভুক্তি শুরু করুন।"
+      "startEnrollmentFirst": "আগে নথিভুক্তি শুরু করুন।",
+      "auditReviewNoteRequired": "পর্যালোচনার নোট আবশ্যক।",
+      "auditPartnerNoteRequired": "অংশীদারের জন্য নোট আবশ্যক।"
     },
     "leadgen": {
       "requestExpiredStartAgain": "এই অনুরোধের মেয়াদ শেষ হয়েছে। অনুগ্রহ করে আবার শুরু করুন।",
@@ -474,6 +478,21 @@
       "upSearches": "আপনি সর্বাধিক {max} টি অনুসন্ধান সংরক্ষণ করতে পারেন",
       "searchNotFound": "সংরক্ষিত অনুসন্ধান পাওয়া যায়নি",
       "invalidFrequency": "বন্ধ, প্রতিদিন বা সাপ্তাহিক বেছে নিন"
+    },
+    "samples": {
+      "notEnabled": "নমুনার অনুরোধ এখনও পাওয়া যায় না।",
+      "notOffered": "এই সরবরাহকারী এই পণ্যের নমুনা দেন না।",
+      "ownProduct": "আপনি নিজের পণ্যের নমুনা চাইতে পারবেন না।",
+      "tierRequired": "এই সরবরাহকারী শুধু টিয়ার {tier} বা তার উপরে যাচাইকৃত ক্রেতাদের নমুনার অনুরোধ নেন।",
+      "tooManyOpen": "আপনার ইতিমধ্যে {max}টি খোলা নমুনার অনুরোধ আছে। আরেকটি চাওয়ার আগে একটি শেষ হওয়া পর্যন্ত অপেক্ষা করুন।",
+      "duplicate": "এর জন্য আপনার একটি নমুনার অনুরোধ আগেই খোলা আছে।",
+      "quantityTooHigh": "এই সরবরাহকারী প্রতিটি নমুনার অনুরোধে সর্বোচ্চ {max} ইউনিট অনুমোদন করেন।",
+      "rateLimited": "আপনি খুব দ্রুত নমুনা চাইছেন। কাল আবার চেষ্টা করুন।",
+      "expired": "এই অনুরোধের উত্তরের সময়সীমা পেরিয়ে গেছে এবং মেয়াদ শেষ হয়েছে।",
+      "invalidTransition": "অনুরোধের বর্তমান অবস্থায় এই ধাপ পাওয়া যায় না।",
+      "reasonsRequired": "নমুনা বাতিলের অন্তত একটি কারণ বেছে নিন।",
+      "photoType": "ছবি JPEG, PNG বা WebP হতে হবে, প্রতিটি ৫ MB পর্যন্ত।",
+      "tooManyPhotos": "সর্বোচ্চ {max}টি ছবি যুক্ত করুন।"
     }
   }
 }

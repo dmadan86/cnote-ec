@@ -13,6 +13,7 @@ import { parseTierRows, parseTradeFields } from "./trade-form";
 import { logEvent } from "@/lib/metrics";
 import { run } from "@/lib/run";
 import { catalogue } from "@/lib/services";
+import { AVAILABILITIES, type Availability } from "@cnote/catalogue";
 
 export type DraftResult = ActionResult<{ listingId: string }>;
 export type SaveResult = ActionResult<{ listing: ListingView; intent: "save" | "publish"; version?: VersionView }>;
@@ -107,16 +108,37 @@ export async function saveListingAction(_prev: SaveResult | null, fd: FormData):
     }
     const tierRows = parseTierRows(fd.getAll("tierMinQty").map(String), fd.getAll("tierPrice").map(String));
     for (const n of tierRows.badRows) issues.push(issue("tiers", t("actions.tierInvalid", { n })));
-    const { trade, invalid: tradeInvalid } = parseTradeFields({
+    const { trade, invalid: tradeInvalid, shippingInvalid } = parseTradeFields({
       leadTimeDays: str(fd, "leadTimeDays"),
       packaging: str(fd, "packaging"),
       sampleAvailable: str(fd, "sampleAvailable") === "on",
       samplePriceRupees: str(fd, "samplePriceRupees"),
+      sampleMaxQty: str(fd, "sampleMaxQty"),
+      sampleDispatchDays: str(fd, "sampleDispatchDays"),
+      sampleMinBuyerTier: str(fd, "sampleMinBuyerTier"),
       supplyCapacityPerMonth: str(fd, "supplyCapacityPerMonth"),
       paymentTerms: str(fd, "paymentTerms"),
       certifications: str(fd, "certifications"),
+      unitWeightGrams: str(fd, "unitWeightGrams"),
+      lengthCm: str(fd, "lengthCm"),
+      widthCm: str(fd, "widthCm"),
+      heightCm: str(fd, "heightCm"),
     });
     if (tradeInvalid) issues.push(issue("trade", t("actions.tradeNumber")));
+    if (shippingInvalid) issues.push(issue("shipping", (await getTranslations("freight"))("shipInvalid")));
+    // stock (docs/design/variants-stock.md): absent when the listing has variants (its state is derived from them)
+    const ts = await getTranslations("stock.actions");
+    const availabilityRaw = str(fd, "availability");
+    let availability: Availability | undefined;
+    let availableQty: number | null | undefined;
+    if (availabilityRaw) {
+      if (!(AVAILABILITIES as readonly string[]).includes(availabilityRaw)) issues.push(issue("availability", ts("bad")));
+      else availability = availabilityRaw as Availability;
+      const q = numOrNull(fd, "availableQty");
+      if (q !== null && (!Number.isInteger(q) || q < 0)) issues.push(issue("availableQty", ts("qtyInvalid")));
+      else availableQty = availability === "out_of_stock" ? null : q;
+      if (availability === "made_to_order" && trade.leadTimeDays == null) issues.push(issue("availability", ts("leadTimeNeeded")));
+    }
     if (issues.length) throw new z.ZodError(issues);
 
     const input: ListingInput = {
@@ -133,6 +155,7 @@ export async function saveListingAction(_prev: SaveResult | null, fd: FormData):
       trade,
       language: parsed.language,
       imageUrls: parsed.imageUrls,
+      ...(availability ? { availability, availableQty: availableQty ?? null } : {}),
     };
 
     let listing = parsed.id ? await catalogue.updateListing(actor.businessId, parsed.id, input) : await catalogue.createListing(actor.businessId, input);

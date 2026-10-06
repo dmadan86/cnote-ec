@@ -4,14 +4,15 @@
 import { getActiveSubscription, getBalance } from "@cnote/billing";
 import * as bulk from "@cnote/bulk";
 import {
-  archiveListing, createListing, getCategoryBySlug, getListing, listCategories, listSellerListings, publishListing, updateListing,
-  type CategoryView, type ListingInput, type ListingView,
+  archiveListing, createListing, getCategoryBySlug, getListing, listCategories, listSellerListings, publishListing, setListingVariants, updateListing, updateListingStock,
+  type CategoryView, type ListingInput, type ListingView, type StockUpdate, type VariantInput,
 } from "@cnote/catalogue";
-import { DomainError } from "@cnote/core";
+import { DomainError, rateLimit } from "@cnote/core";
+import { estimateForListing } from "@cnote/logistics";
 import type { ApiPrincipal } from "@cnote/developer";
 import {
   acceptLead, createEnquiry, declineLead, getBuyerEnquiry, getConversation, getSellerLead, listBuyerEnquiries, listSellerLeads,
-  reportDeal, sendMessage, sendQuote, type EnquiryInput, type EnquiryView, type LeadView,
+  awardLines, listAwardedLines, reportDeal, sendMessage, sendQuote, type EnquiryInput, type EnquiryView, type LeadView,
 } from "@cnote/enquiry";
 import { getPersonBusinesses, getPersonSummaries, getTrustProfiles } from "@cnote/identity";
 import { getRatingSummary, listApprovedReviews, submitReview, type ReviewInput } from "@cnote/reviews";
@@ -42,13 +43,21 @@ function actor(p: P): { personId: string; businessId: string } {
 }
 
 // --- mappers: add currency, keep seller-only fields out of public payloads ---
+/** Stock + variants are always present on the wire (defaults for rows from before the feature). */
+const stockOut = (l: ListingView) => ({
+  availability: l.availability ?? ("in_stock" as const),
+  availableQty: l.availableQty ?? null,
+  stockUpdatedAt: l.stockUpdatedAt ?? null,
+  variantAxes: l.variantAxes ?? [],
+  variants: l.variants ?? [],
+});
 export function publicListing(l: ListingView) {
   const { status: _s, moderationStatus: _m, moderationReason: _r, images: _i, ...rest } = l;
-  return { ...rest, currency: CURRENCY };
+  return { ...rest, ...stockOut(l), currency: CURRENCY };
 }
 export function sellerListing(l: ListingView) {
   const { images: _i, ...rest } = l;
-  return { ...rest, currency: CURRENCY };
+  return { ...rest, ...stockOut(l), currency: CURRENCY };
 }
 const enquiryOut = (e: EnquiryView) => ({ ...e, currency: CURRENCY });
 const leadOut = (l: LeadView) => ({ ...l, enquiry: { ...l.enquiry, currency: CURRENCY } });
@@ -66,15 +75,35 @@ export async function category(slug: string) {
   if (!c || c.prohibited) throw new DomainError("not_found", "Category not found");
   return visibleCategory(c);
 }
-export async function search(input: { q: string; category?: string; limit?: number }) {
-  const { hits } = await searchListings({ q: input.q, categorySlug: input.category, limit: input.limit });
-  return { items: hits.map((h) => ({ listing: publicListing(h.listing), seller: h.seller, score: h.score, sponsored: false as const })) };
+/** "size:m,size:l,colour:red" -> { size: ["m","l"], colour: ["red"] } (OR within an axis, AND across axes). Malformed pairs are ignored. */
+export function parseVariantFilter(raw: string | undefined): Record<string, string[]> | undefined {
+  if (!raw) return undefined;
+  const out: Record<string, string[]> = {};
+  for (const part of raw.split(",")) {
+    const i = part.indexOf(":");
+    const axis = part.slice(0, i).trim().toLowerCase();
+    const value = part.slice(i + 1).trim();
+    if (i <= 0 || !value || !/^[a-z][a-z0-9_]{0,29}$/.test(axis)) continue;
+    (out[axis] ??= []).push(value);
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+export async function search(input: { q: string; category?: string; limit?: number; inStock?: boolean; variant?: string }) {
+  const variantOptions = parseVariantFilter(input.variant);
+  const filters = { ...(input.inStock ? { inStockOnly: true } : {}), ...(variantOptions ? { variantOptions } : {}) };
+  const { hits, facets } = await searchListings({ q: input.q, categorySlug: input.category, limit: input.limit, ...(Object.keys(filters).length ? { filters } : {}) });
+  return { items: hits.map((h) => ({ listing: publicListing(h.listing), seller: h.seller, score: h.score, sponsored: false as const })), ...(facets ? { facets } : {}) };
 }
 export async function listing(id: string) {
   const l = await getListing(id);
   // Only published + approved listings are public (ADR-002 visibility).
   if (!l || l.status !== "published" || l.moderationStatus !== "approved") throw new DomainError("not_found", "Listing not found");
   return publicListing(l);
+}
+/** Freight ESTIMATE for a public listing (docs/design/freight-estimator.md); an extra per-key limit because live carrier lookups cost money. */
+export async function listingFreightEstimate(p: P, id: string, quantity: number, pincode: string) {
+  if (!(await rateLimit(`api:freight:${p.keyId}`, 60, 60))) throw new DomainError("rate_limited", "Too many freight estimates. Try again in a minute.");
+  return estimateForListing(id, quantity, pincode);
 }
 export async function seller(id: string) {
   const profile = (await getTrustProfiles([id])).get(id);
@@ -117,6 +146,15 @@ export async function patchListing(p: P, id: string, input: Partial<Omit<Listing
   const categoryId = await resolveCategoryId(input);
   return sellerListing(await updateListing(a.businessId, id, { ...rest, ...(categoryId ? { categoryId } : {}) }));
 }
+/** Stock fast path (no review): listing-level and/or per-variant availability, quantity and lead time. */
+export async function patchStock(p: P, id: string, update: StockUpdate) {
+  return sellerListing(await updateListingStock(actor(p).businessId, id, update));
+}
+/** Replaces the listing's variant set. Structure is reviewed like any content change once the listing is (re)published. */
+export async function putVariants(p: P, id: string, variants: VariantInput[]) {
+  await setListingVariants(actor(p).businessId, id, variants);
+  return sellerListing((await getListing(id))!);
+}
 export async function publish(p: P, id: string) {
   return sellerListing(await publishListing(actor(p).businessId, id));
 }
@@ -148,8 +186,8 @@ export async function balance(p: P) {
 }
 
 // --- enquiries & conversations ---
-export async function newEnquiry(p: P, input: EnquiryInput, ip?: string | null) {
-  return enquiryOut(await createEnquiry(actor(p), input, { ip: ip ?? null }));
+export async function newEnquiry(p: P, input: EnquiryInput, ip?: string | null, userAgent?: string | null) {
+  return enquiryOut(await createEnquiry(actor(p), input, { ip: ip ?? null, userAgent: userAgent ?? null }));
 }
 export async function myEnquiries(p: P, cursor: string | undefined, limit: number) {
   const page = paginate(await listBuyerEnquiries(actor(p).businessId), cursor, limit);
@@ -164,6 +202,12 @@ export async function conversation(p: P, id: string) {
   const c = await getConversation(actor(p), id);
   if (!c) throw new DomainError("not_found", "Conversation not found");
   return { ...c, quotes: c.quotes.map((q) => ({ ...q, currency: CURRENCY })) };
+}
+export async function awardEnquiryLines(p: P, enquiryId: string, awards: { enquiryLineId: string; quoteId: string }[]) {
+  return awardLines(actor(p), enquiryId, awards);
+}
+export async function awardedLines(p: P, enquiryId: string) {
+  return { items: await listAwardedLines(actor(p), enquiryId) };
 }
 export async function message(p: P, conversationId: string, body: string) {
   await sendMessage(actor(p), conversationId, body);
@@ -212,3 +256,59 @@ export const bulkCancel = (p: P, id: string) => bulk.cancelJob(actor(p), id);
 export const bulkExport = (p: P, o: { format: "xlsx" | "csv"; includeImages: boolean }) => bulk.createExportJob(actor(p), o);
 export const bulkDownload = (p: P, id: string, which: "result" | "errors" | "source") => bulk.getDownload(actor(p), id, which, { preferSignedUrl: true });
 export const bulkAssertSeller = (p: P) => void actor(p);
+
+// --- samples (docs/design/samples.md) ---
+// @cnote/samples is imported lazily: the API boots without loading it, and while SAMPLES_ENABLED is off every sample route answers 404
+// (like the ONDC endpoints) instead of advertising a feature that is not live.
+async function samplesModule() {
+  const s = await import("@cnote/samples");
+  if (!s.samplesEnabled()) throw new DomainError("not_found", "Not found");
+  return s;
+}
+type SampleViewT = import("@cnote/samples").SampleView;
+const sampleOut = (v: SampleViewT) => ({ ...v, currency: CURRENCY });
+
+export async function requestSampleOp(p: P, input: import("@cnote/samples").RequestSampleInput) {
+  const s = await samplesModule();
+  return sampleOut(await s.requestSample(actor(p), input));
+}
+export async function listSamplesOp(p: P, role: "buyer" | "seller", filter: "open" | "done" | undefined, cursor: string | undefined, limit: number) {
+  const s = await samplesModule();
+  const a = actor(p);
+  const all = role === "buyer" ? await s.listBuyerSamples(a, { filter, limit: 200 }) : await s.listSellerSamples(a, { filter, limit: 200 });
+  return paginate(all, cursor, limit);
+}
+export async function getSampleOp(p: P, id: string) {
+  const s = await samplesModule();
+  const v = await s.getSample(actor(p), id);
+  if (!v) throw new DomainError("not_found", "Sample request not found");
+  return sampleOut(v);
+}
+export type SampleActionName = "cancel" | "accept" | "decline" | "dispatch" | "delivered" | "payment" | "evaluate" | "acceptQuote" | "link";
+export async function sampleAction(p: P, action: SampleActionName, id: string, input?: unknown) {
+  const s = await samplesModule();
+  const a = actor(p);
+  const i = (input ?? {}) as never;
+  const run: Record<SampleActionName, () => Promise<SampleViewT>> = {
+    cancel: () => s.cancelSample(a, id),
+    accept: () => s.acceptSample(a, id, i),
+    decline: () => s.declineSample(a, id, i),
+    dispatch: () => s.dispatchSample(a, id, i),
+    delivered: () => s.markSampleDelivered(a, id),
+    payment: () => s.recordSamplePayment(a, id, (input as { note?: string | null } | undefined)?.note),
+    evaluate: () => s.evaluateSample(a, id, i),
+    acceptQuote: () => s.acceptLinkedQuote(a, id),
+    link: () => s.linkBulkEnquiry(a, id, (input as { enquiryId: string }).enquiryId),
+  };
+  return sampleOut(await run[action]());
+}
+export async function sampleBulkPrefillOp(p: P, id: string) {
+  const s = await samplesModule();
+  return s.getBulkPrefill(actor(p), id);
+}
+export async function sellerSampleStatsOp(sellerBusinessId: string) {
+  const s = await samplesModule();
+  const st = (await s.getSellerSampleStats([sellerBusinessId])).get(sellerBusinessId);
+  if (!st) throw new DomainError("not_found", "Seller not found");
+  return st;
+}

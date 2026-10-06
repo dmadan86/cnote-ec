@@ -1,7 +1,7 @@
 "use client";
 import { Select, Textarea } from "@cnote/ui";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { decideAppealAction, respondGrievanceAction, retentionDryRunAction } from "./actions";
+import { completeNomineeAction, decideAppealAction, decideNomineeAction, respondGrievanceAction, retentionDryRunAction } from "./actions";
 
 export function GrievanceResponseForm({ id }: { id: string }) {
   return (
@@ -43,6 +43,38 @@ export function RetentionDryRunForm({ policies }: { policies: string[] }) {
         </Select>
       </div>
       <SubmitButton variant="outline">Run dry-run (no deletion)</SubmitButton>
+    </ActionForm>
+  );
+}
+
+export function NomineeDecisionForm({ id, canVerify }: { id: string; canVerify: boolean }) {
+  return (
+    <ActionForm action={decideNomineeAction} successMessage="Decision recorded." confirm="Record this decision?" className="space-y-2">
+      <input type="hidden" name="id" value={id} />
+      <label htmlFor={`nd-${id}`} className="text-xs font-medium text-muted">Documents checked offline / reason (required, kept on the record)</label>
+      <Textarea id={`nd-${id}`} name="note" maxLength={1000} required className="min-h-20" />
+      <div className="flex gap-2">
+        {canVerify ? <SubmitButton name="decision" value="verified" size="sm">Verify nominee</SubmitButton> : null}
+        <SubmitButton name="decision" value="rejected" variant="danger" size="sm">Reject</SubmitButton>
+      </div>
+    </ActionForm>
+  );
+}
+
+export function NomineeCompleteForm({ id }: { id: string }) {
+  return (
+    <ActionForm action={completeNomineeAction} successMessage="Request completed." confirm="Complete this request? Erasing the account cannot be undone." className="space-y-2">
+      <input type="hidden" name="id" value={id} />
+      <label htmlFor={`nc-action-${id}`} className="text-xs font-medium text-muted">Action taken</label>
+      <Select id={`nc-action-${id}`} name="action" defaultValue="release_export" className="max-w-xs">
+        <option value="release_export">Release a copy of the data to the nominee</option>
+        <option value="correct">Correct data as asked</option>
+        <option value="erase_account">Erase the account</option>
+        <option value="other">Other</option>
+      </Select>
+      <label htmlFor={`nc-note-${id}`} className="text-xs font-medium text-muted">What was done (kept on the record)</label>
+      <Textarea id={`nc-note-${id}`} name="note" maxLength={1000} required className="min-h-20" />
+      <SubmitButton size="sm">Complete request</SubmitButton>
     </ActionForm>
   );
 }

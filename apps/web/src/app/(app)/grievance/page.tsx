@@ -14,7 +14,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function GrievancePage() {
   const s = await currentSession();
-  const t = await getTranslations({ locale: await getRequestLocale(), namespace: "grievance" });
+  const locale = await getRequestLocale();
+  const t = await getTranslations({ locale, namespace: "grievance" });
+  const tn = await getTranslations({ locale, namespace: "nominee" });
   const policy = grievancePolicy();
   const name = process.env.GRIEVANCE_OFFICER_NAME;
   const email = process.env.GRIEVANCE_OFFICER_EMAIL;
@@ -44,6 +46,7 @@ export default async function GrievancePage() {
               <p className="text-muted">{t("slaRights", { days: policy.rightsRequestDays })}</p>
             </CardBody>
           </Card>
+          <p className="text-sm"><Link className="text-brand-700 underline" href="/grievance/nominee">{tn("reqTitle")}</Link></p>
           {s ? (
             <p className="text-sm"><Link className="text-brand-700 underline" href="/account/grievances">{t("track")}</Link></p>
           ) : (

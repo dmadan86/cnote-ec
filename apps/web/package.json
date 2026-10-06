@@ -15,7 +15,9 @@
     "@cnote/ads": "workspace:*",
     "@cnote/ai": "workspace:*",
     "@cnote/alerts": "workspace:*",
+    "@cnote/approvals": "workspace:*",
     "@cnote/billing": "workspace:*",
+    "@cnote/bulk": "workspace:*",
     "@cnote/catalogue": "workspace:*",
     "@cnote/compliance": "workspace:*",
     "@cnote/consent": "workspace:*",
@@ -24,11 +26,13 @@
     "@cnote/developer": "workspace:*",
     "@cnote/disputes": "workspace:*",
     "@cnote/domains": "workspace:*",
+    "@cnote/email": "workspace:*",
     "@cnote/enquiry": "workspace:*",
     "@cnote/escrow": "workspace:*",
     "@cnote/identity": "workspace:*",
     "@cnote/leadgen": "workspace:*",
     "@cnote/media": "workspace:*",
+    "@cnote/logistics": "workspace:*",
     "@cnote/negotiation": "workspace:*",
     "@cnote/next-kit": "workspace:*",
     "@cnote/notifications": "workspace:*",
@@ -38,6 +42,7 @@
     "@cnote/promotions": "workspace:*",
     "@cnote/quality": "workspace:*",
     "@cnote/reviews": "workspace:*",
+    "@cnote/samples": "workspace:*",
     "@cnote/search": "workspace:*",
     "@cnote/security": "workspace:*",
     "@cnote/storefront": "workspace:*",
@@ -55,12 +60,14 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "typescript": "^6.0.3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.3.7",
-    "tailwindcss": "^4"
+    "tailwindcss": "^4",
+    "typescript": "^6.0.3"
   }
 }
