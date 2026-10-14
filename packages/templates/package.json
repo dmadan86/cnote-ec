@@ -16,7 +16,7 @@
     "@cnote/media": "workspace:*",
     "juice": "^12.2.0",
     "mustache": "^4.2.0",
-    "sanitize-html": "^2.17.7",
+    "sanitize-html": "^2.18.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
