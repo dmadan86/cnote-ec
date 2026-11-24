@@ -42,7 +42,7 @@ services:
   # Optional: SEARCH_BACKEND=opensearch. Single node, security plugin disabled for local use only.
   opensearch:
     profiles: ["search"]
-    image: opensearchproject/opensearch:3.8.0@sha256:fafe3fc3587088674669235575aa166228c48bdb940294a8cdbbc1da75236a40
+    image: opensearchproject/opensearch:3.10.0@sha256:02d6d6e40c820ae08233b60540aa5d3d9364d64e2dc724e38d6c8c794879b2a0
     environment:
       discovery.type: single-node
       DISABLE_SECURITY_PLUGIN: "true"
